@@ -81,6 +81,11 @@
   .opts .btn{margin-bottom:8px;}
   .subtitle{font-size:8px; color:var(--grey); margin:8px 0 14px;}
   .kv{font-size:8px; color:var(--grey); margin-bottom:6px;}
+  /* office scene */
+  #scenewrap{padding:12px 12px 0;}
+  #scene{border:4px solid var(--dark); box-shadow:0 0 0 2px var(--panel2); line-height:0;}
+  #scene svg{width:100%; height:110px; display:block; image-rendering:pixelated;}
+  #scenecap{font-size:8px; color:var(--grey); padding:6px 2px 0; text-align:center;}
 </style>
 </head>
 <body>
@@ -91,8 +96,15 @@
   <div class="clockbox">
     <span id="daylbl"></span>
     <span id="clock" style="color:var(--gold)"></span>
-    <button class="btn small" onclick="endDay()">END DAY</button>
+    <button class="btn small" id="mutebtn" onclick="toggleMute()">SFX: ON</button>
+    <button class="btn small" onclick="SFX.click();showInfo()">i</button>
+    <button class="btn small" onclick="SFX.click();endDay()">END DAY</button>
   </div>
+</div>
+
+<div id="scenewrap" class="hidden">
+  <div id="scene"></div>
+  <div id="scenecap"></div>
 </div>
 
 <div id="main" class="hidden">
@@ -112,6 +124,20 @@
     <h2 style="font-size:16px;">FANCY OUTFITS</h2>
     <div class="subtitle">A pixel legal drama. Read the file. Pick your line.<br>Don't get HENDERED.</div>
     <div class="opts" id="scenariobtns"></div>
+  </div>
+</div>
+
+<div id="infooverlay" class="overlay hidden">
+  <div class="box panel">
+    <h2>HOW THIS WORKS</h2>
+    <div style="font-size:9px; margin-bottom:12px; line-height:2;">
+      You're a lawyer at PARSON HENDERSON LLP. Case files land in your INBOX — read them carefully; the winning argument is usually hiding in the text.<br><br>
+      Every option shows a success %. GREEN options never fail but drain your BOLDNESS. RED options are bluffs — their odds scale with Boldness, and failing them burns REPUTATION.<br><br>
+      REPUTATION below 20: you're fired. INFLUENCE climbs the career ladder: Junior Associate to NAME PARTNER (that's the win). Low reputation also means less respect — risky plays get harder and your office gets sadder.<br><br>
+      Each day has a timer. Cases have deadlines — miss one and it costs you. Some moves get a reply days later. Court cases have judges with tempers: check their stats before you perform.<br><br>
+      Reputation decays a little every day. This firm forgets fast. Stay visible.
+    </div>
+    <div class="opts"><button class="btn" onclick="SFX.click();$('infooverlay').classList.add('hidden');if(S)S.paused=false;">BACK TO BILLING</button></div>
   </div>
 </div>
 
@@ -135,9 +161,10 @@
 "use strict";
 /* ============================== STATE ============================== */
 const RANKS=["Junior Associate","Senior Associate","Junior Partner","Senior Partner","NAME PARTNER"];
-const RANK_REQ=[25,45,70,95]; // influence needed to be eligible for next rank
-const DAY_SECONDS=90;
-const REP_FIRED=15;
+const RANK_REQ=[30,55,80,100]; // influence needed to be eligible for next rank
+const DAY_SECONDS=75;
+const REP_FIRED=20;
+const DEADLINE_PENALTY=-9;
 
 let S=null; // game state
 function newState(scenario){
@@ -165,6 +192,33 @@ function flash(txt){
   const f=document.createElement("div"); f.className="flash"; f.textContent=txt;
   document.body.appendChild(f); setTimeout(()=>f.remove(),1000);
 }
+
+/* ============================== SOUND (WebAudio synth) ============================== */
+let AC=null, muted=false;
+function ac(){ if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==="suspended")AC.resume(); return AC; }
+function tone(freq,dur,type,vol,when){
+  if(muted) return;
+  try{
+    const a=ac(), o=a.createOscillator(), g=a.createGain(), t=a.currentTime+(when||0);
+    o.type=type||"square"; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol||.08,t); g.gain.exponentialRampToValueAtTime(.001,t+dur);
+    o.connect(g); g.connect(a.destination); o.start(t); o.stop(t+dur);
+  }catch(e){}
+}
+const SFX={
+  click:()=>tone(700,.05,"square",.05),
+  open:()=>{tone(400,.06,"square",.05);tone(600,.06,"square",.05,.06);},
+  win:()=>{[523,659,784].forEach((f,i)=>tone(f,.12,"square",.07,i*.09));},
+  lose:()=>{[330,247,196].forEach((f,i)=>tone(f,.15,"sawtooth",.07,i*.11));},
+  promo:()=>{[523,659,784,1047,1319].forEach((f,i)=>tone(f,.14,"square",.08,i*.1));},
+  fired:()=>{[392,330,262,196,131].forEach((f,i)=>tone(f,.2,"sawtooth",.09,i*.13));},
+  bell:()=>{tone(880,.4,"triangle",.07);tone(1108,.4,"triangle",.05,.02);},
+  tick:()=>tone(1200,.03,"square",.04),
+  send:()=>{tone(500,.05,"square",.05);tone(900,.08,"square",.05,.06);},
+  crisis:()=>{[220,220,180].forEach((f,i)=>tone(f,.18,"sawtooth",.09,i*.14));},
+};
+function toggleMute(){ muted=!muted; $("mutebtn").textContent=muted?"SFX: OFF":"SFX: ON"; if(!muted)SFX.click(); }
+function showInfo(){ if(S)S.paused=true; $("infooverlay").classList.remove("hidden"); }
 
 /* effects: {rep,bold,inf,money} */
 function apply(fx,quiet){
@@ -194,8 +248,14 @@ function chance(o,c){
     if(o.style==="aggressive") p-=j.temper/4;
     if(o.style==="technical")  p+=j.book/5;
   }
-  return Math.round(clamp(p,5,98));
+  // respect: a low-rep associate gets no benefit of the doubt
+  if(!o.safe){
+    if(S.rep<30) p-=12; else if(S.rep>70) p+=5;
+    p-=S.rank*2; // higher rank, higher stakes, sharper opponents
+  }
+  return Math.round(clamp(p,5,95));
 }
+const disrespected=()=>S.rep<30;
 
 /* ============================== CONTENT ============================== */
 /* option: {text, base, boldW, style?, safe?, ok:{fx,txt}, fail:{fx,txt}, delay?, secret?} */
@@ -309,7 +369,9 @@ function startGame(sc){
   S.pool=buildPool();
   $("startscreen").classList.add("hidden");
   $("topbar").classList.remove("hidden");
+  $("scenewrap").classList.remove("hidden");
   $("main").classList.remove("hidden");
+  SFX.bell();
   log("Welcome to Parson Henderson, "+RANKS[0]+".","sys");
   if(sc==="debtor") log("Loan payment: $2000 due day 3.","sys");
   drawCases(2);
@@ -333,6 +395,7 @@ function startClock(){
     if(S.paused||S.over) return;
     S.secs--;
     $("clock").textContent=fmt(S.secs);
+    if(S.secs<=5&&S.secs>0) SFX.tick();
     if(S.secs<=0) endDay();
   },1000);
 }
@@ -343,13 +406,14 @@ function endDay(){
   S.paused=true;
   // deadlines
   let missed=S.inbox.filter(c=>!c.pending&&c.dueDay<=S.day&&!c.msg);
-  missed.forEach(c=>{ log("DEADLINE MISSED: "+c.title,"bad"); apply({rep:-7},true); });
+  missed.forEach(c=>{ log("DEADLINE MISSED: "+c.title,"bad"); apply({rep:DEADLINE_PENALTY},true); });
   S.inbox=S.inbox.filter(c=>!missed.includes(c));
   if(S.over) return;
   // day summary then advance
   const lines=[];
   lines.push("Day "+S.day+" closed at "+RANKS[S.rank]+".");
-  if(missed.length) lines.push(missed.length+" deadline(s) missed (-7 REP each).");
+  if(missed.length) lines.push(missed.length+" deadline(s) missed ("+DEADLINE_PENALTY+" REP each).");
+  lines.push("The firm forgets fast: -1 REP overnight.");
   // debt
   let debtLine=null;
   if(S.debtDue!==null && S.day+1>=S.debtDue){
@@ -357,14 +421,24 @@ function endDay(){
     else { gameOver("STUDENT DEBT DEFAULT","You missed a loan payment. The collectors know where you bill hours. Career over."); return; }
   }
   if(debtLine) lines.push(debtLine);
+  SFX.bell();
   showSummary("END OF DAY "+S.day, lines.join("<br>"), "START DAY "+(S.day+1), ()=>{
     S.day++; S.secs=DAY_SECONDS;
+    apply({rep:-1},true); // the firm forgets fast
+    if(S.over) return;
     // resolve delayed cases
     S.inbox.filter(c=>c.pending&&c.pending.day<=S.day).forEach(resolveDelayed);
-    drawCases(1+(Math.random()<.5?1:0));
+    drawCases(1+(Math.random()<.6?1:0));
+    // low rep = casual disrespect
+    if(disrespected()&&Math.random()<.5) pushMsg("FYI",rnd([
+      "The partners' meeting you weren't told about went great, apparently.",
+      "Someone booked 'your' desk for a client call. You can use the hallway.",
+      "IT reset your password to 'temp123'. They didn't tell you either.",
+      "Your nameplate now reads 'ASSOCIATE (TEMP)'. Nobody knows who ordered it.",
+      "The intern got CC'd on your case. 'For oversight.'"]));
     // crisis?
     const cs=crises();
-    if(cs.length&&Math.random()<.45){ const c=rnd(cs); S.usedCrises.push(c.id); showEvent(c); }
+    if(cs.length&&Math.random()<.6){ const c=rnd(cs); S.usedCrises.push(c.id); SFX.crisis(); showEvent(c); }
     S.paused=false; renderAll();
   });
 }
@@ -372,8 +446,8 @@ function endDay(){
 function resolveDelayed(c){
   S.inbox=S.inbox.filter(x=>x!==c);
   const r=c.pending;
-  if(r.win){ log("RESPONSE ["+c.title+"]: SUCCESS","good"); pushMsg("REPLY: "+c.title,r.o.ok.txt); apply(r.o.ok.fx); if((r.o.ok.fx.rep||0)+(r.o.ok.fx.inf||0)>=10) flash("HENDERED!"); }
-  else { log("RESPONSE ["+c.title+"]: FAILED","bad"); pushMsg("REPLY: "+c.title,r.o.fail.txt); apply(r.o.fail.fx); }
+  if(r.win){ SFX.win(); log("RESPONSE ["+c.title+"]: SUCCESS","good"); pushMsg("REPLY: "+c.title,r.o.ok.txt); apply(r.o.ok.fx); if((r.o.ok.fx.rep||0)+(r.o.ok.fx.inf||0)>=10) flash("HENDERED!"); }
+  else { SFX.lose(); log("RESPONSE ["+c.title+"]: FAILED","bad"); pushMsg("REPLY: "+c.title,r.o.fail.txt); apply(r.o.fail.fx); }
   checkPromotion();
 }
 function pushMsg(title,txt){ S.inbox.unshift({msg:true,title,body:txt}); }
@@ -384,14 +458,17 @@ function choose(c,o){
   if(o.delay){
     const win=Math.random()*100<p;
     c.pending={day:S.day+o.delay,win,o};
+    SFX.send();
     log("Sent: '"+o.text+"' — response in "+o.delay+" day(s).","sys");
     S.openCase=null; renderAll(); return;
   }
   S.inbox=S.inbox.filter(x=>x!==c); S.openCase=null;
   if(Math.random()*100<p){
+    SFX.win();
     log("["+c.title+"] "+o.ok.txt,"good"); apply(o.ok.fx);
     if(((o.ok.fx&&o.ok.fx.rep)||0)+((o.ok.fx&&o.ok.fx.inf)||0)>=10) flash("HENDERED!");
   } else {
+    SFX.lose();
     log("["+c.title+"] "+o.fail.txt,"bad"); apply(o.fail.fx);
   }
   checkPromotion(); renderAll();
@@ -402,7 +479,7 @@ function checkPromotion(){
   while(S.rank<4 && S.inf>=RANK_REQ[S.rank]){
     S.rank++;
     if(S.rank===4){ gameWin(); return; }
-    flash("PROMOTED!");
+    SFX.promo(); flash("PROMOTED!");
     log("PROMOTED to "+RANKS[S.rank]+"!","sys");
     apply({rep:5},true);
   }
@@ -415,16 +492,69 @@ function checkEndings(){
 }
 
 function gameOver(title,txt){
-  S.over=true; clearInterval(S.timer);
+  S.over=true; clearInterval(S.timer); SFX.fired();
   showSummary("GAME OVER: "+title, txt+"<br><br>Survived "+S.day+" day(s) as "+RANKS[S.rank]+".", "NEW GAME", ()=>location.reload());
 }
 function gameWin(){
-  S.over=true; clearInterval(S.timer);
+  S.over=true; clearInterval(S.timer); SFX.promo();
   showSummary("YOU MADE NAME PARTNER", "The sign painters are already on the wall: <b>PARSON HENDERSON &amp; YOU</b>.<br>Day "+S.day+". Reputation "+S.rep+". Boldness "+S.bold+".<br><br>You've been HENDERED. Permanently.", "NEW GAME", ()=>location.reload());
 }
 
+/* ============================== OFFICE SCENE ============================== */
+function renderScene(){
+  const r=S.rank, rep=S.rep;
+  const W=320,H=64; let el=[];
+  const rect=(x,y,w,h,f)=>el.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${f}"/>`);
+  // wall + floor (nicer materials as you rise)
+  const walls=["#3d4152","#44526b","#4b5b7a","#55486b","#3d3550"];
+  const floors=["#6b6455","#75694f","#7d6f52","#6e5a44","#8a7550"];
+  rect(0,0,W,44,walls[r]); rect(0,44,W,20,floors[r]);
+  // windows: more + bigger as rank rises
+  const winN=[0,1,2,3,4][r];
+  for(let i=0;i<winN;i++){
+    const wx=30+i*74, ww=r>=3?54:36;
+    rect(wx,6,ww,26,"#0f0f1b"); rect(wx+2,8,ww-4,22,r>=2?"#1a2b4a":"#26334d");
+    if(r>=2){ // skyline in the glass
+      rect(wx+5,20,6,10,"#0f0f1b"); rect(wx+14,15,7,15,"#141b33"); rect(wx+24,22,6,8,"#0f0f1b");
+      rect(wx+15,17,2,2,"#ffcd75"); rect(wx+7,23,2,2,"#ffcd75");
+    }
+  }
+  if(r===0){ // bullpen: fluorescent bar + neighbor cubicles
+    rect(60,2,200,4,"#d8d8c0");
+    rect(4,26,70,18,"#565b70"); rect(246,26,70,18,"#565b70"); // cubicle walls
+    rect(14,30,20,8,"#8a8fa5"); rect(256,30,20,8,"#8a8fa5"); // neighbors' monitors
+  }
+  // your desk grows with rank
+  const dw=[60,84,110,140,170][r], dx=(W-dw)/2;
+  rect(dx,38,dw,6,["#7a5c3e","#7a5c3e","#8a6a48","#4a3828","#2e2318"][r]); // desktop (mahogany by the end)
+  rect(dx+4,44,4,12,"#5a4430"); rect(dx+dw-8,44,4,12,"#5a4430");
+  rect(dx+dw/2-6,30,12,8,"#0f0f1b"); rect(dx+dw/2-5,31,10,6,"#3b5dc9"); // monitor
+  // chair: broken stool if disrespected, throne if name partner
+  if(rep<30&&r<2){ rect(dx-14,46,10,4,"#565b70"); rect(dx-11,50,4,8,"#565b70"); }
+  else { rect(dx-18,40,12,14,r>=3?"#6b1f2e":"#2a2f45"); rect(dx-15,54,6,4,"#0f0f1b"); }
+  if(r>=1){ rect(12,34,8,10,"#2e5e3a"); rect(14,28,4,8,"#38b764"); } // plant
+  if(r>=2){ rect(dx+8,32,10,6,"#ffcd75"); } // gold nameplate on desk
+  if(r>=2){ rect(W-40,12,22,16,"#5a4430"); rect(W-38,14,18,12,"#f2e9d8"); } // framed diploma (ahem)
+  if(r>=3){ rect(W-84,42,44,8,"#6b1f2e"); rect(W-80,50,6,6,"#0f0f1b"); rect(W-50,50,6,6,"#0f0f1b"); } // leather couch
+  if(r>=3){ rect(16,46,14,4,"#8a7550"); rect(18,40,3,6,"#c9a227"); rect(23,41,3,5,"#c9a227"); } // whiskey cart
+  if(r===4){ el.push(`<text x="${W/2}" y="16" text-anchor="middle" font-family="monospace" font-size="9" fill="#ffcd75">PARSON HENDERSON &amp; YOU</text>`); }
+  // disrespect props
+  if(rep<30){ rect(dx+dw-24,32,16,6,"#b0b0b0"); el.push(`<text x="${dx+dw-16}" y="30" text-anchor="middle" font-family="monospace" font-size="6" fill="#94b0c2">someone's lunch</text>`); }
+  $("scene").innerHTML=`<svg viewBox="0 0 ${W} ${H}" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">${el.join("")}</svg>`;
+  const capsByRank=[
+    "THE BULLPEN — a desk, technically. The elevator is for partners.",
+    "SHARED OFFICE — a door you share with a guy who eats tuna at 9am.",
+    "YOUR OFFICE — a door. YOUR door. The plant is plastic but it's yours.",
+    "CORNER OFFICE — two walls of glass. The whiskey cart is billable.",
+    "THE NAME IS ON THE WALL."];
+  let cap=capsByRank[r];
+  if(rep<30) cap+=" · People 'forget' your name in meetings. (-12% on risky plays)";
+  else if(rep>70) cap+=" · Associates fetch YOUR coffee now. (+5% on risky plays)";
+  $("scenecap").textContent=cap;
+}
+
 /* ============================== RENDER ============================== */
-function renderAll(){ renderTop(); renderInbox(); renderCase(); renderStats(); }
+function renderAll(){ renderTop(); renderInbox(); renderCase(); renderStats(); renderScene(); }
 function renderTop(){
   $("rank").textContent=RANKS[S.rank];
   $("daylbl").textContent="DAY "+S.day;
@@ -440,14 +570,14 @@ function renderInbox(){
     else if(c.pending){ d.innerHTML="<div>"+esc(c.title)+"</div><div class='tag'>Awaiting response (day "+c.pending.day+")</div>"; }
     else{
       d.innerHTML="<div>"+esc(c.title)+"</div><div class='due'>DUE DAY "+c.dueDay+"</div>";
-      d.onclick=()=>{S.openCase=c; renderCase();};
+      d.onclick=()=>{SFX.open(); S.openCase=c; renderCase();};
     }
     el.appendChild(d);
   });
 }
 function renderCase(){
   const c=S.openCase, el=$("casebody");
-  if(!c){ $("casetitle").textContent="DESK"; el.innerHTML="<div class='kv'>Pick a file from your inbox.<br><br>Tip: the safe option never fails — and never impresses. Boldness feeds your bluffs; failed bluffs eat your reputation.</div>"; return; }
+  if(!c){ $("casetitle").textContent="DESK"; el.innerHTML="<div class='kv'>Pick a file from your inbox.<br><br>Tip: the safe option never fails — and never impresses. Boldness feeds your bluffs; failed bluffs eat your reputation. Reputation decays daily and low rep makes every risky play harder. This firm has no memory and no mercy.</div>"; return; }
   $("casetitle").textContent="CASE FILE";
   let judgeHtml="";
   if(c.judge) judgeHtml="<div class='judge'>JUDGE: "+esc(c.judge.name)+"<br>TEMPER "+c.judge.temper+" / BY-THE-BOOK "+c.judge.book+"<br>"+esc(c.judge.desc)+"</div>";
@@ -459,12 +589,12 @@ function renderCase(){
     b.className="btn"+(o.safe?" safe":(o.style==="aggressive"?" bold":""));
     const p=chance(o,c);
     b.innerHTML=esc(o.text)+"<span class='chance'>"+p+"% success"+(o.delay?" · reply in "+o.delay+"d":"")+(o.style?" · "+o.style:"")+"</span>";
-    b.onclick=()=>choose(c,o);
+    b.onclick=()=>{SFX.click(); choose(c,o);};
     opts.appendChild(b);
   });
   const back=document.createElement("button");
   back.className="btn small"; back.textContent="DEFER (back to inbox)";
-  back.onclick=()=>{S.openCase=null; renderCase();};
+  back.onclick=()=>{SFX.click(); S.openCase=null; renderCase();};
   opts.appendChild(back);
 }
 function renderStats(){
@@ -493,9 +623,10 @@ function showEvent(ev){
     const p=chance(o,null);
     b.innerHTML=esc(o.text)+"<span class='chance'>"+p+"% success</span>";
     b.onclick=()=>{
+      SFX.click();
       $("eventoverlay").classList.add("hidden"); S.paused=false;
-      if(Math.random()*100<p){ log("[CRISIS] "+o.ok.txt,"good"); apply(o.ok.fx); if(((o.ok.fx&&o.ok.fx.inf)||0)>=10) flash("HENDERED!"); }
-      else { log("[CRISIS] "+o.fail.txt,"bad"); apply(o.fail.fx); }
+      if(Math.random()*100<p){ SFX.win(); log("[CRISIS] "+o.ok.txt,"good"); apply(o.ok.fx); if(((o.ok.fx&&o.ok.fx.inf)||0)>=10) flash("HENDERED!"); }
+      else { SFX.lose(); log("[CRISIS] "+o.fail.txt,"bad"); apply(o.fail.fx); }
       checkPromotion(); renderAll();
     };
     box.appendChild(b);
@@ -506,7 +637,7 @@ function showSummary(title,html,btnTxt,cb){
   $("sumtitle").textContent=title;
   $("sumbody").innerHTML=html;
   const b=$("sumbtn"); b.textContent=btnTxt;
-  b.onclick=()=>{ $("summaryoverlay").classList.add("hidden"); cb(); };
+  b.onclick=()=>{ SFX.click(); $("summaryoverlay").classList.add("hidden"); cb(); };
   $("summaryoverlay").classList.remove("hidden");
 }
 

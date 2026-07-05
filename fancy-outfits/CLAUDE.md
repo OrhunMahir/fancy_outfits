@@ -55,7 +55,15 @@
 
 **Bilinen buglar/pürüzler:** Bkz. Bölüm 10.
 
-**En son çalışılan konu (2026-07-05):** v0.3 — Steam hedefi kararı (Electron) + React 18/Vite 5'e geçiş: mantık `src/game/`, UI `src/components/` olarak ayrıldı; eski bug #1 ve #2 bu geçişte fixlendi. Sırada: Steam'e yaklaşınca electron-builder + steamworks.js; özellik listesinde (bkz. §10) kullanıcı henüz seçim yapmadı.
+**v0.4 eklendi (2026-07-05, kullanıcı onayıyla):**
+- **NPC ilişki sistemi** (GDD §5): 4 NPC (Dana Paulsen, Raquel Lane, Harold Gustavson, Katrina Bergman), her run'da Reliable/Brave/Lazy/Traitor traitleri rastgele dağıtılır (her birinden tam bir tane). Traitler GİZLİ başlar; ilk delege ediş veya kriz açığa çıkarır. İlişki −100..+100, "THE FLOOR" panelinde görünür.
+- **Delege etme** (rank≥1'de açılır): mahkeme dışı davalar bir NPC'ye verilir, zar ANINDA atılır, sonuç ertesi sabah gelir. Şans = 60 + rel/5 + trait modu (Reliable +25, Brave +10, Lazy −20, Traitor −5). Lazy fail'lerin %65'i "sessiz bırakma" (dosya deadline'ı yanmış halde masana döner); Traitor fail'i ekstra −4 REP.
+- **Krizlerde NPC etkisi:** rel<25 Traitor %40 ihtimalle pozisyonunu sızdırır (tüm seçenekler −8%), yoksa rel≥40 Brave arkanda durur (+8%). Overlay'de görünür, trait'i açığa çıkarır.
+- **Prosedürel dava üreticisi** (`casegen.js`): API YOK, ağ YOK — kullanıcının açık isteği ("Claude API key oyuna entegre olmasın"). 7 şablon × isim/rakam/ipucu havuzları; el yazması 9 dava tükenince veya 3. günden sonra %40 ihtimalle devreye girer. Eski bug #3 (havuz tekrarı) böylece çözüldü.
+- **PAUSE butonu:** ekranı KAPATAN overlay — bilinçli: açık dosyayı bedava okuma süresi vermesin (çekirdek gerilim korunur).
+- **Ofis sahnesi v2 + karakter:** sol kapı, duvar saati, dosya dolabı, kitaplık, halı, çöp kutusu, jaluzi, masada kahve+dosyalar; masada OTURAN oyuncu karakteri (takım elbise rütbeyle güzelleşir — oyunun adı bu), gün bitince kalkıp kapıdan çıkar (`S.charAnim`, özet yürüyüşten sonra açılır), yeni günde içeri yürüyüp oturur.
+
+**En son çalışılan konu (2026-07-05):** v0.4 (yukarıdaki paket) tarayıcıda uçtan uca test edildi. Sırada: Steam'e yaklaşınca electron-builder + steamworks.js; kalan özellik listesi §10.
 
 ---
 
@@ -86,20 +94,23 @@ fancy-outfits/
 │   ├── game/                     ← OYUN MANTIĞI (React'ten bağımsız saf JS)
 │   │   ├── constants.js          ← RANKS, RANK_REQ, DAY_SECONDS, REP_FIRED, DEADLINE_PENALTY
 │   │   ├── state.js              ← S, newState(), store (subscribe/notify)
-│   │   ├── engine.js             ← apply(), chance(), akış: startGame/endDay/choose/kriz/terfi/ending
-│   │   ├── content.js            ← buildPool() 9 dava, JUDGES, crises(), SCENARIOS
+│   │   ├── engine.js             ← apply(), chance(), akış: startGame/endDay/choose/delege/kriz/terfi/ending
+│   │   ├── content.js            ← buildPool() 9 el yazması dava, JUDGES, crises(), SCENARIOS
+│   │   ├── casegen.js            ← PROSEDÜREL dava üreticisi (7 şablon, API'siz, offline)
+│   │   ├── npcs.js               ← NPC roster, trait dağıtımı, delegationChance(), relNpc()
 │   │   ├── sound.js              ← WebAudio sentez SFX + mute
 │   │   ├── utils.js              ← clamp, rnd
 │   │   └── useGame.js            ← React köprüsü (useSyncExternalStore hook'u)
 │   └── components/               ← UI (her panel/overlay ayrı dosya)
 │       ├── StartScreen.jsx       ← senaryo seçimi
-│       ├── Topbar.jsx            ← logo, rütbe, gün, saat, SFX/i/END DAY
-│       ├── OfficeScene.jsx       ← piksel ofis SVG'si (rütbe+rep'e göre çizilir)
-│       ├── Inbox.jsx             ← sol panel (3 item tipi: dava/pending/msg)
-│       ├── CasePane.jsx          ← orta panel (DESK veya açık dava + seçenekler)
-│       ├── StatsPanel.jsx        ← sağ panel (stat barları, para, log)
+│       ├── Topbar.jsx            ← logo, rütbe, gün, saat, SFX/i/PAUSE/END DAY
+│       ├── OfficeScene.jsx       ← piksel ofis SVG'si + oyuncu karakteri (otur/yürü animasyonu)
+│       ├── Inbox.jsx             ← sol panel (4 item tipi: dava/pending/delegated/msg)
+│       ├── CasePane.jsx          ← orta panel (DESK veya açık dava + seçenekler + DELEGATE satırı)
+│       ├── StatsPanel.jsx        ← sağ panel (stat barları, para, THE FLOOR NPC listesi, log)
 │       ├── InfoOverlay.jsx       ← "i" paneli
-│       ├── EventOverlay.jsx      ← kriz ekranı
+│       ├── PauseOverlay.jsx      ← PAUSE ekranı (masayı kapatır — bilinçli)
+│       ├── EventOverlay.jsx      ← kriz ekranı (+ Traitor/Brave modifier satırı)
 │       └── SummaryOverlay.jsx    ← gün sonu / game over / win
 ├── FANCY_OUTFITS_GDD.md          ← Tasarım dokümanı (gelecek özelliklerin speci)
 ├── CLAUDE.md                     ← Bu dosya
@@ -244,14 +255,14 @@ if(S.scenario==="legacy"){
 **Bilinen buglar (küçük, oyun kırıcı değil):**
 1. ~~openCase deadline referansı~~ — React geçişinde FIX'LENDİ (`endDay` başında `if(missed.includes(S.openCase)) S.openCase=null`).
 2. ~~Info paneli özet pause'unu bozuyor~~ — React geçişinde tasarımla ORTADAN KALKTI (pause artık türetiliyor: `isPaused()` = herhangi bir overlay açık mı; test edildi).
-3. Dava havuzu 9 dava; uzun run'da `taken` flag'leri resetlenip davalar aynen tekrarlar.
+3. ~~Dava havuzu tekrarı~~ — v0.4'te FIX'LENDİ: havuz tükenince (veya gün>3'te %40) `casegen.js` üretiyor, reset yok.
 4. `RANK_REQ[3]=100` → son terfi INF tam 100 gerektirir (clamp tavanı). Bilinçli zorluk ama tek büyük başarısızlık son terfiyi kilitleyebilir; izlenmeli.
 
 **Optimizasyon:** Gerek yok (tek dosya, ~700 satır, render yükü önemsiz). `renderAll()` her olayda tüm panelleri yeniden çizer — bilinçli basitlik, dokunma.
 
-**Planlanan özellikler (kullanıcıya sunulan öncelik sırası, henüz onay YOK — başlamadan sor):**
-1. **NPC ilişki sistemi** — GDD §5 spec: NPC'lerde relationship skoru (−100..100) + Reliable/Brave/Lazy/Traitor traitleri; delege etme; Traitor'ın krizlerde satması.
-2. Dava havuzunu büyütme ve/veya **AI dava üretimi** (JSON şeması §7'de; API anahtarı gerektirir).
+**Planlanan özellikler (kalanlar; başlamadan kullanıcıya sor):**
+1. ~~NPC ilişki sistemi~~ — v0.4'te EKLENDİ.
+2. ~~Dava havuzunu büyütme~~ — v0.4'te prosedürel üreticiyle EKLENDİ. NOT: AI/LLM ile üretim BİLİNÇLİ olarak reddedildi — kullanıcı API anahtarının oyuna gömülmesini istemiyor; oyun her makinede offline dava üretmeli. Bu kararı değiştirme.
 3. Çok aşamalı davalar (karar zincirleri, temyiz).
 4. Save/load (`localStorage`) + run istatistikleri.
 5. Para harcama yerleri (takım elbise=kalıcı REP, dedektif=dava ipucu, Marv'a rüşvet).
@@ -279,6 +290,10 @@ if(S.scenario==="legacy"){
 | Rep<30 cezası −12 / Rep>70 bonusu +5 | Saygı sistemi kullanıcı isteği; sayılar ilk tahmin | Tuning serbest |
 | Denenip vazgeçilen: yok | İlk fikir seti doğrudan uygulandı; kesilen tek şey v1 kapsam kısıtlarıydı (NPC/delege/AI/multiplayer sonraya) | — |
 | Steam dağıtımı için Electron wrapper (2026-07-05) | Kullanıcı Steam'e çıkmak istiyor; dil/engine değiştirmek yerine web oyununu Electron'a sarma seçildi (Tauri ve Godot/Unity portu elendi). Electron `dist/` build'ini yükler | Wrapper detayları (pencere boyutu vs.) serbest |
+| Dava üretimi PROSEDÜREL, LLM/API DEĞİL (v0.4) | Kullanıcının açık isteği: "Claude API key oyunun içerisinde entegre olmasın", oyun her makinede offline üretsin | Kullanıcı istemeden AI üretimine dönme |
+| NPC traitleri gizli başlar, her run'da 4 traitin her birinden bir tane | Keşif oynanışı + her run'da "Traitor kim?" gerilimi | Tuning serbest; gizlilik mekaniği korunmalı |
+| PAUSE ekranı masayı tamamen kapatır | Açık dosyayı bedava okumak timer gerilimini öldürürdü | Koru |
+| Karakter yürüyüş animasyonu CSS keyframe (SVG `<g>` üzerinde), JS animasyon kütüphanesi yok | Bağımlılık yasağı + basitlik | Koru |
 
 ---
 

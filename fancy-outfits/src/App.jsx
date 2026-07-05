@@ -8,6 +8,7 @@ import Inbox from "./components/Inbox.jsx";
 import CasePane from "./components/CasePane.jsx";
 import StatsPanel from "./components/StatsPanel.jsx";
 import InfoOverlay from "./components/InfoOverlay.jsx";
+import PauseOverlay from "./components/PauseOverlay.jsx";
 import EventOverlay from "./components/EventOverlay.jsx";
 import SummaryOverlay from "./components/SummaryOverlay.jsx";
 
@@ -22,6 +23,7 @@ export default function App(){
       <CasePane />
       <StatsPanel />
     </div>
+    {S.userPaused && <PauseOverlay />}
     {S.infoOpen && <InfoOverlay />}
     {S.event && <EventOverlay ev={S.event} />}
     {S.summary && <SummaryOverlay sum={S.summary} />}

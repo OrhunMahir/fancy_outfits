@@ -73,8 +73,20 @@ h2{font-size:10px; color:var(--gold); margin-bottom:10px; border-bottom:2px soli
 .opts .btn{margin-bottom:8px;}
 .subtitle{font-size:8px; color:var(--grey); margin:8px 0 14px;}
 .kv{font-size:8px; color:var(--grey); margin-bottom:6px;}
+/* NPC panel + delegation */
+.npcrow{margin-bottom:8px;}
+.npcrow .lblrow{display:flex; justify-content:space-between; font-size:8px;}
+.npcrow .tagline{font-size:8px; color:var(--grey);}
+.delg{margin:10px 0 4px; border-top:2px dashed var(--panel2); padding-top:8px;}
+.delg .btn{margin:0 6px 6px 0;}
 /* office scene */
 #scenewrap{padding:12px 12px 0;}
+/* character walk cycle: --wd is the chair→door distance set inline */
+.char-leave{animation:walkx 1.4s linear forwards;}
+.char-arrive{animation:walkx 1.4s linear reverse forwards;}
+@keyframes walkx{from{transform:translateX(0);} to{transform:translateX(var(--wd));}}
+.charbob{animation:charbob .18s steps(2) infinite;}
+@keyframes charbob{from{transform:translateY(0);} to{transform:translateY(-1.5px);}}
 #scene{border:4px solid var(--dark); box-shadow:0 0 0 2px var(--panel2); line-height:0;}
 #scene svg{width:100%; height:110px; display:block; image-rendering:pixelated;}
 #scenecap{font-size:8px; color:var(--grey); padding:6px 2px 0; text-align:center;}

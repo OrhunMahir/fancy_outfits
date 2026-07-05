@@ -6,12 +6,14 @@ import { RANKS, RANK_REQ, DAY_SECONDS, REP_FIRED, DEADLINE_PENALTY } from "./con
 import { clamp, rnd } from "./utils.js";
 import { SFX, toggleMute } from "./sound.js";
 import { buildPool, JUDGES, crises, SCENARIOS } from "./content.js";
+import { genCase } from "./casegen.js";
+import { buildNpcs, delegationChance, relNpc, DELEGATE_WIN_TXT, DELEGATE_FAIL_TXT } from "./npcs.js";
 
 let timerId=null, flashSeq=0;
 
-/* The clock stops whenever any overlay is up. Replaces the old S.paused flag
-   (and with it the "info panel unpauses the summary screen" bug). */
-export const isPaused=()=>!!(S.infoOpen||S.event||S.summary);
+/* The clock stops whenever any overlay is up, the player hit PAUSE, or the
+   character is walking out. Replaces the old S.paused flag. */
+export const isPaused=()=>!!(S.infoOpen||S.event||S.summary||S.userPaused||S.leaving);
 export const disrespected=()=>S.rep<30;
 
 export function log(txt,cls){ S.logEntries.unshift({txt,cls:cls||""}); S.dailyLog.push(txt); }
@@ -50,6 +52,7 @@ export function chance(o,c){
     if(o.style==="aggressive") p-=j.temper/4;
     if(o.style==="technical")  p+=j.book/5;
   }
+  if(c&&c.crisisMod&&!o.safe) p+=c.crisisMod.v; // a Traitor leaked / a Brave ally shields (GDD §5-6)
   // respect: a low-rep associate gets no benefit of the doubt
   if(!o.safe){
     if(S.rep<30) p-=12; else if(S.rep>70) p+=5;
@@ -62,19 +65,24 @@ export function chance(o,c){
 export function startGame(sc){
   setS(newState(sc));
   S.pool=buildPool();
+  S.npcs=buildNpcs();
   SFX.bell();
   log("Welcome to Parson Henderson, "+RANKS[0]+".","sys");
   if(sc==="debtor") log("Loan payment: $2000 due day 3.","sys");
   drawCases(2);
-  startClock(); notify();
+  startClock(); sitDown(); notify();
 }
 
+/* hand-written pool first; when it runs dry (or for late-run variety) the
+   procedural generator takes over — no more repeating the same 9 files */
 function drawCases(n){
   for(let i=0;i<n;i++){
     let avail=S.pool.filter(c=>!c.taken&&c.tier<=Math.max(1,S.rank));
     if(S.rank>=1) avail=S.pool.filter(c=>!c.taken);
-    if(!avail.length){S.pool.forEach(c=>c.taken=false); avail=S.pool.slice();}
-    const c=rnd(avail); c.taken=true;
+    const useGen=!avail.length||(S.day>3&&Math.random()<.4);
+    const c=useGen?genCase():rnd(avail);
+    if(!useGen) c.taken=true;
+    if(useGen&&c.tier===2&&S.rank<1){ i--; continue; } // no court cases before Senior Associate
     const inst={...c,dueDay:S.day+c.deadline, judge:c.judge?rnd(JUDGES):null};
     S.inbox.push(inst);
   }
@@ -90,10 +98,17 @@ function startClock(){
   },1000);
 }
 
+/* character walk cycle: leaving takes ~1.4s before the summary shows;
+   arriving plays over the first seconds of the new day */
+function sitDown(){
+  S.charAnim="arriving"; notify();
+  setTimeout(()=>{ if(S&&!S.over&&S.charAnim==="arriving"){ S.charAnim="working"; notify(); } },1500);
+}
+
 export function endDay(){
-  if(S.over||S.summary) return;
+  if(S.over||S.summary||S.leaving) return;
   // deadlines
-  let missed=S.inbox.filter(c=>!c.pending&&c.dueDay<=S.day&&!c.msg);
+  let missed=S.inbox.filter(c=>!c.pending&&!c.delegated&&c.dueDay<=S.day&&!c.msg);
   if(missed.includes(S.openCase)) S.openCase=null; // don't keep showing a removed case
   missed.forEach(c=>{ log("DEADLINE MISSED: "+c.title,"bad"); apply({rep:DEADLINE_PENALTY},true); });
   S.inbox=S.inbox.filter(c=>!missed.includes(c));
@@ -108,26 +123,39 @@ export function endDay(){
     if(S.money>=2000){S.money-=2000; S.debtDue+=3; lines.push("Loan payment made: -$2000. Next due day "+S.debtDue+".");}
     else { gameOver("STUDENT DEBT DEFAULT","You missed a loan payment. The collectors know where you bill hours. Career over."); return; }
   }
-  SFX.bell();
-  showSummary("END OF DAY "+S.day, lines, "START DAY "+(S.day+1), ()=>{
-    S.day++; S.secs=DAY_SECONDS;
-    apply({rep:-1},true); // the firm forgets fast
-    if(S.over) return;
-    // resolve delayed cases
-    S.inbox.filter(c=>c.pending&&c.pending.day<=S.day).forEach(resolveDelayed);
-    drawCases(1+(Math.random()<.6?1:0));
-    // low rep = casual disrespect
-    if(disrespected()&&Math.random()<.5) pushMsg("FYI",rnd([
-      "The partners' meeting you weren't told about went great, apparently.",
-      "Someone booked 'your' desk for a client call. You can use the hallway.",
-      "IT reset your password to 'temp123'. They didn't tell you either.",
-      "Your nameplate now reads 'ASSOCIATE (TEMP)'. Nobody knows who ordered it.",
-      "The intern got CC'd on your case. 'For oversight.'"]));
-    // crisis?
-    const cs=crises();
-    if(cs.length&&Math.random()<.6){ const c=rnd(cs); S.usedCrises.push(c.id); SFX.crisis(); S.event=c; }
-    notify();
-  });
+  // walk out first, then the summary
+  S.leaving=true; S.charAnim="leaving"; notify();
+  setTimeout(()=>{
+    if(!S||S.over) return;
+    S.leaving=false;
+    SFX.bell();
+    showSummary("END OF DAY "+S.day, lines, "START DAY "+(S.day+1), ()=>{
+      S.day++; S.secs=DAY_SECONDS;
+      apply({rep:-1},true); // the firm forgets fast
+      if(S.over) return;
+      S.inbox.filter(c=>c.pending&&c.pending.day<=S.day).forEach(resolveDelayed);
+      S.inbox.filter(c=>c.delegated&&c.delegated.day<=S.day).forEach(resolveDelegated);
+      drawCases(1+(Math.random()<.6?1:0));
+      // low rep = casual disrespect
+      if(disrespected()&&Math.random()<.5) pushMsg("FYI",rnd([
+        "The partners' meeting you weren't told about went great, apparently.",
+        "Someone booked 'your' desk for a client call. You can use the hallway.",
+        "IT reset your password to 'temp123'. They didn't tell you either.",
+        "Your nameplate now reads 'ASSOCIATE (TEMP)'. Nobody knows who ordered it.",
+        "The intern got CC'd on your case. 'For oversight.'"]));
+      // crisis? (a Traitor may leak your position; a loyal Brave shields you)
+      const cs=crises();
+      if(cs.length&&Math.random()<.6){
+        const c=rnd(cs); S.usedCrises.push(c.id); SFX.crisis();
+        const traitor=S.npcs.find(n=>n.trait==="Traitor"&&n.rel<25);
+        const brave=S.npcs.find(n=>n.trait==="Brave"&&n.rel>=40);
+        if(traitor&&Math.random()<.4){ traitor.known=true; c.crisisMod={v:-8,txt:traitor.name+" leaked your position before you entered the room. (-8% on every play)"}; }
+        else if(brave){ brave.known=true; c.crisisMod={v:8,txt:brave.name+" is standing at your shoulder. (+8% on every play)"}; }
+        S.event=c;
+      }
+      sitDown();
+    });
+  },1400);
 }
 
 function resolveDelayed(c){
@@ -135,6 +163,31 @@ function resolveDelayed(c){
   const r=c.pending;
   if(r.win){ SFX.win(); log("RESPONSE ["+c.title+"]: SUCCESS","good"); pushMsg("REPLY: "+c.title,r.o.ok.txt); apply(r.o.ok.fx); if((r.o.ok.fx.rep||0)+(r.o.ok.fx.inf||0)>=10) flash("HENDERED!"); }
   else { SFX.lose(); log("RESPONSE ["+c.title+"]: FAILED","bad"); pushMsg("REPLY: "+c.title,r.o.fail.txt); apply(r.o.fail.fx); }
+  checkPromotion();
+}
+
+/* a delegated case comes back the next morning — their traits + your
+   relationship decided the outcome the moment you handed it over */
+function resolveDelegated(c){
+  S.inbox=S.inbox.filter(x=>x!==c);
+  const d=c.delegated, n=S.npcs.find(x=>x.id===d.npc);
+  n.known=true;
+  if(d.win){
+    SFX.win(); relNpc(n,6);
+    pushMsg("DELEGATED: "+c.title, n.name+" "+rnd(DELEGATE_WIN_TXT));
+    log("DELEGATION ["+c.title+"]: "+n.name+" delivered.","good");
+    apply({rep:2,inf:3+(c.tier||0)*2,money:(c.tier||0)*300});
+  } else if(d.silent){
+    relNpc(n,-3); c.delegated=null; S.inbox.push(c); // the file just... reappears
+    pushMsg("RETURNED: "+c.title, n.name+" 'never got around to it'. The file is back on YOUR desk, deadline intact.");
+    log("DELEGATION ["+c.title+"]: silently dropped by "+n.name+".","bad");
+  } else {
+    SFX.lose(); relNpc(n,-5);
+    const traitorTax=n.trait==="Traitor"?4:0;
+    pushMsg("DELEGATED: "+c.title, n.name+" "+rnd(DELEGATE_FAIL_TXT)+(traitorTax?" Somehow the whole floor knows it was YOUR case.":""));
+    log("DELEGATION ["+c.title+"]: "+n.name+" failed it.","bad");
+    apply({rep:-4-traitorTax});
+  }
   checkPromotion();
 }
 function pushMsg(title,txt){ S.inbox.unshift({msg:true,title,body:txt}); }
@@ -163,10 +216,23 @@ export function choose(c,o){
   checkPromotion(); notify();
 }
 
+/* hand a case to a colleague (unlocks at Senior Associate; court cases excluded —
+   you can't send a paralegal to argue a motion). Die is rolled now, revealed tomorrow. */
+export function delegateCase(c,npcId){
+  if(S.rank<1||c.judge||c.msg||c.pending||c.delegated) return;
+  const n=S.npcs.find(x=>x.id===npcId);
+  SFX.send();
+  const win=Math.random()*100<delegationChance(n);
+  c.delegated={npc:n.id, day:S.day+1, win, silent:n.trait==="Lazy"&&!win&&Math.random()<.65};
+  S.openCase=null;
+  log("Handed '"+c.title+"' to "+n.name+". Report tomorrow.","sys");
+  notify();
+}
+
 /* resolve a crisis option (event overlay button) */
 export function resolveCrisis(o){
   SFX.click();
-  const p=chance(o,null);
+  const ev=S.event, p=chance(o,ev);
   S.event=null;
   if(Math.random()*100<p){ SFX.win(); log("[CRISIS] "+o.ok.txt,"good"); apply(o.ok.fx); if(((o.ok.fx&&o.ok.fx.inf)||0)>=10) flash("HENDERED!"); }
   else { SFX.lose(); log("[CRISIS] "+o.fail.txt,"bad"); apply(o.fail.fx); }
@@ -180,6 +246,7 @@ function checkPromotion(){
     if(S.rank===4){ gameWin(); return; }
     SFX.promo(); flash("PROMOTED!");
     log("PROMOTED to "+RANKS[S.rank]+"!","sys");
+    if(S.rank===1) log("Senior Associate perk unlocked: DELEGATE cases from the file view.","sys");
     apply({rep:5},true);
   }
 }
@@ -208,4 +275,6 @@ export function openCaseFile(c){ SFX.open(); S.openCase=c; notify(); }
 export function deferCase(){ SFX.click(); S.openCase=null; notify(); }
 export function openInfo(){ SFX.click(); S.infoOpen=true; notify(); }
 export function closeInfo(){ SFX.click(); S.infoOpen=false; notify(); }
+export function pauseGame(){ SFX.click(); S.userPaused=true; notify(); }
+export function resumeGame(){ SFX.click(); S.userPaused=false; notify(); }
 export function toggleSfx(){ toggleMute(); notify(); }

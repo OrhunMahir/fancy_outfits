@@ -1,6 +1,7 @@
 // Middle panel: the desk (tip text) or the open case file with its options.
 import { useGame } from "../game/useGame.js";
-import { chance, choose, deferCase } from "../game/engine.js";
+import { chance, choose, deferCase, delegateCase } from "../game/engine.js";
+import { delegationChance } from "../game/npcs.js";
 
 export default function CasePane(){
   const S=useGame();
@@ -35,6 +36,16 @@ export default function CasePane(){
             </span>
           </button>
         ))}
+        {S.rank>=1 && !c.judge && (
+          <div className="delg">
+            <div className="kv">DELEGATE — they do the work, you own the fallout. Report tomorrow:</div>
+            {S.npcs.map(n=>(
+              <button key={n.id} className="btn small" onClick={()=>delegateCase(c,n.id)}>
+                {n.name.split(" ")[0].toUpperCase()} · {n.known?n.trait+" · "+delegationChance(n)+"%":"??%"}
+              </button>
+            ))}
+          </div>
+        )}
         <button className="btn small" onClick={deferCase}>DEFER (back to inbox)</button>
       </div>
     </div>

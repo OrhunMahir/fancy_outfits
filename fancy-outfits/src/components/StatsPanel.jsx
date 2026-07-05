@@ -22,6 +22,16 @@ export default function StatsPanel(){
       </div>
       <div className="kv">MONEY: ${S.money}{S.debtDue!==null?"  ·  loan due day "+S.debtDue:""}</div>
       <div className="kv">RUN: {SCENARIOS[S.scenario].label}</div>
+      <h2 style={{marginTop:10}}>THE FLOOR</h2>
+      {S.npcs.map(n=>(
+        <div key={n.id} className="npcrow">
+          <div className="lblrow">
+            <span>{n.name.toUpperCase()}</span>
+            <span style={{color:n.rel>0?"var(--green)":(n.rel<0?"var(--red)":"var(--grey)")}}>{n.rel>0?"+":""}{n.rel}</span>
+          </div>
+          <div className="tagline">{n.role} · {n.known?n.trait:"trait: ?"}</div>
+        </div>
+      ))}
       <div id="log">
         {S.logEntries.map((e,i)=>(
           <div key={S.logEntries.length-i} className={e.cls}>{"> "+e.txt}</div>

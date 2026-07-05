@@ -18,9 +18,11 @@ export function newState(scenario){
     rep:50, bold:40, inf:10,
     money: scenario==="debtor" ? 3000 : 1500,
     debtDue: scenario==="debtor" ? 3 : null,
-    inbox:[], pool:[], usedCrises:[], openCase:null,
+    inbox:[], pool:[], usedCrises:[], openCase:null, npcs:[],
     dailyLog:[], logEntries:[], over:false,
     // UI state (pause is DERIVED from these — see isPaused() in engine.js)
-    infoOpen:false, event:null, summary:null, flash:null,
+    infoOpen:false, event:null, summary:null, flash:null, userPaused:false,
+    // office character: "arriving" | "working" | "leaving" (leaving also freezes the clock)
+    charAnim:"arriving", leaving:false,
   };
 }

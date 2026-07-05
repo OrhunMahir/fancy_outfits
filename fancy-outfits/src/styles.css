@@ -1,0 +1,80 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+:root{
+  --bg:#1a1c2c; --panel:#29366f; --panel2:#3b5dc9; --ink:#f4f4f4;
+  --paper:#f2e9d8; --paperink:#2b2118; --gold:#ffcd75; --green:#38b764;
+  --red:#b13e53; --grey:#94b0c2; --dark:#0f0f1b;
+}
+*{box-sizing:border-box; margin:0; padding:0; image-rendering:pixelated;}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:'Press Start 2P', monospace; font-size:10px; line-height:1.7;
+  min-height:100vh;
+}
+body::after{ /* scanlines */
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:99;
+  background:repeating-linear-gradient(0deg, rgba(0,0,0,.12) 0 1px, transparent 1px 3px);
+}
+.btn{
+  font-family:inherit; font-size:10px; cursor:pointer; color:var(--ink);
+  background:var(--panel2); border:none; padding:10px 12px; line-height:1.6;
+  box-shadow:0 4px 0 #1b2a6b; text-align:left; width:100%;
+}
+.btn:hover{background:#4d73e8;} .btn:active{transform:translateY(3px); box-shadow:0 1px 0 #1b2a6b;}
+.btn.safe{background:#3a7d5a; box-shadow:0 4px 0 #1e4a33;} .btn.safe:hover{background:#48996f;}
+.btn.bold{background:#a03a4e; box-shadow:0 4px 0 #5e1f2c;} .btn.bold:hover{background:#c04a61;}
+.btn.small{width:auto; padding:6px 10px; font-size:8px;}
+.chance{color:var(--gold); font-size:8px; display:block; margin-top:4px;}
+/* layout */
+#topbar{
+  display:flex; gap:14px; align-items:center; padding:10px 14px;
+  background:var(--dark); border-bottom:4px solid var(--panel2); flex-wrap:wrap;
+}
+#topbar .logo{color:var(--gold);}
+#topbar .clockbox{margin-left:auto; display:flex; gap:14px; align-items:center;}
+#main{display:flex; gap:12px; padding:12px; align-items:flex-start; flex-wrap:wrap;}
+.panel{background:var(--panel); border:4px solid var(--dark); box-shadow:0 0 0 2px var(--panel2); padding:12px;}
+#inbox{flex:1 1 220px; max-width:300px; min-height:420px;}
+#casepane{flex:2 1 420px; min-height:420px;}
+#stats{flex:1 1 200px; max-width:260px;}
+h2{font-size:10px; color:var(--gold); margin-bottom:10px; border-bottom:2px solid var(--panel2); padding-bottom:6px;}
+.inbox-item{
+  background:var(--dark); border:2px solid var(--panel2); padding:8px; margin-bottom:8px; cursor:pointer;
+}
+.inbox-item:hover{border-color:var(--gold);}
+.inbox-item .tag{font-size:8px; color:var(--grey);}
+.inbox-item .due{font-size:8px; color:var(--red);}
+.inbox-item.msg{border-color:#7a6b3a; cursor:default;}
+/* case paper */
+#paper{
+  background:var(--paper); color:var(--paperink); padding:16px; border:3px solid #b7a98a;
+  font-family:'Press Start 2P', monospace; font-size:9px; line-height:1.9; margin-bottom:12px;
+  box-shadow:4px 4px 0 rgba(0,0,0,.4);
+}
+#paper h3{font-size:10px; margin-bottom:10px; border-bottom:2px dashed #b7a98a; padding-bottom:6px;}
+#paper .judge{margin-top:10px; padding:8px; background:#e4d7bd; border:2px dashed #b7a98a; font-size:8px;}
+.statrow{margin-bottom:10px;}
+.statrow .lbl{display:flex; justify-content:space-between; font-size:8px; margin-bottom:4px;}
+.bar{height:12px; background:var(--dark); border:2px solid var(--panel2);}
+.bar .fill{height:100%; transition:width .3s;}
+#log{max-height:140px; overflow-y:auto; font-size:8px; color:var(--grey); margin-top:10px; border-top:2px solid var(--panel2); padding-top:8px;}
+#log .good{color:var(--green);} #log .bad{color:var(--red);} #log .sys{color:var(--gold);}
+/* overlays */
+.overlay{
+  position:fixed; inset:0; background:rgba(15,15,27,.88); z-index:100;
+  display:flex; align-items:center; justify-content:center; padding:20px;
+}
+.overlay .box{max-width:560px; width:100%;}
+.flash{
+  position:fixed; top:40%; left:50%; transform:translate(-50%,-50%) rotate(-4deg);
+  font-size:26px; color:var(--gold); text-shadow:4px 4px 0 var(--red); z-index:200; pointer-events:none;
+  animation:pop .9s ease-out forwards;
+}
+@keyframes pop{0%{opacity:0; scale:.3;} 30%{opacity:1; scale:1.1;} 80%{opacity:1;} 100%{opacity:0; scale:1;}}
+.opts .btn{margin-bottom:8px;}
+.subtitle{font-size:8px; color:var(--grey); margin:8px 0 14px;}
+.kv{font-size:8px; color:var(--grey); margin-bottom:6px;}
+/* office scene */
+#scenewrap{padding:12px 12px 0;}
+#scene{border:4px solid var(--dark); box-shadow:0 0 0 2px var(--panel2); line-height:0;}
+#scene svg{width:100%; height:110px; display:block; image-rendering:pixelated;}
+#scenecap{font-size:8px; color:var(--grey); padding:6px 2px 0; text-align:center;}

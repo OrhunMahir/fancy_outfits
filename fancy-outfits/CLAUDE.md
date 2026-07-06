@@ -119,6 +119,7 @@ fancy-outfits/
 │       ├── EventOverlay.jsx      ← kriz ekranı (+ Traitor/Brave modifier satırı)
 │       └── SummaryOverlay.jsx    ← gün sonu / game over / win
 ├── FANCY_OUTFITS_GDD.md          ← Tasarım dokümanı (gelecek özelliklerin speci)
+├── README.md                     ← GitHub vitrini + CHANGELOG (her versiyonda güncellenir — §6 kuralı)
 ├── CLAUDE.md                     ← Bu dosya
 ├── .gitignore                    ← node_modules/, dist/
 ├── dist/                         ← build çıktısı (git'e girmez)
@@ -179,6 +180,8 @@ deadline kontrolü → özet (`S.summary`) → [devam butonuna basınca `dismiss
   - Oyun içi metinlerde "Suits/Papers Please" adı geçirme (parodi isimler serbest, doğrudan referans yasak — i panelinde de yok).
 - **Tuning değerleri** hep `src/game/constants.js`'te veya `chance()` içinde — dağıtma.
 - **Test:** Değişiklikten sonra `npm run build` (syntax + import hatalarını yakalar). Davranış testi `npm run dev` ile tarayıcıda elle.
+- **CHANGELOG kuralı (kullanıcı isteği, 2026-07-06):** Her yeni versiyonda `README.md`'deki Changelog bölümüne DETAYLI bir giriş ekle (sürüm adı, tarih, commit, eklenen her özelliğin açıklaması). README İngilizce. Bu kural atlanmaz.
+- **Push kuralı (kullanıcı isteği, 2026-07-06):** Commit/push'u kullanıcı kendisi yapmak isteyebilir — push'lamadan önce sor; istenirse sadece komutları hazırla.
 
 ---
 

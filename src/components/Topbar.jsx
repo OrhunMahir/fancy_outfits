@@ -1,5 +1,5 @@
 import { useGame } from "../game/useGame.js";
-import { RANKS, DAY_SECONDS } from "../game/constants.js";
+import { RANKS, DAY_SECONDS, WEEK_LEN } from "../game/constants.js";
 import { endDay, openInfo, pauseGame, toggleSfx } from "../game/engine.js";
 import { SFX, isMuted } from "../game/sound.js";
 
@@ -12,7 +12,7 @@ export default function Topbar(){
       <span className="logo">PARSON{" "}HENDERSON{" "}LLP</span>
       <span>{RANKS[S.rank]}</span>
       <div className="clockbox">
-        <span>DAY {S.day}</span>
+        <span>DAY {S.day}{S.day%WEEK_LEN===0?" · FRIDAY":" · FRI IN "+(WEEK_LEN-S.day%WEEK_LEN)}</span>
         <span style={{color:S.secs<=15?"var(--red)":"var(--gold)"}}>{fmt(S.secs)}</span>
         <div className="timebar">
           <div className="fill" style={{width:(S.secs/DAY_SECONDS*100)+"%",

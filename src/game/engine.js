@@ -3,7 +3,8 @@
 // call notify() so React re-renders. Pause is derived — no S.paused flag.
 import { S, setS, notify, newState } from "./state.js";
 import { RANKS, RANK_REQ, DAY_SECONDS, REP_FIRED, DEADLINE_PENALTY,
-         STAKE_REWARD, STAKE_PENALTY, PRICES, SAVE_KEY, STATS_KEY } from "./constants.js";
+         STAKE_REWARD, STAKE_PENALTY, PRICES, SAVE_KEY, STATS_KEY,
+         WEEK_LEN, REVIEW_GOOD, REVIEW_BAD } from "./constants.js";
 import { clamp, rnd, hash } from "./utils.js";
 import { SFX, toggleMute } from "./sound.js";
 import { buildPool, JUDGES, crises, SCENARIOS } from "./content.js";
@@ -161,6 +162,7 @@ export function endDay(){
   // deadlines
   let missed=S.inbox.filter(c=>!c.pending&&!c.delegated&&c.dueDay<=S.day&&!c.msg);
   if(missed.includes(S.openCase)) S.openCase=null; // don't keep showing a removed case
+  S.weekMissed+=missed.length;
   missed.forEach(c=>{ log("DEADLINE MISSED: "+c.title,"bad"); apply({rep:DEADLINE_PENALTY},true); });
   S.inbox=S.inbox.filter(c=>!missed.includes(c));
   if(S.over) return;
@@ -169,6 +171,33 @@ export function endDay(){
   lines.push("Day "+S.day+" closed at "+RANKS[S.rank]+".");
   if(missed.length) lines.push(missed.length+" deadline(s) missed ("+DEADLINE_PENALTY+" REP each).");
   lines.push("The firm forgets fast: -1 REP overnight.");
+  // Friday: the partners review your week (influence gained, reputation kept, deadlines missed)
+  const friday=S.day%WEEK_LEN===0;
+  if(friday){
+    const score=(S.inf-S.weekStart.inf)+Math.round((S.rep-S.weekStart.rep)/2)-S.weekMissed*3;
+    lines.push("— PARTNER REVIEW, WEEK "+(S.day/WEEK_LEN)+" —");
+    if(score>=REVIEW_GOOD){
+      apply({rep:4,inf:4},true);
+      lines.push(rnd([
+        "Hardwick, without looking up: 'Whoever you are — keep billing like that.' (+4 REP, +4 INFL)",
+        "Your name comes up in the partners' meeting. Nobody laughs. Progress. (+4 REP, +4 INFL)",
+        "A bottle appears on your desk. No card. Partners don't do cards. (+4 REP, +4 INFL)"]));
+    } else if(score<=REVIEW_BAD){
+      apply({rep:-4},true);
+      lines.push(rnd([
+        "Hardwick's door was open. It closed as you walked past. (-4 REP)",
+        "'We measure weeks here,' says the memo. Yours, apparently, was measured. (-4 REP)",
+        "The partners' meeting mentions 'dead weight'. Several people glance at your desk. (-4 REP)"]));
+    } else {
+      lines.push(rnd([
+        "The review is a shrug. Survival is a kind of praise here.",
+        "'Adequate.' In this firm, that's almost a compliment. Almost.",
+        "No praise, no warning. The most Parson Henderson sentence possible."]));
+    }
+    lines.push("The weekend happens to other people. You reread depositions.");
+    S.weekStart={inf:S.inf, rep:S.rep}; S.weekMissed=0;
+  }
+  if(S.over) return; // the review itself can end you (REP floor)
   // debt
   if(S.debtDue!==null && S.day+1>=S.debtDue){
     if(S.money>=2000){S.money-=2000; S.debtDue+=3; lines.push("Loan payment made: -$2000. Next due day "+S.debtDue+".");}
@@ -180,7 +209,7 @@ export function endDay(){
     if(!S||S.over) return;
     S.leaving=false;
     SFX.bell();
-    showSummary("END OF DAY "+S.day, lines, "START DAY "+(S.day+1), ()=>{
+    showSummary("END OF DAY "+S.day+(friday?" — FRIDAY":""), lines, "START DAY "+(S.day+1), ()=>{
       S.day++; S.secs=DAY_SECONDS;
       apply({rep:-1},true); // the firm forgets fast
       if(S.over) return;

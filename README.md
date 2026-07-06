@@ -24,6 +24,16 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v8 — Friday partner review *(2026-07-06)*
+- **Every fifth day is FRIDAY.** The topbar counts down to it (`FRI IN 2`), and the end-of-day
+  summary becomes a **partner review** of your week: influence gained, reputation kept, and
+  deadlines missed all feed a weekly score.
+- A strong week earns a nod from the partners (**+4 REP, +4 INFL**); a weak one gets measured
+  out loud (**−4 REP**); an adequate one gets the driest sentence Parson Henderson can produce.
+  Three flavor variants per verdict.
+- The weekly baseline resets every Friday, so each week is judged on its own. Missing deadlines
+  now hurts twice: once when it happens, and again in the review math (−3 score per miss).
+
 ### v7 — Fuzzy odds & difficulty modes *(2026-07-06)*
 - Success odds are no longer an exact number. Pick a difficulty on the start screen:
   - **EASY** — tight range (e.g. `~75–85%`)

@@ -78,7 +78,10 @@
 **v0.7 eklendi (2026-07-06, kullanıcı isteği):**
 - **Bulanık şans gösterimi + zorluk modları:** kesin % kalktı. Start ekranında seçilir (`S.difficulty`): easy ±5 / medium ±9 / hard ±14 aralık; realistic = hiç sayı yok. Aralık, run seed'inden (`S.seed`) türetilen hash ile MERKEZDEN KAYDIRILIR (ortası gerçek değeri ele vermesin) ve stabildir (render'da titremez). Dava seçenekleri, kriz seçenekleri ve delege %'leri aynı sistemi kullanır (`displayPct`/`displayChance`). ZAR MATEMATİĞİ DEĞİŞMEZ — `chance()` aynen; zorluk sadece BİLGİYİ bulanıklaştırır. Safe seçenekler realistic dışında "100%" yazar. Mod, StatsPanel RUN satırında görünür ve save'e girer.
 
-**En son çalışılan konu (2026-07-06):** v0.7 (zorluk modları) tarayıcıda test edildi. Sırada: Steam'e yaklaşınca electron-builder + steamworks.js; kalan özellik listesi §10.
+**v0.8 eklendi (2026-07-06, kullanıcı onayıyla):**
+- **Haftalık ritim (cuma değerlendirmesi):** her `WEEK_LEN`(5). gün cuma; topbar "FRI IN n" sayar. Gün sonu özeti PARTNER REVIEW içerir: skor = (INF kazancı) + (REP değişimi/2) − (kaçan deadline×3), hafta başı baseline'a göre (`S.weekStart`, `S.weekMissed`). Skor ≥ `REVIEW_GOOD`(10) → +4 REP +4 INFL; ≤ `REVIEW_BAD`(0) → −4 REP; arası kuru nötr cümle. Her kararın 3 flavor varyantı var. Cuma gecesi baseline sıfırlanır. Review REP'i tabana düşürürse gameOver sıralaması korunur.
+
+**En son çalışılan konu (2026-07-06):** v0.8 (cuma değerlendirmesi) tarayıcıda üç dalıyla test edildi. Sırada: Steam'e yaklaşınca electron-builder + steamworks.js; §10'da kalan: ses/müzik, multiplayer.
 
 ---
 
@@ -264,7 +267,7 @@ if(S.scenario==="legacy"){
 - **Progression:** Influence→rütbe→daha iyi ofis (görsel) + daha zor davalar (rank başı −2 şans) + daha büyük kriz maruziyeti.
 - **Physics:** YOK (bilinçli).
 - **Controls:** Sadece fare/tık. Klavye kısayolu yok (aday geliştirme: 1-4 tuşlarıyla seçenek seçimi).
-- **Ekonomi/zorluk sabitleri:** `DAY_SECONDS=75`, `REP_FIRED=20`, `DEADLINE_PENALTY=-9`, `RANK_REQ=[30,55,80,95]`, kriz olasılığı `.6`, ikinci günlük dava olasılığı `.6`, gece REP çürümesi `-1`, Debtor taksiti `$2000/3 gün`, `STAKE_REWARD=[1,1.15,1.3,1.45,1.6]`, `STAKE_PENALTY=[1,1.3,1.6,1.9,2.2]`, `PRICES={suit:1200(×1.5 artar), detective:900, marv:600}`.
+- **Ekonomi/zorluk sabitleri:** `DAY_SECONDS=75`, `REP_FIRED=20`, `DEADLINE_PENALTY=-9`, `RANK_REQ=[30,55,80,95]`, kriz olasılığı `.6`, ikinci günlük dava olasılığı `.6`, gece REP çürümesi `-1`, Debtor taksiti `$2000/3 gün`, `STAKE_REWARD=[1,1.15,1.3,1.45,1.6]`, `STAKE_PENALTY=[1,1.3,1.6,1.9,2.2]`, `PRICES={suit:1200(×1.5 artar), detective:900, marv:600}`, `WEEK_LEN=5`, `REVIEW_GOOD=10`, `REVIEW_BAD=0`.
 - **Inventory:** Hâlâ yok ama para artık harcanabiliyor (EXPENSES: suit/Marv; dosya başına dedektif).
 
 ---
@@ -285,7 +288,7 @@ if(S.scenario==="legacy"){
 3. ~~Çok aşamalı davalar~~ — v0.6'da EKLENDİ (`next` zincirleri, temyiz/yaptırım aşamaları).
 4. ~~Save/load + run istatistikleri~~ — v0.5'te EKLENDİ.
 5. ~~Para harcama yerleri~~ — v0.5'te EKLENDİ (suit/dedektif/Marv).
-6. Haftalık ritim (cuma değerlendirmesi).
+6. ~~Haftalık ritim~~ — v0.8'de EKLENDİ (cuma partner review'ı).
 7. Ses/müzik genişletme.
 8. Multiplayer (en son; server ister, GDD §11).
 

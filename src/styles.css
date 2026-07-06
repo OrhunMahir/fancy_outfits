@@ -76,6 +76,8 @@ h2{font-size:10px; color:var(--gold); margin-bottom:10px; border-bottom:2px soli
 }
 @keyframes pop{0%{opacity:0; scale:.3;} 30%{opacity:1; scale:1.1;} 80%{opacity:1;} 100%{opacity:0; scale:1;}}
 .opts .btn{margin-bottom:8px;}
+.diffrow{display:flex; gap:6px; flex-wrap:wrap; margin:6px 0 8px;}
+.diffrow .btn.on{outline:3px solid var(--gold);}
 .subtitle{font-size:8px; color:var(--grey); margin:8px 0 14px;}
 .kv{font-size:8px; color:var(--grey); margin-bottom:6px;}
 /* NPC panel + delegation */

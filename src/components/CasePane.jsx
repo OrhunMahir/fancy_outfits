@@ -1,6 +1,6 @@
 // Middle panel: the desk (tip text) or the open case file with its options.
 import { useGame } from "../game/useGame.js";
-import { chance, choose, deferCase, delegateCase, hireDetective } from "../game/engine.js";
+import { displayChance, displayPct, choose, deferCase, delegateCase, hireDetective } from "../game/engine.js";
 import { delegationChance } from "../game/npcs.js";
 import { PRICES, STAKE_REWARD, STAKE_PENALTY } from "../game/constants.js";
 
@@ -32,15 +32,17 @@ export default function CasePane(){
         </div>
       </div>
       <div className="opts">
-        {c.opts.map((o,i)=>(
-          <button key={i} className={"btn"+(o.safe?" safe":(o.style==="aggressive"?" bold":""))}
-                  onClick={()=>choose(c,o)}>
-            {o.text}
-            <span className="chance">
-              {chance(o,c)}% success{o.delay?` · reply in ${o.delay}d`:""}{o.style?` · ${o.style}`:""}
-            </span>
-          </button>
-        ))}
+        {c.opts.map((o,i)=>{
+          const pct=displayChance(o,c);
+          const label=[pct&&pct+" success", o.delay&&`reply in ${o.delay}d`, o.style].filter(Boolean).join(" · ");
+          return (
+            <button key={i} className={"btn"+(o.safe?" safe":(o.style==="aggressive"?" bold":""))}
+                    onClick={()=>choose(c,o)}>
+              {o.text}
+              {label && <span className="chance">{label}</span>}
+            </button>
+          );
+        })}
         {!c.dossier && (
           <button className="btn small" disabled={S.money<PRICES.detective} onClick={()=>hireDetective(c)}>
             HIRE DETECTIVE · ${PRICES.detective} (+12% on this file's risky plays)
@@ -49,11 +51,14 @@ export default function CasePane(){
         {S.rank>=1 && !c.judge && (
           <div className="delg">
             <div className="kv">DELEGATE — they do the work, you own the fallout. Report tomorrow:</div>
-            {S.npcs.map(n=>(
-              <button key={n.id} className="btn small" onClick={()=>delegateCase(c,n.id)}>
-                {n.name.split(" ")[0].toUpperCase()} · {n.known?n.trait+" · "+delegationChance(n)+"%":"??%"}
-              </button>
-            ))}
+            {S.npcs.map(n=>{
+              const pct=n.known?displayPct(delegationChance(n),"delg|"+n.id):null;
+              return (
+                <button key={n.id} className="btn small" onClick={()=>delegateCase(c,n.id)}>
+                  {n.name.split(" ")[0].toUpperCase()} · {n.known?n.trait+(pct?" · "+pct:""):"??"}
+                </button>
+              );
+            })}
           </div>
         )}
         <button className="btn small" onClick={deferCase}>DEFER (back to inbox)</button>

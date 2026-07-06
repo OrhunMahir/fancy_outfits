@@ -75,7 +75,10 @@
 - **Üretici zinciri:** casegen şablon 3 (geç dosyalama) %50 ihtimalle temyiz aşaması taşır.
 - **Bug #4 FIX:** `RANK_REQ[3]` 100→95 (INF tavanı 100; tek kötü gün finali kilitlemesin).
 
-**En son çalışılan konu (2026-07-06):** v0.6 (çok aşamalı davalar) tarayıcıda uçtan uca test edildi. Sırada: Steam'e yaklaşınca electron-builder + steamworks.js; kalan özellik listesi §10.
+**v0.7 eklendi (2026-07-06, kullanıcı isteği):**
+- **Bulanık şans gösterimi + zorluk modları:** kesin % kalktı. Start ekranında seçilir (`S.difficulty`): easy ±5 / medium ±9 / hard ±14 aralık; realistic = hiç sayı yok. Aralık, run seed'inden (`S.seed`) türetilen hash ile MERKEZDEN KAYDIRILIR (ortası gerçek değeri ele vermesin) ve stabildir (render'da titremez). Dava seçenekleri, kriz seçenekleri ve delege %'leri aynı sistemi kullanır (`displayPct`/`displayChance`). ZAR MATEMATİĞİ DEĞİŞMEZ — `chance()` aynen; zorluk sadece BİLGİYİ bulanıklaştırır. Safe seçenekler realistic dışında "100%" yazar. Mod, StatsPanel RUN satırında görünür ve save'e girer.
+
+**En son çalışılan konu (2026-07-06):** v0.7 (zorluk modları) tarayıcıda test edildi. Sırada: Steam'e yaklaşınca electron-builder + steamworks.js; kalan özellik listesi §10.
 
 ---
 
@@ -310,6 +313,7 @@ if(S.scenario==="legacy"){
 | NPC traitleri gizli başlar, her run'da 4 traitin her birinden bir tane | Keşif oynanışı + her run'da "Traitor kim?" gerilimi | Tuning serbest; gizlilik mekaniği korunmalı |
 | PAUSE ekranı masayı tamamen kapatır | Açık dosyayı bedava okumak timer gerilimini öldürürdü | Koru |
 | Karakter yürüyüş animasyonu CSS keyframe (SVG `<g>` üzerinde), JS animasyon kütüphanesi yok | Bağımlılık yasağı + basitlik | Koru |
+| Zorluk = bilgi bulanıklığı, zar matematiği DEĞİL (v0.7) | Kullanıcı isteği; aralık merkezden kaymalı + stabil olmalı ki ortası/titremesi gerçek değeri sızdırmasın | Aralık genişlikleri (FUZZ) tuning serbest; "zar değişmez" ilkesi korunur |
 
 ---
 

@@ -1,5 +1,5 @@
 // Crisis event overlay — blocks the day until the player picks a side.
-import { chance, resolveCrisis } from "../game/engine.js";
+import { displayChance, resolveCrisis } from "../game/engine.js";
 
 export default function EventOverlay({ev}){
   return (
@@ -16,7 +16,7 @@ export default function EventOverlay({ev}){
           {ev.opts.map((o,i)=>(
             <button key={i} className={"btn"+(o.safe?" safe":(o.style==="aggressive"?" bold":""))}
                     onClick={()=>resolveCrisis(o)}>
-              {o.text}<span className="chance">{chance(o,ev)}% success</span>
+              {o.text}{displayChance(o,ev)&&<span className="chance">{displayChance(o,ev)} success</span>}
             </button>
           ))}
         </div>

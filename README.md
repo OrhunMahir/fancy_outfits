@@ -24,6 +24,19 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v7 — Fuzzy odds & difficulty modes *(2026-07-06)*
+- Success odds are no longer an exact number. Pick a difficulty on the start screen:
+  - **EASY** — tight range (e.g. `~75–85%`)
+  - **MEDIUM** — wider range
+  - **HARD** — the range is more of a rumor (`~35–65%`)
+  - **REALISTIC** — no numbers anywhere. Read the file. Feel the odds.
+- The displayed range is deliberately **off-center** (shifted by a hidden per-run seed), so the
+  midpoint doesn't leak the true value — and it's stable, so re-opening a file won't reveal
+  anything by flickering. Applies to case options, crisis choices and delegation odds alike.
+- **The dice never change** — difficulty blurs your information, not the math. Safe (green)
+  options still read `100%` outside REALISTIC. Your chosen mode is shown in the side panel and
+  saved with the run.
+
 ### v6 — Multi-stage cases *(2026-07-06)*
 - **Cases can now chain.** Any option outcome — win *or* loss — can spawn a follow-up filing
   that lands in your inbox days later, marked with a gold **FOLLOW-UP FILING** tag. Follow-ups

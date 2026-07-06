@@ -22,7 +22,7 @@ export default function StatsPanel(){
         })}
       </div>
       <div className="kv">MONEY: ${S.money}{S.debtDue!==null?"  ·  loan due day "+S.debtDue:""}</div>
-      <div className="kv">RUN: {SCENARIOS[S.scenario].label}</div>
+      <div className="kv">RUN: {SCENARIOS[S.scenario].label} · MODE: {(S.difficulty||"easy").toUpperCase()}</div>
       <h2 style={{marginTop:10}}>EXPENSES</h2>
       <button className="btn small spend" disabled={S.money<S.suitCost} onClick={buySuit}>
         TAILORED SUIT · ${S.suitCost}<span className="chance">+8 REP. Dress for the rank you want.</span>

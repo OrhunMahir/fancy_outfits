@@ -12,9 +12,11 @@ export function subscribe(fn){ listeners.add(fn); return ()=>listeners.delete(fn
 export const getVersion=()=>version;
 export function notify(){ version++; listeners.forEach(fn=>fn()); }
 
-export function newState(scenario){
+export function newState(scenario,difficulty){
   return {
     scenario, day:1, secs:DAY_SECONDS, rank:0,
+    difficulty:difficulty||"easy", // easy | medium | hard | realistic — blurs INFO only, never the dice
+    seed:Math.floor(Math.random()*1e9), // per-run seed so odds ranges are stable but not centered
     rep:50, bold:40, inf:10,
     money: scenario==="debtor" ? 3000 : 1500,
     debtDue: scenario==="debtor" ? 3 : null,

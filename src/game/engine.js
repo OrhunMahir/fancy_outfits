@@ -4,7 +4,7 @@
 import { S, setS, notify, newState } from "./state.js";
 import { RANKS, RANK_REQ, DAY_SECONDS, REP_FIRED, DEADLINE_PENALTY,
          STAKE_REWARD, STAKE_PENALTY, PRICES, SAVE_KEY, STATS_KEY } from "./constants.js";
-import { clamp, rnd } from "./utils.js";
+import { clamp, rnd, hash } from "./utils.js";
 import { SFX, toggleMute } from "./sound.js";
 import { buildPool, JUDGES, crises, SCENARIOS } from "./content.js";
 import { genCase } from "./casegen.js";
@@ -63,9 +63,26 @@ export function chance(o,c){
   return Math.round(clamp(p,5,95));
 }
 
+/* What the PLAYER sees. The dice always use the exact chance(); difficulty
+   only blurs the display: easy = tight range, medium/hard = wider, realistic =
+   no numbers at all. The range is shifted off-center by a per-run hash so the
+   midpoint doesn't leak the true value, and it's stable (no flicker). */
+const FUZZ={easy:5, medium:9, hard:14};
+export function displayPct(p,key){
+  if(S.difficulty==="realistic") return null;
+  if(p>=100) return "100%";
+  const half=FUZZ[S.difficulty]||FUZZ.easy;
+  const off=hash(S.seed+"|"+key)%(half+1)-(half>>1);
+  const r5=v=>Math.round(v/5)*5;
+  let lo=clamp(r5(p+off-half),0,90), hi=clamp(r5(p+off+half),10,99);
+  if(hi<=lo) hi=lo+5;
+  return "~"+lo+"–"+hi+"%";
+}
+export const displayChance=(o,c)=>displayPct(chance(o,c),((c&&c.id)||"ev")+"|"+o.text);
+
 /* ---------- flow ---------- */
-export function startGame(sc){
-  setS(newState(sc));
+export function startGame(sc,diff){
+  setS(newState(sc,diff));
   S.pool=buildPool();
   S.npcs=buildNpcs();
   SFX.bell();

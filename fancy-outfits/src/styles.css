@@ -34,6 +34,8 @@ body::after{ /* scanlines */
 }
 #topbar .logo{color:var(--gold);}
 #topbar .clockbox{margin-left:auto; display:flex; gap:14px; align-items:center;}
+#topbar .timebar{width:90px; height:10px; background:var(--dark); border:2px solid var(--panel2);}
+#topbar .timebar .fill{height:100%; transition:width 1s linear;}
 #main{display:flex; gap:12px; padding:12px; align-items:flex-start; flex-wrap:wrap;}
 .panel{background:var(--panel); border:4px solid var(--dark); box-shadow:0 0 0 2px var(--panel2); padding:12px;}
 #inbox{flex:1 1 220px; max-width:300px; min-height:420px;}

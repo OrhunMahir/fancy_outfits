@@ -236,7 +236,7 @@ if(S.scenario==="legacy"){
 
 - **Asset dosyası SIFIR.** Font CDN'den, sesler sentez, grafikler CSS+SVG.
 - **Grafik tarzı:** Piksel/retro. Font `Press Start 2P` (8-10px). Palet `:root`'ta: lacivert zeminler (`--bg #1a1c2c`, `--panel #29366f`), altın vurgu (`--gold #ffcd75`), yeşil=güvenli (`--green`), kırmızı=risk (`--red`), dava kağıdı krem (`--paper #f2e9d8`). CRT hissi için `body::after` scanline overlay. `image-rendering:pixelated` global.
-- **UI:** 3 sütun — INBOX (sol), CASE FILE/DESK (orta, kağıt görünümü), ASSOCIATE FILE (sağ: stat barları + log). Üstte topbar + ofis sahnesi bandı. Buton renk kodu: yeşil=safe, mavi=nötr, kırmızı=aggressive/blöf. Her butonun altında küçük altın satırla % ve etiketler.
+- **UI:** 3 sütun — INBOX (sol), CASE FILE/DESK (orta, kağıt görünümü), ASSOCIATE FILE (sağ: stat barları + log). Üstte topbar + ofis sahnesi bandı. Topbar'da saatin yanında süre barı: gün ilerledikçe kısalır (altın → ≤30sn kehribar → ≤15sn kırmızı, saat rakamı da kırmızıya döner). Buton renk kodu: yeşil=safe, mavi=nötr, kırmızı=aggressive/blöf. Her butonun altında küçük altın satırla % ve etiketler.
 - **Animasyon:** Minimal — `.flash` (HENDERED!/PROMOTED! pop keyframe), stat barlarında `width .3s transition`. Başka animasyon sistemi yok, gerekmedikçe ekleme.
 - **Ses:** `SFX.{click,open,win,lose,promo,fired,bell,tick,send,crisis}`. Topbar'dan mute edilebilir. Müzik yok (aday özellik: lo-fi ambiyans — prosedürel olacaksa Web Audio, dosya eklemek yasak kuralına takılır, kullanıcıya sorulmalı).
 

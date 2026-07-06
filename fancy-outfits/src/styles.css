@@ -23,6 +23,9 @@ body::after{ /* scanlines */
 .btn.safe{background:#3a7d5a; box-shadow:0 4px 0 #1e4a33;} .btn.safe:hover{background:#48996f;}
 .btn.bold{background:#a03a4e; box-shadow:0 4px 0 #5e1f2c;} .btn.bold:hover{background:#c04a61;}
 .btn.small{width:auto; padding:6px 10px; font-size:8px;}
+.btn:disabled{opacity:.35; cursor:default;}
+.btn:disabled:hover{background:var(--panel2);} .btn:disabled:active{transform:none; box-shadow:0 4px 0 #1b2a6b;}
+.btn.spend{display:block; width:100%; margin-bottom:8px;}
 .chance{color:var(--gold); font-size:8px; display:block; margin-top:4px;}
 /* layout */
 #topbar{

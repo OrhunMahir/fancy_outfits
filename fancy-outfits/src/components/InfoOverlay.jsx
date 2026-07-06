@@ -11,7 +11,9 @@ export default function InfoOverlay(){
           Every option shows a success %. GREEN options never fail but drain your BOLDNESS. RED options are bluffs — their odds scale with Boldness, and failing them burns REPUTATION.<br/><br/>
           REPUTATION below 20: you're fired. INFLUENCE climbs the career ladder: Junior Associate to NAME PARTNER (that's the win). Low reputation also means less respect — risky plays get harder and your office gets sadder.<br/><br/>
           Each day has a timer. Cases have deadlines — miss one and it costs you. Some moves get a reply days later. Court cases have judges with tempers: check their stats before you perform.<br/><br/>
-          Reputation decays a little every day. This firm forgets fast. Stay visible.
+          Reputation decays a little every day. This firm forgets fast. Stay visible.<br/><br/>
+          Money is for spending: a TAILORED SUIT buys respect, MARV knows who your colleagues really are, and a DETECTIVE can tilt a single case file. Climbing the ladder raises the STAKES — wins pay more, failures cost much more.<br/><br/>
+          Your run saves itself. Close the game; the inbox will be waiting.
         </div>
         <div className="opts"><button className="btn" onClick={closeInfo}>BACK TO BILLING</button></div>
       </div>

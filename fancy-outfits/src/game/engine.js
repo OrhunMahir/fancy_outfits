@@ -2,7 +2,8 @@
 // Rules (CLAUDE.md §5): stats change ONLY through apply(); after mutating S,
 // call notify() so React re-renders. Pause is derived — no S.paused flag.
 import { S, setS, notify, newState } from "./state.js";
-import { RANKS, RANK_REQ, DAY_SECONDS, REP_FIRED, DEADLINE_PENALTY } from "./constants.js";
+import { RANKS, RANK_REQ, DAY_SECONDS, REP_FIRED, DEADLINE_PENALTY,
+         STAKE_REWARD, STAKE_PENALTY, PRICES, SAVE_KEY, STATS_KEY } from "./constants.js";
 import { clamp, rnd } from "./utils.js";
 import { SFX, toggleMute } from "./sound.js";
 import { buildPool, JUDGES, crises, SCENARIOS } from "./content.js";
@@ -53,6 +54,7 @@ export function chance(o,c){
     if(o.style==="technical")  p+=j.book/5;
   }
   if(c&&c.crisisMod&&!o.safe) p+=c.crisisMod.v; // a Traitor leaked / a Brave ally shields (GDD §5-6)
+  if(c&&c.dossier&&!o.safe) p+=12;              // detective's dossier on this file
   // respect: a low-rep associate gets no benefit of the doubt
   if(!o.safe){
     if(S.rep<30) p-=12; else if(S.rep>70) p+=5;
@@ -70,7 +72,7 @@ export function startGame(sc){
   log("Welcome to Parson Henderson, "+RANKS[0]+".","sys");
   if(sc==="debtor") log("Loan payment: $2000 due day 3.","sys");
   drawCases(2);
-  startClock(); sitDown(); notify();
+  startClock(); sitDown(); saveGame(); notify();
 }
 
 /* hand-written pool first; when it runs dry (or for late-run variety) the
@@ -83,9 +85,21 @@ function drawCases(n){
     const c=useGen?genCase():rnd(avail);
     if(!useGen) c.taken=true;
     if(useGen&&c.tier===2&&S.rank<1){ i--; continue; } // no court cases before Senior Associate
-    const inst={...c,dueDay:S.day+c.deadline, judge:c.judge?rnd(JUDGES):null};
+    const inst=scaleStakes({...c, opts:JSON.parse(JSON.stringify(c.opts)),
+      dueDay:S.day+c.deadline, judge:c.judge?rnd(JUDGES):null});
     S.inbox.push(inst);
   }
+}
+
+/* higher rank = higher stakes: rewards scale up, failures scale up FASTER.
+   Applied to a deep copy at draw time (promotion doesn't retro-scale open files). */
+function scaleStakes(inst){
+  const r=S.rank; inst.stakes=r;
+  if(!r) return inst;
+  const mul=fx=>{ if(!fx) return; for(const k of ["rep","bold","inf","money"])
+    if(fx[k]) fx[k]=Math.round(fx[k]*(fx[k]>0?STAKE_REWARD[r]:STAKE_PENALTY[r])); };
+  inst.opts.forEach(o=>{ mul(o.ok&&o.ok.fx); mul(o.fail&&o.fail.fx); });
+  return inst;
 }
 
 function startClock(){
@@ -202,7 +216,7 @@ export function choose(c,o){
     c.pending={day:S.day+o.delay,win,o};
     SFX.send();
     log("Sent: '"+o.text+"' — response in "+o.delay+" day(s).","sys");
-    S.openCase=null; notify(); return;
+    S.openCase=null; saveGame(); notify(); return;
   }
   S.inbox=S.inbox.filter(x=>x!==c); S.openCase=null;
   if(Math.random()*100<p){
@@ -213,7 +227,7 @@ export function choose(c,o){
     SFX.lose();
     log("["+c.title+"] "+o.fail.txt,"bad"); apply(o.fail.fx);
   }
-  checkPromotion(); notify();
+  checkPromotion(); saveGame(); notify();
 }
 
 /* hand a case to a colleague (unlocks at Senior Associate; court cases excluded —
@@ -226,7 +240,7 @@ export function delegateCase(c,npcId){
   c.delegated={npc:n.id, day:S.day+1, win, silent:n.trait==="Lazy"&&!win&&Math.random()<.65};
   S.openCase=null;
   log("Handed '"+c.title+"' to "+n.name+". Report tomorrow.","sys");
-  notify();
+  saveGame(); notify();
 }
 
 /* resolve a crisis option (event overlay button) */
@@ -236,7 +250,7 @@ export function resolveCrisis(o){
   S.event=null;
   if(Math.random()*100<p){ SFX.win(); log("[CRISIS] "+o.ok.txt,"good"); apply(o.ok.fx); if(((o.ok.fx&&o.ok.fx.inf)||0)>=10) flash("HENDERED!"); }
   else { SFX.lose(); log("[CRISIS] "+o.fail.txt,"bad"); apply(o.fail.fx); }
-  checkPromotion(); notify();
+  checkPromotion(); saveGame(); notify();
 }
 
 function checkPromotion(){
@@ -258,19 +272,88 @@ function checkEndings(){
 
 function gameOver(title,txt){
   S.over=true; clearInterval(timerId); SFX.fired();
+  clearSave(); recordRun(false,title);
   showSummary("GAME OVER: "+title,[txt,"","Survived "+S.day+" day(s) as "+RANKS[S.rank]+"."],"NEW GAME",()=>location.reload());
 }
 function gameWin(){
   S.over=true; clearInterval(timerId); SFX.promo();
+  clearSave(); recordRun(true,"NAME PARTNER");
   showSummary("YOU MADE NAME PARTNER",[
     "The sign painters are already on the wall: PARSON HENDERSON & YOU.",
     "Day "+S.day+". Reputation "+S.rep+". Boldness "+S.bold+".","",
     "You've been HENDERED. Permanently."],"NEW GAME",()=>location.reload());
 }
 
+/* ---------- money sinks ---------- */
+export function buySuit(){
+  if(S.money<S.suitCost) return;
+  SFX.send();
+  const cost=S.suitCost;
+  S.suitCost=Math.round(S.suitCost*1.5/100)*100; // the next one is fancier
+  log("New tailored suit. The floor pretends not to stare. It stares.","sys");
+  apply({money:-cost,rep:8});
+  saveGame();
+}
+export function bribeMarv(){
+  if(S.money<PRICES.marv) return;
+  SFX.send();
+  const unknown=S.npcs.filter(n=>!n.known);
+  if(unknown.length){
+    const n=rnd(unknown); n.known=true; relNpc(n,5);
+    log("Marv (copy room): '"+n.name+"? "+n.trait+". You didn't hear it from me.'","sys");
+  } else {
+    S.npcs.forEach(n=>relNpc(n,4));
+    log("Marv has nothing new — so he says nice things about you on every floor instead.","sys");
+  }
+  apply({money:-PRICES.marv});
+  saveGame();
+}
+export function hireDetective(c){
+  if(!c||c.dossier||c.msg||S.money<PRICES.detective) return;
+  SFX.send();
+  c.dossier=true;
+  log("Detective's dossier attached to '"+c.title+"': +12% on every risky play.","sys");
+  apply({money:-PRICES.detective});
+  saveGame();
+}
+
+/* ---------- save/load (localStorage) + lifetime firm record ---------- */
+export function saveGame(){
+  if(!S||S.over) return;
+  try{
+    // strip transient UI fields; everything else is plain JSON data
+    const {infoOpen,event,summary,flash,userPaused,leaving,charAnim,openCase,...data}=S;
+    localStorage.setItem(SAVE_KEY,JSON.stringify(data));
+  }catch(e){}
+}
+export function peekSave(){
+  try{ const d=JSON.parse(localStorage.getItem(SAVE_KEY)); return d&&!d.over?d:null; }catch(e){ return null; }
+}
+export function loadGame(){
+  const d=peekSave(); if(!d) return;
+  setS(Object.assign(newState(d.scenario),d,
+    {infoOpen:false,event:null,summary:null,flash:null,userPaused:false,leaving:false,charAnim:"arriving",openCase:null}));
+  SFX.bell();
+  log("Run restored. The firm did not notice you were gone.","sys");
+  startClock(); sitDown(); notify();
+}
+function clearSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
+export function getStats(){
+  try{ return JSON.parse(localStorage.getItem(STATS_KEY)); }catch(e){ return null; }
+}
+function recordRun(won,cause){
+  try{
+    const st=getStats()||{runs:0,wins:0,bestDay:0,bestRank:0,causes:{}};
+    st.runs++; if(won) st.wins++;
+    st.bestDay=Math.max(st.bestDay,S.day); st.bestRank=Math.max(st.bestRank,S.rank);
+    if(!won) st.causes[cause]=(st.causes[cause]||0)+1;
+    localStorage.setItem(STATS_KEY,JSON.stringify(st));
+  }catch(e){}
+}
+
 /* ---------- UI actions (overlays, inbox, topbar) ---------- */
 function showSummary(title,lines,btnTxt,cb){ S.summary={title,lines,btnTxt,cb}; notify(); }
-export function dismissSummary(){ SFX.click(); const cb=S.summary&&S.summary.cb; S.summary=null; if(cb)cb(); notify(); }
+export function dismissSummary(){ SFX.click(); const cb=S.summary&&S.summary.cb; S.summary=null; if(cb)cb(); saveGame(); notify(); }
 export function openCaseFile(c){ SFX.open(); S.openCase=c; notify(); }
 export function deferCase(){ SFX.click(); S.openCase=null; notify(); }
 export function openInfo(){ SFX.click(); S.infoOpen=true; notify(); }

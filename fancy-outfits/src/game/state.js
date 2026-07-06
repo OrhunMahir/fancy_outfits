@@ -1,7 +1,7 @@
 // Single mutable game state `S` + a minimal subscription store.
 // Engine functions mutate S directly, then call notify(); React components
 // subscribe via useGame() and re-render. No framework state library.
-import { DAY_SECONDS } from "./constants.js";
+import { DAY_SECONDS, PRICES } from "./constants.js";
 
 export let S=null; // null until a scenario is picked on the start screen
 export function setS(v){ S=v; }
@@ -18,6 +18,7 @@ export function newState(scenario){
     rep:50, bold:40, inf:10,
     money: scenario==="debtor" ? 3000 : 1500,
     debtDue: scenario==="debtor" ? 3 : null,
+    suitCost:PRICES.suit, // each suit is fancier and pricier than the last
     inbox:[], pool:[], usedCrises:[], openCase:null, npcs:[],
     dailyLog:[], logEntries:[], over:false,
     // UI state (pause is DERIVED from these — see isPaused() in engine.js)

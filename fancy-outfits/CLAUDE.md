@@ -63,7 +63,13 @@
 - **PAUSE butonu:** ekranı KAPATAN overlay — bilinçli: açık dosyayı bedava okuma süresi vermesin (çekirdek gerilim korunur).
 - **Ofis sahnesi v2 + karakter:** sol kapı, duvar saati, dosya dolabı, kitaplık, halı, çöp kutusu, jaluzi, masada kahve+dosyalar; masada OTURAN oyuncu karakteri (takım elbise rütbeyle güzelleşir — oyunun adı bu), gün bitince kalkıp kapıdan çıkar (`S.charAnim`, özet yürüyüşten sonra açılır), yeni günde içeri yürüyüp oturur.
 
-**En son çalışılan konu (2026-07-05):** v0.4 (yukarıdaki paket) tarayıcıda uçtan uca test edildi. Sırada: Steam'e yaklaşınca electron-builder + steamworks.js; kalan özellik listesi §10.
+**v0.5 eklendi (2026-07-05, kullanıcı onayıyla):**
+- **Save/load:** run her önemli aksiyonda `localStorage`'a otomatik kaydedilir (`SAVE_KEY`, transient UI alanları soyulur — `event`'te fonksiyon var, serialize edilmez). Start ekranında CONTINUE butonu (gün/rütbe/senaryo gösterir). Run bitince kayıt silinir.
+- **Kalıcı istatistikler (FIRM RECORD):** `STATS_KEY` — toplam run, kazanma, en uzun kariyer, en yüksek rütbe, kaybediş sebepleri. Start ekranının altında görünür.
+- **Para harcama:** TAILORED SUIT ($1200, +8 REP, her alışta fiyat ×1.5 — `S.suitCost`), BRIBE MARV ($600, bilinmeyen bir NPC trait'ini açıklar + rel +5; hepsi biliniyorsa herkese rel +4), HIRE DETECTIVE ($900, açık dosyaya `dossier` — o dosyanın riskli seçeneklerine +12%). İlk ikisi StatsPanel "EXPENSES", dedektif CasePane'de.
+- **Rütbeyle büyüyen riskler (kullanıcı isteği):** dava çekilirken fx'ler rütbeye göre ölçeklenir (`scaleStakes`, DEEP copy üzerinde): ödüller ×`STAKE_REWARD[rank]` (1→1.6), cezalar ×`STAKE_PENALTY[rank]` (1→2.2) — cezalar daha hızlı büyür. Dosya üzerinde "STAKES ×a win / ×b loss" satırı görünür. Terfi, açık dosyaları geriye dönük ölçeklemez.
+
+**En son çalışılan konu (2026-07-05):** v0.5 (save/load + istatistik + para harcama + stake ölçeği) tarayıcıda uçtan uca test edildi. Sırada: Steam'e yaklaşınca electron-builder + steamworks.js; kalan özellik listesi §10.
 
 ---
 
@@ -242,11 +248,11 @@ if(S.scenario==="legacy"){
 - **"Enemy" karşılığı:** Karşı taraf ayrı bir AI değil — zorluk `chance()` formülü + hakim statları + kriz eventleri üzerinden. Rakip firma Snidely Fitch flavor + bazı davaların konusu.
 - **Level karşılığı:** Rütbeler. `checkPromotion()`: `inf >= RANK_REQ[rank]` oldukça yüksel (while ile zincirleme terfi mümkün). Rütbe 4 = win. Tier-2 (mahkeme) davaları rank≥1'de havuza girer (`drawCases` filtresi).
 - **Combat karşılığı:** Dava çözümü — oku, seç, zar. Zar: `Math.random()*100 < chance(o,c)`.
-- **Inventory:** YOK. Para tek kaynak (Debtor taksidi + Fraud'da $1500 rüşvet seçeneği harcatır).
 - **Progression:** Influence→rütbe→daha iyi ofis (görsel) + daha zor davalar (rank başı −2 şans) + daha büyük kriz maruziyeti.
 - **Physics:** YOK (bilinçli).
 - **Controls:** Sadece fare/tık. Klavye kısayolu yok (aday geliştirme: 1-4 tuşlarıyla seçenek seçimi).
-- **Ekonomi/zorluk sabitleri:** `DAY_SECONDS=75`, `REP_FIRED=20`, `DEADLINE_PENALTY=-9`, `RANK_REQ=[30,55,80,100]`, kriz olasılığı `.6`, ikinci günlük dava olasılığı `.6`, gece REP çürümesi `-1`, Debtor taksiti `$2000/3 gün`.
+- **Ekonomi/zorluk sabitleri:** `DAY_SECONDS=75`, `REP_FIRED=20`, `DEADLINE_PENALTY=-9`, `RANK_REQ=[30,55,80,100]`, kriz olasılığı `.6`, ikinci günlük dava olasılığı `.6`, gece REP çürümesi `-1`, Debtor taksiti `$2000/3 gün`, `STAKE_REWARD=[1,1.15,1.3,1.45,1.6]`, `STAKE_PENALTY=[1,1.3,1.6,1.9,2.2]`, `PRICES={suit:1200(×1.5 artar), detective:900, marv:600}`.
+- **Inventory:** Hâlâ yok ama para artık harcanabiliyor (EXPENSES: suit/Marv; dosya başına dedektif).
 
 ---
 
@@ -264,8 +270,8 @@ if(S.scenario==="legacy"){
 1. ~~NPC ilişki sistemi~~ — v0.4'te EKLENDİ.
 2. ~~Dava havuzunu büyütme~~ — v0.4'te prosedürel üreticiyle EKLENDİ. NOT: AI/LLM ile üretim BİLİNÇLİ olarak reddedildi — kullanıcı API anahtarının oyuna gömülmesini istemiyor; oyun her makinede offline dava üretmeli. Bu kararı değiştirme.
 3. Çok aşamalı davalar (karar zincirleri, temyiz).
-4. Save/load (`localStorage`) + run istatistikleri.
-5. Para harcama yerleri (takım elbise=kalıcı REP, dedektif=dava ipucu, Marv'a rüşvet).
+4. ~~Save/load + run istatistikleri~~ — v0.5'te EKLENDİ.
+5. ~~Para harcama yerleri~~ — v0.5'te EKLENDİ (suit/dedektif/Marv).
 6. Haftalık ritim (cuma değerlendirmesi).
 7. Ses/müzik genişletme.
 8. Multiplayer (en son; server ister, GDD §11).

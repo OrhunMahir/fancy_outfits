@@ -1,7 +1,8 @@
 // Middle panel: the desk (tip text) or the open case file with its options.
 import { useGame } from "../game/useGame.js";
-import { chance, choose, deferCase, delegateCase } from "../game/engine.js";
+import { chance, choose, deferCase, delegateCase, hireDetective } from "../game/engine.js";
 import { delegationChance } from "../game/npcs.js";
+import { PRICES, STAKE_REWARD, STAKE_PENALTY } from "../game/constants.js";
 
 export default function CasePane(){
   const S=useGame();
@@ -24,7 +25,11 @@ export default function CasePane(){
         {c.judge && <div className="judge">
           JUDGE: {c.judge.name}<br/>TEMPER {c.judge.temper} / BY-THE-BOOK {c.judge.book}<br/>{c.judge.desc}
         </div>}
-        <div style={{marginTop:8,fontSize:8}}>DEADLINE: DAY {c.dueDay}</div>
+        <div style={{marginTop:8,fontSize:8}}>
+          DEADLINE: DAY {c.dueDay}
+          {c.stakes>0 && <> · STAKES ×{STAKE_REWARD[c.stakes]} win / ×{STAKE_PENALTY[c.stakes]} loss</>}
+          {c.dossier && <> · DOSSIER ATTACHED (+12%)</>}
+        </div>
       </div>
       <div className="opts">
         {c.opts.map((o,i)=>(
@@ -36,6 +41,11 @@ export default function CasePane(){
             </span>
           </button>
         ))}
+        {!c.dossier && (
+          <button className="btn small" disabled={S.money<PRICES.detective} onClick={()=>hireDetective(c)}>
+            HIRE DETECTIVE · ${PRICES.detective} (+12% on this file's risky plays)
+          </button>
+        )}
         {S.rank>=1 && !c.judge && (
           <div className="delg">
             <div className="kv">DELEGATE — they do the work, you own the fallout. Report tomorrow:</div>

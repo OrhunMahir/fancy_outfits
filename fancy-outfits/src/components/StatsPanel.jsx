@@ -1,6 +1,7 @@
 import { useGame } from "../game/useGame.js";
-import { REP_FIRED, RANK_REQ } from "../game/constants.js";
+import { REP_FIRED, RANK_REQ, PRICES } from "../game/constants.js";
 import { SCENARIOS } from "../game/content.js";
+import { buySuit, bribeMarv } from "../game/engine.js";
 
 export default function StatsPanel(){
   const S=useGame();
@@ -22,6 +23,13 @@ export default function StatsPanel(){
       </div>
       <div className="kv">MONEY: ${S.money}{S.debtDue!==null?"  ·  loan due day "+S.debtDue:""}</div>
       <div className="kv">RUN: {SCENARIOS[S.scenario].label}</div>
+      <h2 style={{marginTop:10}}>EXPENSES</h2>
+      <button className="btn small spend" disabled={S.money<S.suitCost} onClick={buySuit}>
+        TAILORED SUIT · ${S.suitCost}<span className="chance">+8 REP. Dress for the rank you want.</span>
+      </button>
+      <button className="btn small spend" disabled={S.money<PRICES.marv} onClick={bribeMarv}>
+        BRIBE MARV · ${PRICES.marv}<span className="chance">The copy room knows who everyone really is.</span>
+      </button>
       <h2 style={{marginTop:10}}>THE FLOOR</h2>
       {S.npcs.map(n=>(
         <div key={n.id} className="npcrow">

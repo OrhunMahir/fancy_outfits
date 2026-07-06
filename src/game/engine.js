@@ -6,10 +6,10 @@ import { RANKS, RANK_REQ, DAY_SECONDS, REP_FIRED, DEADLINE_PENALTY,
          STAKE_REWARD, STAKE_PENALTY, PRICES, SAVE_KEY, STATS_KEY,
          WEEK_LEN, REVIEW_GOOD, REVIEW_BAD } from "./constants.js";
 import { clamp, rnd, hash } from "./utils.js";
-import { SFX, toggleMute } from "./sound.js";
+import { SFX, toggleMute, toggleBgm, startAmbience, stopAmbience } from "./sound.js";
 import { buildPool, JUDGES, crises, SCENARIOS } from "./content.js";
 import { genCase } from "./casegen.js";
-import { buildNpcs, delegationChance, relNpc, DELEGATE_WIN_TXT, DELEGATE_FAIL_TXT } from "./npcs.js";
+import { buildNpcs, delegationChance, relNpc, buildFavor, DELEGATE_WIN_TXT, DELEGATE_FAIL_TXT } from "./npcs.js";
 
 let timerId=null, flashSeq=0;
 
@@ -90,7 +90,7 @@ export function startGame(sc,diff){
   log("Welcome to Parson Henderson, "+RANKS[0]+".","sys");
   if(sc==="debtor") log("Loan payment: $2000 due day 3.","sys");
   drawCases(2);
-  startClock(); sitDown(); saveGame(); notify();
+  startClock(); sitDown(); startAmbience(); saveGame(); notify();
 }
 
 /* hand-written pool first; when it runs dry (or for late-run variety) the
@@ -107,10 +107,19 @@ function drawCases(n){
   }
 }
 
-/* turn a case template into a live inbox file (deep-copied, stake-scaled, judge drawn) */
-function instantiateCase(c){
-  return scaleStakes({...c, opts:JSON.parse(JSON.stringify(c.opts)),
-    dueDay:S.day+c.deadline, judge:c.judge?rnd(JUDGES):null});
+/* turn a case template into a live inbox file (deep-copied, stake-scaled, judge drawn).
+   A corruptible judge (GDD §7) quietly adds one very risky, very expensive option. */
+export function instantiateCase(c){
+  const inst={...c, opts:JSON.parse(JSON.stringify(c.opts)),
+    dueDay:S.day+c.deadline, judge:c.judge?rnd(JUDGES):null};
+  if(inst.judge&&inst.judge.corrupt>=40){
+    const cost=900+300*S.rank;
+    inst.opts.push({text:"Invite the judge to 'discuss golf'. (-$"+cost+")",
+      base:inst.judge.corrupt-15, boldW:1, style:"bribe", bribe:cost,
+      ok:{fx:{inf:8,money:1400},txt:"The ruling lands your way. The golf never happens. Neither did this conversation."},
+      fail:{fx:{rep:-13},txt:"The judge repeats your offer aloud. For the record. The stenographer types slowly, savoring it."}});
+  }
+  return scaleStakes(inst);
 }
 
 /* multi-stage cases: an outcome with `next` queues a follow-up filing that
@@ -162,8 +171,12 @@ export function endDay(){
   // deadlines
   let missed=S.inbox.filter(c=>!c.pending&&!c.delegated&&c.dueDay<=S.day&&!c.msg);
   if(missed.includes(S.openCase)) S.openCase=null; // don't keep showing a removed case
-  S.weekMissed+=missed.length;
-  missed.forEach(c=>{ log("DEADLINE MISSED: "+c.title,"bad"); apply({rep:DEADLINE_PENALTY},true); });
+  S.weekMissed+=missed.filter(c=>!c.favor).length;
+  missed.forEach(c=>{
+    if(c.favor){ const n=S.npcs.find(x=>x.id===c.npc); if(n) relNpc(n,-10);
+      log("FAVOR IGNORED: "+c.title+" (-10 rel)","bad"); return; }
+    log("DEADLINE MISSED: "+c.title,"bad"); apply({rep:DEADLINE_PENALTY},true);
+  });
   S.inbox=S.inbox.filter(c=>!missed.includes(c));
   if(S.over) return;
   // day summary then advance
@@ -217,6 +230,7 @@ export function endDay(){
       S.inbox.filter(c=>c.delegated&&c.delegated.day<=S.day).forEach(resolveDelegated);
       spawnFollowups();
       drawCases(1+(Math.random()<.6?1:0));
+      if(Math.random()<.3&&!S.inbox.some(c=>c.favor)) spawnFavor();
       // low rep = casual disrespect
       if(disrespected()&&Math.random()<.5) pushMsg("FYI",rnd([
         "The partners' meeting you weren't told about went great, apparently.",
@@ -278,6 +292,10 @@ function pushMsg(title,txt){ S.inbox.unshift({msg:true,title,body:txt}); }
    the outcome is only revealed later by resolveDelayed (CLAUDE.md §5). */
 export function choose(c,o){
   SFX.click();
+  if(o.bribe){ // the golf money leaves your account win or lose
+    if(S.money<o.bribe){ log("You can't afford the judge's 'green fees'.","bad"); notify(); return; }
+    apply({money:-o.bribe},true);
+  }
   const p=chance(o,c);
   if(o.delay){
     const win=Math.random()*100<p;
@@ -296,14 +314,26 @@ export function choose(c,o){
     SFX.lose();
     log("["+c.title+"] "+out.txt,"bad"); apply(out.fx);
   }
+  if(c.favor){ // reverse favors: the relationship is the real payout
+    const n=S.npcs.find(x=>x.id===c.npc), d=win?(o.relOk||0):(o.relFail||0);
+    if(n&&d){ relNpc(n,d); log(n.name+(d>0?" will remember this. (+":" files this away. (")+d+" rel)",d>0?"good":"bad"); }
+  }
   if(out.next) queueFollowup(out.next);
   checkPromotion(); saveGame(); notify();
+}
+
+/* an NPC asks YOU for help — a one-day file where rel is the real stake */
+export function spawnFavor(){
+  const n=rnd(S.npcs);
+  S.inbox.unshift(instantiateCase(buildFavor(n)));
+  log(n.name.split(" ")[0]+" left a favor on your desk. Due today.","sys");
+  notify();
 }
 
 /* hand a case to a colleague (unlocks at Senior Associate; court cases excluded —
    you can't send a paralegal to argue a motion). Die is rolled now, revealed tomorrow. */
 export function delegateCase(c,npcId){
-  if(S.rank<1||c.judge||c.msg||c.pending||c.delegated) return;
+  if(S.rank<1||c.judge||c.msg||c.pending||c.delegated||c.favor) return; // you can't delegate THEIR favor back at them
   const n=S.npcs.find(x=>x.id===npcId);
   SFX.send();
   const win=Math.random()*100<delegationChance(n);
@@ -343,16 +373,29 @@ function checkEndings(){
 }
 
 function gameOver(title,txt){
-  S.over=true; clearInterval(timerId); SFX.fired();
+  S.over=true; clearInterval(timerId); SFX.fired(); stopAmbience();
   clearSave(); recordRun(false,title);
   showSummary("GAME OVER: "+title,[txt,"","Survived "+S.day+" day(s) as "+RANKS[S.rank]+"."],"NEW GAME",()=>location.reload());
 }
 function gameWin(){
-  S.over=true; clearInterval(timerId); SFX.promo();
+  S.over=true; clearInterval(timerId); SFX.promo(); stopAmbience();
   clearSave(); recordRun(true,"NAME PARTNER");
+  // the ending remembers HOW you climbed
+  const epithet=
+    S.bold>=65?"THE SHARK. You bluffed judges, partners and probability itself. The wall flinched first.":
+    S.rep>=70?"THE BELOVED. Associates fetch your coffee out of genuine affection. Nobody remembers why they feared Fridays.":
+    S.bold<=32?"THE SURVIVOR. You never once gambled. It turns out the building respects fear.":
+    "THE OPERATOR. Nobody can quite explain how you did it. That is precisely the skill.";
+  const seal={
+    fraud:"P.S. You still never went to law school. The diploma on your wall is a photocopy of a rumor.",
+    debtor:"The loans are PAID. The collectors send a fruit basket and, out of habit, an invoice for it.",
+    legacy:"Your parent signs the wall change-order personally. They spell your name right. First try.",
+  }[S.scenario];
   showSummary("YOU MADE NAME PARTNER",[
     "The sign painters are already on the wall: PARSON HENDERSON & YOU.",
-    "Day "+S.day+". Reputation "+S.rep+". Boldness "+S.bold+".","",
+    epithet,
+    "Day "+S.day+". Reputation "+S.rep+". Boldness "+S.bold+".",
+    seal,"",
     "You've been HENDERED. Permanently."],"NEW GAME",()=>location.reload());
 }
 
@@ -407,7 +450,7 @@ export function loadGame(){
     {infoOpen:false,event:null,summary:null,flash:null,userPaused:false,leaving:false,charAnim:"arriving",openCase:null}));
   SFX.bell();
   log("Run restored. The firm did not notice you were gone.","sys");
-  startClock(); sitDown(); notify();
+  startClock(); sitDown(); startAmbience(); notify();
 }
 function clearSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
 export function getStats(){
@@ -433,3 +476,4 @@ export function closeInfo(){ SFX.click(); S.infoOpen=false; notify(); }
 export function pauseGame(){ SFX.click(); S.userPaused=true; notify(); }
 export function resumeGame(){ SFX.click(); S.userPaused=false; notify(); }
 export function toggleSfx(){ toggleMute(); notify(); }
+export function toggleMusic(){ toggleBgm(); notify(); }

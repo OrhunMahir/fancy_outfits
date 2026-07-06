@@ -23,7 +23,9 @@ export default function CasePane(){
         <h3>{c.title}</h3>
         <div>{c.body}</div>
         {c.judge && <div className="judge">
-          JUDGE: {c.judge.name}<br/>TEMPER {c.judge.temper} / BY-THE-BOOK {c.judge.book}<br/>{c.judge.desc}
+          JUDGE: {c.judge.name}<br/>
+          TEMPER {c.judge.temper} / BY-THE-BOOK {c.judge.book} / ETHICS: {c.judge.corrupt>=60?"'sociable'":c.judge.corrupt>=40?"flexible":"granite"}<br/>
+          {c.judge.desc}
         </div>}
         <div style={{marginTop:8,fontSize:8}}>
           DEADLINE: DAY {c.dueDay}
@@ -36,19 +38,21 @@ export default function CasePane(){
           const pct=displayChance(o,c);
           const label=[pct&&pct+" success", o.delay&&`reply in ${o.delay}d`, o.style].filter(Boolean).join(" · ");
           return (
-            <button key={i} className={"btn"+(o.safe?" safe":(o.style==="aggressive"?" bold":""))}
+            <button key={i}
+                    className={"btn"+(o.safe?" safe":o.style==="aggressive"?" bold":o.style==="bribe"?" bribe":"")}
+                    disabled={!!(o.bribe&&S.money<o.bribe)}
                     onClick={()=>choose(c,o)}>
               {o.text}
               {label && <span className="chance">{label}</span>}
             </button>
           );
         })}
-        {!c.dossier && (
+        {!c.dossier && !c.favor && (
           <button className="btn small" disabled={S.money<PRICES.detective} onClick={()=>hireDetective(c)}>
             HIRE DETECTIVE · ${PRICES.detective} (+12% on this file's risky plays)
           </button>
         )}
-        {S.rank>=1 && !c.judge && (
+        {S.rank>=1 && !c.judge && !c.favor && (
           <div className="delg">
             <div className="kv">DELEGATE — they do the work, you own the fallout. Report tomorrow:</div>
             {S.npcs.map(n=>{

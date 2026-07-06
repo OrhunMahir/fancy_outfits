@@ -24,6 +24,23 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v9 — Ambience, endings, bribes & favors *(2026-07-06)*
+- **Lo-fi office ambience** — fully procedural (Web Audio, still zero asset files): a slow
+  4-chord loop of detuned triangles through a lowpass over vinyl-hiss noise. New **BGM** toggle
+  in the topbar, independent of SFX; preference remembered across sessions. Stops on game over.
+- **The ending remembers how you climbed.** Name Partner now crowns you as one of four:
+  **THE SHARK** (Boldness ≥ 65), **THE BELOVED** (Reputation ≥ 70), **THE SURVIVOR**
+  (Boldness ≤ 32) or **THE OPERATOR** — plus a scenario-specific closing line (the Fraud's
+  diploma, the Debtor's paid loans, the Legacy's parent).
+- **Corruptible judges** (the missing GDD judge stat): the case file now shows an **ETHICS**
+  read — granite / flexible / 'sociable'. Flexible-or-worse judges quietly add a gold option:
+  *"Invite the judge to 'discuss golf'"*. It costs real money win or lose, pays big influence,
+  and a refusal goes on the record (−13 REP).
+- **Reverse favors:** colleagues now ask YOU for help — one-day FAVOR files (Dana's phones,
+  Raquel's night-school brief, Harold's double-booked depositions, Katrina's non-request).
+  Help quietly (+10 rel), help loudly (risky, +INFL but it can read as credit theft), or
+  decline (−8 rel). Ignoring the file entirely costs −10 rel. Favors can't be delegated back.
+
 ### v8 — Friday partner review *(2026-07-06)*
 - **Every fifth day is FRIDAY.** The topbar counts down to it (`FRI IN 2`), and the end-of-day
   summary becomes a **partner review** of your week: influence gained, reputation kept, and

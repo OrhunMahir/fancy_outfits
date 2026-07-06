@@ -26,3 +26,52 @@ export const SFX={
 };
 export const isMuted=()=>muted;
 export function toggleMute(){ muted=!muted; if(!muted)SFX.click(); }
+
+/* ---------- lo-fi office ambience (procedural, no audio files) ----------
+   A slow 4-chord loop (detuned triangles through a lowpass) over a bed of
+   filtered noise — vinyl hiss meets HVAC. Independent of the SFX mute. */
+let amb=null, chordStep=0;
+let bgmOn=(typeof localStorage!=="undefined"&&localStorage.getItem("fo_bgm")==="0")?false:true;
+const CHORDS=[ // Am7 → Fmaj7 → Cmaj7 → G, the four chords of quiet despair
+  [220,261.63,329.63,392],[174.61,220,261.63,329.63],
+  [130.81,164.81,196,246.94],[196,246.94,293.66,349.23]];
+function playChord(a){
+  const t=a.currentTime+0.05, notes=CHORDS[chordStep++%CHORDS.length];
+  notes.forEach((f,i)=>{
+    const o=a.createOscillator(), g=a.createGain(), fl=a.createBiquadFilter();
+    o.type="triangle"; o.frequency.value=i===0?f/2:f; o.detune.value=Math.random()*10-5;
+    fl.type="lowpass"; fl.frequency.value=750;
+    g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(0.035,t+1.2);
+    g.gain.exponentialRampToValueAtTime(0.001,t+4.4);
+    o.connect(fl); fl.connect(g); g.connect(amb.master);
+    o.start(t); o.stop(t+4.5);
+  });
+}
+export const isBgmOn=()=>bgmOn;
+export function startAmbience(){
+  if(!bgmOn||amb) return;
+  try{
+    const a=ac(), master=a.createGain();
+    master.gain.value=0.6; master.connect(a.destination);
+    const buf=a.createBuffer(1,a.sampleRate*2,a.sampleRate), d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+    const noise=a.createBufferSource(); noise.buffer=buf; noise.loop=true;
+    const nf=a.createBiquadFilter(); nf.type="lowpass"; nf.frequency.value=300;
+    const ng=a.createGain(); ng.gain.value=0.010;
+    noise.connect(nf); nf.connect(ng); ng.connect(master); noise.start();
+    amb={master,noise,timer:null};
+    playChord(a);
+    amb.timer=setInterval(()=>{ if(amb) playChord(a); },4000);
+  }catch(e){}
+}
+export function stopAmbience(){
+  if(!amb) return;
+  clearInterval(amb.timer);
+  try{ amb.noise.stop(); amb.master.disconnect(); }catch(e){}
+  amb=null;
+}
+export function toggleBgm(){
+  bgmOn=!bgmOn;
+  try{ localStorage.setItem("fo_bgm",bgmOn?"1":"0"); }catch(e){}
+  if(bgmOn) startAmbience(); else stopAmbience();
+}

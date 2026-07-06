@@ -1,7 +1,7 @@
 import { useGame } from "../game/useGame.js";
 import { RANKS, DAY_SECONDS, WEEK_LEN } from "../game/constants.js";
-import { endDay, openInfo, pauseGame, toggleSfx } from "../game/engine.js";
-import { SFX, isMuted } from "../game/sound.js";
+import { endDay, openInfo, pauseGame, toggleSfx, toggleMusic } from "../game/engine.js";
+import { SFX, isMuted, isBgmOn } from "../game/sound.js";
 
 const fmt=s=>Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
 
@@ -19,6 +19,7 @@ export default function Topbar(){
             background:S.secs<=15?"var(--red)":(S.secs<=30?"#e8a33d":"var(--gold)")}}/>
         </div>
         <button className="btn small" onClick={toggleSfx}>SFX: {isMuted()?"OFF":"ON"}</button>
+        <button className="btn small" onClick={toggleMusic}>BGM: {isBgmOn()?"ON":"OFF"}</button>
         <button className="btn small" onClick={openInfo}>i</button>
         <button className="btn small" onClick={pauseGame}>PAUSE</button>
         <button className="btn small" onClick={()=>{SFX.click(); endDay();}}>END DAY</button>

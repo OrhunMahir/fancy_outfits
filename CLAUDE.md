@@ -81,7 +81,13 @@
 **v0.8 eklendi (2026-07-06, kullanıcı onayıyla):**
 - **Haftalık ritim (cuma değerlendirmesi):** her `WEEK_LEN`(5). gün cuma; topbar "FRI IN n" sayar. Gün sonu özeti PARTNER REVIEW içerir: skor = (INF kazancı) + (REP değişimi/2) − (kaçan deadline×3), hafta başı baseline'a göre (`S.weekStart`, `S.weekMissed`). Skor ≥ `REVIEW_GOOD`(10) → +4 REP +4 INFL; ≤ `REVIEW_BAD`(0) → −4 REP; arası kuru nötr cümle. Her kararın 3 flavor varyantı var. Cuma gecesi baseline sıfırlanır. Review REP'i tabana düşürürse gameOver sıralaması korunur.
 
-**En son çalışılan konu (2026-07-06):** v0.8 (cuma değerlendirmesi) tarayıcıda üç dalıyla test edildi. Sırada: Steam'e yaklaşınca electron-builder + steamworks.js; §10'da kalan: ses/müzik, multiplayer.
+**v0.9 eklendi (2026-07-06, kullanıcı onayıyla):**
+- **Lo-fi ambiyans (prosedürel):** `sound.js`'te 4 akorluk döngü (detune'lu triangle + lowpass) + filtreli noise cızırtısı; dosya YOK. Topbar'da BGM toggle (SFX'ten bağımsız, `localStorage fo_bgm`). startGame/loadGame başlatır, gameOver/gameWin durdurur.
+- **Farklı sonlar:** gameWin, stat'a göre unvan seçer (BOLD≥65 SHARK / REP≥70 BELOVED / BOLD≤32 SURVIVOR / else OPERATOR) + senaryoya özel kapanış satırı (fraud/debtor/legacy).
+- **Rüşvete açık hakimler (GDD §7 corruptible):** JUDGES'a `corrupt` statı (Ironwood 5, Marsh 45, Pelt 10, Crane 75). Dosyada "ETHICS: granite/flexible/'sociable'" görünür. corrupt≥40 → `instantiateCase` dosyaya altın "discuss golf" seçeneği ekler: maliyet $900+300×rank (kazan-kaybet fark etmez peşin düşer, `o.bribe`), base=corrupt−15, fail −13 REP. Para yetmezse buton disabled + engine guard.
+- **Ters yönlü ilişki (favor):** her sabah %30 (inbox'ta favor yoksa) bir NPC 1 günlük FAVOR dosyası bırakır (`buildFavor`, npcs.js). Seçeneklerde `relOk/relFail` — rel değişimini `choose()` işler (apply stats-only kalır). Sessiz yardım +10 rel; gösterişli yardım riskli (+INFL / kredi çalmış görünme); ret −8 rel; deadline kaçırma −10 rel (REP cezası ve weekMissed'e girmez). Favor delege/dedektif edilemez.
+
+**En son çalışılan konu (2026-07-06):** v0.9 dört özelliğiyle tarayıcıda test edildi. Sırada: Steam'e yaklaşınca electron-builder + steamworks.js; §10'da kalan: multiplayer.
 
 ---
 
@@ -254,7 +260,7 @@ if(S.scenario==="legacy"){
 - **Grafik tarzı:** Piksel/retro. Font `Press Start 2P` (8-10px). Palet `:root`'ta: lacivert zeminler (`--bg #1a1c2c`, `--panel #29366f`), altın vurgu (`--gold #ffcd75`), yeşil=güvenli (`--green`), kırmızı=risk (`--red`), dava kağıdı krem (`--paper #f2e9d8`). CRT hissi için `body::after` scanline overlay. `image-rendering:pixelated` global.
 - **UI:** 3 sütun — INBOX (sol), CASE FILE/DESK (orta, kağıt görünümü), ASSOCIATE FILE (sağ: stat barları + log). Üstte topbar + ofis sahnesi bandı. Topbar'da saatin yanında süre barı: gün ilerledikçe kısalır (altın → ≤30sn kehribar → ≤15sn kırmızı, saat rakamı da kırmızıya döner). Buton renk kodu: yeşil=safe, mavi=nötr, kırmızı=aggressive/blöf. Her butonun altında küçük altın satırla % ve etiketler.
 - **Animasyon:** Minimal — `.flash` (HENDERED!/PROMOTED! pop keyframe), stat barlarında `width .3s transition`. Başka animasyon sistemi yok, gerekmedikçe ekleme.
-- **Ses:** `SFX.{click,open,win,lose,promo,fired,bell,tick,send,crisis}`. Topbar'dan mute edilebilir. Müzik yok (aday özellik: lo-fi ambiyans — prosedürel olacaksa Web Audio, dosya eklemek yasak kuralına takılır, kullanıcıya sorulmalı).
+- **Ses:** `SFX.{click,open,win,lose,promo,fired,bell,tick,send,crisis}` + prosedürel lo-fi ambiyans (v0.9: 4 akorluk Web Audio döngüsü + noise cızırtısı, `startAmbience/stopAmbience`). Topbar'da SFX ve BGM ayrı toggle'lar; BGM tercihi `localStorage`'da. Ses dosyası hâlâ SIFIR.
 
 ---
 
@@ -289,7 +295,7 @@ if(S.scenario==="legacy"){
 4. ~~Save/load + run istatistikleri~~ — v0.5'te EKLENDİ.
 5. ~~Para harcama yerleri~~ — v0.5'te EKLENDİ (suit/dedektif/Marv).
 6. ~~Haftalık ritim~~ — v0.8'de EKLENDİ (cuma partner review'ı).
-7. Ses/müzik genişletme.
+7. ~~Ses/müzik genişletme~~ — v0.9'da EKLENDİ (prosedürel lo-fi ambiyans + BGM toggle).
 8. Multiplayer (en son; server ister, GDD §11).
 
 ---

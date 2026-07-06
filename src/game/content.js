@@ -98,11 +98,12 @@ export function buildPool(){
   return P;
 }
 
+/* corrupt >= 40 quietly unlocks a bribe option on the case file (GDD §7) */
 export const JUDGES=[
-  {name:"Hon. R. Ironwood",temper:80,book:70,desc:"Zero patience for theatrics. Worships procedure."},
-  {name:"Hon. C. Marsh",temper:30,book:40,desc:"Enjoys a good show. Bored by footnotes."},
-  {name:"Hon. B. Pelt",temper:55,book:85,desc:"Reads every exhibit. Twice. Cites page numbers from memory."},
-  {name:"Hon. D. Crane Jr.",temper:20,book:20,desc:"Unpredictable. Once ruled based on a coin flip. Allegedly."}];
+  {name:"Hon. R. Ironwood",temper:80,book:70,corrupt:5,desc:"Zero patience for theatrics. Worships procedure."},
+  {name:"Hon. C. Marsh",temper:30,book:40,corrupt:45,desc:"Enjoys a good show. Bored by footnotes."},
+  {name:"Hon. B. Pelt",temper:55,book:85,corrupt:10,desc:"Reads every exhibit. Twice. Cites page numbers from memory."},
+  {name:"Hon. D. Crane Jr.",temper:20,book:20,corrupt:75,desc:"Unpredictable. Once ruled based on a coin flip. Allegedly."}];
 
 /* Crisis events — each fires at most once per run (S.usedCrises). */
 export function crises(){

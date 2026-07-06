@@ -41,7 +41,16 @@ export function buildPool(){
     judge:true,
     opts:[
       {text:"Consent to proceed on merits. Play it safe.",base:100,safe:true,ok:{fx:{bold:-3,inf:2},txt:"Motion withdrawn. Trial ahead. The safe road is long."}},
-      {text:"Argue the deadline is the deadline. Cold math.",base:65,style:"technical",ok:{fx:{rep:9,inf:8,money:1500},txt:"'Sympathy does not toll a statute.' Case dismissed. HENDERED."},fail:{fx:{rep:-6},txt:"The judge tolls it anyway and calls your argument 'heartless but tidy'."}},
+      {text:"Argue the deadline is the deadline. Cold math.",base:65,style:"technical",
+        ok:{fx:{rep:9,inf:8,money:1500},txt:"'Sympathy does not toll a statute.' Case dismissed. HENDERED.",
+          next:{after:2,note:"Halcyon's counsel filed the appeal before the ink dried.",case:{
+            id:"court1b",tier:2,title:"APPEAL: Halcyon v. Kessler",deadline:3,judge:true,
+            body:"Halcyon appeals the dismissal, arguing 'excusable neglect'. Their appellate brief leans entirely on Rourke v. Dunmore — a precedent that was overturned two years ago. Nobody on their team checked the citation history. You did. Just now.",
+            opts:[
+              {text:"Rest on the record. Say as little as possible.",base:100,safe:true,ok:{fx:{inf:3,bold:-2,money:300},txt:"The panel affirms without questions. Boring wins are still wins."}},
+              {text:"Point out Rourke was overturned. Watch them sweat.",base:72,style:"technical",ok:{fx:{rep:9,inf:8,money:1500},txt:"Opposing counsel asks for a recess to 'check something'. Affirmed. HENDERED, on appeal."},fail:{fx:{rep:-6},txt:"The panel finds a different route to reverse. Your gotcha impressed no one with a gavel."}},
+              {text:"Ask the panel to sanction the sloppy brief.",base:34,boldW:3,style:"aggressive",ok:{fx:{bold:7,inf:8,money:1100},txt:"Sanctioned. Their firm eats the costs. Your name travels."},fail:{fx:{rep:-11},txt:"'Counsel, ambition is not a motion.' The panel's opinion quotes you. Unkindly."}}]}}},
+        fail:{fx:{rep:-6},txt:"The judge tolls it anyway and calls your argument 'heartless but tidy'."}},
       {text:"Attack the hospitalization as fabricated.",base:35,boldW:3,style:"aggressive",ok:{fx:{bold:8,inf:8,money:1200},txt:"Their 'hospital records' are from a med spa. Courtroom gasps."},fail:{fx:{rep:-12},txt:"The CEO was genuinely in an ICU. You are now the villain of this story."}}]});
   P.push({id:"court2",tier:2,title:"COURT: In re Pemberton estate",deadline:4,
     body:"A contested will. The 'final' will leaving everything to a yoga instructor was witnessed by two people — both of whom, per the file, were on a cruise ship in international waters that day. Instagram proves it.",
@@ -56,6 +65,30 @@ export function buildPool(){
       {text:"Decline politely. Billables come first.",base:100,safe:true,ok:{fx:{bold:-2},txt:"Marv nods slowly. He forgets nothing."}},
       {text:"Fire off a retaliation counterclaim.",base:72,style:"technical",delay:2,ok:{fx:{rep:5,inf:6,bold:3},txt:"Landlord folds instantly. Marv now tells you things. Useful things."},fail:{fx:{rep:-4},txt:"Paperwork bounced on a technicality. Marv is polite about it. Too polite."}},
       {text:"Call the landlord and improvise menacingly.",base:45,boldW:2,style:"aggressive",ok:{fx:{bold:5,inf:4},txt:"You cite three statutes that don't exist. It works. Marv applauds."},fail:{fx:{rep:-6},txt:"The landlord is also a lawyer. Of course he is."}}]});
+  P.push({id:"breach",tier:1,title:"CASE: Aldergate data breach",deadline:3,
+    body:"Client Aldergate leaked 40,000 customer records and the customers noticed. Their cloud vendor, NimbusHost, blames 'shared responsibility'. But NimbusHost's own SLA — exhibit D — promises critical patches within 72 hours, and the breach log shows the hole sat open for nine days. Their lawyers write very confident letters.",
+    opts:[
+      {text:"Settle with the customers quietly.",base:100,safe:true,ok:{fx:{bold:-4,inf:2},txt:"Checks mailed, mouths closed. Aldergate grumbles about the invoice."}},
+      {text:"Turn it on NimbusHost — the 72-hour SLA.",base:74,style:"technical",
+        ok:{fx:{rep:7,inf:6,money:800},txt:"Nine days is not 72 hours, and exhibit D is their own signature. NimbusHost's confident letters stop.",
+          next:{after:2,note:"NimbusHost refuses to pay. Their appeal hits the docket.",case:{
+            id:"breach2",tier:2,title:"COURT: Aldergate v. NimbusHost",deadline:3,judge:true,
+            body:"NimbusHost appeals the SLA ruling, now claiming the 72-hour clock 'only runs on business days'. The definitions page of their own SLA — the page THEY drafted — says 'hours means consecutive clock hours'. Their brief is hoping nobody reads definitions pages. You read definitions pages.",
+            opts:[
+              {text:"Accept a reduced payout. End it.",base:100,safe:true,ok:{fx:{inf:3,bold:-3,money:400},txt:"Aldergate takes the smaller check. Everyone stops billing. Almost everyone."}},
+              {text:"Read their definitions page to the court.",base:70,style:"technical",ok:{fx:{rep:9,inf:8,money:1600},txt:"'Consecutive clock hours.' Slowly. Twice. The appeal dies on page four of their own contract."},fail:{fx:{rep:-7},txt:"The judge finds 'ambiguity'. In a definitions page. Some days the law is just weather."}},
+              {text:"Move for sanctions — the appeal is frivolous.",base:36,boldW:3,style:"aggressive",ok:{fx:{bold:7,inf:8,money:1200},txt:"Granted. NimbusHost pays the ruling AND your fees. Their letters are very quiet now."},fail:{fx:{rep:-11},txt:"'Frivolous is a strong word, counsel.' The judge redirects it at your motion."}}]}}},
+        fail:{fx:{rep:-5},txt:"NimbusHost produces a patch ticket. Backdated, probably — but you can't prove it today."}},
+      {text:"Announce a countersuit at a press conference.",base:34,boldW:3,style:"aggressive",
+        ok:{fx:{bold:6,inf:6,money:700},txt:"The stock steadies, the customers calm down, NimbusHost calls to 'discuss'. Theater works."},
+        fail:{fx:{rep:-8},txt:"You quoted a filing that did not, technically, exist yet. Cameras were rolling.",
+          next:{after:1,note:"The judge saw the press conference. There will be a hearing about it.",case:{
+            id:"breachsanc",tier:2,title:"COURT: sanctions hearing (yours)",deadline:2,judge:true,
+            body:"Opposing counsel moved for sanctions before you got back from the press conference. The motion quotes you verbatim, with timestamps. The judge wants to understand why you announced a filing that didn't exist. This file is about saving your own skin.",
+            opts:[
+              {text:"Apologize. Fully. Painfully.",base:100,safe:true,ok:{fx:{bold:-6,inf:1},txt:"The judge accepts, with a lecture that ages you. Motion denied. Barely."}},
+              {text:"Argue the statements were 'aspirational'.",base:55,style:"technical",ok:{fx:{rep:4,bold:3},txt:"'Aspirational.' The judge almost smiles. Motion denied; the word enters firm legend."},fail:{fx:{rep:-8,money:-800},txt:"Sanctioned. The fine has your name on it, not Aldergate's."}},
+              {text:"Accuse THEM of bad faith for filming it.",base:25,boldW:3,style:"aggressive",ok:{fx:{bold:9,rep:5,inf:6},txt:"Astonishingly, it lands — their 'PR monitoring' looks worse than your mouth. Case closed."},fail:{fx:{rep:-13,money:-1200},txt:"The judge sanctions you mid-sentence. Opposing counsel frames the transcript."}}]}}}}]});
   P.push({id:"poach",tier:1,title:"MEMO: Snidely Fitch is poaching you",deadline:2,
     body:"A Snidely Fitch recruiter 'bumps into you' at lunch. Offer: +40% salary, real cases, an office with a door. All you'd have to do is bring one — just one — client file with you.",
     opts:[

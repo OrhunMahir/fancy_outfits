@@ -19,7 +19,9 @@ export default function Inbox(){
             <div key={i} className="inbox-item"><div>{c.title}</div><div className="tag">With {S.npcs.find(n=>n.id===c.delegated.npc).name} (report day {c.delegated.day})</div></div>);
           return (
             <div key={i} className="inbox-item" onClick={()=>openCaseFile(c)}>
-              <div>{c.title}</div><div className="due">DUE DAY {c.dueDay}</div>
+              <div>{c.title}</div>
+              {c.chain && <div className="tag" style={{color:"var(--gold)"}}>FOLLOW-UP FILING</div>}
+              <div className="due">DUE DAY {c.dueDay}</div>
             </div>);
         })}
       </div>

@@ -27,14 +27,24 @@ const TEMPLATES=[
       {text:"Negotiate a quiet exit fee.",base:100,safe:true,ok:{fx:{bold:-3,inf:2,money:300},txt:"Everyone pays a little. Everyone forgets you a little."}},
       {text:"Move to void — no signing authority.",base:76,style:"technical",delay:rnd([1,2]),ok:{fx:{rep:7,inf:7,money:1100},txt:"Void ab initio. Opposing counsel stares at their own Exhibit F in silence."},fail:{fx:{rep:-5},txt:"A ratification memo surfaces. Signed by someone with ACTUAL authority. Ouch."}},
       {text:"Bluff: 'We have three more exhibits like this.'",base:36,boldW:3,style:"aggressive",delay:1,ok:{fx:{bold:6,inf:5,money:700},txt:"They settle overnight. There were no other exhibits. There didn't need to be."},fail:{fx:{rep:-9,bold:-2},txt:"'Show us,' they said. You could not show them."}}]};},
-  // 3 — filed too late (court)
+  // 3 — filed too late (court; the dismissal may get appealed → multi-stage)
   ()=>{const a=rnd(CO),b=rnd(CO.filter(x=>x!==a)),d=rnd([1,2,3]),ex=rnd(["their CEO was 'at a wellness retreat'","their server 'ate the draft'","their counsel 'misread a calendar'"]);
-  return {tier:2,title:`COURT: ${a} v. ${b}`,deadline:rnd([3,4]),judge:true,
+  const c={tier:2,title:`COURT: ${a} v. ${b}`,deadline:rnd([3,4]),judge:true,
     body:`Motion to dismiss. ${a}'s complaint hit the docket ${d} day(s) AFTER the statute of limitations ran out — their tolling argument is that ${ex}. The filing stamp doesn't care. Sympathy might.`,
     opts:[
       {text:"Consent to proceed on the merits.",base:100,safe:true,ok:{fx:{bold:-3,inf:2},txt:"Trial ahead. The safe road is long and unpaid."}},
       {text:"The deadline is the deadline. Cold math.",base:66,style:"technical",ok:{fx:{rep:8,inf:8,money:1400},txt:"'The calendar does not do wellness.' Dismissed. HENDERED."},fail:{fx:{rep:-6},txt:"Tolled anyway. The judge calls your argument 'correct, and unlikable'."}},
-      {text:"Mock the excuse in open court.",base:37,boldW:3,style:"aggressive",ok:{fx:{bold:8,inf:7,money:1000},txt:"The gallery laughs. The judge doesn't, but rules your way anyway."},fail:{fx:{rep:-11},txt:"The judge finds the excuse 'sincere' and your tone 'sanctionable'."}}]};},
+      {text:"Mock the excuse in open court.",base:37,boldW:3,style:"aggressive",ok:{fx:{bold:8,inf:7,money:1000},txt:"The gallery laughs. The judge doesn't, but rules your way anyway."},fail:{fx:{rep:-11},txt:"The judge finds the excuse 'sincere' and your tone 'sanctionable'."}}]};
+  if(Math.random()<.5){ const yrs=rnd([2,3,4]); // half the time the loser appeals — a follow-up stage
+    c.opts[1].ok.next={after:2,note:`${a}'s counsel promises an appeal. Loudly, near a camera.`,case:{
+      tier:2,title:`APPEAL: ${a} v. ${b}`,deadline:3,judge:true,
+      body:`${a} appeals the dismissal. The centerpiece citation of their brief was overturned ${yrs} years ago — some associate copied it from an old memo and nobody checked. Appellate panels notice that sort of thing. Usually.`,
+      opts:[
+        {text:"Rest on the record. Add nothing.",base:100,safe:true,ok:{fx:{inf:3,bold:-2,money:300},txt:"Affirmed without oral argument. The quiet win nobody toasts."}},
+        {text:"Flag the dead citation for the panel.",base:70,style:"technical",ok:{fx:{rep:9,inf:8,money:1500},txt:"The panel's opinion opens with your footnote. Affirmed, with a side of humiliation for them."},fail:{fx:{rep:-6},txt:"The panel reverses on other grounds and thanks you for the 'trivia'."}},
+        {text:"Demand sanctions for the sloppy brief.",base:35,boldW:3,style:"aggressive",ok:{fx:{bold:7,inf:8,money:1100},txt:"Sanctioned. Their appellate team updates its citation software the same afternoon."},fail:{fx:{rep:-10},txt:"'Everyone miscites, counsel. Even you. Page six.' You do not look at page six."}}]}};
+  }
+  return c;},
   // 4 — the impossible witnesses (court)
   ()=>{const who=rnd(LAST),place=rnd(["on a cruise in international waters","at a silent retreat with no visitors' log","courtside at a playoff game, on camera"]);
   return {tier:2,title:`COURT: In re ${who} estate`,deadline:rnd([3,4]),judge:true,

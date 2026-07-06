@@ -20,6 +20,7 @@ export function newState(scenario){
     debtDue: scenario==="debtor" ? 3 : null,
     suitCost:PRICES.suit, // each suit is fancier and pricier than the last
     inbox:[], pool:[], usedCrises:[], openCase:null, npcs:[],
+    followups:[], // multi-stage cases waiting to land: {day, case}
     dailyLog:[], logEntries:[], over:false,
     // UI state (pause is DERIVED from these — see isPaused() in engine.js)
     infoOpen:false, event:null, summary:null, flash:null, userPaused:false,

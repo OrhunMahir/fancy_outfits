@@ -24,6 +24,21 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v6 — Multi-stage cases *(2026-07-06)*
+- **Cases can now chain.** Any option outcome — win *or* loss — can spawn a follow-up filing
+  that lands in your inbox days later, marked with a gold **FOLLOW-UP FILING** tag. Follow-ups
+  are stake-scaled at the rank you hold when they arrive, and each stage draws its own judge.
+- **Hand-written chains:**
+  - *CASE: Aldergate data breach* — turn the breach on the cloud vendor via their own 72-hour
+    SLA and they appeal (*COURT: Aldergate v. NimbusHost*); botch the press-conference bluff and
+    you earn a personal *sanctions hearing* where the only thing on the docket is your career.
+  - *COURT: Halcyon v. Kessler* — win the dismissal and Halcyon appeals on a precedent that was
+    overturned two years ago (*APPEAL: Halcyon v. Kessler*).
+- **Generated chains:** the procedural generator's late-filing court template now has a 50%
+  chance to carry an appeal stage, built from the same parties with a fresh hidden clue.
+- **Balance fix:** the final promotion now needs 95 Influence instead of a perfect 100 —
+  the stat caps at 100, so one bad day could previously wall off the ending forever.
+
 ### v5.1 — Day-timer bar *(2026-07-06, commit `8e587f1`)*
 - New timer bar in the topbar, next to the clock. It shrinks linearly as the day runs out:
   gold normally, **amber under 30 seconds, red under 15** — and the clock digits turn red with it.

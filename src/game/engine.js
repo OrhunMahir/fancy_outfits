@@ -85,10 +85,30 @@ function drawCases(n){
     const c=useGen?genCase():rnd(avail);
     if(!useGen) c.taken=true;
     if(useGen&&c.tier===2&&S.rank<1){ i--; continue; } // no court cases before Senior Associate
-    const inst=scaleStakes({...c, opts:JSON.parse(JSON.stringify(c.opts)),
-      dueDay:S.day+c.deadline, judge:c.judge?rnd(JUDGES):null});
-    S.inbox.push(inst);
+    S.inbox.push(instantiateCase(c));
   }
+}
+
+/* turn a case template into a live inbox file (deep-copied, stake-scaled, judge drawn) */
+function instantiateCase(c){
+  return scaleStakes({...c, opts:JSON.parse(JSON.stringify(c.opts)),
+    dueDay:S.day+c.deadline, judge:c.judge?rnd(JUDGES):null});
+}
+
+/* multi-stage cases: an outcome with `next` queues a follow-up filing that
+   lands in the inbox `after` days later (stake-scaled at ITS spawn, not now) */
+function queueFollowup(nx){
+  S.followups.push({day:S.day+(nx.after||1), case:nx.case});
+  log(nx.note||"Word around the floor: a follow-up filing is coming.","sys");
+}
+function spawnFollowups(){
+  const due=S.followups.filter(f=>f.day<=S.day);
+  S.followups=S.followups.filter(f=>!due.includes(f));
+  due.forEach(f=>{
+    const inst=instantiateCase({...f.case, chain:true});
+    S.inbox.unshift(inst);
+    log("NEW FILING: "+inst.title,"sys");
+  });
 }
 
 /* higher rank = higher stakes: rewards scale up, failures scale up FASTER.
@@ -149,6 +169,7 @@ export function endDay(){
       if(S.over) return;
       S.inbox.filter(c=>c.pending&&c.pending.day<=S.day).forEach(resolveDelayed);
       S.inbox.filter(c=>c.delegated&&c.delegated.day<=S.day).forEach(resolveDelegated);
+      spawnFollowups();
       drawCases(1+(Math.random()<.6?1:0));
       // low rep = casual disrespect
       if(disrespected()&&Math.random()<.5) pushMsg("FYI",rnd([
@@ -174,9 +195,10 @@ export function endDay(){
 
 function resolveDelayed(c){
   S.inbox=S.inbox.filter(x=>x!==c);
-  const r=c.pending;
-  if(r.win){ SFX.win(); log("RESPONSE ["+c.title+"]: SUCCESS","good"); pushMsg("REPLY: "+c.title,r.o.ok.txt); apply(r.o.ok.fx); if((r.o.ok.fx.rep||0)+(r.o.ok.fx.inf||0)>=10) flash("HENDERED!"); }
-  else { SFX.lose(); log("RESPONSE ["+c.title+"]: FAILED","bad"); pushMsg("REPLY: "+c.title,r.o.fail.txt); apply(r.o.fail.fx); }
+  const r=c.pending, out=r.win?r.o.ok:r.o.fail;
+  if(r.win){ SFX.win(); log("RESPONSE ["+c.title+"]: SUCCESS","good"); pushMsg("REPLY: "+c.title,out.txt); apply(out.fx); if((out.fx.rep||0)+(out.fx.inf||0)>=10) flash("HENDERED!"); }
+  else { SFX.lose(); log("RESPONSE ["+c.title+"]: FAILED","bad"); pushMsg("REPLY: "+c.title,out.txt); apply(out.fx); }
+  if(out.next) queueFollowup(out.next);
   checkPromotion();
 }
 
@@ -219,14 +241,16 @@ export function choose(c,o){
     S.openCase=null; saveGame(); notify(); return;
   }
   S.inbox=S.inbox.filter(x=>x!==c); S.openCase=null;
-  if(Math.random()*100<p){
+  const win=Math.random()*100<p, out=win?o.ok:o.fail;
+  if(win){
     SFX.win();
-    log("["+c.title+"] "+o.ok.txt,"good"); apply(o.ok.fx);
-    if(((o.ok.fx&&o.ok.fx.rep)||0)+((o.ok.fx&&o.ok.fx.inf)||0)>=10) flash("HENDERED!");
+    log("["+c.title+"] "+out.txt,"good"); apply(out.fx);
+    if(((out.fx&&out.fx.rep)||0)+((out.fx&&out.fx.inf)||0)>=10) flash("HENDERED!");
   } else {
     SFX.lose();
-    log("["+c.title+"] "+o.fail.txt,"bad"); apply(o.fail.fx);
+    log("["+c.title+"] "+out.txt,"bad"); apply(out.fx);
   }
+  if(out.next) queueFollowup(out.next);
   checkPromotion(); saveGame(); notify();
 }
 
@@ -248,8 +272,10 @@ export function resolveCrisis(o){
   SFX.click();
   const ev=S.event, p=chance(o,ev);
   S.event=null;
-  if(Math.random()*100<p){ SFX.win(); log("[CRISIS] "+o.ok.txt,"good"); apply(o.ok.fx); if(((o.ok.fx&&o.ok.fx.inf)||0)>=10) flash("HENDERED!"); }
-  else { SFX.lose(); log("[CRISIS] "+o.fail.txt,"bad"); apply(o.fail.fx); }
+  const win=Math.random()*100<p, out=win?o.ok:o.fail;
+  if(win){ SFX.win(); log("[CRISIS] "+out.txt,"good"); apply(out.fx); if(((out.fx&&out.fx.inf)||0)>=10) flash("HENDERED!"); }
+  else { SFX.lose(); log("[CRISIS] "+out.txt,"bad"); apply(out.fx); }
+  if(out.next) queueFollowup(out.next); // crises may chain into case files too
   checkPromotion(); saveGame(); notify();
 }
 

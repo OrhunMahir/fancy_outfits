@@ -2,6 +2,10 @@
 // Engine functions mutate S directly, then call notify(); React components
 // subscribe via useGame() and re-render. No framework state library.
 import { DAY_SECONDS, PRICES } from "./constants.js";
+import { settings } from "./settings.js";
+import { rnd } from "./utils.js";
+
+const NEMESES=["Miles Sorren","Tripp Vanderbilt III","Ashley Kang","Bradford Lowe"];
 
 export let S=null; // null until a scenario is picked on the start screen
 export function setS(v){ S=v; }
@@ -14,7 +18,7 @@ export function notify(){ version++; listeners.forEach(fn=>fn()); }
 
 export function newState(scenario,difficulty){
   return {
-    scenario, day:1, secs:DAY_SECONDS, rank:0,
+    scenario, day:1, secs:settings.dayLen||DAY_SECONDS, rank:0,
     difficulty:difficulty||"easy", // easy | medium | hard | realistic — blurs INFO only, never the dice
     seed:Math.floor(Math.random()*1e9), // per-run seed so odds ranges are stable but not centered
     rep:50, bold:40, inf:10,
@@ -24,10 +28,17 @@ export function newState(scenario,difficulty){
     inbox:[], pool:[], usedCrises:[], openCase:null, npcs:[],
     followups:[], // multi-stage cases waiting to land: {day, case}
     weekStart:{inf:10, rep:50}, weekMissed:0, // Friday review baseline (reset every WEEK_LEN days)
+    // the rival associate: gains INF nightly and from YOUR failures; name partner before you = game over
+    nemesis:{name:rnd(NEMESES), inf:10, rank:0},
+    marvBribes:0, // Marv remembers who pays — his lines and gifts depend on it
+    // per-run ledger for the end-of-run breakdown
+    runStats:{safe:0,bluffW:0,bluffL:0,techW:0,techL:0,deleg:{},bribeTry:0,bribeW:0,favorHelp:0,favorNo:0,miss:0,crises:0},
     dailyLog:[], logEntries:[], over:false,
     // UI state (pause is DERIVED from these — see isPaused() in engine.js)
-    infoOpen:false, event:null, summary:null, flash:null, userPaused:false,
+    infoOpen:false, event:null, summary:null, flash:null, userPaused:false, settingsOpen:false,
     // office character: "arriving" | "working" | "leaving" (leaving also freezes the clock)
     charAnim:"arriving", leaving:false,
+    sceneRank:null, // during a promotion walk the scene briefly keeps the OLD office
+    shakeSeq:0,     // bumped on failures → App shakes the screen (if enabled in settings)
   };
 }

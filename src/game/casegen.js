@@ -77,6 +77,38 @@ const TEMPLATES=[
       {text:"Do it. Flawlessly. Say nothing.",base:100,safe:true,ok:{fx:{inf:3,bold:-3},txt:"Done. You receive a nod. The nod is your bonus."}},
       {text:"Delegate it to the intern's hiding spot.",base:58,boldW:1,ok:{fx:{inf:3,bold:2},txt:"The intern delivers. You 'supervised'. Efficiency noted."},fail:{fx:{rep:-6},txt:"The intern failed and named you as the mastermind immediately."}},
       {text:"'I bill 400 an hour. This isn't 400-an-hour work.'",base:26,boldW:3,style:"aggressive",ok:{fx:{bold:8,inf:4},txt:"A pause. Then: 'Fine. Take the Meridian file instead.' Upgrade."},fail:{fx:{rep:-9},txt:"'You bill what I SAY you bill.' The floor heard the decimal point."}}]};},
+  // 8 — the backdated email
+  ()=>{const a=rnd(CO),who=rnd(LAST),m=rnd([2,3,5]);
+  return {tier:1,title:`CASE: ${a} termination dispute`,deadline:rnd([2,3]),
+    body:`${a} fired ${who} 'for cause' and produced a warning email dated three weeks prior. But the email's metadata — buried in the header ${a} handed over unredacted — shows it was actually sent the morning of the firing. The 'cause' was manufactured after the decision.`,
+    opts:[
+      {text:"Advise a clean severance. Move on.",base:100,safe:true,ok:{fx:{bold:-3,inf:2,money:300},txt:"Paid, signed, gone. Nobody reads the header ever again."}},
+      {text:"Confront them with the metadata timestamp.",base:73,style:"technical",delay:rnd([1,2]),ok:{fx:{rep:8,inf:7,money:1000},txt:`The header doesn't lie even when ${a} does. They settle before discovery.`},fail:{fx:{rep:-5},txt:"They claim a 'server clock error'. It's flimsy — but it's today's problem now."}},
+      {text:"Threaten to report the fabrication to the court.",base:33,boldW:3,style:"aggressive",ok:{fx:{bold:6,inf:6,money:1200},txt:"The word 'sanctions' does the negotiating for you."},fail:{fx:{rep:-10},txt:`${a} reminds you whose client they are. Loudly. To Hardwick.`}}]};},
+  // 9 — the patent that predates itself
+  ()=>{const a=rnd(CO),b=rnd(CO.filter(x=>x!==a));
+  return {tier:1,title:`CASE: ${a} v. ${b} (patent)`,deadline:rnd([2,3]),
+    body:`${b} sues ${a} for infringing a 'revolutionary' patent. The filing date is right there on page one. So is the trade-show brochure in exhibit 9, where ${b} publicly demoed the exact invention — fourteen months BEFORE they filed. Public disclosure that old sinks the patent. They exhibited their own poison.`,
+    opts:[
+      {text:"License it cheaply. Avoid the fight.",base:100,safe:true,ok:{fx:{inf:2,bold:-3,money:200},txt:"A modest license. The 'revolutionary' patent lives to bully again."}},
+      {text:"Invalidate it on the prior public disclosure.",base:74,style:"technical",ok:{fx:{rep:8,inf:7,money:1300},txt:"Exhibit 9 is their own brochure. The patent evaporates. So does their smugness."},fail:{fx:{rep:-5},txt:"The demo was 'a prototype, not the claimed invention'. Arguable. Ugh."}},
+      {text:"Countersue for bad-faith litigation.",base:36,boldW:3,style:"aggressive",ok:{fx:{bold:7,inf:7,money:1000},txt:`${b} drops everything to make you drop the countersuit. You don't. They pay.`},fail:{fx:{rep:-10},txt:"Your countersuit reads as retaliation. The judge says so. In writing."}}]};},
+  // 10 — the guaranty nobody signed twice
+  ()=>{const who=rnd(LAST),a=rnd(CO),k=rnd([200,350,500]);
+  return {tier:1,title:`CASE: ${a} loan guaranty`,deadline:rnd([2,3]),
+    body:`${a} defaulted on a $${k}k loan and the bank is chasing ${who}, who allegedly 'personally guaranteed' it. The guaranty page bears ${who}'s signature — but it's a photocopy grafted onto a different font than the rest of the document, and the notary stamp expired the year before the date written on it. Somebody assembled this.`,
+    opts:[
+      {text:"Negotiate a payment plan and stop asking questions.",base:100,safe:true,ok:{fx:{bold:-4,inf:2},txt:"A quiet plan. The Frankenstein guaranty is never mentioned again."}},
+      {text:"Challenge the guaranty — expired notary, spliced page.",base:72,style:"technical",delay:rnd([1,2]),ok:{fx:{rep:8,inf:6,money:900},txt:"An expired notary can't notarize the future. The guaranty is void. The bank blinks."},fail:{fx:{rep:-5},txt:"The bank produces a 'corrected' copy overnight. Convenient. Hard to disprove today."}},
+      {text:"Accuse the bank of forging the document.",base:32,boldW:3,style:"aggressive",ok:{fx:{bold:7,inf:6,money:1100},txt:"Nobody wants 'bank forgery' in a headline. They walk away fast."},fail:{fx:{rep:-11},txt:"Forgery is a big word to prove. You had a stapler's worth of evidence."}}]};},
+  // 11 — the HOA tyrant (tier 0, low stakes, high pettiness)
+  ()=>{const who=rnd(LAST),thing=rnd(["a garden gnome deemed 'architecturally nonconforming'","a mailbox painted a shade of beige not on the approved list","a basketball hoop visible from space, allegedly"]);
+  return {tier:0,title:`CASE: ${who} v. the HOA`,deadline:rnd([1,2]),
+    body:`Pro bono. ${who}'s homeowners' association is fining them $50/day over ${thing}. The HOA's own bylaws — section 12, which the board president clearly never read — require a hearing before any fine. They skipped it. Every fine is procedurally void.`,
+    opts:[
+      {text:"Write a polite letter citing section 12.",base:100,safe:true,ok:{fx:{inf:2,rep:2},txt:`The fines vanish. ${who} sends a fruit basket. It's a nice basket.`}},
+      {text:"Demand every past fine refunded, with interest.",base:66,style:"technical",ok:{fx:{rep:5,inf:5},txt:"Section 12 was a landmine. The board president resigns by email."},fail:{fx:{rep:-4},txt:"The board lawyers up with someone who HAS read section 12. Standoff."}},
+      {text:"Threaten to depose the entire board.",base:38,boldW:2,style:"aggressive",ok:{fx:{bold:6,inf:4},txt:"Nobody on a volunteer board wants a deposition. Total surrender."},fail:{fx:{rep:-6},txt:"Turns out the treasurer is also a litigator. Of course she is."}}]};},
 ];
 
 export function genCase(){

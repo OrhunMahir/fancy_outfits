@@ -103,7 +103,10 @@ export const JUDGES=[
   {name:"Hon. R. Ironwood",temper:80,book:70,corrupt:5,desc:"Zero patience for theatrics. Worships procedure."},
   {name:"Hon. C. Marsh",temper:30,book:40,corrupt:45,desc:"Enjoys a good show. Bored by footnotes."},
   {name:"Hon. B. Pelt",temper:55,book:85,corrupt:10,desc:"Reads every exhibit. Twice. Cites page numbers from memory."},
-  {name:"Hon. D. Crane Jr.",temper:20,book:20,corrupt:75,desc:"Unpredictable. Once ruled based on a coin flip. Allegedly."}];
+  {name:"Hon. D. Crane Jr.",temper:20,book:20,corrupt:75,desc:"Unpredictable. Once ruled based on a coin flip. Allegedly."},
+  {name:"Hon. A. Whitlock",temper:65,book:55,corrupt:20,desc:"Ex-prosecutor. Smells weakness. Bills it as contempt."},
+  {name:"Hon. M. Okonkwo",temper:40,book:78,corrupt:5,desc:"Kind, thorough, immune to theater. Quotes you back at yourself."},
+  {name:"Hon. T. Fairway",temper:25,book:25,corrupt:85,desc:"Owns four golf memberships. Asks about your 'handicap' unprompted."}];
 
 /* Crisis events — each fires at most once per run (S.usedCrises). */
 export function crises(){
@@ -120,6 +123,18 @@ export function crises(){
       {text:"Investigate on your own. Find the mole first.",base:55,boldW:2,ok:{fx:{rep:10,inf:9},txt:"It was Lou Bitt's paralegal. You present the proof with a small bow."},fail:{fx:{rep:-8},txt:"You accuse the wrong paralegal. HR would like several words."}},
       {text:"Cooperate, hand over your logs, stay clean.",base:100,safe:true,ok:{fx:{bold:-2,inf:2},txt:"Cleared. The mole was never found. People still whisper."}},
       {text:"Point suspicion at Snidely Fitch. Deflect everything.",base:40,boldW:2,style:"aggressive",ok:{fx:{inf:8,bold:5},txt:"Fitch denies it so hard everyone believes it's them."},fail:{fx:{rep:-10},txt:"Your deflection looks exactly like guilt."}}]});
+  C.push({id:"billing",title:"CRISIS: The billing audit",cond:()=>S.day>=5,
+    body:"Accounting flags your hours: 26 billed in one 24-hour day. It was technically a merger closing, but the auditor doesn't bill technicalities. She bills examples. You may be about to become one.",
+    opts:[
+      {text:"Recode the hours honestly. Eat the loss.",base:100,safe:true,ok:{fx:{money:-400,bold:-2,inf:2},txt:"Clean books, lighter wallet. The auditor nods once. It's almost warm."}},
+      {text:"Defend every entry, line by line.",base:60,style:"technical",ok:{fx:{rep:7,inf:6},txt:"Entry 41: 'thinking while commuting'. Upheld. You are now firm legend."},fail:{fx:{rep:-7,money:-600},txt:"Entry 41 dies in review and takes your credibility with it."}},
+      {text:"'Audit the partners first. I'll wait.'",base:35,boldW:3,style:"aggressive",ok:{fx:{bold:7,inf:7},txt:"The audit quietly becomes 'random sampling'. You were not sampled."},fail:{fx:{rep:-11},txt:"The partners' hours are immaculate. Yours are now famous."}}]});
+  C.push({id:"clientflight",title:"CRISIS: The Meridian defection",cond:()=>S.day>=6,
+    body:"Snidely Fitch is wining-and-dining Meridian — the firm's biggest client. Hardwick wants 'ideas' by tonight. The conference room goes quiet. People look at you.",
+    opts:[
+      {text:"Draft the retention memo everyone expects.",base:100,safe:true,ok:{fx:{inf:2,bold:-3},txt:"Solid, forgettable, filed. Meridian stays. For now."}},
+      {text:"Pitch Meridian yourself, off the books.",base:55,boldW:2,ok:{fx:{rep:8,inf:10},txt:"Meridian's GC likes 'the hungry one'. Hardwick pretends it was his idea. Fine."},fail:{fx:{rep:-9},txt:"Snidely Fitch forwards your pitch deck to Hardwick. With comments."}},
+      {text:"Suggest poaching THEIR biggest client instead.",base:40,boldW:3,style:"aggressive",ok:{fx:{inf:12,bold:6},txt:"Mutually assured poaching. Both firms stand down. You get the credit."},fail:{fx:{rep:-10},txt:"'We don't start wars we can't bill,' says Hardwick, coldly."}}]});
   C.push({id:"audit",title:"CRISIS: Bar credentials audit",cond:()=>S.scenario==="fraud"&&S.day>=3,
     body:"The firm is running a routine bar-credentials audit. Yours would come back... creative. The auditor, coincidentally, is drowning in her own caseload and mentions she'd kill for help on a filing.",
     opts:[

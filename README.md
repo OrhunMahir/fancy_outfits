@@ -24,6 +24,27 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v10 — Rival, promotions, Marv, settings & more *(2026-07-06)*
+- **The rival associate.** A named nemesis climbs the ladder alongside you: he grinds influence
+  every night AND feeds on your failures (lost cases, missed deadlines, botched delegations,
+  blown crises). If he makes **Name Partner** before you do, it's game over — `OUTPACED`. His
+  progress sits in the side panel: `RIVAL … AHEAD / behind`.
+- **Promotion moment.** Getting promoted now plays a short ceremony: you pack up and walk out of
+  the *old* office, then walk into the bigger one and sit down. The caption reads
+  "PROMOTED — packing up the old desk…".
+- **Marv grows up.** The copy-room oracle now drops recurring mini-events, and his tone and gifts
+  depend on your bribe history — pay him once and folders start "accidentally" landing in your
+  tray (free dossiers on live cases).
+- **More content:** 12 procedural case templates (up from 7 — backdated emails, self-poisoned
+  patents, Frankenstein loan guaranties, HOA tyrants…), 2 new firm-wide crises (billing audit,
+  client defection), and 3 new judges including the very sociable Hon. T. Fairway.
+- **Run ledger.** The end-of-run screen now breaks down your career: bluffs landed vs. blown,
+  technical record, safe plays, bribes offered/taken, favors, most-delegated colleague, deadlines
+  missed, crises faced, and how high the rival climbed.
+- **Settings panel** (new **SET** button): day length (60 / 75 / 90s), SFX and music volume
+  (off / low / full), and a screen-shake toggle. **Screen shake** now punctuates failures
+  (respects the toggle). All preferences persist globally, separate from the run save.
+
 ### v9 — Ambience, endings, bribes & favors *(2026-07-06)*
 - **Lo-fi office ambience** — fully procedural (Web Audio, still zero asset files): a slow
   4-chord loop of detuned triangles through a lowpass over vinyl-hiss noise. New **BGM** toggle

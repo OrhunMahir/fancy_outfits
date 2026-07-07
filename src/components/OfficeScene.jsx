@@ -101,11 +101,13 @@ const CAPS=[
 
 export default function OfficeScene(){
   const S=useGame();
-  const {el:shapes,chairX}=buildScene(S.rank,S.rep);
+  // during a promotion walk the room keeps the OLD rank until you're back at the desk
+  const shownRank=S.sceneRank!=null?S.sceneRank:S.rank;
+  const {el:shapes,chairX}=buildScene(shownRank,S.rep);
   const walkDist=DOOR_X+6-chairX; // negative: door is to the left
-  let cap=CAPS[S.rank];
-  if(S.rep<30) cap+=" · People 'forget' your name in meetings. (-12% on risky plays)";
-  else if(S.rep>70) cap+=" · Associates fetch YOUR coffee now. (+5% on risky plays)";
+  let cap=S.sceneRank!=null?"PROMOTED — packing up the old desk…":CAPS[shownRank];
+  if(S.sceneRank==null&&S.rep<30) cap+=" · People 'forget' your name in meetings. (-12% on risky plays)";
+  else if(S.sceneRank==null&&S.rep>70) cap+=" · Associates fetch YOUR coffee now. (+5% on risky plays)";
   return (
     <div id="scenewrap">
       <div id="scene">
@@ -114,9 +116,9 @@ export default function OfficeScene(){
             ? <rect key={i} x={s.x} y={s.y} width={s.w} height={s.h} fill={s.f}/>
             : <text key={i} x={s.x} y={s.y} textAnchor="middle" fontFamily="monospace" fontSize={s.size} fill={s.fill}>{s.str}</text>)}
           {S.charAnim==="working"
-            ? <SittingChar x={chairX+3} r={S.rank}/>
+            ? <SittingChar x={chairX+3} r={shownRank}/>
             : <g className={S.charAnim==="leaving"?"char-leave":"char-arrive"} style={{"--wd":walkDist+"px"}}>
-                <StandingChar x={chairX+2} r={S.rank}/>
+                <StandingChar x={chairX+2} r={shownRank}/>
               </g>}
         </svg>
       </div>

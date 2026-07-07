@@ -1,10 +1,13 @@
 // WebAudio synth SFX — no audio files, everything generated at runtime.
 // New effect = map a frequency array like SFX.promo. AudioContext opens
-// lazily on first user gesture (autoplay policy).
-let AC=null, muted=false;
+// lazily on first user gesture (autoplay policy). Volumes come from settings.
+import { settings } from "./settings.js";
+
+let AC=null;
 function ac(){ if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==="suspended")AC.resume(); return AC; }
 function tone(freq,dur,type,vol,when){
-  if(muted) return;
+  if(settings.sfx<=0) return;
+  vol=(vol||.08)*settings.sfx;
   try{
     const a=ac(), o=a.createOscillator(), g=a.createGain(), t=a.currentTime+(when||0);
     o.type=type||"square"; o.frequency.value=freq;
@@ -24,14 +27,10 @@ export const SFX={
   send:()=>{tone(500,.05,"square",.05);tone(900,.08,"square",.05,.06);},
   crisis:()=>{[220,220,180].forEach((f,i)=>tone(f,.18,"sawtooth",.09,i*.14));},
 };
-export const isMuted=()=>muted;
-export function toggleMute(){ muted=!muted; if(!muted)SFX.click(); }
-
 /* ---------- lo-fi office ambience (procedural, no audio files) ----------
    A slow 4-chord loop (detuned triangles through a lowpass) over a bed of
-   filtered noise — vinyl hiss meets HVAC. Independent of the SFX mute. */
+   filtered noise — vinyl hiss meets HVAC. Volume lives in settings.bgm. */
 let amb=null, chordStep=0;
-let bgmOn=(typeof localStorage!=="undefined"&&localStorage.getItem("fo_bgm")==="0")?false:true;
 const CHORDS=[ // Am7 → Fmaj7 → Cmaj7 → G, the four chords of quiet despair
   [220,261.63,329.63,392],[174.61,220,261.63,329.63],
   [130.81,164.81,196,246.94],[196,246.94,293.66,349.23]];
@@ -47,12 +46,11 @@ function playChord(a){
     o.start(t); o.stop(t+4.5);
   });
 }
-export const isBgmOn=()=>bgmOn;
 export function startAmbience(){
-  if(!bgmOn||amb) return;
+  if(settings.bgm<=0||amb) return;
   try{
     const a=ac(), master=a.createGain();
-    master.gain.value=0.6; master.connect(a.destination);
+    master.gain.value=0.6*settings.bgm; master.connect(a.destination);
     const buf=a.createBuffer(1,a.sampleRate*2,a.sampleRate), d=buf.getChannelData(0);
     for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
     const noise=a.createBufferSource(); noise.buffer=buf; noise.loop=true;
@@ -70,8 +68,8 @@ export function stopAmbience(){
   try{ amb.noise.stop(); amb.master.disconnect(); }catch(e){}
   amb=null;
 }
-export function toggleBgm(){
-  bgmOn=!bgmOn;
-  try{ localStorage.setItem("fo_bgm",bgmOn?"1":"0"); }catch(e){}
-  if(bgmOn) startAmbience(); else stopAmbience();
+/* call after settings.bgm changes: live-adjusts or starts/stops the bed */
+export function applyBgmVolume(){
+  if(settings.bgm<=0){ stopAmbience(); return; }
+  if(amb) amb.master.gain.value=0.6*settings.bgm; else startAmbience();
 }

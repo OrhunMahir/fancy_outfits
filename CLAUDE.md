@@ -87,7 +87,15 @@
 - **Rüşvete açık hakimler (GDD §7 corruptible):** JUDGES'a `corrupt` statı (Ironwood 5, Marsh 45, Pelt 10, Crane 75). Dosyada "ETHICS: granite/flexible/'sociable'" görünür. corrupt≥40 → `instantiateCase` dosyaya altın "discuss golf" seçeneği ekler: maliyet $900+300×rank (kazan-kaybet fark etmez peşin düşer, `o.bribe`), base=corrupt−15, fail −13 REP. Para yetmezse buton disabled + engine guard.
 - **Ters yönlü ilişki (favor):** her sabah %30 (inbox'ta favor yoksa) bir NPC 1 günlük FAVOR dosyası bırakır (`buildFavor`, npcs.js). Seçeneklerde `relOk/relFail` — rel değişimini `choose()` işler (apply stats-only kalır). Sessiz yardım +10 rel; gösterişli yardım riskli (+INFL / kredi çalmış görünme); ret −8 rel; deadline kaçırma −10 rel (REP cezası ve weekMissed'e girmez). Favor delege/dedektif edilemez.
 
-**En son çalışılan konu (2026-07-06):** v0.9 dört özelliğiyle tarayıcıda test edildi. Sırada: Steam'e yaklaşınca electron-builder + steamworks.js; §10'da kalan: multiplayer.
+**v1.0 eklendi (2026-07-06, kullanıcı onayıyla):**
+- **Rakip associate (nemesis):** `S.nemesis={name,inf,rank}` (isim `state.js` NEMESES'ten). `nemesisGain(v,fromFailure)` — gece rastgele +0..3, senin fail'lerinden +3-4 (dava/delayed/delege/kriz fail + kaçan deadline). Rank 4'e ulaşırsa `gameOver("OUTPACED")`. StatsPanel'de RIVAL satırı (AHEAD/behind + INF barı).
+- **Terfi geçiş sahnesi:** `checkPromotion` rank artınca `promoWalk(oldRank)` çağırır — `S.sceneRank=oldRank` (OfficeScene eski ofisi çizer), karakter çıkar (1.5s) → yeni ofise girer → oturur. `sceneRank` transient (save'de soyulur). Gün sonu yürüyüşüyle çakışmaz (`S.leaving` guard).
+- **Marv büyüdü:** `S.marvBribes` sayacı; `marvMoment()` (%18/sabah) tekrarlayan mini-event, rüşvet geçmişine göre replik değişir; ≥1 rüşvette %50 canlı dosyaya bedava `dossier` düşürür. `bribeMarv` replikleri de sayaca göre.
+- **İçerik:** casegen 7→12 şablon (backdated email, patent, guaranty, HOA vb.), 2 yeni kriz (billing audit, client defection), 3 yeni hakim (Whitlock, Okonkwo, Fairway corrupt 85).
+- **Run ledger:** `S.runStats` (safe/bluffW/L/techW/L/deleg/bribe/favor/miss/crises) `trackChoice()` ile işlenir; `ledger()` gameWin/gameOver özetine döküm ekler.
+- **Ayarlar paneli (`settings.js`, run save'inden AYRI `fo_settings_v1`):** dayLen 60/75/90, sfx/bgm 0/.5/1, shake on/off. Topbar'da SET butonu + hızlı SFX/BGM aç-kapa. `sound.js` artık `settings.sfx/bgm`'i okur (eski muted/bgmOn bayrakları kaldırıldı). **Ekran sarsıntısı:** `S.shakeSeq` fail'lerde artar, App `.shaking` class'ını replay eder (settings.shake gate).
+
+**En son çalışılan konu (2026-07-06):** v1.0 (rakip + terfi sahnesi + Marv + içerik + ledger + ayarlar) tarayıcıda uçtan uca test edildi. Kalan backlog için §10'a bak; en yakın anlamlı iş: GitHub Pages demo yayını, sonra Steam paketleme (electron-builder + steamworks.js).
 
 ---
 
@@ -116,26 +124,28 @@ fancy-outfits/
 │   ├── App.jsx                   ← layout + overlay'lerin koşullu render'ı
 │   ├── styles.css                ← TÜM CSS (palet :root'ta, scanline, panel, paper, overlay)
 │   ├── game/                     ← OYUN MANTIĞI (React'ten bağımsız saf JS)
-│   │   ├── constants.js          ← RANKS, RANK_REQ, DAY_SECONDS, REP_FIRED, DEADLINE_PENALTY
-│   │   ├── state.js              ← S, newState(), store (subscribe/notify)
-│   │   ├── engine.js             ← apply(), chance(), akış: startGame/endDay/choose/delege/kriz/terfi/ending
-│   │   ├── content.js            ← buildPool() 9 el yazması dava, JUDGES, crises(), SCENARIOS
-│   │   ├── casegen.js            ← PROSEDÜREL dava üreticisi (7 şablon, API'siz, offline)
-│   │   ├── npcs.js               ← NPC roster, trait dağıtımı, delegationChance(), relNpc()
-│   │   ├── sound.js              ← WebAudio sentez SFX + mute
-│   │   ├── utils.js              ← clamp, rnd
+│   │   ├── constants.js          ← RANKS, RANK_REQ, DAY_SECONDS, STAKE_*, PRICES, WEEK_*, SAVE/STATS_KEY
+│   │   ├── settings.js           ← global tercihler (dayLen/sfx/bgm/shake), run save'inden AYRI
+│   │   ├── state.js              ← S, newState(), store (subscribe/notify), nemesis/runStats
+│   │   ├── engine.js             ← apply(), chance(), akış + nemesis/terfi sahnesi/ledger/ayarlar
+│   │   ├── content.js            ← buildPool() 9 el yazması dava, JUDGES(7), crises(), SCENARIOS
+│   │   ├── casegen.js            ← PROSEDÜREL dava üreticisi (12 şablon, API'siz, offline)
+│   │   ├── npcs.js               ← NPC roster, trait dağıtımı, delegationChance(), buildFavor()
+│   │   ├── sound.js              ← WebAudio sentez SFX + prosedürel ambiyans (settings'ten ses)
+│   │   ├── utils.js              ← clamp, rnd, hash
 │   │   └── useGame.js            ← React köprüsü (useSyncExternalStore hook'u)
 │   └── components/               ← UI (her panel/overlay ayrı dosya)
-│       ├── StartScreen.jsx       ← senaryo seçimi
-│       ├── Topbar.jsx            ← logo, rütbe, gün, saat, SFX/i/PAUSE/END DAY
-│       ├── OfficeScene.jsx       ← piksel ofis SVG'si + oyuncu karakteri (otur/yürü animasyonu)
-│       ├── Inbox.jsx             ← sol panel (4 item tipi: dava/pending/delegated/msg)
-│       ├── CasePane.jsx          ← orta panel (DESK veya açık dava + seçenekler + DELEGATE satırı)
-│       ├── StatsPanel.jsx        ← sağ panel (stat barları, para, THE FLOOR NPC listesi, log)
+│       ├── StartScreen.jsx       ← senaryo + zorluk seçimi, CONTINUE, FIRM RECORD
+│       ├── Topbar.jsx            ← logo, rütbe, gün+FRI, saat+bar, SFX/BGM/i/SET/PAUSE/END DAY
+│       ├── OfficeScene.jsx       ← piksel ofis SVG'si + karakter (otur/yürü/terfi sahnesi sceneRank)
+│       ├── Inbox.jsx             ← sol panel (dava/pending/delegated/msg/favor/chain)
+│       ├── CasePane.jsx          ← orta panel (dava + seçenekler + DELEGATE + dedektif + bribe)
+│       ├── StatsPanel.jsx        ← sağ panel (statlar, para, RIVAL, EXPENSES, THE FLOOR, log)
 │       ├── InfoOverlay.jsx       ← "i" paneli
 │       ├── PauseOverlay.jsx      ← PAUSE ekranı (masayı kapatır — bilinçli)
+│       ├── SettingsOverlay.jsx   ← ayarlar (gün süresi, ses, sarsıntı)
 │       ├── EventOverlay.jsx      ← kriz ekranı (+ Traitor/Brave modifier satırı)
-│       └── SummaryOverlay.jsx    ← gün sonu / game over / win
+│       └── SummaryOverlay.jsx    ← gün sonu / cuma review / game over / win + run ledger
 ├── FANCY_OUTFITS_GDD.md          ← Tasarım dokümanı (gelecek özelliklerin speci)
 ├── README.md                     ← GitHub vitrini + CHANGELOG (her versiyonda güncellenir — §6 kuralı)
 ├── CLAUDE.md                     ← Bu dosya
@@ -259,7 +269,7 @@ if(S.scenario==="legacy"){
 - **Asset dosyası SIFIR.** Font CDN'den, sesler sentez, grafikler CSS+SVG.
 - **Grafik tarzı:** Piksel/retro. Font `Press Start 2P` (8-10px). Palet `:root`'ta: lacivert zeminler (`--bg #1a1c2c`, `--panel #29366f`), altın vurgu (`--gold #ffcd75`), yeşil=güvenli (`--green`), kırmızı=risk (`--red`), dava kağıdı krem (`--paper #f2e9d8`). CRT hissi için `body::after` scanline overlay. `image-rendering:pixelated` global.
 - **UI:** 3 sütun — INBOX (sol), CASE FILE/DESK (orta, kağıt görünümü), ASSOCIATE FILE (sağ: stat barları + log). Üstte topbar + ofis sahnesi bandı. Topbar'da saatin yanında süre barı: gün ilerledikçe kısalır (altın → ≤30sn kehribar → ≤15sn kırmızı, saat rakamı da kırmızıya döner). Buton renk kodu: yeşil=safe, mavi=nötr, kırmızı=aggressive/blöf. Her butonun altında küçük altın satırla % ve etiketler.
-- **Animasyon:** Minimal — `.flash` (HENDERED!/PROMOTED! pop keyframe), stat barlarında `width .3s transition`. Başka animasyon sistemi yok, gerekmedikçe ekleme.
+- **Animasyon:** `.flash` (HENDERED!/PROMOTED! pop), stat barı `width .3s`, karakter yürüyüşü (`char-leave/arrive` CSS keyframe), ekran sarsıntısı (`.shaking`, App'te fail'de replay, `settings.shake` gate). Başka animasyon sistemi yok, gerekmedikçe ekleme.
 - **Ses:** `SFX.{click,open,win,lose,promo,fired,bell,tick,send,crisis}` + prosedürel lo-fi ambiyans (v0.9: 4 akorluk Web Audio döngüsü + noise cızırtısı, `startAmbience/stopAmbience`). Topbar'da SFX ve BGM ayrı toggle'lar; BGM tercihi `localStorage`'da. Ses dosyası hâlâ SIFIR.
 
 ---
@@ -272,7 +282,9 @@ if(S.scenario==="legacy"){
 - **Combat karşılığı:** Dava çözümü — oku, seç, zar. Zar: `Math.random()*100 < chance(o,c)`.
 - **Progression:** Influence→rütbe→daha iyi ofis (görsel) + daha zor davalar (rank başı −2 şans) + daha büyük kriz maruziyeti.
 - **Physics:** YOK (bilinçli).
-- **Controls:** Sadece fare/tık. Klavye kısayolu yok (aday geliştirme: 1-4 tuşlarıyla seçenek seçimi).
+- **Controls:** Sadece fare/tık. Klavye kısayolu yok (backlog: 1-4 tuşlarıyla seçenek seçimi).
+- **Rakip (nemesis):** İsimli associate seninle yarışır; gece + senin fail'lerinden INF kazanır, önce Name Partner olursa `OUTPACED` game over (`nemesisGain`, engine.js).
+- **Ayarlar (`settings.js`):** run save'inden AYRI global tercihler (`fo_settings_v1`): dayLen 60/75/90, sfx/bgm ses seviyesi, ekran sarsıntısı. Sound bunları okur.
 - **Ekonomi/zorluk sabitleri:** `DAY_SECONDS=75`, `REP_FIRED=20`, `DEADLINE_PENALTY=-9`, `RANK_REQ=[30,55,80,95]`, kriz olasılığı `.6`, ikinci günlük dava olasılığı `.6`, gece REP çürümesi `-1`, Debtor taksiti `$2000/3 gün`, `STAKE_REWARD=[1,1.15,1.3,1.45,1.6]`, `STAKE_PENALTY=[1,1.3,1.6,1.9,2.2]`, `PRICES={suit:1200(×1.5 artar), detective:900, marv:600}`, `WEEK_LEN=5`, `REVIEW_GOOD=10`, `REVIEW_BAD=0`.
 - **Inventory:** Hâlâ yok ama para artık harcanabiliyor (EXPENSES: suit/Marv; dosya başına dedektif).
 
@@ -290,13 +302,22 @@ if(S.scenario==="legacy"){
 
 **Planlanan özellikler (kalanlar; başlamadan kullanıcıya sor):**
 1. ~~NPC ilişki sistemi~~ — v0.4'te EKLENDİ.
-2. ~~Dava havuzunu büyütme~~ — v0.4'te prosedürel üreticiyle EKLENDİ. NOT: AI/LLM ile üretim BİLİNÇLİ olarak reddedildi — kullanıcı API anahtarının oyuna gömülmesini istemiyor; oyun her makinede offline dava üretmeli. Bu kararı değiştirme.
-3. ~~Çok aşamalı davalar~~ — v0.6'da EKLENDİ (`next` zincirleri, temyiz/yaptırım aşamaları).
-4. ~~Save/load + run istatistikleri~~ — v0.5'te EKLENDİ.
+2. ~~Dava havuzunu büyütme~~ — v0.4/v1.0'da EKLENDİ (12 şablon). NOT: AI/LLM ile üretim BİLİNÇLİ olarak reddedildi — kullanıcı API anahtarının oyuna gömülmesini istemiyor; oyun her makinede offline dava üretmeli. Bu kararı değiştirme.
+3. ~~Çok aşamalı davalar~~ — v0.6'da EKLENDİ (`next` zincirleri).
+4. ~~Save/load + run istatistikleri~~ — v0.5/v1.0'da EKLENDİ (+run ledger).
 5. ~~Para harcama yerleri~~ — v0.5'te EKLENDİ (suit/dedektif/Marv).
 6. ~~Haftalık ritim~~ — v0.8'de EKLENDİ (cuma partner review'ı).
-7. ~~Ses/müzik genişletme~~ — v0.9'da EKLENDİ (prosedürel lo-fi ambiyans + BGM toggle).
-8. Multiplayer (en son; server ister, GDD §11).
+7. ~~Ses/müzik genişletme~~ — v0.9'da EKLENDİ (prosedürel lo-fi ambiyans).
+8. ~~Terfi geçiş sahnesi, rakip associate, Marv büyütme, ayarlar paneli~~ — v1.0'da EKLENDİ.
+
+**Backlog (kullanıcının "aklında tut" dediği + türeyenler; başlamadan sor):**
+- **GitHub Pages demo yayını** — `dist/`i yayınlayan tek workflow; oyun linkle paylaşılabilir olur (en ucuz/yüksek etkili iş, öneri: bir sonraki).
+- **4. senaryo "The Defector"** — Snidely Fitch'ten transfer; eski firma sabotaj krizleri.
+- **Başarımlar/achievements** — oyun içi liste (REALISTIC'te kazan, hiç safe seçmeden kazan, Traitor'a 5 delege edip hayatta kal…); FIRM RECORD altyapısı hazır, ileride Steamworks achievement'larına bağlanır.
+- **Oyun modları:** ironman (tek can/kayıt yok), endless (win'den sonra devam), günlük hedef (seeded challenge).
+- **Klavye kısayolları** (1-4 seçenek, Space=defer) — düşük maliyet cila.
+- **Steam paketleme:** `electron-builder` (.exe/.app) + `steamworks.js` (achievements, overlay).
+- **Multiplayer** (en son; server ister, GDD §11).
 
 ---
 

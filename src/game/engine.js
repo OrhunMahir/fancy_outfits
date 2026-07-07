@@ -6,7 +6,8 @@ import { RANKS, RANK_REQ, DAY_SECONDS, REP_FIRED, DEADLINE_PENALTY,
          STAKE_REWARD, STAKE_PENALTY, PRICES, SAVE_KEY, STATS_KEY,
          WEEK_LEN, REVIEW_GOOD, REVIEW_BAD } from "./constants.js";
 import { clamp, rnd, hash } from "./utils.js";
-import { SFX, toggleMute, toggleBgm, startAmbience, stopAmbience } from "./sound.js";
+import { SFX, startAmbience, stopAmbience, applyBgmVolume } from "./sound.js";
+import { settings, setSetting } from "./settings.js";
 import { buildPool, JUDGES, crises, SCENARIOS } from "./content.js";
 import { genCase } from "./casegen.js";
 import { buildNpcs, delegationChance, relNpc, buildFavor, DELEGATE_WIN_TXT, DELEGATE_FAIL_TXT } from "./npcs.js";
@@ -15,7 +16,7 @@ let timerId=null, flashSeq=0;
 
 /* The clock stops whenever any overlay is up, the player hit PAUSE, or the
    character is walking out. Replaces the old S.paused flag. */
-export const isPaused=()=>!!(S.infoOpen||S.event||S.summary||S.userPaused||S.leaving);
+export const isPaused=()=>!!(S.infoOpen||S.event||S.summary||S.userPaused||S.settingsOpen||S.leaving);
 export const disrespected=()=>S.rep<30;
 
 export function log(txt,cls){ S.logEntries.unshift({txt,cls:cls||""}); S.dailyLog.push(txt); }
@@ -24,6 +25,32 @@ export function flash(txt){
   const id=++flashSeq;
   S.flash={txt,id};
   setTimeout(()=>{ if(S&&S.flash&&S.flash.id===id){ S.flash=null; notify(); } },1000);
+}
+function doShake(){ if(settings.shake) S.shakeSeq++; }
+
+/* the rival associate: your failures are his billable hours */
+function nemesisGain(v,fromFailure){
+  const N=S.nemesis; if(!N||S.over||!v) return;
+  N.inf=clamp(N.inf+v,0,100);
+  if(fromFailure&&Math.random()<.25)
+    pushMsg("FLOOR NEWS","Your lost file found a new desk. "+N.name+" sends 'sympathies'.");
+  while(N.rank<4&&N.inf>=RANK_REQ[N.rank]){
+    N.rank++;
+    if(N.rank===4){ gameOver("OUTPACED",N.name+" makes NAME PARTNER while you're still billing hours. The sign painters are on the wall. The name is not yours."); return; }
+    pushMsg("FLOOR NEWS",N.name+" promoted to "+RANKS[N.rank]+". The floor compares résumés. Yours is quieter.");
+    log(N.name+" outranks the room a little more.","bad");
+    apply({rep:-3},true);
+  }
+}
+
+/* per-run ledger bookkeeping (die is already cast when this is called) */
+function trackChoice(c,o,win){
+  const r=S.runStats;
+  if(o.safe) r.safe++;
+  else if(o.style==="aggressive"){ win?r.bluffW++:r.bluffL++; }
+  else if(o.style==="technical"){ win?r.techW++:r.techL++; }
+  if(o.bribe){ r.bribeTry++; if(win) r.bribeW++; }
+  if(c&&c.favor){ if((o.relOk||0)>0) r.favorHelp++; else if((o.relOk||0)<0) r.favorNo++; }
 }
 
 /* effects: {rep,bold,inf,money} */
@@ -175,7 +202,8 @@ export function endDay(){
   missed.forEach(c=>{
     if(c.favor){ const n=S.npcs.find(x=>x.id===c.npc); if(n) relNpc(n,-10);
       log("FAVOR IGNORED: "+c.title+" (-10 rel)","bad"); return; }
-    log("DEADLINE MISSED: "+c.title,"bad"); apply({rep:DEADLINE_PENALTY},true);
+    log("DEADLINE MISSED: "+c.title,"bad"); S.runStats.miss++;
+    apply({rep:DEADLINE_PENALTY},true); nemesisGain(4,true);
   });
   S.inbox=S.inbox.filter(c=>!missed.includes(c));
   if(S.over) return;
@@ -223,7 +251,9 @@ export function endDay(){
     S.leaving=false;
     SFX.bell();
     showSummary("END OF DAY "+S.day+(friday?" — FRIDAY":""), lines, "START DAY "+(S.day+1), ()=>{
-      S.day++; S.secs=DAY_SECONDS;
+      S.day++; S.secs=settings.dayLen||DAY_SECONDS;
+      nemesisGain(rnd([0,1,1,2,2,3])); // he grinds nights too
+      if(S.over) return;
       apply({rep:-1},true); // the firm forgets fast
       if(S.over) return;
       S.inbox.filter(c=>c.pending&&c.pending.day<=S.day).forEach(resolveDelayed);
@@ -231,6 +261,7 @@ export function endDay(){
       spawnFollowups();
       drawCases(1+(Math.random()<.6?1:0));
       if(Math.random()<.3&&!S.inbox.some(c=>c.favor)) spawnFavor();
+      if(Math.random()<.18) marvMoment();
       // low rep = casual disrespect
       if(disrespected()&&Math.random()<.5) pushMsg("FYI",rnd([
         "The partners' meeting you weren't told about went great, apparently.",
@@ -246,7 +277,7 @@ export function endDay(){
         const brave=S.npcs.find(n=>n.trait==="Brave"&&n.rel>=40);
         if(traitor&&Math.random()<.4){ traitor.known=true; c.crisisMod={v:-8,txt:traitor.name+" leaked your position before you entered the room. (-8% on every play)"}; }
         else if(brave){ brave.known=true; c.crisisMod={v:8,txt:brave.name+" is standing at your shoulder. (+8% on every play)"}; }
-        S.event=c;
+        S.event=c; S.runStats.crises++;
       }
       sitDown();
     });
@@ -257,7 +288,7 @@ function resolveDelayed(c){
   S.inbox=S.inbox.filter(x=>x!==c);
   const r=c.pending, out=r.win?r.o.ok:r.o.fail;
   if(r.win){ SFX.win(); log("RESPONSE ["+c.title+"]: SUCCESS","good"); pushMsg("REPLY: "+c.title,out.txt); apply(out.fx); if((out.fx.rep||0)+(out.fx.inf||0)>=10) flash("HENDERED!"); }
-  else { SFX.lose(); log("RESPONSE ["+c.title+"]: FAILED","bad"); pushMsg("REPLY: "+c.title,out.txt); apply(out.fx); }
+  else { SFX.lose(); log("RESPONSE ["+c.title+"]: FAILED","bad"); pushMsg("REPLY: "+c.title,out.txt); apply(out.fx); doShake(); nemesisGain(3,true); }
   if(out.next) queueFollowup(out.next);
   checkPromotion();
 }
@@ -282,9 +313,28 @@ function resolveDelegated(c){
     const traitorTax=n.trait==="Traitor"?4:0;
     pushMsg("DELEGATED: "+c.title, n.name+" "+rnd(DELEGATE_FAIL_TXT)+(traitorTax?" Somehow the whole floor knows it was YOUR case.":""));
     log("DELEGATION ["+c.title+"]: "+n.name+" failed it.","bad");
-    apply({rep:-4-traitorTax});
+    apply({rep:-4-traitorTax}); nemesisGain(3,true);
   }
   checkPromotion();
+}
+
+/* Marv, the copy-room oracle. His generosity tracks your bribe history. */
+function marvMoment(){
+  if(S.marvBribes>0&&Math.random()<.5){
+    const t=S.inbox.find(c=>!c.msg&&!c.pending&&!c.delegated&&!c.dossier&&!c.favor);
+    if(t){ t.dossier=true;
+      pushMsg("MARV (copy room)","A folder 'accidentally' lands in your tray. It concerns the "+t.title.replace(/^(CASE|COURT|MEMO|FAVOR|APPEAL|Errand|Doc review): ?/,"")+" file. (+12% on that file)");
+      return; }
+  }
+  pushMsg("MARV (copy room)", rnd(S.marvBribes===0?[
+    "Marv nods at you by the copier. He knows something. He always knows something.",
+    "Marv: 'Big folders moving to the 14th floor today. Just saying.'",
+    "Marv fixes the paper jam without looking. 'Partners are grumpy this week. Bill accordingly.'"
+  ]:[
+    "Marv slides you a coffee. The good kind. From the partners' machine.",
+    "Marv: 'Heard your name upstairs. Good tone this time.'",
+    "Marv 'loses' the copy-log page with your name on it. Officially, you owe him nothing."
+  ]));
 }
 function pushMsg(title,txt){ S.inbox.unshift({msg:true,title,body:txt}); }
 
@@ -300,12 +350,13 @@ export function choose(c,o){
   if(o.delay){
     const win=Math.random()*100<p;
     c.pending={day:S.day+o.delay,win,o};
-    SFX.send();
+    trackChoice(c,o,win); SFX.send();
     log("Sent: '"+o.text+"' — response in "+o.delay+" day(s).","sys");
     S.openCase=null; saveGame(); notify(); return;
   }
   S.inbox=S.inbox.filter(x=>x!==c); S.openCase=null;
   const win=Math.random()*100<p, out=win?o.ok:o.fail;
+  trackChoice(c,o,win);
   if(win){
     SFX.win();
     log("["+c.title+"] "+out.txt,"good"); apply(out.fx);
@@ -313,6 +364,7 @@ export function choose(c,o){
   } else {
     SFX.lose();
     log("["+c.title+"] "+out.txt,"bad"); apply(out.fx);
+    doShake(); if(!c.favor) nemesisGain(3,true);
   }
   if(c.favor){ // reverse favors: the relationship is the real payout
     const n=S.npcs.find(x=>x.id===c.npc), d=win?(o.relOk||0):(o.relFail||0);
@@ -338,6 +390,7 @@ export function delegateCase(c,npcId){
   SFX.send();
   const win=Math.random()*100<delegationChance(n);
   c.delegated={npc:n.id, day:S.day+1, win, silent:n.trait==="Lazy"&&!win&&Math.random()<.65};
+  S.runStats.deleg[n.id]=(S.runStats.deleg[n.id]||0)+1;
   S.openCase=null;
   log("Handed '"+c.title+"' to "+n.name+". Report tomorrow.","sys");
   saveGame(); notify();
@@ -349,14 +402,16 @@ export function resolveCrisis(o){
   const ev=S.event, p=chance(o,ev);
   S.event=null;
   const win=Math.random()*100<p, out=win?o.ok:o.fail;
+  trackChoice(null,o,win);
   if(win){ SFX.win(); log("[CRISIS] "+out.txt,"good"); apply(out.fx); if(((out.fx&&out.fx.inf)||0)>=10) flash("HENDERED!"); }
-  else { SFX.lose(); log("[CRISIS] "+out.txt,"bad"); apply(out.fx); }
+  else { SFX.lose(); log("[CRISIS] "+out.txt,"bad"); apply(out.fx); doShake(); nemesisGain(3,true); }
   if(out.next) queueFollowup(out.next); // crises may chain into case files too
   checkPromotion(); saveGame(); notify();
 }
 
 function checkPromotion(){
   if(S.over) return;
+  const oldRank=S.rank;
   while(S.rank<4 && S.inf>=RANK_REQ[S.rank]){
     S.rank++;
     if(S.rank===4){ gameWin(); return; }
@@ -365,6 +420,19 @@ function checkPromotion(){
     if(S.rank===1) log("Senior Associate perk unlocked: DELEGATE cases from the file view.","sys");
     apply({rep:5},true);
   }
+  if(S.rank>oldRank&&!S.over) promoWalk(oldRank);
+}
+
+/* promotion moment: walk out of the OLD office, walk into the new one */
+function promoWalk(oldRank){
+  if(S.leaving) return; // already mid-transition (e.g. end of day) — skip the ceremony
+  S.sceneRank=oldRank; S.leaving=true; S.charAnim="leaving";
+  log("You pack one box. It's mostly coffee mugs.","sys"); notify();
+  setTimeout(()=>{
+    if(!S||S.over){ if(S) S.sceneRank=null; return; }
+    S.sceneRank=null; S.leaving=false; S.charAnim="arriving"; notify();
+    setTimeout(()=>{ if(S&&S.charAnim==="arriving"){ S.charAnim="working"; notify(); } },1500);
+  },1500);
 }
 
 function checkEndings(){
@@ -372,10 +440,22 @@ function checkEndings(){
   if(S.rep<REP_FIRED) gameOver("FIRED","Your reputation fell below what Parson Henderson tolerates (which is very little). Security walks you out. They keep the fancy outfit.");
 }
 
+/* end-of-run breakdown for the final screen */
+function ledger(){
+  const r=S.runStats, top=Object.entries(r.deleg).sort((a,b)=>b[1]-a[1])[0];
+  const topName=top&&S.npcs.find(n=>n.id===top[0]);
+  return ["— RUN LEDGER —",
+    "Bluffs: "+r.bluffW+" landed / "+r.bluffL+" blew up · Technical: "+r.techW+"W/"+r.techL+"L · Safe plays: "+r.safe,
+    "Bribes offered: "+r.bribeTry+(r.bribeTry?" ("+r.bribeW+" taken)":""),
+    "Favors: "+r.favorHelp+" helped · "+r.favorNo+" declined"+
+      (topName?" · Most delegated: "+topName.name+" ("+top[1]+"×)":""),
+    "Deadlines missed: "+r.miss+" · Crises faced: "+r.crises+
+      " · "+S.nemesis.name+" peaked at "+RANKS[S.nemesis.rank]+"."];
+}
 function gameOver(title,txt){
-  S.over=true; clearInterval(timerId); SFX.fired(); stopAmbience();
+  S.over=true; clearInterval(timerId); SFX.fired(); stopAmbience(); doShake();
   clearSave(); recordRun(false,title);
-  showSummary("GAME OVER: "+title,[txt,"","Survived "+S.day+" day(s) as "+RANKS[S.rank]+"."],"NEW GAME",()=>location.reload());
+  showSummary("GAME OVER: "+title,[txt,"","Survived "+S.day+" day(s) as "+RANKS[S.rank]+".","",...ledger()],"NEW GAME",()=>location.reload());
 }
 function gameWin(){
   S.over=true; clearInterval(timerId); SFX.promo(); stopAmbience();
@@ -395,8 +475,9 @@ function gameWin(){
     "The sign painters are already on the wall: PARSON HENDERSON & YOU.",
     epithet,
     "Day "+S.day+". Reputation "+S.rep+". Boldness "+S.bold+".",
-    seal,"",
-    "You've been HENDERED. Permanently."],"NEW GAME",()=>location.reload());
+    seal,
+    "Down the hall, "+S.nemesis.name+" quietly clears out his desk.","",
+    "You've been HENDERED. Permanently.","",...ledger()],"NEW GAME",()=>location.reload());
 }
 
 /* ---------- money sinks ---------- */
@@ -412,10 +493,13 @@ export function buySuit(){
 export function bribeMarv(){
   if(S.money<PRICES.marv) return;
   SFX.send();
+  S.marvBribes++;
+  const opener=S.marvBribes===1?"Marv pockets it smoothly — first time's awkward for everyone else. '":
+    S.marvBribes>=3?"Marv: 'The usual arrangement.' He's already talking. '":"Marv (copy room): '";
   const unknown=S.npcs.filter(n=>!n.known);
   if(unknown.length){
     const n=rnd(unknown); n.known=true; relNpc(n,5);
-    log("Marv (copy room): '"+n.name+"? "+n.trait+". You didn't hear it from me.'","sys");
+    log(opener+n.name+"? "+n.trait+". You didn't hear it from me.'","sys");
   } else {
     S.npcs.forEach(n=>relNpc(n,4));
     log("Marv has nothing new — so he says nice things about you on every floor instead.","sys");
@@ -437,7 +521,7 @@ export function saveGame(){
   if(!S||S.over) return;
   try{
     // strip transient UI fields; everything else is plain JSON data
-    const {infoOpen,event,summary,flash,userPaused,leaving,charAnim,openCase,...data}=S;
+    const {infoOpen,event,summary,flash,userPaused,leaving,charAnim,openCase,settingsOpen,sceneRank,...data}=S;
     localStorage.setItem(SAVE_KEY,JSON.stringify(data));
   }catch(e){}
 }
@@ -447,7 +531,8 @@ export function peekSave(){
 export function loadGame(){
   const d=peekSave(); if(!d) return;
   setS(Object.assign(newState(d.scenario),d,
-    {infoOpen:false,event:null,summary:null,flash:null,userPaused:false,leaving:false,charAnim:"arriving",openCase:null}));
+    {infoOpen:false,event:null,summary:null,flash:null,userPaused:false,leaving:false,
+     charAnim:"arriving",openCase:null,settingsOpen:false,sceneRank:null}));
   SFX.bell();
   log("Run restored. The firm did not notice you were gone.","sys");
   startClock(); sitDown(); startAmbience(); notify();
@@ -475,5 +560,10 @@ export function openInfo(){ SFX.click(); S.infoOpen=true; notify(); }
 export function closeInfo(){ SFX.click(); S.infoOpen=false; notify(); }
 export function pauseGame(){ SFX.click(); S.userPaused=true; notify(); }
 export function resumeGame(){ SFX.click(); S.userPaused=false; notify(); }
-export function toggleSfx(){ toggleMute(); notify(); }
-export function toggleMusic(){ toggleBgm(); notify(); }
+export function openSettings(){ SFX.click(); S.settingsOpen=true; notify(); }
+export function closeSettings(){ SFX.click(); S.settingsOpen=false; notify(); }
+export function updateSetting(k,v){
+  setSetting(k,v);
+  if(k==="bgm") applyBgmVolume();
+  SFX.click(); notify();
+}

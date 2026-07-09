@@ -95,7 +95,14 @@
 - **Run ledger:** `S.runStats` (safe/bluffW/L/techW/L/deleg/bribe/favor/miss/crises) `trackChoice()` ile işlenir; `ledger()` gameWin/gameOver özetine döküm ekler.
 - **Ayarlar paneli (`settings.js`, run save'inden AYRI `fo_settings_v1`):** dayLen 60/75/90, sfx/bgm 0/.5/1, shake on/off. Topbar'da SET butonu + hızlı SFX/BGM aç-kapa. `sound.js` artık `settings.sfx/bgm`'i okur (eski muted/bgmOn bayrakları kaldırıldı). **Ekran sarsıntısı:** `S.shakeSeq` fail'lerde artar, App `.shaking` class'ını replay eder (settings.shake gate).
 
-**En son çalışılan konu (2026-07-06):** v1.0 (rakip + terfi sahnesi + Marv + içerik + ledger + ayarlar) tarayıcıda uçtan uca test edildi. Kalan backlog için §10'a bak; en yakın anlamlı iş: GitHub Pages demo yayını, sonra Steam paketleme (electron-builder + steamworks.js).
+**v1.1 eklendi (2026-07-09, kullanıcı isteği):**
+- **4. senaryo "The Defector":** Snidely Fitch'ten transfer. `chance()`'te Fitch geçen dosyalara riskli seçeneklerde +8 (metin match: `/Snidely Fitch/`, parodi isim sabit olduğu için güvenli). 2 özel sabotaj krizi: `poisonfile` (gün≥2), `counteroffer` (gün≥4).
+- **Başarımlar (`achievements.js`, `fo_ach_v1`):** 10 adet, run'lar arası kalıcı, start ekranında listelenir (■/□). `unlock(id)` ilk açılışta true döner; engine `ach(id)` ile log+SFX.bell fanfarı basar. Kancalar: gameWin (win/realistic/nosafe/defector/ironman/bold≥65), delegateCase (Traitor'a 5.), choose (bribeW≥3), cuma övgüsü, gün≥15. İleride Steamworks'e 1:1 map'lenecek.
+- **Oyun modları (`S.mode`, start ekranında seçilir):** standard / **ironman** (saveGame no-op — kayıt yok) / **endless** (gameWin ilk seferde `S.endlessWon=true` + "KEEP BILLING" özeti, run devam eder; nemesis rank 4'e çıkamaz; `recordRun` `S.runRecorded` ile tek sefer sayar) / **daily** (tarih hash'i `setSeed`'e verilir, senaryo tarihten seçilir, zorluk MEDIUM'a kilitli, `S.dailyDate`).
+- **Deterministik RNG (`utils.js`):** mulberry32 tabanlı `rand()/setSeed()/clearSeed()`. TÜM oyun mantığı artık `rand()` kullanır — `Math.random` SADECE `sound.js`'te kalır (ses jitter'ı deterministik akışı tüketmesin). Yeni kod yazarken bu kurala uy.
+- **Klavye kısayolları (App.jsx `handleKey`):** 1-4 seçenek seçer (dava + kriz; paran yetmeyen bribe yok sayılır), Space dosya erteler/özeti ilerletir, Esc panelleri kapatır. Seçenek metinleri numaralandı. Handler modül `S`'ini okur (stale closure yok), sadece engine fonksiyonu çağırır.
+
+**En son çalışılan konu (2026-07-09):** v1.1 (Defector + başarımlar + modlar + klavye) tarayıcıda uçtan uca test edildi. Kullanıcının onayladığı sıradaki işler: dava arşivi, NPC hikâyeleri, rakiple etkileşim, hakim hafızası; sonrasında mobil (Capacitor + mobil layout).
 
 ---
 
@@ -130,9 +137,10 @@ fancy-outfits/
 │   │   ├── engine.js             ← apply(), chance(), akış + nemesis/terfi sahnesi/ledger/ayarlar
 │   │   ├── content.js            ← buildPool() 9 el yazması dava, JUDGES(7), crises(), SCENARIOS
 │   │   ├── casegen.js            ← PROSEDÜREL dava üreticisi (12 şablon, API'siz, offline)
+│   │   ├── achievements.js       ← 10 başarım, localStorage (fo_ach_v1), unlock()
 │   │   ├── npcs.js               ← NPC roster, trait dağıtımı, delegationChance(), buildFavor()
 │   │   ├── sound.js              ← WebAudio sentez SFX + prosedürel ambiyans (settings'ten ses)
-│   │   ├── utils.js              ← clamp, rnd, hash
+│   │   ├── utils.js              ← clamp, rnd, hash, rand/setSeed (deterministik RNG — daily mod)
 │   │   └── useGame.js            ← React köprüsü (useSyncExternalStore hook'u)
 │   └── components/               ← UI (her panel/overlay ayrı dosya)
 │       ├── StartScreen.jsx       ← senaryo + zorluk seçimi, CONTINUE, FIRM RECORD
@@ -282,7 +290,8 @@ if(S.scenario==="legacy"){
 - **Combat karşılığı:** Dava çözümü — oku, seç, zar. Zar: `Math.random()*100 < chance(o,c)`.
 - **Progression:** Influence→rütbe→daha iyi ofis (görsel) + daha zor davalar (rank başı −2 şans) + daha büyük kriz maruziyeti.
 - **Physics:** YOK (bilinçli).
-- **Controls:** Sadece fare/tık. Klavye kısayolu yok (backlog: 1-4 tuşlarıyla seçenek seçimi).
+- **Controls:** Fare/tık + klavye (v1.1): 1-4 seçenek, Space defer/özet ilerlet, Esc panel kapat.
+- **RNG kuralı (v1.1):** Oyun mantığında `Math.random` YASAK — `utils.js`'ten `rand()`/`rnd()` kullan (daily modun determinizmi buna bağlı). Tek istisna `sound.js`.
 - **Rakip (nemesis):** İsimli associate seninle yarışır; gece + senin fail'lerinden INF kazanır, önce Name Partner olursa `OUTPACED` game over (`nemesisGain`, engine.js).
 - **Ayarlar (`settings.js`):** run save'inden AYRI global tercihler (`fo_settings_v1`): dayLen 60/75/90, sfx/bgm ses seviyesi, ekran sarsıntısı. Sound bunları okur.
 - **Ekonomi/zorluk sabitleri:** `DAY_SECONDS=75`, `REP_FIRED=20`, `DEADLINE_PENALTY=-9`, `RANK_REQ=[30,55,80,95]`, kriz olasılığı `.6`, ikinci günlük dava olasılığı `.6`, gece REP çürümesi `-1`, Debtor taksiti `$2000/3 gün`, `STAKE_REWARD=[1,1.15,1.3,1.45,1.6]`, `STAKE_PENALTY=[1,1.3,1.6,1.9,2.2]`, `PRICES={suit:1200(×1.5 artar), detective:900, marv:600}`, `WEEK_LEN=5`, `REVIEW_GOOD=10`, `REVIEW_BAD=0`.
@@ -310,13 +319,15 @@ if(S.scenario==="legacy"){
 7. ~~Ses/müzik genişletme~~ — v0.9'da EKLENDİ (prosedürel lo-fi ambiyans).
 8. ~~Terfi geçiş sahnesi, rakip associate, Marv büyütme, ayarlar paneli~~ — v1.0'da EKLENDİ.
 
-**Backlog (kullanıcının "aklında tut" dediği + türeyenler; başlamadan sor):**
-- **GitHub Pages demo yayını** — `dist/`i yayınlayan tek workflow; oyun linkle paylaşılabilir olur (en ucuz/yüksek etkili iş, öneri: bir sonraki).
-- **4. senaryo "The Defector"** — Snidely Fitch'ten transfer; eski firma sabotaj krizleri.
-- **Başarımlar/achievements** — oyun içi liste (REALISTIC'te kazan, hiç safe seçmeden kazan, Traitor'a 5 delege edip hayatta kal…); FIRM RECORD altyapısı hazır, ileride Steamworks achievement'larına bağlanır.
-- **Oyun modları:** ironman (tek can/kayıt yok), endless (win'den sonra devam), günlük hedef (seeded challenge).
-- **Klavye kısayolları** (1-4 seçenek, Space=defer) — düşük maliyet cila.
-- **Steam paketleme:** `electron-builder` (.exe/.app) + `steamworks.js` (achievements, overlay).
+**Backlog (kullanıcının onayladığı sıradaki işler + bekleyenler; başlamadan sor):**
+- **Dava arşivi** — run içinde çözülen davaların dökümü (hangi seçenek, sonuç); REPLY'ların hangi davaya ait olduğu sorununu da çözer. (KULLANICI ONAYLADI, sıradaki)
+- **NPC hikâyeleri** — rel eşiklerinde tetiklenen mini-sahneler (Dana'nın sırrı, Katrina'nın teklifi). (ONAYLANDI)
+- **Rakiple etkileşim** — nemesis'e sabotaj/ittifak seçenekleri. (ONAYLANDI)
+- **Hakim hafızası** — aynı hakime ikinci çıkışta geçmişi hatırlama ("geçen sefer blöf yaptın, −5"). (ONAYLANDI)
+- **Mobil yayın** — önce mobil layout geçişi (3 sütun → sekmeli görünüm, 44px dokunma hedefleri, safe-area, visibilitychange pause), sonra **Capacitor** sarmalama (Electron'un mobil karşılığı; oyun mantığına dokunulmaz). iOS'ta localStorage yerine Capacitor Preferences. (ONAYLANDI, yukarıdakilerden sonra)
+- ~~4. senaryo, başarımlar, oyun modları, klavye kısayolları~~ — v1.1'de EKLENDİ.
+- **GitHub Pages demo yayını** — `dist/`i yayınlayan tek workflow; oyun linkle paylaşılabilir olur.
+- **Steam paketleme:** `electron-builder` (.exe/.app) + `steamworks.js` (achievements — `achievements.js` 1:1 map'lenmeye hazır).
 - **Multiplayer** (en son; server ister, GDD §11).
 
 ---

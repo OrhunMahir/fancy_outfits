@@ -42,7 +42,7 @@ export default function CasePane(){
                     className={"btn"+(o.safe?" safe":o.style==="aggressive"?" bold":o.style==="bribe"?" bribe":"")}
                     disabled={!!(o.bribe&&S.money<o.bribe)}
                     onClick={()=>choose(c,o)}>
-              {o.text}
+              {(i+1)+". "+o.text}
               {label && <span className="chance">{label}</span>}
             </button>
           );
@@ -65,7 +65,7 @@ export default function CasePane(){
             })}
           </div>
         )}
-        <button className="btn small" onClick={deferCase}>DEFER (back to inbox)</button>
+        <button className="btn small" onClick={deferCase}>DEFER (back to inbox) [Space]</button>
       </div>
     </div>
   );

@@ -3,7 +3,7 @@
 // subscribe via useGame() and re-render. No framework state library.
 import { DAY_SECONDS, PRICES } from "./constants.js";
 import { settings } from "./settings.js";
-import { rnd } from "./utils.js";
+import { rnd, rand } from "./utils.js";
 
 const NEMESES=["Miles Sorren","Tripp Vanderbilt III","Ashley Kang","Bradford Lowe"];
 
@@ -20,7 +20,9 @@ export function newState(scenario,difficulty){
   return {
     scenario, day:1, secs:settings.dayLen||DAY_SECONDS, rank:0,
     difficulty:difficulty||"easy", // easy | medium | hard | realistic — blurs INFO only, never the dice
-    seed:Math.floor(Math.random()*1e9), // per-run seed so odds ranges are stable but not centered
+    mode:"standard", dailyDate:null, // standard | ironman | endless | daily (set by startGame)
+    endlessWon:false, runRecorded:false, // endless: win once, keep billing; stats recorded once per run
+    seed:Math.floor(rand()*1e9), // per-run seed so odds ranges are stable but not centered
     rep:50, bold:40, inf:10,
     money: scenario==="debtor" ? 3000 : 1500,
     debtDue: scenario==="debtor" ? 3 : null,

@@ -141,6 +141,18 @@ export function crises(){
       {text:"Help with her filing. All night. Every night.",base:80,ok:{fx:{inf:4,bold:2},txt:"Your file mysteriously moves to the bottom of the pile. Forever, hopefully."},fail:{fx:{rep:-8},txt:"She helps you back — by escalating your file 'as a courtesy'. Sweat."}},
       {text:"Pay a 'database consultant'. ($1500)",base:65,ok:{fx:{money:-1500},txt:"Your record now exists. It even has a GPA. A modest one, for realism."},fail:{fx:{money:-1500,rep:-12},txt:"The consultant vanishes with the money and leaves a typo in your fake bar number."}},
       {text:"Do nothing. You've survived worse.",base:35,boldW:3,ok:{fx:{bold:6},txt:"The audit skips associates below Senior. Breathe."},fail:{fx:{rep:-18},txt:"'Quick question about your law school,' says an email you'll never forget."}}]});
+  C.push({id:"poisonfile",title:"CRISIS: The poison file",cond:()=>S.scenario==="defector"&&S.day>=2,
+    body:"A memo surfaces suggesting you left Snidely Fitch with a briefcase full of client files. The memo is doctored — you left with a plant and a grudge — but it carries your (forged) initials, and Hardwick's undivided attention.",
+    opts:[
+      {text:"Hand your devices to firm IT. Full audit.",base:100,safe:true,ok:{fx:{bold:-3,inf:2},txt:"Clean. Boring, humiliating, effective. The whisper dies to a hum."}},
+      {text:"Prove the forgery — you never initial in blue ink.",base:62,style:"technical",ok:{fx:{rep:9,inf:8},txt:"Twelve years of black-ink initials, exhibited side by side. The memo dies in a conference room."},fail:{fx:{rep:-8},txt:"'People change pens,' shrugs the room. The hum gets louder."}},
+      {text:"Leak THEIR dirty laundry in response.",base:38,boldW:3,style:"aggressive",ok:{fx:{bold:7,inf:9},txt:"Mutually assured destruction, executed unilaterally. Fitch goes very quiet."},fail:{fx:{rep:-12},txt:"Now everyone believes the memo AND thinks you're vindictive. Efficient."}}]});
+  C.push({id:"counteroffer",title:"CRISIS: The counter-offer",cond:()=>S.scenario==="defector"&&S.day>=4,
+    body:"Snidely Fitch's name partner makes you a public partnership offer — press release and everything. It isn't generosity; it's a loyalty test aimed at Parson Henderson, with you as the arrow.",
+    opts:[
+      {text:"Decline politely. Forward it to Hardwick.",base:100,safe:true,ok:{fx:{rep:6,inf:3,bold:-2},txt:"Hardwick reads it twice, grunts. Loyalty logged. Interest rate: unclear."}},
+      {text:"Use it — renegotiate your standing HERE.",base:55,boldW:2,ok:{fx:{inf:10,money:800},txt:"Nothing raises your market value like someone else bidding."},fail:{fx:{rep:-9},txt:"'Auctioning yourself, counselor?' A door somewhere closes softly."}},
+      {text:"Decline AT their press conference. Theatrically.",base:35,boldW:3,style:"aggressive",ok:{fx:{bold:8,inf:8,rep:5},txt:"You return the arrow mid-flight. The clip is everywhere by lunch."},fail:{fx:{rep:-10},txt:"The microphone was off. The joke died alone. Fitch smiles for the cameras."}}]});
   C.push({id:"legacydinner",title:"CRISIS: Family dinner",cond:()=>S.scenario==="legacy"&&S.day>=2,
     body:"Your estranged parent — whose name is on the wall — invites you to dinner. In the main conference room. During work hours. Everyone is watching through the glass to see if you're a real lawyer or a genetic hire.",
     opts:[
@@ -153,5 +165,6 @@ export function crises(){
 export const SCENARIOS={
   fraud:{label:"THE FRAUD — you never went to law school",desc:"Photographic memory, zero diploma. Special exposure crises. Get caught: game over."},
   debtor:{label:"THE DEBTOR — $180k student loans",desc:"Pay $2,000 every 3 days. Miss a payment: game over. Chase the money options."},
-  legacy:{label:"THE LEGACY — your parent's name is on the wall",desc:"Influence gains +25%, reputation losses +25%. Everyone assumes nepotism."}
+  legacy:{label:"THE LEGACY — your parent's name is on the wall",desc:"Influence gains +25%, reputation losses +25%. Everyone assumes nepotism."},
+  defector:{label:"THE DEFECTOR — you jumped ship from Snidely Fitch",desc:"You know their playbook (+8% vs Fitch). They know where you live. Sabotage crises."}
 };

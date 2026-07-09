@@ -14,7 +14,8 @@ export default function InfoOverlay(){
           Reputation decays a little every day. This firm forgets fast. Stay visible.<br/><br/>
           Every fifth day is FRIDAY: the partners review your week — influence gained, reputation kept, deadlines missed. A strong week earns a nod (+REP, +INFLUENCE); a weak one gets measured out loud (−REP).<br/><br/>
           Money is for spending: a TAILORED SUIT buys respect, MARV knows who your colleagues really are, and a DETECTIVE can tilt a single case file. Climbing the ladder raises the STAKES — wins pay more, failures cost much more.<br/><br/>
-          Your run saves itself. Close the game; the inbox will be waiting.
+          Your run saves itself (except in IRONMAN — there, closing the game ends the career). ENDLESS keeps the clock running after you make Name Partner; DAILY deals everyone the same date-seeded run. Achievements live on the start screen.<br/><br/>
+          Keyboard: 1-4 picks an option, Space defers a file or advances the day summary, Esc closes panels.
         </div>
         <div className="opts"><button className="btn" onClick={closeInfo}>BACK TO BILLING</button></div>
       </div>

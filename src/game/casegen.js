@@ -2,7 +2,7 @@
 // templates + name/number pools at runtime, so every machine can generate fresh
 // cases forever. Output matches the hand-written case schema exactly (CLAUDE.md §7);
 // the winning clue is always embedded in the body text among decoys.
-import { rnd } from "./utils.js";
+import { rnd, rand } from "./utils.js";
 
 const CO=["Meridian","Halcyon","Aldergate","Novagene","Brightline","Pemberton","Vantage Corp","Ironclad Ltd","Bluepeak","Rockwell & Sons","Silvergate","Osprey Holdings"];
 const LAST=["Whitfield","Okafor","Delgado","Kessler","Yamada","Brandt","O'Leary","Novak","Reyes","Ashford","Lindqvist","Moreau"];
@@ -12,7 +12,7 @@ let seq=0;
 /* Each template returns a full case object. Tier decides deadline + reward scale. */
 const TEMPLATES=[
   // 1 — the misplaced liability cap
-  ()=>{const a=rnd(CO),b=rnd(CO.filter(x=>x!==a)),p=140+Math.floor(Math.random()*220),m=rnd([5,10,20,50]);
+  ()=>{const a=rnd(CO),b=rnd(CO.filter(x=>x!==a)),p=140+Math.floor(rand()*220),m=rnd([5,10,20,50]);
   return {tier:1,title:`CASE: ${a}-${b} agreement review`,deadline:rnd([2,3]),
     body:`Proofread the ${a}-${b} master agreement overnight. The recitals misspell '${b}' twice, which is embarrassing but harmless. Buried on page ${p}: the liability cap reads ${money(m*1000)} where every prior draft said ${money(m*1000000)}. Nobody else has read page ${p}.`,
     opts:[
@@ -35,7 +35,7 @@ const TEMPLATES=[
       {text:"Consent to proceed on the merits.",base:100,safe:true,ok:{fx:{bold:-3,inf:2},txt:"Trial ahead. The safe road is long and unpaid."}},
       {text:"The deadline is the deadline. Cold math.",base:66,style:"technical",ok:{fx:{rep:8,inf:8,money:1400},txt:"'The calendar does not do wellness.' Dismissed. HENDERED."},fail:{fx:{rep:-6},txt:"Tolled anyway. The judge calls your argument 'correct, and unlikable'."}},
       {text:"Mock the excuse in open court.",base:37,boldW:3,style:"aggressive",ok:{fx:{bold:8,inf:7,money:1000},txt:"The gallery laughs. The judge doesn't, but rules your way anyway."},fail:{fx:{rep:-11},txt:"The judge finds the excuse 'sincere' and your tone 'sanctionable'."}}]};
-  if(Math.random()<.5){ const yrs=rnd([2,3,4]); // half the time the loser appeals — a follow-up stage
+  if(rand()<.5){ const yrs=rnd([2,3,4]); // half the time the loser appeals — a follow-up stage
     c.opts[1].ok.next={after:2,note:`${a}'s counsel promises an appeal. Loudly, near a camera.`,case:{
       tier:2,title:`APPEAL: ${a} v. ${b}`,deadline:3,judge:true,
       body:`${a} appeals the dismissal. The centerpiece citation of their brief was overturned ${yrs} years ago — some associate copied it from an old memo and nobody checked. Appellate panels notice that sort of thing. Usually.`,

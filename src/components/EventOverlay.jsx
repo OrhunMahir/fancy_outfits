@@ -16,7 +16,7 @@ export default function EventOverlay({ev}){
           {ev.opts.map((o,i)=>(
             <button key={i} className={"btn"+(o.safe?" safe":(o.style==="aggressive"?" bold":""))}
                     onClick={()=>resolveCrisis(o)}>
-              {o.text}{displayChance(o,ev)&&<span className="chance">{displayChance(o,ev)} success</span>}
+              {(i+1)+". "+o.text}{displayChance(o,ev)&&<span className="chance">{displayChance(o,ev)} success</span>}
             </button>
           ))}
         </div>

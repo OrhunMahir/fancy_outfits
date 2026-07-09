@@ -22,7 +22,9 @@ export default function StatsPanel(){
         })}
       </div>
       <div className="kv">MONEY: ${S.money}{S.debtDue!==null?"  ·  loan due day "+S.debtDue:""}</div>
-      <div className="kv">RUN: {SCENARIOS[S.scenario].label} · MODE: {(S.difficulty||"easy").toUpperCase()}</div>
+      <div className="kv">RUN: {SCENARIOS[S.scenario].label} · {(S.difficulty||"easy").toUpperCase()}
+        {S.mode&&S.mode!=="standard"?" · "+S.mode.toUpperCase()+(S.mode==="daily"&&S.dailyDate?" "+S.dailyDate:""):""}
+        {S.endlessWon?" · NAME PARTNER":""}</div>
       {S.nemesis && (
         <div className="npcrow" style={{marginTop:8}}>
           <div className="lblrow">

@@ -24,6 +24,27 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v11 — The Defector, achievements, game modes & keyboard *(2026-07-09)*
+- **4th scenario: THE DEFECTOR** — you jumped ship from Snidely Fitch. You know their playbook
+  (+8% on every risky play against Fitch-related files), and they know where you live: two
+  scenario-exclusive sabotage crises (a doctored "poison file" memo with your forged initials,
+  and a public counter-offer designed as a loyalty test).
+- **Achievements (10)** — persisted across runs, listed on the start screen, designed to map onto
+  Steamworks later: win on REALISTIC, win without a single safe play, win The Defector, win in
+  IRONMAN, delegate 5 cases to the Traitor and live, 3 bribes taken in one run, Friday praise,
+  survive to day 15, and more. Unlocks announce themselves in the log mid-run.
+- **Game modes** (picked on the start screen alongside difficulty):
+  - **STANDARD** — auto-save, as before.
+  - **IRONMAN** — no save at all. Close the game, lose the career.
+  - **ENDLESS** — making Name Partner doesn't end the run; the wall gets your name and the
+    inbox keeps coming. The rival can no longer outpace a sitting Name Partner.
+  - **DAILY** — a date-seeded challenge: everyone gets the same scenario, cases, judges and
+    crises that day (difficulty locks to MEDIUM). Powered by a new deterministic RNG that all
+    game logic now draws from.
+- **Keyboard shortcuts** — 1-4 pick a case/crisis option (options are now numbered), Space
+  defers a file or advances the day summary, Esc closes panels. Bribes you can't afford are
+  ignored by the hotkeys too.
+
 ### v10 — Rival, promotions, Marv, settings & more *(2026-07-06)*
 - **The rival associate.** A named nemesis climbs the ladder alongside you: he grinds influence
   every night AND feeds on your failures (lost cases, missed deadlines, botched delegations,

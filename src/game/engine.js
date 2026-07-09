@@ -5,12 +5,13 @@ import { S, setS, notify, newState } from "./state.js";
 import { RANKS, RANK_REQ, DAY_SECONDS, REP_FIRED, DEADLINE_PENALTY,
          STAKE_REWARD, STAKE_PENALTY, PRICES, SAVE_KEY, STATS_KEY,
          WEEK_LEN, REVIEW_GOOD, REVIEW_BAD } from "./constants.js";
-import { clamp, rnd, hash } from "./utils.js";
+import { clamp, rnd, rand, hash, setSeed, clearSeed } from "./utils.js";
 import { SFX, startAmbience, stopAmbience, applyBgmVolume } from "./sound.js";
 import { settings, setSetting } from "./settings.js";
 import { buildPool, JUDGES, crises, SCENARIOS } from "./content.js";
 import { genCase } from "./casegen.js";
 import { buildNpcs, delegationChance, relNpc, buildFavor, DELEGATE_WIN_TXT, DELEGATE_FAIL_TXT } from "./npcs.js";
+import { ACHIEVEMENTS, unlock } from "./achievements.js";
 
 let timerId=null, flashSeq=0;
 
@@ -32,11 +33,13 @@ function doShake(){ if(settings.shake) S.shakeSeq++; }
 function nemesisGain(v,fromFailure){
   const N=S.nemesis; if(!N||S.over||!v) return;
   N.inf=clamp(N.inf+v,0,100);
-  if(fromFailure&&Math.random()<.25)
+  if(fromFailure&&rand()<.25)
     pushMsg("FLOOR NEWS","Your lost file found a new desk. "+N.name+" sends 'sympathies'.");
   while(N.rank<4&&N.inf>=RANK_REQ[N.rank]){
     N.rank++;
-    if(N.rank===4){ gameOver("OUTPACED",N.name+" makes NAME PARTNER while you're still billing hours. The sign painters are on the wall. The name is not yours."); return; }
+    if(N.rank===4){
+      if(S.endlessWon){ N.rank=3; N.inf=94; pushMsg("FLOOR NEWS",N.name+" eyes the wall. The wall already has your name on it."); return; }
+      gameOver("OUTPACED",N.name+" makes NAME PARTNER while you're still billing hours. The sign painters are on the wall. The name is not yours."); return; }
     pushMsg("FLOOR NEWS",N.name+" promoted to "+RANKS[N.rank]+". The floor compares résumés. Yours is quieter.");
     log(N.name+" outranks the room a little more.","bad");
     apply({rep:-3},true);
@@ -83,6 +86,8 @@ export function chance(o,c){
   }
   if(c&&c.crisisMod&&!o.safe) p+=c.crisisMod.v; // a Traitor leaked / a Brave ally shields (GDD §5-6)
   if(c&&c.dossier&&!o.safe) p+=12;              // detective's dossier on this file
+  // the Defector knows Snidely Fitch's playbook
+  if(S.scenario==="defector"&&!o.safe&&c&&/Snidely Fitch/.test((c.body||"")+(c.title||""))) p+=8;
   // respect: a low-rep associate gets no benefit of the doubt
   if(!o.safe){
     if(S.rep<30) p-=12; else if(S.rep>70) p+=5;
@@ -108,14 +113,35 @@ export function displayPct(p,key){
 }
 export const displayChance=(o,c)=>displayPct(chance(o,c),((c&&c.id)||"ev")+"|"+o.text);
 
-/* ---------- flow ---------- */
-export function startGame(sc,diff){
-  setS(newState(sc,diff));
+/* achievement helper: engine-side so every unlock gets the same fanfare */
+function ach(id){
+  if(!unlock(id)) return;
+  const a=ACHIEVEMENTS.find(x=>x.id===id);
+  SFX.bell();
+  log("ACHIEVEMENT UNLOCKED: "+a.name+" — "+a.desc,"sys");
+}
+
+/* ---------- flow ----------
+   modes: standard (default) · ironman (no save — close the game, lose the run)
+   · endless (winning doesn't end the run) · daily (date-seeded, same for everyone) */
+export function startGame(sc,diff,mode){
+  mode=mode||"standard";
+  if(mode==="daily"){
+    const today=new Date().toISOString().slice(0,10);
+    const h=hash("fo_daily_"+today);
+    setSeed(h);
+    sc=["fraud","debtor","legacy","defector"][h%4]; diff="medium";
+    setS(newState(sc,diff)); S.dailyDate=today;
+  } else { clearSeed(); setS(newState(sc,diff)); }
+  S.mode=mode;
   S.pool=buildPool();
   S.npcs=buildNpcs();
   SFX.bell();
   log("Welcome to Parson Henderson, "+RANKS[0]+".","sys");
   if(sc==="debtor") log("Loan payment: $2000 due day 3.","sys");
+  if(sc==="defector") log("You know where Snidely Fitch buries the bodies. They know you know.","sys");
+  if(mode==="ironman") log("IRONMAN: no save. Close the game, lose the career.","sys");
+  if(mode==="daily") log("DAILY CHALLENGE "+S.dailyDate+": same seed for everyone. No excuses.","sys");
   drawCases(2);
   startClock(); sitDown(); startAmbience(); saveGame(); notify();
 }
@@ -126,7 +152,7 @@ function drawCases(n){
   for(let i=0;i<n;i++){
     let avail=S.pool.filter(c=>!c.taken&&c.tier<=Math.max(1,S.rank));
     if(S.rank>=1) avail=S.pool.filter(c=>!c.taken);
-    const useGen=!avail.length||(S.day>3&&Math.random()<.4);
+    const useGen=!avail.length||(S.day>3&&rand()<.4);
     const c=useGen?genCase():rnd(avail);
     if(!useGen) c.taken=true;
     if(useGen&&c.tier===2&&S.rank<1){ i--; continue; } // no court cases before Senior Associate
@@ -218,7 +244,7 @@ export function endDay(){
     const score=(S.inf-S.weekStart.inf)+Math.round((S.rep-S.weekStart.rep)/2)-S.weekMissed*3;
     lines.push("— PARTNER REVIEW, WEEK "+(S.day/WEEK_LEN)+" —");
     if(score>=REVIEW_GOOD){
-      apply({rep:4,inf:4},true);
+      apply({rep:4,inf:4},true); ach("friday");
       lines.push(rnd([
         "Hardwick, without looking up: 'Whoever you are — keep billing like that.' (+4 REP, +4 INFL)",
         "Your name comes up in the partners' meeting. Nobody laughs. Progress. (+4 REP, +4 INFL)",
@@ -252,6 +278,7 @@ export function endDay(){
     SFX.bell();
     showSummary("END OF DAY "+S.day+(friday?" — FRIDAY":""), lines, "START DAY "+(S.day+1), ()=>{
       S.day++; S.secs=settings.dayLen||DAY_SECONDS;
+      if(S.day>=15) ach("day15");
       nemesisGain(rnd([0,1,1,2,2,3])); // he grinds nights too
       if(S.over) return;
       apply({rep:-1},true); // the firm forgets fast
@@ -259,11 +286,11 @@ export function endDay(){
       S.inbox.filter(c=>c.pending&&c.pending.day<=S.day).forEach(resolveDelayed);
       S.inbox.filter(c=>c.delegated&&c.delegated.day<=S.day).forEach(resolveDelegated);
       spawnFollowups();
-      drawCases(1+(Math.random()<.6?1:0));
-      if(Math.random()<.3&&!S.inbox.some(c=>c.favor)) spawnFavor();
-      if(Math.random()<.18) marvMoment();
+      drawCases(1+(rand()<.6?1:0));
+      if(rand()<.3&&!S.inbox.some(c=>c.favor)) spawnFavor();
+      if(rand()<.18) marvMoment();
       // low rep = casual disrespect
-      if(disrespected()&&Math.random()<.5) pushMsg("FYI",rnd([
+      if(disrespected()&&rand()<.5) pushMsg("FYI",rnd([
         "The partners' meeting you weren't told about went great, apparently.",
         "Someone booked 'your' desk for a client call. You can use the hallway.",
         "IT reset your password to 'temp123'. They didn't tell you either.",
@@ -271,11 +298,11 @@ export function endDay(){
         "The intern got CC'd on your case. 'For oversight.'"]));
       // crisis? (a Traitor may leak your position; a loyal Brave shields you)
       const cs=crises();
-      if(cs.length&&Math.random()<.6){
+      if(cs.length&&rand()<.6){
         const c=rnd(cs); S.usedCrises.push(c.id); SFX.crisis();
         const traitor=S.npcs.find(n=>n.trait==="Traitor"&&n.rel<25);
         const brave=S.npcs.find(n=>n.trait==="Brave"&&n.rel>=40);
-        if(traitor&&Math.random()<.4){ traitor.known=true; c.crisisMod={v:-8,txt:traitor.name+" leaked your position before you entered the room. (-8% on every play)"}; }
+        if(traitor&&rand()<.4){ traitor.known=true; c.crisisMod={v:-8,txt:traitor.name+" leaked your position before you entered the room. (-8% on every play)"}; }
         else if(brave){ brave.known=true; c.crisisMod={v:8,txt:brave.name+" is standing at your shoulder. (+8% on every play)"}; }
         S.event=c; S.runStats.crises++;
       }
@@ -320,7 +347,7 @@ function resolveDelegated(c){
 
 /* Marv, the copy-room oracle. His generosity tracks your bribe history. */
 function marvMoment(){
-  if(S.marvBribes>0&&Math.random()<.5){
+  if(S.marvBribes>0&&rand()<.5){
     const t=S.inbox.find(c=>!c.msg&&!c.pending&&!c.delegated&&!c.dossier&&!c.favor);
     if(t){ t.dossier=true;
       pushMsg("MARV (copy room)","A folder 'accidentally' lands in your tray. It concerns the "+t.title.replace(/^(CASE|COURT|MEMO|FAVOR|APPEAL|Errand|Doc review): ?/,"")+" file. (+12% on that file)");
@@ -348,15 +375,16 @@ export function choose(c,o){
   }
   const p=chance(o,c);
   if(o.delay){
-    const win=Math.random()*100<p;
+    const win=rand()*100<p;
     c.pending={day:S.day+o.delay,win,o};
     trackChoice(c,o,win); SFX.send();
     log("Sent: '"+o.text+"' — response in "+o.delay+" day(s).","sys");
     S.openCase=null; saveGame(); notify(); return;
   }
   S.inbox=S.inbox.filter(x=>x!==c); S.openCase=null;
-  const win=Math.random()*100<p, out=win?o.ok:o.fail;
+  const win=rand()*100<p, out=win?o.ok:o.fail;
   trackChoice(c,o,win);
+  if(o.bribe&&win&&S.runStats.bribeW>=3) ach("bribe3");
   if(win){
     SFX.win();
     log("["+c.title+"] "+out.txt,"good"); apply(out.fx);
@@ -388,9 +416,10 @@ export function delegateCase(c,npcId){
   if(S.rank<1||c.judge||c.msg||c.pending||c.delegated||c.favor) return; // you can't delegate THEIR favor back at them
   const n=S.npcs.find(x=>x.id===npcId);
   SFX.send();
-  const win=Math.random()*100<delegationChance(n);
-  c.delegated={npc:n.id, day:S.day+1, win, silent:n.trait==="Lazy"&&!win&&Math.random()<.65};
+  const win=rand()*100<delegationChance(n);
+  c.delegated={npc:n.id, day:S.day+1, win, silent:n.trait==="Lazy"&&!win&&rand()<.65};
   S.runStats.deleg[n.id]=(S.runStats.deleg[n.id]||0)+1;
+  if(n.trait==="Traitor"&&S.runStats.deleg[n.id]>=5) ach("traitor5");
   S.openCase=null;
   log("Handed '"+c.title+"' to "+n.name+". Report tomorrow.","sys");
   saveGame(); notify();
@@ -401,7 +430,7 @@ export function resolveCrisis(o){
   SFX.click();
   const ev=S.event, p=chance(o,ev);
   S.event=null;
-  const win=Math.random()*100<p, out=win?o.ok:o.fail;
+  const win=rand()*100<p, out=win?o.ok:o.fail;
   trackChoice(null,o,win);
   if(win){ SFX.win(); log("[CRISIS] "+out.txt,"good"); apply(out.fx); if(((out.fx&&out.fx.inf)||0)>=10) flash("HENDERED!"); }
   else { SFX.lose(); log("[CRISIS] "+out.txt,"bad"); apply(out.fx); doShake(); nemesisGain(3,true); }
@@ -457,7 +486,27 @@ function gameOver(title,txt){
   clearSave(); recordRun(false,title);
   showSummary("GAME OVER: "+title,[txt,"","Survived "+S.day+" day(s) as "+RANKS[S.rank]+".","",...ledger()],"NEW GAME",()=>location.reload());
 }
+function winAchievements(){
+  ach("win");
+  if(S.difficulty==="realistic") ach("win_realistic");
+  if(S.runStats.safe===0) ach("win_nosafe");
+  if(S.scenario==="defector") ach("win_defector");
+  if(S.mode==="ironman") ach("win_ironman");
+  if(S.bold>=65) ach("win_bold");
+}
 function gameWin(){
+  winAchievements();
+  if(S.mode==="endless"&&!S.endlessWon){
+    // endless: take the title, keep the inbox
+    S.endlessWon=true; SFX.promo(); flash("NAME PARTNER!");
+    recordRun(true,"NAME PARTNER");
+    showSummary("YOU MADE NAME PARTNER — AND KEPT GOING",[
+      "The sign painters add your name to the wall. The inbox does not attend the ceremony.",
+      "ENDLESS: the firm is yours now. See how long you can hold it.",
+      "Day "+S.day+". Reputation "+S.rep+". Boldness "+S.bold+"."],
+      "KEEP BILLING",()=>{});
+    return;
+  }
   S.over=true; clearInterval(timerId); SFX.promo(); stopAmbience();
   clearSave(); recordRun(true,"NAME PARTNER");
   // the ending remembers HOW you climbed
@@ -518,7 +567,7 @@ export function hireDetective(c){
 
 /* ---------- save/load (localStorage) + lifetime firm record ---------- */
 export function saveGame(){
-  if(!S||S.over) return;
+  if(!S||S.over||S.mode==="ironman") return; // ironman: no net
   try{
     // strip transient UI fields; everything else is plain JSON data
     const {infoOpen,event,summary,flash,userPaused,leaving,charAnim,openCase,settingsOpen,sceneRank,...data}=S;
@@ -542,6 +591,7 @@ export function getStats(){
   try{ return JSON.parse(localStorage.getItem(STATS_KEY)); }catch(e){ return null; }
 }
 function recordRun(won,cause){
+  if(S.runRecorded) return; S.runRecorded=true; // endless: the win counts once, the eventual fall doesn't double-count
   try{
     const st=getStats()||{runs:0,wins:0,bestDay:0,bestRank:0,causes:{}};
     st.runs++; if(won) st.wins++;

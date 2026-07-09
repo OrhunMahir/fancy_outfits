@@ -1,7 +1,7 @@
 // NPCs & relationships (GDD §5). Four floor colleagues; each run shuffles one
 // of each trait onto them, and traits stay HIDDEN until a delegation or a
 // crisis reveals them. Relationship: -100..100, moved by delegation outcomes.
-import { clamp, rnd } from "./utils.js";
+import { clamp, rnd, rand } from "./utils.js";
 
 const ROSTER=[
   {id:"dana",    name:"Dana Paulsen",     role:"Executive Assistant"},
@@ -13,7 +13,7 @@ const TRAITS=["Reliable","Brave","Lazy","Traitor"];
 const TRAIT_MOD={Reliable:25, Brave:10, Lazy:-20, Traitor:-5};
 
 export function buildNpcs(){
-  const t=[...TRAITS].sort(()=>Math.random()-.5);
+  const t=[...TRAITS].sort(()=>rand()-.5);
   return ROSTER.map((n,i)=>({...n, trait:t[i], rel:rnd([-10,-5,0,5,10]), known:false}));
 }
 

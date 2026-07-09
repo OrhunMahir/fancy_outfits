@@ -109,13 +109,15 @@
 - **Dava ısısı (`litigationTick`):** kovma başına `FIRE_HEAT(9)` / senior `16`; gece `×HEAT_DECAY(0.93)`, `everFired` olduysa taban `HEAT_MIN(1)` — ASLA 0 olmaz (kullanıcı isteği). Sabah `min(30,heat)%` ihtimalle `buildLawsuit(firedNames'ten)` (casegen.js) inbox'a düşer (tier2, judge, `suit:true`, fx'lerde firm), spawn ısıyı yarılar.
 - **Partnership buy-in:** rank 2→3 için INF eşiği + `BUYIN_COST(5000)`. `checkPromotion` rank 2'de `buyinPaid` yoksa DURUR (tek seferlik hint loglar); EXPENSES'te BUY-IN butonu → `payBuyIn()` → terfi devam eder.
 
-**v1.3 eklendi (2026-07-09, kullanıcı onayıyla):**
-- **Client list (`clients.js` — saf modül, mutasyonlar engine'de):** 20 parodi marka havuzu (Abibas, Mike Sportswear, McRonald's, Guccy, Goggle, Tesler Motors…). `S.clients[{name,fee}]` + `S.clientPool` (run başında karıştırılır). Kapasite `CLIENT_CAP(rank)=3+rank*2`; başlangıçta 3, her terfide 2 yeni imza (`signClient`, engine). StatsPanel'de "CLIENTS (n/cap)" bölümü.
-- **Cuma retainer'ları:** partner review'da `sum(fee)` para olarak ödenir ($100-300/müşteri); 0 müşteri → cuma başına −4 FIRM ("the firm bills the air").
-- **Global eventler (`buildGlobalEvent`, tekrarlanabilir — usedCrises'e GİRMEZ):** sabah kriz çıkmadıysa %15: g_bankrupt (müşteri batıyor: bırak/restructure ile kurtar/üçe katla faturala), g_poach (Fitch müşteri çalıyor: bırak/loyalty rate/karşı-poach → yeni müşteri), g_scandal (CEO skandalı), g_prospect (yeni müşteri adayı, çift retainer opsiyonu — sadece defterde yer varsa). Seçenek sonuçları `client:{lose:name}/{gain:true,double?}` taşır; `resolveCrisis` işler.
-- **loadGame:** müşterisiz eski save'lere 3'lük başlangıç defteri imzalanır.
+**v1.3 eklendi (2026-07-09, kullanıcı isteği — "müşteri KAZANILIR, verilmez"):**
+- **Client list (`clients.js` — saf modül, mutasyonlar engine'de):** 20 parodi marka havuzu (Abibas, Mike Sportswear, McRonald's, Guccy, Goggle, Tesler Motors…). `S.clients[{name,fee}]` + `S.clientPool`. Kapasite `CLIENT_CAP(rank)=3+rank*2` ama SADECE tavan — terfi otomatik müşteri VERMEZ.
+- **Başlangıç:** fraud/debtor 0 müşteri ("Win loudly — they'll find you"); legacy 1 (aile dostu), defector 1 (Fitch'ten getirdiği). Kullanıcının açık isteği: sıfırdan başlayan modda müşteri yok.
+- **Kazanım yolları (hepsi REP'e bağlı):** (a) tier≥1 dava kazanınca `maybeImpressClient` — şans `clamp((rep-45)*.004,0,.14)`, "We were impressed. Represent us." mesajı; (b) sabah `clientAcquisition` — şans `clamp((rep-50)*.0033,0,.12)`: %50 emekli partner hesabını bırakır (INHERITANCE msg, rep≥55 şart) / %50 `buildDinnerEvent` yemek daveti eventi (kazanırsan imza).
+- **Kayıp:** tier≥1 dava fail'inde `maybeLoseClientOnFail` — %12 (+%8 rep<30) rastgele müşteri gider ("Nothing personal. Everything reputational.").
+- **Cuma retainer'ları:** `sum(fee)` ödenir; 0 müşteri cezası (−4 FIRM) SADECE rank≥2'de, junior'lara kuru uyarı satırı.
+- **Global eventler NADİR (%7, tekrarlanabilir, usedCrises'e girmez):** g_bankrupt/g_poach/g_scandal (g_prospect kaldırıldı — kazanım yollarına dönüştü). Sonuçlar `client:{lose:name}/{gain:true,double?}` taşır; `resolveCrisis` işler.
 
-**En son çalışılan konu (2026-07-09):** v1.3 tarayıcıda test edildi (başlangıç defteri, terfi imzaları, cuma retainer + sıfır müşteri cezası, kayıp/kazanım/çift ücret/cap koruması, doğal event tetiklenmesi). Sıradaki onaylı işler: dava arşivi, NPC hikâyeleri, rakiple etkileşim, hakim hafızası; sonra mobil (layout + Capacitor).
+**En son çalışılan konu (2026-07-09):** v1.3 tarayıcıda test edildi (0/1'li başlangıçlar, impressed/miras/yemek kazanımları, fail'de kayıp, cuma yumuşak-sert ceza, %7 global). Sıradaki onaylı işler: dava arşivi, NPC hikâyeleri, rakiple etkileşim, hakim hafızası; sonra mobil (layout + Capacitor).
 
 ---
 

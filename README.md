@@ -24,22 +24,32 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v13.1 — Clients are earned, never given *(2026-07-09)*
+- **Zero-start:** scenarios that begin from nothing now begin with ZERO clients. The Legacy
+  keeps one family-friend account; the Defector brings one along from Snidely Fitch.
+  Promotions no longer auto-sign logos — rank only raises the book's *capacity*.
+- **How clients arrive now** (reputation opens every door):
+  - Win a real case with high REP and a prospect may write in: *"We followed the Aldergate
+    matter. We were impressed. Represent us."*
+  - A retiring partner may hand you their account on the way out — if the firm likes you
+    (REP ≥ 55): *"Give it to the one with the future."*
+  - A **dinner invitation** lands as an event: no pitch decks, a menu without prices — land it
+    quietly, over-promise on the wine, or send apologies and bill the evening instead.
+- **How clients leave:** every public case failure carries a ~12% chance (worse below 30 REP)
+  that a client walks: *"Nothing personal. Everything reputational."*
+- **Global events are rarer** (~7% on crisis-free mornings, down from 15%), and the walk-in
+  prospect event is gone — acquisition goes through the earned paths above.
+- Zero-client Friday penalty now only bites partners (rank 2+); juniors just get watched.
+
 ### v13 — The client book & global events *(2026-07-09)*
-- **CLIENT LIST:** the firm now has a book of clients — strictly parody brands (**Abibas**,
+- **CLIENT LIST:** the firm's book of clients — strictly parody brands (**Abibas**,
   **Mike Sportswear**, **McRonald's**, **Guccy**, **Goggle**, **Tesler Motors**, **Dolce &
-  Banana**…). You start with 3; the book's capacity grows with rank (3 → 11), and every
-  promotion signs new logos. Shown in the side panel with total weekly retainers.
-- **Retainers pay on Fridays:** the partner review now collects $100–300/week per client.
-  Zero clients? The firm "bills the air" — −4 FIRM every Friday.
-- **GLOBAL EVENTS** (repeatable, ~15% on crisis-free mornings), all aimed at the book:
-  - *"GLOBAL: Abibas is going under"* — wind the account down, pull an all-nighter
-    restructuring (keep the client!), or bill triple on the way down.
-  - *"GLOBAL: Snidely Fitch is circling Mike Sportswear"* — let them walk, counter with a
-    loyalty rate, or poach Fitch's biggest client right back (new logo if it lands).
-  - *"GLOBAL: CEO scandal"* — weather it, bill the crisis playbook, or blame a fictional
-    intern on live TV (there is no intern; everyone knows there is no intern).
-  - *"GLOBAL: a prospect walks in"* — standard engagement letter, or promise the moon at
-    double retainer.
+  Banana**…), capacity growing with rank (3 → 11), shown in the side panel.
+- **Retainers pay on Fridays:** $100–300/week per client, collected in the partner review.
+- **GLOBAL EVENTS**, aimed at the book: client bankruptcies (save them with an all-nighter
+  restructuring, or bill triple on the way down), Snidely Fitch poaching attempts
+  (counter-poach their biggest client right back), and CEO scandals (there is no intern;
+  everyone knows there is no intern).
 
 ### v12 — The firm is yours (and it can sink) *(2026-07-09)*
 - **4th stat: FIRM** — a firm-health bar next to Reputation/Boldness/Influence. Case wins and

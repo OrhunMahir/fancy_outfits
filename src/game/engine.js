@@ -13,7 +13,7 @@ import { buildPool, JUDGES, crises, SCENARIOS } from "./content.js";
 import { genCase } from "./casegen.js";
 import { buildNpcs, buildRoster, delegationChance, relNpc, buildFavor, DELEGATE_WIN_TXT, DELEGATE_FAIL_TXT } from "./npcs.js";
 import { buildLawsuit } from "./casegen.js";
-import { CLIENT_CAP, makeClient, buildGlobalEvent } from "./clients.js";
+import { CLIENT_CAP, makeClient, buildGlobalEvent, buildDinnerEvent, PARTNERS } from "./clients.js";
 import { ACHIEVEMENTS, unlock } from "./achievements.js";
 
 let timerId=null, flashSeq=0;
@@ -145,8 +145,10 @@ export function startGame(sc,diff,mode){
   if(sc==="defector") log("You know where Snidely Fitch buries the bodies. They know you know.","sys");
   if(mode==="ironman") log("IRONMAN: no save. Close the game, lose the career.","sys");
   if(mode==="daily") log("DAILY CHALLENGE "+S.dailyDate+": same seed for everyone. No excuses.","sys");
-  while(S.clients.length<CLIENT_CAP(0)&&S.clientPool.length) signClient();
-  log("On your desk: the "+S.clients.map(c=>c.name).join(", ")+" accounts. Don't lose them.","sys");
+  // clients are EARNED, not handed out — you start with an empty book...
+  if(sc==="legacy"){ const nc=signClient(); if(nc) log("A family friend parks the "+nc.name+" account with you. Nepotism has perks.","sys"); }
+  else if(sc==="defector"){ const nc=signClient(); if(nc) log("You didn't leave Snidely Fitch empty-handed: "+nc.name+" came with you.","sys"); }
+  else log("Zero clients on your book. Win loudly — they'll find you.","sys");
   drawCases(2);
   startClock(); sitDown(); startAmbience(); saveGame(); notify();
 }
@@ -269,7 +271,8 @@ export function endDay(){
     // retainers: the client book pays out on Fridays
     const ret=S.clients.reduce((a,c)=>a+c.fee,0);
     if(ret){ apply({money:ret},true); lines.push("Retainers collected: +$"+ret+" ("+S.clients.length+" client(s))."); }
-    else { apply({firm:-4},true); lines.push("Zero clients on the books. The firm bills the air. (-4 FIRM)"); }
+    else if(S.rank>=2){ apply({firm:-4},true); lines.push("A partner with zero clients. The firm bills the air. (-4 FIRM)"); }
+    else lines.push("No retainers yet. The partners are watching your book.");
     lines.push("The weekend happens to other people. You reread depositions.");
     S.weekStart={inf:S.inf, rep:S.rep}; S.weekMissed=0;
   }
@@ -316,11 +319,12 @@ export function endDay(){
         else if(brave){ brave.known=true; c.crisisMod={v:8,txt:brave.name+" is standing at your shoulder. (+8% on every play)"}; }
         S.event=c; S.runStats.crises++;
       }
-      // no firm crisis today? the outside world may still bite (repeatable)
-      if(!S.event&&rand()<.15){
-        const ge=buildGlobalEvent(S.clients, S.clients.length<CLIENT_CAP(S.rank)&&S.clientPool.length>0);
+      // no firm crisis today? the outside world may still bite (rare, repeatable)
+      if(!S.event&&rand()<.07){
+        const ge=buildGlobalEvent(S.clients);
         if(ge){ SFX.crisis(); S.event=ge; S.runStats.crises++; }
       }
+      clientAcquisition();
       sitDown();
     });
   },1400);
@@ -329,8 +333,8 @@ export function endDay(){
 function resolveDelayed(c){
   S.inbox=S.inbox.filter(x=>x!==c);
   const r=c.pending, out=r.win?r.o.ok:r.o.fail;
-  if(r.win){ SFX.win(); log("RESPONSE ["+c.title+"]: SUCCESS","good"); pushMsg("REPLY: "+c.title,out.txt); apply(out.fx); if((out.fx.rep||0)+(out.fx.inf||0)>=10) flash("HENDERED!"); }
-  else { SFX.lose(); log("RESPONSE ["+c.title+"]: FAILED","bad"); pushMsg("REPLY: "+c.title,out.txt); apply(out.fx); doShake(); nemesisGain(3,true); }
+  if(r.win){ SFX.win(); log("RESPONSE ["+c.title+"]: SUCCESS","good"); pushMsg("REPLY: "+c.title,out.txt); apply(out.fx); maybeImpressClient(c); if((out.fx.rep||0)+(out.fx.inf||0)>=10) flash("HENDERED!"); }
+  else { SFX.lose(); log("RESPONSE ["+c.title+"]: FAILED","bad"); pushMsg("REPLY: "+c.title,out.txt); apply(out.fx); maybeLoseClientOnFail(); doShake(); nemesisGain(3,true); }
   if(out.next) queueFollowup(out.next);
   checkPromotion();
 }
@@ -403,12 +407,12 @@ export function choose(c,o){
   if(win){
     SFX.win();
     log("["+c.title+"] "+out.txt,"good"); apply(out.fx);
-    if((c.tier||0)>=1&&!c.favor) apply({firm:1},true); // wins keep the lights on
+    if((c.tier||0)>=1&&!c.favor){ apply({firm:1},true); maybeImpressClient(c); } // wins keep the lights on — and attract logos
     if(((out.fx&&out.fx.rep)||0)+((out.fx&&out.fx.inf)||0)>=10) flash("HENDERED!");
   } else {
     SFX.lose();
     log("["+c.title+"] "+out.txt,"bad"); apply(out.fx);
-    if((c.tier||0)>=1&&!c.favor) apply({firm:-1},true);
+    if((c.tier||0)>=1&&!c.favor){ apply({firm:-1},true); maybeLoseClientOnFail(); }
     doShake(); if(!c.favor) nemesisGain(3,true);
   }
   if(c.favor){ // reverse favors: the relationship is the real payout
@@ -429,6 +433,43 @@ function signClient(){
 function loseClient(name){
   S.clients=S.clients.filter(c=>c.name!==name);
   log("CLIENT LOST: "+name+". Their logo comes off the lobby wall.","bad");
+}
+
+/* a public failure makes clients nervous — some walk */
+function maybeLoseClientOnFail(){
+  if(!S.clients.length) return;
+  if(rand()<.12+(S.rep<30?.08:0)){
+    const c=rnd(S.clients);
+    loseClient(c.name);
+    pushMsg("CLIENT LOST: "+c.name, rnd([
+      "'We read the coverage. We're concerned.'",
+      "'Our board asked questions we couldn't answer.'",
+      "'Nothing personal. Everything reputational.'"]));
+  }
+}
+
+/* a strong win can bring a client to YOU — reputation opens the door */
+function maybeImpressClient(c){
+  if(S.clients.length>=CLIENT_CAP(S.rank)||!S.clientPool.length) return;
+  if(rand()<clamp((S.rep-45)*.004,0,.14)){
+    const nc=signClient();
+    if(nc) pushMsg("NEW CLIENT: "+nc.name,
+      "'We followed the "+c.title.replace(/^[A-Z]+: ?/,"")+" matter. We were impressed. Represent us.' ($"+nc.fee+"/wk)");
+  }
+}
+
+/* mornings can bring an acquisition path: an inherited account (if the firm
+   likes you) or a dinner invitation you still have to land */
+export function clientAcquisition(){
+  if(S.clients.length>=CLIENT_CAP(S.rank)||!S.clientPool.length) return;
+  if(rand()>=clamp((S.rep-50)*.0033,0,.12)) return;
+  if(S.rep>=55&&rand()<.5){
+    const nc=signClient();
+    if(nc) pushMsg("INHERITANCE","Partner "+rnd(PARTNERS)+" retires to 'consulting'. On the way out: 'The "+nc.name+" account? Give it to the one with the future.' Apparently that's you. ($"+nc.fee+"/wk)");
+  } else if(!S.event){
+    S.event=buildDinnerEvent(S.clientPool[S.clientPool.length-1]);
+    SFX.bell();
+  }
 }
 
 /* ---------- Name Partner endgame: the roster is yours, so are the lawsuits ---------- */
@@ -546,10 +587,7 @@ function checkPromotion(){
     SFX.promo(); flash("PROMOTED!");
     log("PROMOTED to "+RANKS[S.rank]+"!","sys");
     if(S.rank===1) log("Senior Associate perk unlocked: DELEGATE cases from the file view.","sys");
-    apply({rep:5},true);
-    // a bigger title brings a bigger book
-    const signed=[signClient(),signClient()].filter(Boolean);
-    if(signed.length) log("Bigger office, bigger book: "+signed.map(c=>c.name).join(" and ")+" sign with the firm.","good");
+    apply({rep:5},true); // (the book doesn't grow with the title — clients are earned)
   }
   if(S.rank>oldRank&&!S.over) promoWalk(oldRank);
 }
@@ -692,7 +730,6 @@ export function loadGame(){
      charAnim:"arriving",openCase:null,settingsOpen:false,sceneRank:null,rosterOpen:false}));
   SFX.bell();
   log("Run restored. The firm did not notice you were gone.","sys");
-  while(S.clients.length<Math.min(3,CLIENT_CAP(S.rank))&&S.clientPool.length) signClient(); // pre-client saves get a starter book
   startClock(); sitDown(); startAmbience(); notify();
 }
 function clearSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }

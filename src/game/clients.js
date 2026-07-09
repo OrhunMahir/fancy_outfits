@@ -12,7 +12,7 @@ export const makeClient=name=>({name, fee:100+50*Math.floor(rand()*5)}); // $100
 
 /* Global events: repeatable world drama aimed at the client book. Options may
    carry client:{lose:name}/{gain:true} on ok/fail — resolveCrisis applies it. */
-export function buildGlobalEvent(clients,hasRoom){
+export function buildGlobalEvent(clients){
   const templates=[];
   if(clients.length){
     const t=rnd(clients).name;
@@ -60,16 +60,24 @@ export function buildGlobalEvent(clients,hasRoom){
           ok:{fx:{bold:6,inf:5,money:700},txt:"The intern (fictional) resigns (fictionally). The stock recovers (really)."},
           fail:{fx:{rep:-8,firm:-2},client:{lose:s},txt:"There is no intern. Everyone knows there is no intern. "+s+" fires the firm on air."}}]});
   }
-  if(hasRoom){
-    templates.push({id:"g_prospect",title:"GLOBAL: a prospect walks in",
-      body:"A company "+rnd(["fresh off an IPO","fleeing Snidely Fitch's billing practices","with a lawsuit problem and a logo budget"])+
-        " wants representation. They ask what makes Parson Henderson different. Hardwick looks at you: 'Answer them.'",
-      opts:[
-        {text:"Standard engagement letter. Professional. Done.",base:100,safe:true,
-          ok:{fx:{inf:2},client:{gain:true},txt:"Signed. A new logo joins the book at the standard rate."}},
-        {text:"Promise them the moon at double retainer.",base:45,boldW:2,style:"aggressive",
-          ok:{fx:{inf:5,bold:3},client:{gain:true,double:true},txt:"They sign at DOUBLE the rate. The moon remains unpromised in writing."},
-          fail:{fx:{rep:-4},txt:"They ask for the moon clause in writing. Meeting over. They sign with Fitch."}}]});
-  }
   return templates.length?rnd(templates):null;
+}
+
+/* ---------- client ACQUISITION (clients are earned, never given) ---------- */
+export const PARTNERS=["Whitcombe","Aldous Pryce","M. Vandermeer","Castellan"];
+
+/* dinner opportunity: impress them and the brand signs (engine gates by REP) */
+export function buildDinnerEvent(brand){
+  return {id:"g_dinner",title:"OPPORTUNITY: dinner with "+brand,
+    body:brand+"'s general counsel "+rnd(["saw your name in the trade press","heard about your last case from a bailiff, of all people","sat next to Hardwick at a gala and asked who the hungry one was"])+
+      ", and wants dinner before choosing counsel. No pitch decks — just you, them, and a menu without prices. Impress them and the retainer follows.",
+    opts:[
+      {text:"Listen more than you talk. Land it quietly.",base:58,style:"technical",
+        ok:{fx:{inf:3,rep:2},client:{gain:true},txt:brand+" signs over dessert. You never once said 'synergy'."},
+        fail:{fx:{bold:-2},txt:"A pleasant dinner. They'll 'be in touch'. They will not be in touch."}},
+      {text:"Big promises, bigger wine order.",base:40,boldW:2,style:"aggressive",
+        ok:{fx:{inf:4,bold:3},client:{gain:true},txt:brand+" loves the audacity and signs the napkin. The napkin is binding. You checked."},
+        fail:{fx:{rep:-4},txt:"The wine was excellent. The silence after your billing estimate was not."}},
+      {text:"Send apologies — you're buried in work.",base:100,safe:true,
+        ok:{fx:{bold:-2,inf:1},txt:"You bill the evening instead. The prospect dines with Snidely Fitch."}}]};
 }

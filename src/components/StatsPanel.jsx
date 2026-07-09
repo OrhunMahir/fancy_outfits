@@ -41,7 +41,7 @@ export default function StatsPanel(){
       <div className="kv">
         {S.clients.length
           ? S.clients.map(c=>c.name).join(" · ")+" — $"+S.clients.reduce((a,c)=>a+c.fee,0)+"/wk in retainers (paid Fridays)"
-          : "None. The firm bills the air. (-4 FIRM every Friday)"}
+          : "None yet. Clients follow reputation — win loudly and they'll come to you."}
       </div>
       <h2 style={{marginTop:10}}>EXPENSES</h2>
       {S.rank===2&&!S.buyinPaid&&S.inf>=RANK_REQ[2] && (

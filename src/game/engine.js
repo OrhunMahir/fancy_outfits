@@ -4,20 +4,22 @@
 import { S, setS, notify, newState } from "./state.js";
 import { RANKS, RANK_REQ, DAY_SECONDS, REP_FIRED, DEADLINE_PENALTY,
          STAKE_REWARD, STAKE_PENALTY, PRICES, SAVE_KEY, STATS_KEY,
-         WEEK_LEN, REVIEW_GOOD, REVIEW_BAD } from "./constants.js";
+         WEEK_LEN, REVIEW_GOOD, REVIEW_BAD, BUYIN_COST, FIRM_COLLAPSE,
+         FIRE_HEAT, FIRE_HEAT_SENIOR, HEAT_DECAY, HEAT_MIN } from "./constants.js";
 import { clamp, rnd, rand, hash, setSeed, clearSeed } from "./utils.js";
 import { SFX, startAmbience, stopAmbience, applyBgmVolume } from "./sound.js";
 import { settings, setSetting } from "./settings.js";
 import { buildPool, JUDGES, crises, SCENARIOS } from "./content.js";
 import { genCase } from "./casegen.js";
-import { buildNpcs, delegationChance, relNpc, buildFavor, DELEGATE_WIN_TXT, DELEGATE_FAIL_TXT } from "./npcs.js";
+import { buildNpcs, buildRoster, delegationChance, relNpc, buildFavor, DELEGATE_WIN_TXT, DELEGATE_FAIL_TXT } from "./npcs.js";
+import { buildLawsuit } from "./casegen.js";
 import { ACHIEVEMENTS, unlock } from "./achievements.js";
 
 let timerId=null, flashSeq=0;
 
 /* The clock stops whenever any overlay is up, the player hit PAUSE, or the
    character is walking out. Replaces the old S.paused flag. */
-export const isPaused=()=>!!(S.infoOpen||S.event||S.summary||S.userPaused||S.settingsOpen||S.leaving);
+export const isPaused=()=>!!(S.infoOpen||S.event||S.summary||S.userPaused||S.settingsOpen||S.rosterOpen||S.leaving);
 export const disrespected=()=>S.rep<30;
 
 export function log(txt,cls){ S.logEntries.unshift({txt,cls:cls||""}); S.dailyLog.push(txt); }
@@ -56,12 +58,12 @@ function trackChoice(c,o,win){
   if(c&&c.favor){ if((o.relOk||0)>0) r.favorHelp++; else if((o.relOk||0)<0) r.favorNo++; }
 }
 
-/* effects: {rep,bold,inf,money} */
+/* effects: {rep,bold,inf,money,firm} */
 export function apply(fx,quiet){
   if(!fx) return;
-  const map={rep:"REP",bold:"BOLD",inf:"INFL",money:"$"};
+  const map={rep:"REP",bold:"BOLD",inf:"INFL",money:"$",firm:"FIRM"};
   let parts=[];
-  for(const k of ["rep","bold","inf","money"]){
+  for(const k of ["rep","bold","inf","money","firm"]){
     if(!fx[k]) continue;
     let v=fx[k];
     if(S.scenario==="legacy"){ // nepotism: influence easier, reputation harsher
@@ -196,7 +198,7 @@ function spawnFollowups(){
 function scaleStakes(inst){
   const r=S.rank; inst.stakes=r;
   if(!r) return inst;
-  const mul=fx=>{ if(!fx) return; for(const k of ["rep","bold","inf","money"])
+  const mul=fx=>{ if(!fx) return; for(const k of ["rep","bold","inf","money","firm"])
     if(fx[k]) fx[k]=Math.round(fx[k]*(fx[k]>0?STAKE_REWARD[r]:STAKE_PENALTY[r])); };
   inst.opts.forEach(o=>{ mul(o.ok&&o.ok.fx); mul(o.fail&&o.fail.fx); });
   return inst;
@@ -229,7 +231,7 @@ export function endDay(){
     if(c.favor){ const n=S.npcs.find(x=>x.id===c.npc); if(n) relNpc(n,-10);
       log("FAVOR IGNORED: "+c.title+" (-10 rel)","bad"); return; }
     log("DEADLINE MISSED: "+c.title,"bad"); S.runStats.miss++;
-    apply({rep:DEADLINE_PENALTY},true); nemesisGain(4,true);
+    apply({rep:DEADLINE_PENALTY,firm:-2},true); nemesisGain(4,true);
   });
   S.inbox=S.inbox.filter(c=>!missed.includes(c));
   if(S.over) return;
@@ -244,13 +246,13 @@ export function endDay(){
     const score=(S.inf-S.weekStart.inf)+Math.round((S.rep-S.weekStart.rep)/2)-S.weekMissed*3;
     lines.push("— PARTNER REVIEW, WEEK "+(S.day/WEEK_LEN)+" —");
     if(score>=REVIEW_GOOD){
-      apply({rep:4,inf:4},true); ach("friday");
+      apply({rep:4,inf:4,firm:3},true); ach("friday");
       lines.push(rnd([
         "Hardwick, without looking up: 'Whoever you are — keep billing like that.' (+4 REP, +4 INFL)",
         "Your name comes up in the partners' meeting. Nobody laughs. Progress. (+4 REP, +4 INFL)",
         "A bottle appears on your desk. No card. Partners don't do cards. (+4 REP, +4 INFL)"]));
     } else if(score<=REVIEW_BAD){
-      apply({rep:-4},true);
+      apply({rep:-4,firm:-3},true);
       lines.push(rnd([
         "Hardwick's door was open. It closed as you walked past. (-4 REP)",
         "'We measure weeks here,' says the memo. Yours, apparently, was measured. (-4 REP)",
@@ -289,6 +291,7 @@ export function endDay(){
       drawCases(1+(rand()<.6?1:0));
       if(rand()<.3&&!S.inbox.some(c=>c.favor)) spawnFavor();
       if(rand()<.18) marvMoment();
+      rosterTick(); litigationTick();
       // low rep = casual disrespect
       if(disrespected()&&rand()<.5) pushMsg("FYI",rnd([
         "The partners' meeting you weren't told about went great, apparently.",
@@ -388,10 +391,12 @@ export function choose(c,o){
   if(win){
     SFX.win();
     log("["+c.title+"] "+out.txt,"good"); apply(out.fx);
+    if((c.tier||0)>=1&&!c.favor) apply({firm:1},true); // wins keep the lights on
     if(((out.fx&&out.fx.rep)||0)+((out.fx&&out.fx.inf)||0)>=10) flash("HENDERED!");
   } else {
     SFX.lose();
     log("["+c.title+"] "+out.txt,"bad"); apply(out.fx);
+    if((c.tier||0)>=1&&!c.favor) apply({firm:-1},true);
     doShake(); if(!c.favor) nemesisGain(3,true);
   }
   if(c.favor){ // reverse favors: the relationship is the real payout
@@ -399,6 +404,62 @@ export function choose(c,o){
     if(n&&d){ relNpc(n,d); log(n.name+(d>0?" will remember this. (+":" files this away. (")+d+" rel)",d>0?"good":"bad"); }
   }
   if(out.next) queueFollowup(out.next);
+  checkPromotion(); saveGame(); notify();
+}
+
+/* ---------- Name Partner endgame: the roster is yours, so are the lawsuits ---------- */
+
+/* every morning some employees act; their quality moves FIRM health */
+function rosterTick(){
+  if(!S.roster) return;
+  let drift=0;
+  S.roster.forEach(e=>{
+    if(rand()<.3){ const win=rand()*100<50+e.impact*8; win?(e.won++,drift++):(e.lost++,drift--); }
+  });
+  if(drift) apply({firm:clamp(drift,-3,3)},true);
+}
+
+/* litigation heat: decays nightly but never reaches zero once you've fired
+   anyone. High heat = an ex-employee lawsuit lands on YOUR desk. */
+function litigationTick(){
+  if(!S.everFired) return;
+  S.fireHeat=Math.max(S.fireHeat*HEAT_DECAY,HEAT_MIN);
+  if(rand()*100<Math.min(30,S.fireHeat)){
+    S.inbox.unshift(instantiateCase(buildLawsuit(rnd(S.firedNames))));
+    S.fireHeat=Math.max(S.fireHeat*.5,HEAT_MIN);
+    log("A process server is at reception. It's for the firm. It's about you.","bad");
+  }
+}
+
+function dismissEmployee(e,heat){
+  S.roster=S.roster.filter(x=>x!==e);
+  if(e.src==="npc") S.npcs=S.npcs.filter(n=>n.id!==e.npcId); // they leave THE FLOOR too — one less delegate
+  if(e.src==="nemesis"){ S.nemesis=null; log(e.name+" — your rival — is escorted out. The floor is very quiet.","sys"); }
+  S.fireHeat+=heat; S.everFired=true; S.firedNames.push(e.name);
+  S.runStats.fired=(S.runStats.fired||0)+1;
+  apply({firm:-2},true); // morale: everyone updates their résumé a little
+  log("FIRED: "+e.name+". Security walks them out. They walk slowly, memorizing faces.","sys");
+}
+export function fireEmployee(id){
+  if(!S.roster) return;
+  const e=S.roster.find(x=>x.id===id); if(!e) return;
+  SFX.send();
+  if(e.senior){ // senior partners need a partner vote
+    const p=clamp(30+S.rep/2+S.inf/4,20,90);
+    if(rand()*100<p){ log("The vote carries. "+e.name+" is out.","sys"); dismissEmployee(e,FIRE_HEAT_SENIOR); }
+    else { apply({rep:-6,firm:-3}); log("The vote FAILS. "+e.name+" stays — and remembers who called it.","bad"); doShake(); }
+  } else dismissEmployee(e,FIRE_HEAT);
+  saveGame(); notify();
+}
+export const voteChance=()=>clamp(30+S.rep/2+S.inf/4,20,90);
+
+/* the partnership buy-in: rank 2 -> 3 costs real money */
+export function payBuyIn(){
+  if(S.rank!==2||S.buyinPaid||S.inf<RANK_REQ[2]||S.money<BUYIN_COST) return;
+  SFX.send();
+  S.buyinPaid=true;
+  log("Buy-in wired. The partnership agreement has your name in actual ink.","sys");
+  apply({money:-BUYIN_COST},true);
   checkPromotion(); saveGame(); notify();
 }
 
@@ -433,7 +494,7 @@ export function resolveCrisis(o){
   const win=rand()*100<p, out=win?o.ok:o.fail;
   trackChoice(null,o,win);
   if(win){ SFX.win(); log("[CRISIS] "+out.txt,"good"); apply(out.fx); if(((out.fx&&out.fx.inf)||0)>=10) flash("HENDERED!"); }
-  else { SFX.lose(); log("[CRISIS] "+out.txt,"bad"); apply(out.fx); doShake(); nemesisGain(3,true); }
+  else { SFX.lose(); log("[CRISIS] "+out.txt,"bad"); apply(out.fx); apply({firm:-2},true); doShake(); nemesisGain(3,true); }
   if(out.next) queueFollowup(out.next); // crises may chain into case files too
   checkPromotion(); saveGame(); notify();
 }
@@ -442,6 +503,12 @@ function checkPromotion(){
   if(S.over) return;
   const oldRank=S.rank;
   while(S.rank<4 && S.inf>=RANK_REQ[S.rank]){
+    // Junior Partner -> Senior Partner: influence isn't enough, you buy in
+    if(S.rank===2&&!S.buyinPaid){
+      if(!S.buyinHinted){ S.buyinHinted=true; SFX.bell();
+        log("The Senior Partnership is yours — once you buy in. ($"+BUYIN_COST+", see EXPENSES.)","sys"); }
+      break;
+    }
     S.rank++;
     if(S.rank===4){ gameWin(); return; }
     SFX.promo(); flash("PROMOTED!");
@@ -466,7 +533,10 @@ function promoWalk(oldRank){
 
 function checkEndings(){
   if(S.over) return;
-  if(S.rep<REP_FIRED) gameOver("FIRED","Your reputation fell below what Parson Henderson tolerates (which is very little). Security walks you out. They keep the fancy outfit.");
+  if(S.rep<REP_FIRED){ gameOver("FIRED","Your reputation fell below what Parson Henderson tolerates (which is very little). Security walks you out. They keep the fancy outfit."); return; }
+  // once the name is yours, so is the sinking
+  if((S.endlessWon||S.rank===4)&&S.firm<FIRM_COLLAPSE)
+    gameOver("FIRM COLLAPSE","Clients gone, partners fled, the lease unpaid. The sign painters return — this time with solvent. Your name comes off the wall faster than it went up.");
 }
 
 /* end-of-run breakdown for the final screen */
@@ -479,7 +549,8 @@ function ledger(){
     "Favors: "+r.favorHelp+" helped · "+r.favorNo+" declined"+
       (topName?" · Most delegated: "+topName.name+" ("+top[1]+"×)":""),
     "Deadlines missed: "+r.miss+" · Crises faced: "+r.crises+
-      " · "+S.nemesis.name+" peaked at "+RANKS[S.nemesis.rank]+"."];
+      (r.fired?" · Employees fired: "+r.fired:"")+
+      (S.nemesis?" · "+S.nemesis.name+" peaked at "+RANKS[S.nemesis.rank]+".":" · Your rival didn't outlast you.")];
 }
 function gameOver(title,txt){
   S.over=true; clearInterval(timerId); SFX.fired(); stopAmbience(); doShake();
@@ -497,12 +568,14 @@ function winAchievements(){
 function gameWin(){
   winAchievements();
   if(S.mode==="endless"&&!S.endlessWon){
-    // endless: take the title, keep the inbox
+    // endless: take the title, keep the inbox — and inherit the payroll
     S.endlessWon=true; SFX.promo(); flash("NAME PARTNER!");
     recordRun(true,"NAME PARTNER");
+    S.roster=buildRoster(S.npcs,S.nemesis);
     showSummary("YOU MADE NAME PARTNER — AND KEPT GOING",[
       "The sign painters add your name to the wall. The inbox does not attend the ceremony.",
-      "ENDLESS: the firm is yours now. See how long you can hold it.",
+      "ENDLESS: the firm is yours now — payroll included. Open the FIRM tab to meet it.",
+      "Keep FIRM health above "+FIRM_COLLAPSE+" or the name comes off the wall.",
       "Day "+S.day+". Reputation "+S.rep+". Boldness "+S.bold+"."],
       "KEEP BILLING",()=>{});
     return;
@@ -525,7 +598,7 @@ function gameWin(){
     epithet,
     "Day "+S.day+". Reputation "+S.rep+". Boldness "+S.bold+".",
     seal,
-    "Down the hall, "+S.nemesis.name+" quietly clears out his desk.","",
+    S.nemesis?"Down the hall, "+S.nemesis.name+" quietly clears out his desk.":"Your rival's desk has been empty for a while now.","",
     "You've been HENDERED. Permanently.","",...ledger()],"NEW GAME",()=>location.reload());
 }
 
@@ -570,7 +643,7 @@ export function saveGame(){
   if(!S||S.over||S.mode==="ironman") return; // ironman: no net
   try{
     // strip transient UI fields; everything else is plain JSON data
-    const {infoOpen,event,summary,flash,userPaused,leaving,charAnim,openCase,settingsOpen,sceneRank,...data}=S;
+    const {infoOpen,event,summary,flash,userPaused,leaving,charAnim,openCase,settingsOpen,sceneRank,rosterOpen,...data}=S;
     localStorage.setItem(SAVE_KEY,JSON.stringify(data));
   }catch(e){}
 }
@@ -581,7 +654,7 @@ export function loadGame(){
   const d=peekSave(); if(!d) return;
   setS(Object.assign(newState(d.scenario),d,
     {infoOpen:false,event:null,summary:null,flash:null,userPaused:false,leaving:false,
-     charAnim:"arriving",openCase:null,settingsOpen:false,sceneRank:null}));
+     charAnim:"arriving",openCase:null,settingsOpen:false,sceneRank:null,rosterOpen:false}));
   SFX.bell();
   log("Run restored. The firm did not notice you were gone.","sys");
   startClock(); sitDown(); startAmbience(); notify();
@@ -612,6 +685,8 @@ export function pauseGame(){ SFX.click(); S.userPaused=true; notify(); }
 export function resumeGame(){ SFX.click(); S.userPaused=false; notify(); }
 export function openSettings(){ SFX.click(); S.settingsOpen=true; notify(); }
 export function closeSettings(){ SFX.click(); S.settingsOpen=false; notify(); }
+export function openRoster(){ SFX.open(); S.rosterOpen=true; notify(); }
+export function closeRoster(){ SFX.click(); S.rosterOpen=false; notify(); }
 export function updateSetting(k,v){
   setSetting(k,v);
   if(k==="bgm") applyBgmVolume();

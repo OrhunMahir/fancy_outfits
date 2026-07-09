@@ -44,6 +44,34 @@ export function buildFavor(n){
         ok:{fx:{inf:1},txt:"They smile politely. People here smile like invoices."}}]};
 }
 
+/* ---------- the Name Partner's roster (endless endgame) ----------
+   Built once you own the wall. Floor NPCs and the rival join real employees;
+   each has a win/loss history and a daily impact on FIRM health. Seniors
+   (rank 3) can only be removed by partner vote. */
+const ROSTER_FIRST=["Gordon","Petra","Ellis","Marisol","Chad","Ingrid","Tobias","Priya","Werner","Fallon"];
+const ROSTER_LAST=["Mercer","Stubbs","Vane","Okonkwo","Billingsley","Krupp","Ostrander","Naidoo","Fitch-Adjacent","Plimpton"];
+const ROLE_LABELS=["Junior Associate","Senior Associate","Junior Partner","Senior Partner"];
+
+function history(rank){
+  const won=5+Math.floor(rand()*20)+rank*6, lost=2+Math.floor(rand()*14);
+  const impact=clamp(Math.round((won-lost)/6)+rnd([-2,-1,0,1]),-3,4);
+  return {won,lost,impact};
+}
+export function buildRoster(npcs,nemesis){
+  const R=[];
+  npcs.forEach(n=>R.push({id:"npc_"+n.id,npcId:n.id,src:"npc",name:n.name,role:n.role,rank:1,senior:false,...history(1)}));
+  if(nemesis) R.push({id:"nem",src:"nemesis",name:nemesis.name,role:ROLE_LABELS[nemesis.rank]+" · your rival",rank:nemesis.rank,senior:nemesis.rank>=3,...history(nemesis.rank)});
+  R.push({id:"hardwick",src:"gen",name:"Daniel Hardwick",role:"Senior Partner",rank:3,senior:true,won:41,lost:9,impact:4});
+  R.push({id:"bitt",src:"gen",name:"Lou Bitt",role:"Junior Partner",rank:2,senior:false,won:22,lost:17,impact:-1});
+  const used=new Set();
+  for(let i=0;i<6;i++){
+    let name; do{ name=rnd(ROSTER_FIRST)+" "+rnd(ROSTER_LAST); }while(used.has(name)); used.add(name);
+    const rank=rnd([0,0,0,1,1,2,3]);
+    R.push({id:"gen"+i,src:"gen",name,role:ROLE_LABELS[rank],rank,senior:rank>=3,...history(rank)});
+  }
+  return R;
+}
+
 export const DELEGATE_WIN_TXT=[
   "closed it before lunch. Didn't even want credit.",
   "handled it. Quietly, competently, terrifyingly.",

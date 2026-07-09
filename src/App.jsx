@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { useGame } from "./game/useGame.js";
 import { S } from "./game/state.js";
 import { choose, deferCase, resolveCrisis, dismissSummary, resumeGame,
-         closeSettings, closeInfo } from "./game/engine.js";
+         closeSettings, closeInfo, closeRoster } from "./game/engine.js";
 import StartScreen from "./components/StartScreen.jsx";
 import Topbar from "./components/Topbar.jsx";
 import OfficeScene from "./components/OfficeScene.jsx";
@@ -14,6 +14,7 @@ import StatsPanel from "./components/StatsPanel.jsx";
 import InfoOverlay from "./components/InfoOverlay.jsx";
 import PauseOverlay from "./components/PauseOverlay.jsx";
 import SettingsOverlay from "./components/SettingsOverlay.jsx";
+import RosterOverlay from "./components/RosterOverlay.jsx";
 import EventOverlay from "./components/EventOverlay.jsx";
 import SummaryOverlay from "./components/SummaryOverlay.jsx";
 
@@ -27,6 +28,7 @@ function handleKey(e){
   if(S.event){ if(i>=0&&S.event.opts[i]) resolveCrisis(S.event.opts[i]); return; }
   if(S.userPaused){ if(k===" "||k==="Escape"){ e.preventDefault(); resumeGame(); } return; }
   if(S.settingsOpen){ if(k==="Escape") closeSettings(); return; }
+  if(S.rosterOpen){ if(k==="Escape") closeRoster(); return; }
   if(S.infoOpen){ if(k==="Escape") closeInfo(); return; }
   if(S.openCase){
     const c=S.openCase;
@@ -61,6 +63,7 @@ export default function App(){
       </div>
       {S.userPaused && <PauseOverlay />}
       {S.settingsOpen && <SettingsOverlay />}
+      {S.rosterOpen && <RosterOverlay />}
       {S.infoOpen && <InfoOverlay />}
       {S.event && <EventOverlay ev={S.event} />}
       {S.summary && <SummaryOverlay sum={S.summary} />}

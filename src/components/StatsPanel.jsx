@@ -1,11 +1,11 @@
 import { useGame } from "../game/useGame.js";
-import { REP_FIRED, RANK_REQ, RANKS, PRICES } from "../game/constants.js";
+import { REP_FIRED, RANK_REQ, RANKS, PRICES, BUYIN_COST, FIRM_COLLAPSE } from "../game/constants.js";
 import { SCENARIOS } from "../game/content.js";
-import { buySuit, bribeMarv } from "../game/engine.js";
+import { buySuit, bribeMarv, payBuyIn } from "../game/engine.js";
 
 export default function StatsPanel(){
   const S=useGame();
-  const bars=[["REPUTATION",S.rep,"#38b764"],["BOLDNESS",S.bold,"#b13e53"],["INFLUENCE",S.inf,"#ffcd75"]];
+  const bars=[["REPUTATION",S.rep,"#38b764"],["BOLDNESS",S.bold,"#b13e53"],["INFLUENCE",S.inf,"#ffcd75"],["FIRM",S.firm,"#4d73e8"]];
   return (
     <div id="stats" className="panel">
       <h2>ASSOCIATE FILE</h2>
@@ -13,7 +13,8 @@ export default function StatsPanel(){
         {bars.map(([n,v,col])=>{
           let extra="";
           if(n==="REPUTATION") extra=" (fired < "+REP_FIRED+")";
-          if(n==="INFLUENCE"&&S.rank<4) extra=" (next rank: "+RANK_REQ[S.rank]+")";
+          if(n==="INFLUENCE"&&S.rank<4) extra=" (next rank: "+RANK_REQ[S.rank]+(S.rank===2?" + buy-in":"")+")";
+          if(n==="FIRM") extra=(S.endlessWon||S.rank===4)?" (collapse < "+FIRM_COLLAPSE+")":" (the partners' problem. for now)";
           return (
             <div key={n} className="statrow">
               <div className="lbl"><span>{n+extra}</span><span>{v}</span></div>
@@ -36,6 +37,11 @@ export default function StatsPanel(){
         </div>
       )}
       <h2 style={{marginTop:10}}>EXPENSES</h2>
+      {S.rank===2&&!S.buyinPaid&&S.inf>=RANK_REQ[2] && (
+        <button className="btn small spend safe" disabled={S.money<BUYIN_COST} onClick={payBuyIn}>
+          PARTNERSHIP BUY-IN · ${BUYIN_COST}<span className="chance">Wire it and the Senior Partnership is yours.</span>
+        </button>
+      )}
       <button className="btn small spend" disabled={S.money<S.suitCost} onClick={buySuit}>
         TAILORED SUIT · ${S.suitCost}<span className="chance">+8 REP. Dress for the rank you want.</span>
       </button>

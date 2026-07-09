@@ -116,3 +116,15 @@ export function genCase(){
   c.id="gen"+(++seq);
   return c;
 }
+
+/* Fired employees sue the firm (Name Partner endgame). fx.firm hits your
+   firm-health stat; the plaintiff's counsel is, of course, Snidely Fitch. */
+export function buildLawsuit(exName){
+  return {id:"suit"+(++seq), tier:2, judge:true, deadline:3, suit:true,
+    title:`LAWSUIT: ${exName} v. Parson Henderson`,
+    body:`${exName} — whom you personally fired — is suing the firm for wrongful termination. Their counsel is Snidely Fitch, working "at a compassionate discount". The complaint quotes your own security-escort policy back at you, and asks for damages with a number of zeroes that suggests a grudge.`,
+    opts:[
+      {text:"Settle quietly. Ex-employees talk.",base:100,safe:true,ok:{fx:{money:-1200,firm:-2},txt:"Paid, sealed, forgotten by everyone except accounting."}},
+      {text:"Fight it — the termination file is clean.",base:62,style:"technical",ok:{fx:{rep:4,firm:3},txt:"Documented, dated, dismissed. The firm looks bulletproof. For now."},fail:{fx:{money:-2000,firm:-6,rep:-5},txt:"HR's paperwork had a gap the size of a verdict."}},
+      {text:"Countersue for breach of exit NDA.",base:34,boldW:2,style:"aggressive",ok:{fx:{firm:5,inf:5},txt:"The countersuit lands. Word spreads: leaving loudly is expensive."},fail:{fx:{rep:-9,firm:-8,money:-1500},txt:"The jury liked them better. Juries usually like the fired ones better."}}]};
+}

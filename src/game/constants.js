@@ -13,6 +13,15 @@ export const REVIEW_GOOD=10; // week score >= this → praise (+4 REP +4 INFL)
 export const REVIEW_BAD=0;   // week score <= this → scolding (-4 REP)
 // money sinks
 export const PRICES={suit:1200, detective:900, marv:600};
+// Junior Partner -> Senior Partner requires buying into the partnership
+export const BUYIN_COST=5000;
+// firm health (4th stat). Collapse only threatens a sitting Name Partner.
+export const FIRM_START=62;
+export const FIRM_COLLAPSE=15;
+// firing employees builds litigation heat: +FIRE_HEAT per firing (more for a
+// voted-out senior), decays x HEAT_DECAY nightly, but never below HEAT_MIN
+// once you've fired anyone — ex-employees have long memories.
+export const FIRE_HEAT=9, FIRE_HEAT_SENIOR=16, HEAT_DECAY=0.93, HEAT_MIN=1;
 // localStorage keys (bump the suffix if the save shape changes)
 export const SAVE_KEY="fo_save_v1";
 export const STATS_KEY="fo_stats_v1";

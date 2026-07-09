@@ -24,6 +24,27 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v12 — The firm is yours (and it can sink) *(2026-07-09)*
+- **4th stat: FIRM** — a firm-health bar next to Reputation/Boldness/Influence. Case wins and
+  losses, missed deadlines, crises and Friday reviews all nudge it. While you're an associate
+  it's "the partners' problem"; once your name is on the wall (ENDLESS), **FIRM below 15 =
+  FIRM COLLAPSE, game over.** The name comes off the wall faster than it went up.
+- **The payroll (FIRM tab):** on making Name Partner you inherit a ~13-person roster — the four
+  floor colleagues, your rival, Daniel Hardwick, Lou Bitt and generated employees. Each shows
+  their role, cases **won/lost** and a daily **IMPACT** on firm health; they keep working (and
+  winning/losing) every morning, so dead weight actively drags the firm down.
+- **Firing:** fire anyone from the FIRM tab — except **Senior Partners, who require a partner
+  vote** (odds scale with your REP/INF; a failed vote costs you and they remember). Firing a
+  floor colleague also removes them from delegation. You can fire your rival.
+- **Wrongful-termination lawsuits:** every firing builds litigation heat (+9, +16 for a voted-out
+  senior). Heat decays ~7% nightly but **never reaches zero** — fire 5 people in a month and the
+  risk spikes; spread 7 firings over two months and it stays lower, but ex-employees never fully
+  forget. When it triggers, a real court case lands in YOUR inbox: *"LAWSUIT: Lou Bitt v. Parson
+  Henderson"*, plaintiff's counsel: Snidely Fitch, at a compassionate discount.
+- **Partnership buy-in:** Junior Partner → Senior Partner now costs **$5,000** on top of the
+  influence requirement. The promotion waits (a BUY-IN button appears under EXPENSES) until you
+  wire it.
+
 ### v11 — The Defector, achievements, game modes & keyboard *(2026-07-09)*
 - **4th scenario: THE DEFECTOR** — you jumped ship from Snidely Fitch. You know their playbook
   (+8% on every risky play against Fitch-related files), and they know where you live: two

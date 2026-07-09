@@ -102,7 +102,14 @@
 - **Deterministik RNG (`utils.js`):** mulberry32 tabanlı `rand()/setSeed()/clearSeed()`. TÜM oyun mantığı artık `rand()` kullanır — `Math.random` SADECE `sound.js`'te kalır (ses jitter'ı deterministik akışı tüketmesin). Yeni kod yazarken bu kurala uy.
 - **Klavye kısayolları (App.jsx `handleKey`):** 1-4 seçenek seçer (dava + kriz; paran yetmeyen bribe yok sayılır), Space dosya erteler/özeti ilerletir, Esc panelleri kapatır. Seçenek metinleri numaralandı. Handler modül `S`'ini okur (stale closure yok), sadece engine fonksiyonu çağırır.
 
-**En son çalışılan konu (2026-07-09):** v1.1 (Defector + başarımlar + modlar + klavye) tarayıcıda uçtan uca test edildi. Kullanıcının onayladığı sıradaki işler: dava arşivi, NPC hikâyeleri, rakiple etkileşim, hakim hafızası; sonrasında mobil (Capacitor + mobil layout).
+**v1.2 eklendi (2026-07-09, kullanıcı isteği):**
+- **4. stat: FIRM (`S.firm`, start 62):** `apply()` fx'ine `firm` anahtarı eklendi (scaleStakes de ölçekler). Kaynaklar: dava kazanma/kaybetme ±1 (tier≥1), deadline −2, kriz fail −2, cuma review ±3, kovma morali −2, lawsuit fx'leri. StatsPanel'de 4. bar. **Batış:** Name Partner iken (endlessWon||rank 4) `firm < FIRM_COLLAPSE(15)` → `gameOver("FIRM COLLAPSE")` — pratikte ENDLESS'ın endgame'i.
+- **Payroll / FIRM sekmesi (`RosterOverlay`, topbar'da FIRM butonu — sadece roster varken):** endless'ta NP olunca `buildRoster(npcs,nemesis)` (npcs.js) ~13 kişi kurar: 4 floor NPC + nemesis + Hardwick(senior) + Lou Bitt + 6 üretilmiş. Alanlar: `{won,lost,impact(-3..4),senior,src}`. `rosterTick()` her sabah: her çalışan %30 ihtimalle iş yapar (kazanma şansı 50+impact×8) → won/lost işler + FIRM drift (clamp ±3).
+- **Kovma (`fireEmployee`):** senior olmayan direkt; **Senior Partner = oylama** (`voteChance` = 30+rep/2+inf/4, clamp 20-90; fail: −6 REP −3 FIRM). Kovulan floor NPC'si `S.npcs`'ten de düşer (delege hedefi azalır); nemesis kovulabilir (`S.nemesis=null`). Moral: her kovma −2 FIRM.
+- **Dava ısısı (`litigationTick`):** kovma başına `FIRE_HEAT(9)` / senior `16`; gece `×HEAT_DECAY(0.93)`, `everFired` olduysa taban `HEAT_MIN(1)` — ASLA 0 olmaz (kullanıcı isteği). Sabah `min(30,heat)%` ihtimalle `buildLawsuit(firedNames'ten)` (casegen.js) inbox'a düşer (tier2, judge, `suit:true`, fx'lerde firm), spawn ısıyı yarılar.
+- **Partnership buy-in:** rank 2→3 için INF eşiği + `BUYIN_COST(5000)`. `checkPromotion` rank 2'de `buyinPaid` yoksa DURUR (tek seferlik hint loglar); EXPENSES'te BUY-IN butonu → `payBuyIn()` → terfi devam eder.
+
+**En son çalışılan konu (2026-07-09):** v1.2 tarayıcıda uçtan uca test edildi (buy-in kapısı, roster, kovma, oylama, lawsuit spawn, ısı tabanı, FIRM COLLAPSE). Sıradaki onaylı işler: GLOBAL EVENTLER + CLIENT LIST (aşağıda), dava arşivi, NPC hikâyeleri, rakiple etkileşim, hakim hafızası; sonra mobil.
 
 ---
 
@@ -152,6 +159,7 @@ fancy-outfits/
 │       ├── InfoOverlay.jsx       ← "i" paneli
 │       ├── PauseOverlay.jsx      ← PAUSE ekranı (masayı kapatır — bilinçli)
 │       ├── SettingsOverlay.jsx   ← ayarlar (gün süresi, ses, sarsıntı)
+│       ├── RosterOverlay.jsx     ← FIRM sekmesi: payroll, W/L, impact, FIRE/CALL A VOTE (NP endgame)
 │       ├── EventOverlay.jsx      ← kriz ekranı (+ Traitor/Brave modifier satırı)
 │       └── SummaryOverlay.jsx    ← gün sonu / cuma review / game over / win + run ledger
 ├── FANCY_OUTFITS_GDD.md          ← Tasarım dokümanı (gelecek özelliklerin speci)
@@ -284,7 +292,7 @@ if(S.scenario==="legacy"){
 
 # 9. Game Mechanics
 
-- **Player:** 4 stat. REP (başlangıç 50; <20 kovulma; her gece −1; <30 disrespect, >70 respect), BOLD (40; blöf şansını besler, safe seçenekler kemirir), INF (10; terfi para birimi), MONEY ($1500, Debtor'da $3000).
+- **Player:** 5 stat. REP (başlangıç 50; <20 kovulma; her gece −1; <30 disrespect, >70 respect), BOLD (40; blöf şansını besler, safe seçenekler kemirir), INF (10; terfi para birimi), FIRM (62; firma sağlığı — NP iken <15 batış), MONEY ($1500, Debtor'da $3000).
 - **"Enemy" karşılığı:** Karşı taraf ayrı bir AI değil — zorluk `chance()` formülü + hakim statları + kriz eventleri üzerinden. Rakip firma Snidely Fitch flavor + bazı davaların konusu.
 - **Level karşılığı:** Rütbeler. `checkPromotion()`: `inf >= RANK_REQ[rank]` oldukça yüksel (while ile zincirleme terfi mümkün). Rütbe 4 = win. Tier-2 (mahkeme) davaları rank≥1'de havuza girer (`drawCases` filtresi).
 - **Combat karşılığı:** Dava çözümü — oku, seç, zar. Zar: `Math.random()*100 < chance(o,c)`.
@@ -320,7 +328,9 @@ if(S.scenario==="legacy"){
 8. ~~Terfi geçiş sahnesi, rakip associate, Marv büyütme, ayarlar paneli~~ — v1.0'da EKLENDİ.
 
 **Backlog (kullanıcının onayladığı sıradaki işler + bekleyenler; başlamadan sor):**
-- **Dava arşivi** — run içinde çözülen davaların dökümü (hangi seçenek, sonuç); REPLY'ların hangi davaya ait olduğu sorununu da çözer. (KULLANICI ONAYLADI, sıradaki)
+- **Global eventler** (KULLANICI ONAYLADI, bir sonraki istek) — ör. müşterin olan bir şirket rastgele batar, biri senden client çalar. FIRM statı ve client list ile bağlanacak.
+- **Client list** (ONAYLANDI) — firmanın müşteri listesi; firmanın büyüklüğüne göre değişir; ŞAKALI PARODİ İSİMLER kullanılacak: Adidas→**Abibas**, Nike→**Mike** tarzı (kullanıcının açık isteği). Global eventlerin hedefleri bu listeden seçilecek.
+- **Dava arşivi** — run içinde çözülen davaların dökümü (hangi seçenek, sonuç); REPLY'ların hangi davaya ait olduğu sorununu da çözer. (ONAYLANDI)
 - **NPC hikâyeleri** — rel eşiklerinde tetiklenen mini-sahneler (Dana'nın sırrı, Katrina'nın teklifi). (ONAYLANDI)
 - **Rakiple etkileşim** — nemesis'e sabotaj/ittifak seçenekleri. (ONAYLANDI)
 - **Hakim hafızası** — aynı hakime ikinci çıkışta geçmişi hatırlama ("geçen sefer blöf yaptın, −5"). (ONAYLANDI)

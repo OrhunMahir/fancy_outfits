@@ -1,5 +1,6 @@
 import { useGame } from "../game/useGame.js";
 import { REP_FIRED, RANK_REQ, RANKS, PRICES, BUYIN_COST, FIRM_COLLAPSE } from "../game/constants.js";
+import { CLIENT_CAP } from "../game/clients.js";
 import { SCENARIOS } from "../game/content.js";
 import { buySuit, bribeMarv, payBuyIn } from "../game/engine.js";
 
@@ -36,6 +37,12 @@ export default function StatsPanel(){
           <div className="bar" style={{marginTop:3}}><div className="fill" style={{width:S.nemesis.inf+"%",background:"#b13e53"}}/></div>
         </div>
       )}
+      <h2 style={{marginTop:10}}>CLIENTS ({S.clients.length}/{CLIENT_CAP(S.rank)})</h2>
+      <div className="kv">
+        {S.clients.length
+          ? S.clients.map(c=>c.name).join(" · ")+" — $"+S.clients.reduce((a,c)=>a+c.fee,0)+"/wk in retainers (paid Fridays)"
+          : "None. The firm bills the air. (-4 FIRM every Friday)"}
+      </div>
       <h2 style={{marginTop:10}}>EXPENSES</h2>
       {S.rank===2&&!S.buyinPaid&&S.inf>=RANK_REQ[2] && (
         <button className="btn small spend safe" disabled={S.money<BUYIN_COST} onClick={payBuyIn}>

@@ -109,7 +109,13 @@
 - **Dava ısısı (`litigationTick`):** kovma başına `FIRE_HEAT(9)` / senior `16`; gece `×HEAT_DECAY(0.93)`, `everFired` olduysa taban `HEAT_MIN(1)` — ASLA 0 olmaz (kullanıcı isteği). Sabah `min(30,heat)%` ihtimalle `buildLawsuit(firedNames'ten)` (casegen.js) inbox'a düşer (tier2, judge, `suit:true`, fx'lerde firm), spawn ısıyı yarılar.
 - **Partnership buy-in:** rank 2→3 için INF eşiği + `BUYIN_COST(5000)`. `checkPromotion` rank 2'de `buyinPaid` yoksa DURUR (tek seferlik hint loglar); EXPENSES'te BUY-IN butonu → `payBuyIn()` → terfi devam eder.
 
-**En son çalışılan konu (2026-07-09):** v1.2 tarayıcıda uçtan uca test edildi (buy-in kapısı, roster, kovma, oylama, lawsuit spawn, ısı tabanı, FIRM COLLAPSE). Sıradaki onaylı işler: GLOBAL EVENTLER + CLIENT LIST (aşağıda), dava arşivi, NPC hikâyeleri, rakiple etkileşim, hakim hafızası; sonra mobil.
+**v1.3 eklendi (2026-07-09, kullanıcı onayıyla):**
+- **Client list (`clients.js` — saf modül, mutasyonlar engine'de):** 20 parodi marka havuzu (Abibas, Mike Sportswear, McRonald's, Guccy, Goggle, Tesler Motors…). `S.clients[{name,fee}]` + `S.clientPool` (run başında karıştırılır). Kapasite `CLIENT_CAP(rank)=3+rank*2`; başlangıçta 3, her terfide 2 yeni imza (`signClient`, engine). StatsPanel'de "CLIENTS (n/cap)" bölümü.
+- **Cuma retainer'ları:** partner review'da `sum(fee)` para olarak ödenir ($100-300/müşteri); 0 müşteri → cuma başına −4 FIRM ("the firm bills the air").
+- **Global eventler (`buildGlobalEvent`, tekrarlanabilir — usedCrises'e GİRMEZ):** sabah kriz çıkmadıysa %15: g_bankrupt (müşteri batıyor: bırak/restructure ile kurtar/üçe katla faturala), g_poach (Fitch müşteri çalıyor: bırak/loyalty rate/karşı-poach → yeni müşteri), g_scandal (CEO skandalı), g_prospect (yeni müşteri adayı, çift retainer opsiyonu — sadece defterde yer varsa). Seçenek sonuçları `client:{lose:name}/{gain:true,double?}` taşır; `resolveCrisis` işler.
+- **loadGame:** müşterisiz eski save'lere 3'lük başlangıç defteri imzalanır.
+
+**En son çalışılan konu (2026-07-09):** v1.3 tarayıcıda test edildi (başlangıç defteri, terfi imzaları, cuma retainer + sıfır müşteri cezası, kayıp/kazanım/çift ücret/cap koruması, doğal event tetiklenmesi). Sıradaki onaylı işler: dava arşivi, NPC hikâyeleri, rakiple etkileşim, hakim hafızası; sonra mobil (layout + Capacitor).
 
 ---
 
@@ -144,6 +150,7 @@ fancy-outfits/
 │   │   ├── engine.js             ← apply(), chance(), akış + nemesis/terfi sahnesi/ledger/ayarlar
 │   │   ├── content.js            ← buildPool() 9 el yazması dava, JUDGES(7), crises(), SCENARIOS
 │   │   ├── casegen.js            ← PROSEDÜREL dava üreticisi (12 şablon, API'siz, offline)
+│   │   ├── clients.js            ← client book: 20 parodi marka, CLIENT_CAP, global event üretici
 │   │   ├── achievements.js       ← 10 başarım, localStorage (fo_ach_v1), unlock()
 │   │   ├── npcs.js               ← NPC roster, trait dağıtımı, delegationChance(), buildFavor()
 │   │   ├── sound.js              ← WebAudio sentez SFX + prosedürel ambiyans (settings'ten ses)
@@ -328,9 +335,8 @@ if(S.scenario==="legacy"){
 8. ~~Terfi geçiş sahnesi, rakip associate, Marv büyütme, ayarlar paneli~~ — v1.0'da EKLENDİ.
 
 **Backlog (kullanıcının onayladığı sıradaki işler + bekleyenler; başlamadan sor):**
-- **Global eventler** (KULLANICI ONAYLADI, bir sonraki istek) — ör. müşterin olan bir şirket rastgele batar, biri senden client çalar. FIRM statı ve client list ile bağlanacak.
-- **Client list** (ONAYLANDI) — firmanın müşteri listesi; firmanın büyüklüğüne göre değişir; ŞAKALI PARODİ İSİMLER kullanılacak: Adidas→**Abibas**, Nike→**Mike** tarzı (kullanıcının açık isteği). Global eventlerin hedefleri bu listeden seçilecek.
-- **Dava arşivi** — run içinde çözülen davaların dökümü (hangi seçenek, sonuç); REPLY'ların hangi davaya ait olduğu sorununu da çözer. (ONAYLANDI)
+- ~~Global eventler + Client list~~ — v1.3'te EKLENDİ (parodi isim kuralı korunuyor: yeni marka eklerken Abibas/Mike tarzında kal).
+- **Dava arşivi** — run içinde çözülen davaların dökümü (hangi seçenek, sonuç); REPLY'ların hangi davaya ait olduğu sorununu da çözer. (ONAYLANDI, sıradaki)
 - **NPC hikâyeleri** — rel eşiklerinde tetiklenen mini-sahneler (Dana'nın sırrı, Katrina'nın teklifi). (ONAYLANDI)
 - **Rakiple etkileşim** — nemesis'e sabotaj/ittifak seçenekleri. (ONAYLANDI)
 - **Hakim hafızası** — aynı hakime ikinci çıkışta geçmişi hatırlama ("geçen sefer blöf yaptın, −5"). (ONAYLANDI)

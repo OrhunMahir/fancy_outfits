@@ -24,6 +24,23 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v13 — The client book & global events *(2026-07-09)*
+- **CLIENT LIST:** the firm now has a book of clients — strictly parody brands (**Abibas**,
+  **Mike Sportswear**, **McRonald's**, **Guccy**, **Goggle**, **Tesler Motors**, **Dolce &
+  Banana**…). You start with 3; the book's capacity grows with rank (3 → 11), and every
+  promotion signs new logos. Shown in the side panel with total weekly retainers.
+- **Retainers pay on Fridays:** the partner review now collects $100–300/week per client.
+  Zero clients? The firm "bills the air" — −4 FIRM every Friday.
+- **GLOBAL EVENTS** (repeatable, ~15% on crisis-free mornings), all aimed at the book:
+  - *"GLOBAL: Abibas is going under"* — wind the account down, pull an all-nighter
+    restructuring (keep the client!), or bill triple on the way down.
+  - *"GLOBAL: Snidely Fitch is circling Mike Sportswear"* — let them walk, counter with a
+    loyalty rate, or poach Fitch's biggest client right back (new logo if it lands).
+  - *"GLOBAL: CEO scandal"* — weather it, bill the crisis playbook, or blame a fictional
+    intern on live TV (there is no intern; everyone knows there is no intern).
+  - *"GLOBAL: a prospect walks in"* — standard engagement letter, or promise the moon at
+    double retainer.
+
 ### v12 — The firm is yours (and it can sink) *(2026-07-09)*
 - **4th stat: FIRM** — a firm-health bar next to Reputation/Boldness/Influence. Case wins and
   losses, missed deadlines, crises and Friday reviews all nudge it. While you're an associate

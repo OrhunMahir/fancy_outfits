@@ -13,6 +13,7 @@ import { buildPool, JUDGES, crises, SCENARIOS } from "./content.js";
 import { genCase } from "./casegen.js";
 import { buildNpcs, buildRoster, delegationChance, relNpc, buildFavor, DELEGATE_WIN_TXT, DELEGATE_FAIL_TXT } from "./npcs.js";
 import { buildLawsuit } from "./casegen.js";
+import { CLIENT_CAP, makeClient, buildGlobalEvent } from "./clients.js";
 import { ACHIEVEMENTS, unlock } from "./achievements.js";
 
 let timerId=null, flashSeq=0;
@@ -144,6 +145,8 @@ export function startGame(sc,diff,mode){
   if(sc==="defector") log("You know where Snidely Fitch buries the bodies. They know you know.","sys");
   if(mode==="ironman") log("IRONMAN: no save. Close the game, lose the career.","sys");
   if(mode==="daily") log("DAILY CHALLENGE "+S.dailyDate+": same seed for everyone. No excuses.","sys");
+  while(S.clients.length<CLIENT_CAP(0)&&S.clientPool.length) signClient();
+  log("On your desk: the "+S.clients.map(c=>c.name).join(", ")+" accounts. Don't lose them.","sys");
   drawCases(2);
   startClock(); sitDown(); startAmbience(); saveGame(); notify();
 }
@@ -263,6 +266,10 @@ export function endDay(){
         "'Adequate.' In this firm, that's almost a compliment. Almost.",
         "No praise, no warning. The most Parson Henderson sentence possible."]));
     }
+    // retainers: the client book pays out on Fridays
+    const ret=S.clients.reduce((a,c)=>a+c.fee,0);
+    if(ret){ apply({money:ret},true); lines.push("Retainers collected: +$"+ret+" ("+S.clients.length+" client(s))."); }
+    else { apply({firm:-4},true); lines.push("Zero clients on the books. The firm bills the air. (-4 FIRM)"); }
     lines.push("The weekend happens to other people. You reread depositions.");
     S.weekStart={inf:S.inf, rep:S.rep}; S.weekMissed=0;
   }
@@ -308,6 +315,11 @@ export function endDay(){
         if(traitor&&rand()<.4){ traitor.known=true; c.crisisMod={v:-8,txt:traitor.name+" leaked your position before you entered the room. (-8% on every play)"}; }
         else if(brave){ brave.known=true; c.crisisMod={v:8,txt:brave.name+" is standing at your shoulder. (+8% on every play)"}; }
         S.event=c; S.runStats.crises++;
+      }
+      // no firm crisis today? the outside world may still bite (repeatable)
+      if(!S.event&&rand()<.15){
+        const ge=buildGlobalEvent(S.clients, S.clients.length<CLIENT_CAP(S.rank)&&S.clientPool.length>0);
+        if(ge){ SFX.crisis(); S.event=ge; S.runStats.crises++; }
       }
       sitDown();
     });
@@ -407,6 +419,18 @@ export function choose(c,o){
   checkPromotion(); saveGame(); notify();
 }
 
+/* ---------- the client book (parody brands, weekly retainers) ---------- */
+function signClient(){
+  if(S.clients.length>=CLIENT_CAP(S.rank)||!S.clientPool.length) return null;
+  const c=makeClient(S.clientPool.pop());
+  S.clients.push(c);
+  return c;
+}
+function loseClient(name){
+  S.clients=S.clients.filter(c=>c.name!==name);
+  log("CLIENT LOST: "+name+". Their logo comes off the lobby wall.","bad");
+}
+
 /* ---------- Name Partner endgame: the roster is yours, so are the lawsuits ---------- */
 
 /* every morning some employees act; their quality moves FIRM health */
@@ -495,6 +519,14 @@ export function resolveCrisis(o){
   trackChoice(null,o,win);
   if(win){ SFX.win(); log("[CRISIS] "+out.txt,"good"); apply(out.fx); if(((out.fx&&out.fx.inf)||0)>=10) flash("HENDERED!"); }
   else { SFX.lose(); log("[CRISIS] "+out.txt,"bad"); apply(out.fx); apply({firm:-2},true); doShake(); nemesisGain(3,true); }
+  if(out.client){ // global events move the client book
+    if(out.client.lose) loseClient(out.client.lose);
+    if(out.client.gain){
+      const nc=signClient();
+      if(nc){ if(out.client.double) nc.fee*=2; log("NEW CLIENT: "+nc.name+" ($"+nc.fee+"/wk retainer).","good"); }
+      else log("The prospect signs... with someone who has desk space. The book is full.","sys");
+    }
+  }
   if(out.next) queueFollowup(out.next); // crises may chain into case files too
   checkPromotion(); saveGame(); notify();
 }
@@ -515,6 +547,9 @@ function checkPromotion(){
     log("PROMOTED to "+RANKS[S.rank]+"!","sys");
     if(S.rank===1) log("Senior Associate perk unlocked: DELEGATE cases from the file view.","sys");
     apply({rep:5},true);
+    // a bigger title brings a bigger book
+    const signed=[signClient(),signClient()].filter(Boolean);
+    if(signed.length) log("Bigger office, bigger book: "+signed.map(c=>c.name).join(" and ")+" sign with the firm.","good");
   }
   if(S.rank>oldRank&&!S.over) promoWalk(oldRank);
 }
@@ -657,6 +692,7 @@ export function loadGame(){
      charAnim:"arriving",openCase:null,settingsOpen:false,sceneRank:null,rosterOpen:false}));
   SFX.bell();
   log("Run restored. The firm did not notice you were gone.","sys");
+  while(S.clients.length<Math.min(3,CLIENT_CAP(S.rank))&&S.clientPool.length) signClient(); // pre-client saves get a starter book
   startClock(); sitDown(); startAmbience(); notify();
 }
 function clearSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }

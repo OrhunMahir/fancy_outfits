@@ -4,6 +4,7 @@
 import { DAY_SECONDS, PRICES, FIRM_START } from "./constants.js";
 import { settings } from "./settings.js";
 import { rnd, rand } from "./utils.js";
+import { buildClientPool } from "./clients.js";
 
 const NEMESES=["Miles Sorren","Tripp Vanderbilt III","Ashley Kang","Bradford Lowe"];
 
@@ -27,6 +28,8 @@ export function newState(scenario,difficulty){
     buyinPaid:false, buyinHinted:false, // rank 2->3 needs the partnership buy-in
     // Name Partner endgame: the roster you manage, and the fired suing you back
     roster:null, fireHeat:0, everFired:false, firedNames:[],
+    // the client book: parody brands, signed from a per-run shuffled pool
+    clients:[], clientPool:buildClientPool(),
     money: scenario==="debtor" ? 3000 : 1500,
     debtDue: scenario==="debtor" ? 3 : null,
     suitCost:PRICES.suit, // each suit is fancier and pricier than the last

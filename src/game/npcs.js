@@ -72,6 +72,40 @@ export function buildRoster(npcs,nemesis){
   return R;
 }
 
+/* ---------- boss chores: the hierarchy asks, gravity only pulls DOWN ----------
+   Requesters always OUTRANK the player (a Senior Partner can send an associate
+   for coffee; the reverse universe does not exist). Accept: time + fatigue,
+   a little influence. Decline: reputation. The intern option is a gamble. */
+const BOSSES=[
+  {name:"Lou Bitt",rank:2,style:"He does not say please. He says 'obviously'."},
+  {name:"Daniel Hardwick",rank:3,style:"He doesn't look up while asking."},
+  {name:"a Junior Partner from the 12th floor",rank:2,style:"You've never met. They know your name anyway."},
+  {name:"a Senior Partner you've only seen in oil paint",rank:3,style:"Their assistant delivers the request like a subpoena."},
+];
+const CHORES=[
+  {txt:"needs a triple espresso from the place across the street. The GOOD place. Now.",h:.5,f:4},
+  {txt:"wants their dry cleaning picked up before the 3 o'clock with Meridian.",h:1,f:6},
+  {txt:"needs someone to sit at their desk and 'look busy' during a client walkthrough.",h:1,f:4},
+  {txt:"wants a CLE binder assembled, tabbed, and alphabetized. Twice, in case the first one is 'off'.",h:1.5,f:8},
+  {txt:"needs their car moved before it's towed. It is parked across two handicap spots and a hydrant.",h:.5,f:4},
+  {txt:"wants 'a quick summary' of a 220-page deposition. By lunch. 'Bullet points are fine.'",h:1.5,f:9},
+];
+export function buildDemand(playerRank){
+  const eligible=BOSSES.filter(b=>b.rank>playerRank);
+  if(!eligible.length) return null; // nobody outranks a Name Partner
+  const b=rnd(eligible), ch=rnd(CHORES);
+  return {id:"demand",demand:true,title:"SUMMONS: "+b.name,
+    body:b.name+" "+ch.txt+" "+b.style+" Hierarchy is this firm's love language.",
+    opts:[
+      {text:"Do it. ("+ch.h+"h, +"+ch.f+" FATIGUE)",base:100,safe:true,hours:ch.h,fatigue:ch.f,
+        ok:{fx:{inf:2},txt:"Done, flawlessly, invisibly. Someone who matters files your name under 'useful'."}},
+      {text:"Politely decline — you're buried in casework.",base:100,safe:true,
+        ok:{fx:{rep:-3},txt:"'Of course. Busy.' The word 'busy' does a lot of quiet damage in that sentence."}},
+      {text:"Volunteer the intern with total confidence.",base:45,boldW:1,style:"aggressive",
+        ok:{fx:{inf:1},txt:"The intern is dispatched. You are now 'resourceful'."},
+        fail:{fx:{rep:-5},txt:"The intern is at lunch. You are now 'slippery'."}}]};
+}
+
 export const DELEGATE_WIN_TXT=[
   "closed it before lunch. Didn't even want credit.",
   "handled it. Quietly, competently, terrifyingly.",

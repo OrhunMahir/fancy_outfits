@@ -2,7 +2,8 @@
 // Rules (CLAUDE.md §5): stats change ONLY through apply(); after mutating S,
 // call notify() so React re-renders. Pause is derived — no S.paused flag.
 import { S, setS, notify, newState } from "./state.js";
-import { RANKS, RANK_REQ, DAY_SECONDS, REP_FIRED, DEADLINE_PENALTY,
+import { RANKS, RANK_REQ, DAY_HOURS, TIER_HOURS, DELEGATE_HOURS,
+         OVERTIME_HOURS, OVERTIME_FATIGUE, FATIGUE_REST, REP_FIRED, DEADLINE_PENALTY,
          STAKE_REWARD, STAKE_PENALTY, PRICES, SAVE_KEY, STATS_KEY,
          WEEK_LEN, REVIEW_GOOD, REVIEW_BAD, BUYIN_COST, FIRM_COLLAPSE,
          FIRE_HEAT, FIRE_HEAT_SENIOR, HEAT_DECAY, HEAT_MIN } from "./constants.js";
@@ -11,12 +12,13 @@ import { SFX, startAmbience, stopAmbience, applyBgmVolume } from "./sound.js";
 import { settings, setSetting } from "./settings.js";
 import { buildPool, JUDGES, crises, SCENARIOS } from "./content.js";
 import { genCase } from "./casegen.js";
-import { buildNpcs, buildRoster, delegationChance, relNpc, buildFavor, DELEGATE_WIN_TXT, DELEGATE_FAIL_TXT } from "./npcs.js";
+import { buildNpcs, buildRoster, buildDemand, delegationChance, relNpc, buildFavor, DELEGATE_WIN_TXT, DELEGATE_FAIL_TXT } from "./npcs.js";
 import { buildLawsuit } from "./casegen.js";
 import { CLIENT_CAP, makeClient, buildGlobalEvent, buildDinnerEvent, PARTNERS } from "./clients.js";
 import { ACHIEVEMENTS, unlock } from "./achievements.js";
+export { buildDemand }; // re-export: dev console + tests poke the hierarchy directly
 
-let timerId=null, flashSeq=0;
+let flashSeq=0;
 
 /* The clock stops whenever any overlay is up, the player hit PAUSE, or the
    character is walking out. Replaces the old S.paused flag. */
@@ -131,8 +133,42 @@ export function chance(o,c){
   if(!o.safe){
     if(S.rep<30) p-=12; else if(S.rep>70) p+=5;
     p-=S.rank*2; // higher rank, higher stakes, sharper opponents
+    p-=Math.round(S.fatigue*.15); // exhaustion dulls the blade (up to -15)
   }
   return Math.round(clamp(p,5,95));
+}
+
+/* ---------- the fictional workday: hours are the currency of a day ---------- */
+export const hoursFor=c=>TIER_HOURS[c.tier||0];
+function spendHours(h,f){
+  S.hours=Math.round((S.hours-h)*4)/4;
+  if(f) S.fatigue=clamp(S.fatigue+f,0,100);
+}
+/* out of hours? the building asks the eternal question */
+function checkClock(){
+  if(!S||S.over||S.summary||S.event||S.hours>0) return;
+  S.hours=0;
+  const due=S.inbox.filter(c=>!c.msg&&!c.pending&&!c.delegated).length;
+  SFX.bell();
+  S.event={id:"overtime",title:wallTime()+" — QUITTING TIME",
+    body:(due?due+" file(s) still sit on your desk. ":"The desk is clear. ")+
+      "The cleaning crew is vacuuming around the associates who stayed. Fatigue at "+S.fatigue+"/100"+(S.fatigue>=60?" — your eyes are doing that thing again.":".")+
+      " Go home, or bill the night?",
+    opts:[
+      {text:"Go home. Sleep is a legal strategy.",base:100,safe:true,home:true,ok:{fx:{},txt:""}},
+      {text:"Overtime: +"+OVERTIME_HOURS+" hours at the desk. (+"+OVERTIME_FATIGUE+" FATIGUE)",base:100,safe:true,ot:true,ok:{fx:{},txt:""}}]};
+  notify();
+}
+export const wallTime=()=>{
+  const t=9+(settings.dayLen||DAY_HOURS)+S.otHours-S.hours;
+  return String(Math.floor(t)).padStart(2,"0")+":"+String(Math.round(t%1*60)).padStart(2,"0");
+};
+/* the hierarchy asks for coffee: bosses interrupt your day with chores */
+function maybeDemand(){
+  if(!S||S.over||S.event||S.summary||S.hours<=0.5) return;
+  if(rand()>=.1) return;
+  const d=buildDemand(S.rank);
+  if(d){ SFX.open(); S.event=d; notify(); }
 }
 
 /* What the PLAYER sees. The dice always use the exact chance(); difficulty
@@ -187,7 +223,7 @@ export function startGame(sc,diff,mode){
   else log("Zero clients on your book. Win loudly — they'll find you.","sys");
   drawCases(2);
   newObjective();
-  startClock(); sitDown(); startAmbience(); saveGame(); notify();
+  sitDown(); startAmbience(); saveGame(); notify();
 }
 
 /* hand-written pool first; when it runs dry (or for late-run variety) the
@@ -246,15 +282,7 @@ function scaleStakes(inst){
   return inst;
 }
 
-function startClock(){
-  clearInterval(timerId);
-  timerId=setInterval(()=>{
-    if(!S||S.over||isPaused()) return;
-    S.secs--;
-    if(S.secs<=5&&S.secs>0) SFX.tick();
-    if(S.secs<=0) endDay(); else notify();
-  },1000);
-}
+/* no real-time clock anymore: the day advances only when you DO things */
 
 /* character walk cycle: leaving takes ~1.4s before the summary shows;
    arriving plays over the first seconds of the new day */
@@ -265,6 +293,8 @@ function sitDown(){
 
 export function endDay(){
   if(S.over||S.summary||S.leaving) return;
+  if(S.event&&S.event.id==="overtime") S.event=null; // the "go home" path closes the prompt
+  const leftover=Math.max(0,S.hours); // unspent hours = extra rest tonight
   // deadlines
   let missed=S.inbox.filter(c=>!c.pending&&!c.delegated&&c.dueDay<=S.day&&!c.msg);
   if(missed.includes(S.openCase)) S.openCase=null; // don't keep showing a removed case
@@ -284,6 +314,10 @@ export function endDay(){
   lines.push("Day "+S.day+" closed at "+RANKS[S.rank]+".");
   if(missed.length) lines.push(missed.length+" deadline(s) missed ("+DEADLINE_PENALTY+" REP each).");
   lines.push("The firm forgets fast: -1 REP overnight.");
+  // sleep: base recovery + a bonus for every hour you DIDN'T bill
+  const rested=Math.min(S.fatigue,Math.round(FATIGUE_REST+leftover*3));
+  if(S.fatigue>0) lines.push("Sleep: -"+rested+" FATIGUE."+(leftover>=2?" Leaving early helped.":S.otToday?" Overtime did not.":""));
+  S.fatigue=clamp(S.fatigue-rested,0,100);
   // daily objective: bonus if met, a dry note if not (no penalty)
   if(S.objective){
     const info=objectiveInfo();
@@ -335,7 +369,7 @@ export function endDay(){
     S.leaving=false;
     SFX.bell();
     showSummary("END OF DAY "+S.day+(friday?" — FRIDAY":""), lines, "START DAY "+(S.day+1), ()=>{
-      S.day++; S.secs=settings.dayLen||DAY_SECONDS;
+      S.day++; S.hours=settings.dayLen||DAY_HOURS; S.otHours=0; S.otToday=0;
       if(S.day>=15) ach("day15");
       nemesisGain(rnd([0,1,1,2,2,3])); // he grinds nights too
       if(S.over) return;
@@ -444,12 +478,16 @@ export function choose(c,o){
     apply({money:-o.bribe},true);
   }
   const p=chance(o,c);
+  const cost=hoursFor(c);
   if(o.delay){
     const win=rand()*100<p;
     c.pending={day:S.day+o.delay,win,o};
     trackChoice(c,o,win); SFX.send();
-    log("Sent: '"+o.text+"' — response in "+o.delay+" day(s).","sys");
-    S.openCase=null; saveGame(); notify(); return;
+    log("Sent: '"+o.text+"' — response in "+o.delay+" day(s). ("+cost+"h)","sys");
+    S.openCase=null;
+    spendHours(cost,cost*2);
+    maybeDemand(); checkClock();
+    saveGame(); notify(); return;
   }
   S.inbox=S.inbox.filter(x=>x!==c); S.openCase=null;
   const win=rand()*100<p, out=win?o.ok:o.fail;
@@ -472,7 +510,10 @@ export function choose(c,o){
     if(n&&d){ relNpc(n,d); log(n.name+(d>0?" will remember this. (+":" files this away. (")+d+" rel)",d>0?"good":"bad"); }
   }
   if(out.next) queueFollowup(out.next);
-  checkPromotion(); saveGame(); notify();
+  spendHours(cost,cost*2);
+  checkPromotion();
+  maybeDemand(); checkClock();
+  saveGame(); notify();
 }
 
 /* ---------- the client book (parody brands, weekly retainers) ---------- */
@@ -600,17 +641,29 @@ export function delegateCase(c,npcId){
   S.today.delegated++;
   if(n.trait==="Traitor"&&S.runStats.deleg[n.id]>=5) ach("traitor5");
   S.openCase=null;
-  log("Handed '"+c.title+"' to "+n.name+". Report tomorrow.","sys");
+  log("Handed '"+c.title+"' to "+n.name+". Report tomorrow. ("+DELEGATE_HOURS+"h)","sys");
+  spendHours(DELEGATE_HOURS,1);
+  maybeDemand(); checkClock();
   saveGame(); notify();
 }
 
 /* resolve a crisis option (event overlay button) */
 export function resolveCrisis(o){
   SFX.click();
+  // the quitting-time prompt: go home or push into overtime
+  if(o.home){ S.event=null; endDay(); return; }
+  if(o.ot){
+    S.event=null;
+    S.hours+=OVERTIME_HOURS; S.otHours+=OVERTIME_HOURS; S.otToday++;
+    S.fatigue=clamp(S.fatigue+OVERTIME_FATIGUE,0,100);
+    log("Overtime. The building empties around you. (+"+OVERTIME_HOURS+"h, +"+OVERTIME_FATIGUE+" FATIGUE)","sys");
+    saveGame(); notify(); return;
+  }
   const ev=S.event, p=chance(o,ev);
   S.event=null;
   const win=rand()*100<p, out=win?o.ok:o.fail;
   trackChoice(null,o,win);
+  if(o.hours||o.fatigue) spendHours(o.hours||0,o.fatigue||0); // boss chores cost time and stamina
   if(win){ SFX.win(); log("[CRISIS] "+out.txt,"good"); apply(out.fx); if(((out.fx&&out.fx.inf)||0)>=10) flash("HENDERED!"); }
   else { SFX.lose(); log("[CRISIS] "+out.txt,"bad"); apply(out.fx); apply({firm:-2},true); doShake(); nemesisGain(3,true); }
   if(out.client){ // global events move the client book
@@ -622,7 +675,7 @@ export function resolveCrisis(o){
     }
   }
   if(out.next) queueFollowup(out.next); // crises may chain into case files too
-  checkPromotion(); saveGame(); notify();
+  checkPromotion(); checkClock(); saveGame(); notify();
 }
 
 function checkPromotion(){
@@ -679,7 +732,7 @@ function ledger(){
       (S.nemesis?" · "+S.nemesis.name+" peaked at "+RANKS[S.nemesis.rank]+".":" · Your rival didn't outlast you.")];
 }
 function gameOver(title,txt){
-  S.over=true; clearInterval(timerId); SFX.fired(); stopAmbience(); doShake();
+  S.over=true; SFX.fired(); stopAmbience(); doShake();
   clearSave(); recordRun(false,title);
   showSummary("GAME OVER: "+title,[txt,"","Survived "+S.day+" day(s) as "+RANKS[S.rank]+".","",...ledger()],"NEW GAME",()=>location.reload());
 }
@@ -706,7 +759,7 @@ function gameWin(){
       "KEEP BILLING",()=>{});
     return;
   }
-  S.over=true; clearInterval(timerId); SFX.promo(); stopAmbience();
+  S.over=true; SFX.promo(); stopAmbience();
   clearSave(); recordRun(true,"NAME PARTNER");
   // the ending remembers HOW you climbed
   const epithet=
@@ -796,7 +849,10 @@ export function loadGame(n){
      charAnim:"arriving",openCase:null,settingsOpen:false,sceneRank:null,rosterOpen:false,archiveOpen:false}));
   SFX.bell();
   log("Run restored. The firm did not notice you were gone.","sys");
-  startClock(); sitDown(); startAmbience(); notify();
+  if(typeof S.hours!=="number"||isNaN(S.hours)) S.hours=settings.dayLen||DAY_HOURS; // pre-workday saves
+  if(typeof S.fatigue!=="number") S.fatigue=0;
+  if(typeof S.otHours!=="number"){ S.otHours=0; S.otToday=0; }
+  sitDown(); startAmbience(); notify();
 }
 function clearSave(){ try{ localStorage.removeItem(slotKey(S&&S.slot)); }catch(e){} }
 /* restart: wipe the current slot and return to the title screen */
@@ -822,8 +878,6 @@ export function openCaseFile(c){ SFX.open(); S.openCase=c; notify(); }
 export function deferCase(){ SFX.click(); S.openCase=null; notify(); }
 export function openInfo(){ SFX.click(); S.infoOpen=true; notify(); }
 export function closeInfo(){ SFX.click(); S.infoOpen=false; notify(); }
-export function pauseGame(){ SFX.click(); S.userPaused=true; notify(); }
-export function resumeGame(){ SFX.click(); S.userPaused=false; notify(); }
 export function openSettings(){ SFX.click(); S.settingsOpen=true; notify(); }
 export function closeSettings(){ SFX.click(); S.settingsOpen=false; notify(); }
 export function openRoster(){ SFX.open(); S.rosterOpen=true; notify(); }

@@ -1,6 +1,6 @@
 // Middle panel: the desk (tip text) or the open case file with its options.
 import { useGame } from "../game/useGame.js";
-import { displayChance, displayPct, choose, deferCase, delegateCase, hireDetective } from "../game/engine.js";
+import { displayChance, displayPct, choose, deferCase, delegateCase, hireDetective, hoursFor } from "../game/engine.js";
 import { delegationChance } from "../game/npcs.js";
 import { PRICES, STAKE_REWARD, STAKE_PENALTY } from "../game/constants.js";
 
@@ -28,7 +28,7 @@ export default function CasePane(){
           {c.judge.desc}
         </div>}
         <div style={{marginTop:8,fontSize:8}}>
-          DEADLINE: DAY {c.dueDay}
+          DEADLINE: DAY {c.dueDay} · TIME: {hoursFor(c)}h
           {c.stakes>0 && <> · STAKES ×{STAKE_REWARD[c.stakes]} win / ×{STAKE_PENALTY[c.stakes]} loss</>}
           {c.dossier && <> · DOSSIER ATTACHED (+12%)</>}
         </div>
@@ -54,7 +54,7 @@ export default function CasePane(){
         )}
         {S.rank>=1 && !c.judge && !c.favor && (
           <div className="delg">
-            <div className="kv">DELEGATE — they do the work, you own the fallout. Report tomorrow:</div>
+            <div className="kv">DELEGATE (0.5h) — they do the work, you own the fallout. Report tomorrow:</div>
             {S.npcs.map(n=>{
               const pct=n.known?displayPct(delegationChance(n),"delg|"+n.id):null;
               return (

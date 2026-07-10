@@ -24,6 +24,23 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v15 — The 8-hour workday: hours, overtime & fatigue *(2026-07-10)*
+- **The real-time countdown is gone.** The day is now a fictional workday, 09:00 → 17:00
+  (6/8/10h in settings). Reading is free; DOING costs hours by complexity: errands 1h, real
+  cases 2h, court appearances 3h, delegation 0.5h. The topbar shows the wall clock and hours
+  remaining; the day ends when you GO HOME — or when the clock does it for you.
+- **Overtime:** run out of hours with files still burning and the building asks the eternal
+  question — go home, or +2 hours at the desk for **+12 FATIGUE**. Repeatable, at your peril.
+- **FATIGUE (new stat):** rises with every hour worked, spikes with overtime, and drags every
+  risky play down — up to **−15%** at full exhaustion. Only sleep clears it (−22 overnight,
+  +3 per hour you *didn't* bill — leaving early is now a strategy).
+- **Boss chores (hierarchy-consistent):** partners interrupt your day — *"SUMMONS: Lou Bitt
+  needs a triple espresso from the GOOD place"*. Accept: time + fatigue + a little influence.
+  Decline: −3 REP ('Of course. Busy.'). Or volunteer the intern and pray. Requests only flow
+  DOWN the hierarchy: a Senior Partner sends an associate for coffee, never the reverse — and
+  once you outrank everyone, nobody sends you anywhere.
+- The PAUSE button retired with honors: with no ticking clock, thinking is finally free.
+
 ### v14.1 — Save slots, restart, fullscreen & layout *(2026-07-10)*
 - **3 save slots.** The start screen gains a SLOT 1/2/3 picker (each shows its saved day or
   "empty"); new runs write to the selected slot and CONTINUE loads per slot. The old single

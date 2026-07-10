@@ -1,7 +1,12 @@
 // All difficulty/economy tuning lives here (see CLAUDE.md §9).
 export const RANKS=["Junior Associate","Senior Associate","Junior Partner","Senior Partner","NAME PARTNER"];
 export const RANK_REQ=[30,55,80,95]; // influence needed for next rank (95: the INF cap is 100, one bad day shouldn't wall off the finale)
-export const DAY_SECONDS=75;
+export const DAY_HOURS=8;          // the fictional workday: 09:00 -> 17:00
+export const TIER_HOURS=[1,2,3];   // resolving a file costs hours by complexity (tier)
+export const DELEGATE_HOURS=.5;    // handing a file off is quick
+export const OVERTIME_HOURS=2;     // one overtime block
+export const OVERTIME_FATIGUE=12;  // ...and what it does to you
+export const FATIGUE_REST=22;      // overnight recovery (+3 per unspent hour — leave early, rest more)
 export const REP_FIRED=20;
 export const DEADLINE_PENALTY=-9;
 // rank-scaled stakes: rewards grow, failures grow FASTER (indexed by rank at draw time)

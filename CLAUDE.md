@@ -14,7 +14,7 @@
 **Platform:** Tarayıcı. Tek dosya (`index.html`), sunucu/build gerektirmez. Çift tıkla açılır. GitHub Pages'e atılırsa direkt yayınlanır (dosya adı bu yüzden `index.html`).
 
 **Core gameplay loop:**
-1. Gün başlar → gerçek zamanlı sayaç (75 sn = 1 gün) işler.
+1. Gün başlar → kurgusal mesai günü 09:00'da açılır (varsayılan 8 saat; v1.5'te gerçek zamanlı sayaç KALDIRILDI — okumak bedava, İŞ YAPMAK saat yakar).
 2. INBOX'a dava dosyaları, partner ayak işleri ve mesajlar düşer.
 3. Oyuncu dosyayı açar, metni GERÇEKTEN okur — kazandıran argüman genelde metnin içinde saklıdır (ör. yetkisiz imza, tarih çelişkisi).
 4. 2–4 seçenekten birini seçer. Her seçeneğin hesaplanmış başarı %'si vardır.
@@ -127,7 +127,14 @@
 - **Fullscreen:** Electron `fullscreen:true`.
 - **Kaydırmasız yerleşim:** `#approot` dikey flex, `height:100%`, `body{overflow:hidden}`; topbar+scene sabit bant, `#main flex:1 min-height:0`, üç kolon `overflow-y:auto` (sayfa DEĞİL kolon kaydırır). ≤900px'te eski yığılmalı düzene düşer (media query) — mobil geçişin temeli.
 
-**En son çalışılan konu (2026-07-10):** v1.4.1 tarayıcıda 1280×800'de test edildi (slot migration/roundtrip, restart arm, sayfa kaydırmıyor, kolon içi scroll). Sıradaki onaylı işler: NPC hikâyeleri, rakiple etkileşim, hakim hafızası; sonra mobil (layout + Capacitor).
+**v1.5 eklendi (2026-07-10, kullanıcı isteği — ZAMAN SİSTEMİ TAMAMEN DEĞİŞTİ):**
+- **Gerçek zamanlı sayaç KALDIRILDI** (setInterval/timerId/S.secs/SFX.tick yok). Gün = kurgusal mesai (09:00→17:00, `settings.dayLen` artık SAAT: 6/8/10, eski saniye değerleri migrate edilir). `S.hours` kalan saat; iş yapmak saat yakar: `hoursFor(c)=TIER_HOURS[tier]` (1/2/3h), delege 0.5h, delayed gönderim de tier maliyeti öder. Alışverişler bedava. Topbar: duvar saati (`wallTime()`), kalan saat, bar; END DAY → "GO HOME".
+- **Mesai:** saat 0'a inince `checkClock()` QUITTING TIME overlay'i açar (event id "overtime", `o.home/o.ot` bayrakları `resolveCrisis` başında intercept edilir): eve git (endDay) veya +`OVERTIME_HOURS`(2) karşılığı +`OVERTIME_FATIGUE`(12). Tekrarlanabilir.
+- **FATIGUE statı (5. bar, mor):** her iş saat×2 yorgunluk; `chance()`'te safe olmayanlara `-round(fatigue*.15)` (tavan −15). Gece `FATIGUE_REST`(22) + kullanılmayan saat×3 kadar düşer ("Leaving early helped."). Save'e girer; eski save'lere loadGame backfill.
+- **Patron angaryaları (`buildDemand`, npcs.js):** istekler SADECE üst rütbeden gelir (BOSSES rank>playerRank filtresi — rank 3+'ta kimse kahve isteyemez, rank 4'te null). Aksiyon sonrası %10 (`maybeDemand`, saat>0.5 iken). Kabul: `o.hours/o.fatigue` maliyeti + 2 INF; ret: −3 REP; "stajyeri gönder" kumarı (45%). Kriz seçeneklerinde `hours/fatigue` alanlarını `resolveCrisis` işler.
+- **PAUSE kaldırıldı** (sayaç yokken anlamı yok): buton, PauseOverlay.jsx ve pauseGame/resumeGame silindi. `isPaused` UI-gating için duruyor.
+
+**En son çalışılan konu (2026-07-10):** v1.5 tarayıcıda uçtan uca test edildi (saat maliyetleri, duvar saati, mesai döngüsü, yorgunluk cezası/uykusu, angarya kabul-ret, hiyerarşi filtresi, save roundtrip). Sıradaki onaylı işler: NPC hikâyeleri, rakiple etkileşim, hakim hafızası; sonra mobil (layout + Capacitor).
 
 ---
 
@@ -176,7 +183,6 @@ fancy-outfits/
 │       ├── CasePane.jsx          ← orta panel (dava + seçenekler + DELEGATE + dedektif + bribe)
 │       ├── StatsPanel.jsx        ← sağ panel (statlar, para, RIVAL, EXPENSES, THE FLOOR, log)
 │       ├── InfoOverlay.jsx       ← "i" paneli
-│       ├── PauseOverlay.jsx      ← PAUSE ekranı (masayı kapatır — bilinçli)
 │       ├── SettingsOverlay.jsx   ← ayarlar (gün süresi, ses, sarsıntı)
 │       ├── RosterOverlay.jsx     ← FIRM sekmesi: payroll, W/L, impact, FIRE/CALL A VOTE (NP endgame)
 │       ├── ArchiveOverlay.jsx    ← LOG sekmesi: dava arşivi (gün, seçim, sonuç, via etiketi)
@@ -322,7 +328,7 @@ if(S.scenario==="legacy"){
 - **RNG kuralı (v1.1):** Oyun mantığında `Math.random` YASAK — `utils.js`'ten `rand()`/`rnd()` kullan (daily modun determinizmi buna bağlı). Tek istisna `sound.js`.
 - **Rakip (nemesis):** İsimli associate seninle yarışır; gece + senin fail'lerinden INF kazanır, önce Name Partner olursa `OUTPACED` game over (`nemesisGain`, engine.js).
 - **Ayarlar (`settings.js`):** run save'inden AYRI global tercihler (`fo_settings_v1`): dayLen 60/75/90, sfx/bgm ses seviyesi, ekran sarsıntısı. Sound bunları okur.
-- **Ekonomi/zorluk sabitleri:** `DAY_SECONDS=75`, `REP_FIRED=20`, `DEADLINE_PENALTY=-9`, `RANK_REQ=[30,55,80,95]`, kriz olasılığı `.6`, ikinci günlük dava olasılığı `.6`, gece REP çürümesi `-1`, Debtor taksiti `$2000/3 gün`, `STAKE_REWARD=[1,1.15,1.3,1.45,1.6]`, `STAKE_PENALTY=[1,1.3,1.6,1.9,2.2]`, `PRICES={suit:1200(×1.5 artar), detective:900, marv:600}`, `WEEK_LEN=5`, `REVIEW_GOOD=10`, `REVIEW_BAD=0`.
+- **Ekonomi/zorluk sabitleri:** `DAY_HOURS=8` (+`TIER_HOURS=[1,2,3]`, `DELEGATE_HOURS=.5`, `OVERTIME_HOURS=2`, `OVERTIME_FATIGUE=12`, `FATIGUE_REST=22`), `REP_FIRED=20`, `DEADLINE_PENALTY=-9`, `RANK_REQ=[30,55,80,95]`, kriz olasılığı `.6`, ikinci günlük dava olasılığı `.6`, gece REP çürümesi `-1`, Debtor taksiti `$2000/3 gün`, `STAKE_REWARD=[1,1.15,1.3,1.45,1.6]`, `STAKE_PENALTY=[1,1.3,1.6,1.9,2.2]`, `PRICES={suit:1200(×1.5 artar), detective:900, marv:600}`, `WEEK_LEN=5`, `REVIEW_GOOD=10`, `REVIEW_BAD=0`.
 - **Inventory:** Hâlâ yok ama para artık harcanabiliyor (EXPENSES: suit/Marv; dosya başına dedektif).
 
 ---
@@ -381,7 +387,8 @@ if(S.scenario==="legacy"){
 | Steam dağıtımı için Electron wrapper (2026-07-05) | Kullanıcı Steam'e çıkmak istiyor; dil/engine değiştirmek yerine web oyununu Electron'a sarma seçildi (Tauri ve Godot/Unity portu elendi). Electron `dist/` build'ini yükler | Wrapper detayları (pencere boyutu vs.) serbest |
 | Dava üretimi PROSEDÜREL, LLM/API DEĞİL (v0.4) | Kullanıcının açık isteği: "Claude API key oyunun içerisinde entegre olmasın", oyun her makinede offline üretsin | Kullanıcı istemeden AI üretimine dönme |
 | NPC traitleri gizli başlar, her run'da 4 traitin her birinden bir tane | Keşif oynanışı + her run'da "Traitor kim?" gerilimi | Tuning serbest; gizlilik mekaniği korunmalı |
-| PAUSE ekranı masayı tamamen kapatır | Açık dosyayı bedava okumak timer gerilimini öldürürdü | Koru |
+| ~~PAUSE ekranı masayı kapatır~~ → v1.5'te PAUSE tamamen kaldırıldı | Gerçek zamanlı sayaç gidince pause anlamsızlaştı; okuma baskısının yerini saat-bütçesi aldı | v1.5 kullanıcı kararı |
+| Zaman = aksiyon bütçesi, gerçek zamanlı sayaç DEĞİL (v1.5) | Kullanıcının açık isteği: kurgusal 8 saatlik mesai, iş başına saat maliyeti, mesai+yorgunluk döngüsü | Kullanıcı kararı; maliyet/yorgunluk sayıları tuning serbest |
 | Karakter yürüyüş animasyonu CSS keyframe (SVG `<g>` üzerinde), JS animasyon kütüphanesi yok | Bağımlılık yasağı + basitlik | Koru |
 | Zorluk = bilgi bulanıklığı, zar matematiği DEĞİL (v0.7) | Kullanıcı isteği; aralık merkezden kaymalı + stabil olmalı ki ortası/titremesi gerçek değeri sızdırmasın | Aralık genişlikleri (FUZZ) tuning serbest; "zar değişmez" ilkesi korunur |
 

@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useGame } from "./game/useGame.js";
 import { S } from "./game/state.js";
-import { choose, deferCase, resolveCrisis, dismissSummary, resumeGame,
+import { choose, deferCase, resolveCrisis, dismissSummary,
          closeSettings, closeInfo, closeRoster, closeArchive } from "./game/engine.js";
 import StartScreen from "./components/StartScreen.jsx";
 import Topbar from "./components/Topbar.jsx";
@@ -12,7 +12,6 @@ import Inbox from "./components/Inbox.jsx";
 import CasePane from "./components/CasePane.jsx";
 import StatsPanel from "./components/StatsPanel.jsx";
 import InfoOverlay from "./components/InfoOverlay.jsx";
-import PauseOverlay from "./components/PauseOverlay.jsx";
 import SettingsOverlay from "./components/SettingsOverlay.jsx";
 import RosterOverlay from "./components/RosterOverlay.jsx";
 import ArchiveOverlay from "./components/ArchiveOverlay.jsx";
@@ -27,7 +26,6 @@ function handleKey(e){
   const k=e.key, i="1234".indexOf(k);
   if(S.summary){ if(k===" "||k==="Enter"){ e.preventDefault(); dismissSummary(); } return; }
   if(S.event){ if(i>=0&&S.event.opts[i]) resolveCrisis(S.event.opts[i]); return; }
-  if(S.userPaused){ if(k===" "||k==="Escape"){ e.preventDefault(); resumeGame(); } return; }
   if(S.settingsOpen){ if(k==="Escape") closeSettings(); return; }
   if(S.rosterOpen){ if(k==="Escape") closeRoster(); return; }
   if(S.archiveOpen){ if(k==="Escape") closeArchive(); return; }
@@ -63,7 +61,6 @@ export default function App(){
         <CasePane />
         <StatsPanel />
       </div>
-      {S.userPaused && <PauseOverlay />}
       {S.settingsOpen && <SettingsOverlay />}
       {S.rosterOpen && <RosterOverlay />}
       {S.archiveOpen && <ArchiveOverlay />}

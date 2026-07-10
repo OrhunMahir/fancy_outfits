@@ -1,7 +1,7 @@
 // Single mutable game state `S` + a minimal subscription store.
 // Engine functions mutate S directly, then call notify(); React components
 // subscribe via useGame() and re-render. No framework state library.
-import { DAY_SECONDS, PRICES, FIRM_START } from "./constants.js";
+import { DAY_HOURS, PRICES, FIRM_START } from "./constants.js";
 import { settings } from "./settings.js";
 import { rnd, rand } from "./utils.js";
 import { buildClientPool } from "./clients.js";
@@ -19,7 +19,9 @@ export function notify(){ version++; listeners.forEach(fn=>fn()); }
 
 export function newState(scenario,difficulty){
   return {
-    scenario, day:1, secs:settings.dayLen||DAY_SECONDS, rank:0,
+    scenario, day:1, rank:0,
+    // the fictional workday: hours remaining, overtime taken today, and how tired you are
+    hours:settings.dayLen||DAY_HOURS, otHours:0, otToday:0, fatigue:0,
     difficulty:difficulty||"easy", // easy | medium | hard | realistic — blurs INFO only, never the dice
     mode:"standard", dailyDate:null, // standard | ironman | endless | daily (set by startGame)
     endlessWon:false, runRecorded:false, // endless: win once, keep billing; stats recorded once per run

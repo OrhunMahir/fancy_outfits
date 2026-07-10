@@ -6,7 +6,7 @@ import { buySuit, bribeMarv, payBuyIn, objectiveInfo } from "../game/engine.js";
 
 export default function StatsPanel(){
   const S=useGame();
-  const bars=[["REPUTATION",S.rep,"#38b764"],["BOLDNESS",S.bold,"#b13e53"],["INFLUENCE",S.inf,"#ffcd75"],["FIRM",S.firm,"#4d73e8"]];
+  const bars=[["REPUTATION",S.rep,"#38b764"],["BOLDNESS",S.bold,"#b13e53"],["INFLUENCE",S.inf,"#ffcd75"],["FIRM",S.firm,"#4d73e8"],["FATIGUE",S.fatigue,"#b06ad9"]];
   const obj=objectiveInfo();
   return (
     <div id="stats" className="panel">
@@ -22,6 +22,7 @@ export default function StatsPanel(){
           if(n==="REPUTATION") extra=" (fired < "+REP_FIRED+")";
           if(n==="INFLUENCE"&&S.rank<4) extra=" (next rank: "+RANK_REQ[S.rank]+(S.rank===2?" + buy-in":"")+")";
           if(n==="FIRM") extra=(S.endlessWon||S.rank===4)?" (collapse < "+FIRM_COLLAPSE+")":" (the partners' problem. for now)";
+          if(n==="FATIGUE") extra=S.fatigue>0?" (risky plays -"+Math.round(S.fatigue*.15)+"%)":" (fresh)";
           return (
             <div key={n} className="statrow">
               <div className="lbl"><span>{n+extra}</span><span>{v}</span></div>

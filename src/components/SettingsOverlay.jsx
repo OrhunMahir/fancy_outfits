@@ -3,7 +3,7 @@ import { useState } from "react";
 import { settings } from "../game/settings.js";
 import { closeSettings, updateSetting, restartRun } from "../game/engine.js";
 
-const DAYS=[60,75,90];
+const DAYS=[6,8,10]; // fictional workday length, in hours
 const VOL=[0,0.5,1];
 const volLabel=v=>v<=0?"OFF":v<1?"LOW":"FULL";
 
@@ -17,7 +17,7 @@ export default function SettingsOverlay(){
           <div className="kv">DAY LENGTH</div>
           <div className="diffrow">
             {DAYS.map(d=>(
-              <button key={d} className={"btn small"+(settings.dayLen===d?" on":"")} onClick={()=>updateSetting("dayLen",d)}>{d}s</button>
+              <button key={d} className={"btn small"+(settings.dayLen===d?" on":"")} onClick={()=>updateSetting("dayLen",d)}>{d}h</button>
             ))}
           </div>
           <div className="kv" style={{opacity:.7}}>Applies from the next day / next run.</div>

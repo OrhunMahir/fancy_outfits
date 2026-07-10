@@ -117,7 +117,11 @@
 - **Cuma retainer'ları:** `sum(fee)` ödenir; 0 müşteri cezası (−4 FIRM) SADECE rank≥2'de, junior'lara kuru uyarı satırı.
 - **Global eventler NADİR (%7, tekrarlanabilir, usedCrises'e girmez):** g_bankrupt/g_poach/g_scandal (g_prospect kaldırıldı — kazanım yollarına dönüştü). Sonuçlar `client:{lose:name}/{gain:true,double?}` taşır; `resolveCrisis` işler.
 
-**En son çalışılan konu (2026-07-09):** v1.3 tarayıcıda test edildi (0/1'li başlangıçlar, impressed/miras/yemek kazanımları, fail'de kayıp, cuma yumuşak-sert ceza, %7 global). Sıradaki onaylı işler: dava arşivi, NPC hikâyeleri, rakiple etkileşim, hakim hafızası; sonra mobil (layout + Capacitor).
+**v1.4 eklendi (2026-07-10, kullanıcı isteği):**
+- **Günlük hedefler:** her sabah `newObjective()` — `OBJ_DEFS` (engine.js): close/wins/nosafe/aggwin/deleg(rank≥1)/money. Ödül rastgele: {inf:6}/{inf:8}/{rep:5}/{firm:5}/{inf:4,rep:3}. Sayaçlar `S.today` (trackChoice + resolveDelayed/Delegated + delegateCase + apply money>0). Gün sonunda tutarsa ödül + "DAILY GOAL MET" satırı; tutmazsa ceza YOK, kuru not. StatsPanel'de canlı ilerleme (`objectiveInfo()`). ÖNEMLİ: delayed dava'nın gizli sonucu reveal olana dek "win" hedefine SAYILMAZ (bilgi sızmasın — zorluk modlarıyla tutarlı).
+- **Dava arşivi (`S.archive`, topbar LOG butonu → `ArchiveOverlay`):** her çözülen dosya `archiveCase()` ile kaydedilir: gün, başlık, oynanan seçenek, WON/LOST, sonuç metni, via etiketi (delayed reply / delegated / favor / deadline missed). Delayed dosyalar SEÇİMDE değil reveal'da arşivlenir. REPLY-hangi-davaydı sorunu çözüldü.
+
+**En son çalışılan konu (2026-07-10):** v1.4 tarayıcıda test edildi (hedef ataması/ödülü/reset, panel ilerlemesi, arşiv girişleri: immediate/delayed/delegated/missed, overlay+pause). Sıradaki onaylı işler: NPC hikâyeleri, rakiple etkileşim, hakim hafızası; sonra mobil (layout + Capacitor).
 
 ---
 
@@ -169,6 +173,7 @@ fancy-outfits/
 │       ├── PauseOverlay.jsx      ← PAUSE ekranı (masayı kapatır — bilinçli)
 │       ├── SettingsOverlay.jsx   ← ayarlar (gün süresi, ses, sarsıntı)
 │       ├── RosterOverlay.jsx     ← FIRM sekmesi: payroll, W/L, impact, FIRE/CALL A VOTE (NP endgame)
+│       ├── ArchiveOverlay.jsx    ← LOG sekmesi: dava arşivi (gün, seçim, sonuç, via etiketi)
 │       ├── EventOverlay.jsx      ← kriz ekranı (+ Traitor/Brave modifier satırı)
 │       └── SummaryOverlay.jsx    ← gün sonu / cuma review / game over / win + run ledger
 ├── FANCY_OUTFITS_GDD.md          ← Tasarım dokümanı (gelecek özelliklerin speci)
@@ -338,7 +343,7 @@ if(S.scenario==="legacy"){
 
 **Backlog (kullanıcının onayladığı sıradaki işler + bekleyenler; başlamadan sor):**
 - ~~Global eventler + Client list~~ — v1.3'te EKLENDİ (parodi isim kuralı korunuyor: yeni marka eklerken Abibas/Mike tarzında kal).
-- **Dava arşivi** — run içinde çözülen davaların dökümü (hangi seçenek, sonuç); REPLY'ların hangi davaya ait olduğu sorununu da çözer. (ONAYLANDI, sıradaki)
+- ~~Dava arşivi~~ — v1.4'te EKLENDİ (LOG butonu + günlük hedeflerle birlikte).
 - **NPC hikâyeleri** — rel eşiklerinde tetiklenen mini-sahneler (Dana'nın sırrı, Katrina'nın teklifi). (ONAYLANDI)
 - **Rakiple etkileşim** — nemesis'e sabotaj/ittifak seçenekleri. (ONAYLANDI)
 - **Hakim hafızası** — aynı hakime ikinci çıkışta geçmişi hatırlama ("geçen sefer blöf yaptın, −5"). (ONAYLANDI)

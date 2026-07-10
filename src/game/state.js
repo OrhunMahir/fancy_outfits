@@ -41,9 +41,12 @@ export function newState(scenario,difficulty){
     marvBribes:0, // Marv remembers who pays — his lines and gifts depend on it
     // per-run ledger for the end-of-run breakdown
     runStats:{safe:0,bluffW:0,bluffL:0,techW:0,techL:0,deleg:{},bribeTry:0,bribeW:0,favorHelp:0,favorNo:0,miss:0,crises:0,fired:0},
+    // daily objective ("close 2 files today") + per-day counters feeding it
+    objective:null, today:{resolved:0,wins:0,safeUsed:0,aggWin:0,delegated:0,moneyGained:0},
+    archive:[], // every resolved case: {day,title,play,style,win,note,via}
     dailyLog:[], logEntries:[], over:false,
     // UI state (pause is DERIVED from these — see isPaused() in engine.js)
-    infoOpen:false, event:null, summary:null, flash:null, userPaused:false, settingsOpen:false, rosterOpen:false,
+    infoOpen:false, event:null, summary:null, flash:null, userPaused:false, settingsOpen:false, rosterOpen:false, archiveOpen:false,
     // office character: "arriving" | "working" | "leaving" (leaving also freezes the clock)
     charAnim:"arriving", leaving:false,
     sceneRank:null, // during a promotion walk the scene briefly keeps the OLD office

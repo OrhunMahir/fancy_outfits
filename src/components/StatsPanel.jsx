@@ -2,14 +2,20 @@ import { useGame } from "../game/useGame.js";
 import { REP_FIRED, RANK_REQ, RANKS, PRICES, BUYIN_COST, FIRM_COLLAPSE } from "../game/constants.js";
 import { CLIENT_CAP } from "../game/clients.js";
 import { SCENARIOS } from "../game/content.js";
-import { buySuit, bribeMarv, payBuyIn } from "../game/engine.js";
+import { buySuit, bribeMarv, payBuyIn, objectiveInfo } from "../game/engine.js";
 
 export default function StatsPanel(){
   const S=useGame();
   const bars=[["REPUTATION",S.rep,"#38b764"],["BOLDNESS",S.bold,"#b13e53"],["INFLUENCE",S.inf,"#ffcd75"],["FIRM",S.firm,"#4d73e8"]];
+  const obj=objectiveInfo();
   return (
     <div id="stats" className="panel">
       <h2>ASSOCIATE FILE</h2>
+      {obj && (
+        <div className="kv" style={{color:obj.done?"var(--green)":"var(--gold)",marginBottom:8}}>
+          TODAY'S GOAL: {obj.text} ({obj.cur}/{obj.target}) → {obj.reward}{obj.done?" ✓":""}
+        </div>
+      )}
       <div>
         {bars.map(([n,v,col])=>{
           let extra="";

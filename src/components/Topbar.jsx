@@ -1,7 +1,7 @@
 import { useGame } from "../game/useGame.js";
 import { RANKS, DAY_SECONDS, WEEK_LEN } from "../game/constants.js";
 import { settings } from "../game/settings.js";
-import { endDay, openInfo, pauseGame, openSettings, openRoster, updateSetting } from "../game/engine.js";
+import { endDay, openInfo, pauseGame, openSettings, openRoster, openArchive, updateSetting } from "../game/engine.js";
 import { SFX } from "../game/sound.js";
 
 const fmt=s=>Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
@@ -23,6 +23,7 @@ export default function Topbar(){
         <button className="btn small" onClick={()=>updateSetting("sfx",settings.sfx>0?0:1)}>SFX: {settings.sfx>0?"ON":"OFF"}</button>
         <button className="btn small" onClick={()=>updateSetting("bgm",settings.bgm>0?0:1)}>BGM: {settings.bgm>0?"ON":"OFF"}</button>
         <button className="btn small" onClick={openInfo}>i</button>
+        <button className="btn small" onClick={openArchive}>LOG</button>
         {S.roster && <button className="btn small" style={{color:"var(--gold)"}} onClick={openRoster}>FIRM</button>}
         <button className="btn small" onClick={openSettings}>SET</button>
         <button className="btn small" onClick={pauseGame}>PAUSE</button>

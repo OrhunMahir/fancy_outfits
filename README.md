@@ -24,6 +24,20 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v14 — Daily goals & the case archive *(2026-07-10)*
+- **Daily objectives:** every morning the firm sets a mini-goal — *"Close 2 files"*, *"Win a
+  case"*, *"Land an aggressive play"*, *"Close a file without ever playing it safe"*,
+  *"Delegate a file"* (Senior Associate+), *"Bank $1,200"*. Meet it by end of day for a bonus:
+  sometimes **+INFLUENCE**, sometimes **+REP**, sometimes **+FIRM** health. Miss it and nothing
+  happens — the firm merely notices. Progress is tracked live in the side panel
+  (`TODAY'S GOAL: Close 2 files (1/2) → +6 INFL`).
+  - No information leaks: a delayed case's hidden outcome never counts toward "win" goals until
+    the reply actually lands.
+- **CASE ARCHIVE** (new **LOG** button in the topbar): every resolved file on record — the day,
+  the case, the exact play you chose, WON/LOST, and the outcome text. Delayed replies are tagged
+  (finally answering *"which case was that REPLY about?"*), delegations show who you handed the
+  file to, and missed deadlines are archived in shame as *"(deadline missed)"*.
+
 ### v13.1 — Clients are earned, never given *(2026-07-09)*
 - **Zero-start:** scenarios that begin from nothing now begin with ZERO clients. The Legacy
   keeps one family-friend account; the Defector brings one along from Snidely Fitch.

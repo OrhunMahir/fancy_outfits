@@ -20,7 +20,7 @@ let timerId=null, flashSeq=0;
 
 /* The clock stops whenever any overlay is up, the player hit PAUSE, or the
    character is walking out. Replaces the old S.paused flag. */
-export const isPaused=()=>!!(S.infoOpen||S.event||S.summary||S.userPaused||S.settingsOpen||S.rosterOpen||S.leaving);
+export const isPaused=()=>!!(S.infoOpen||S.event||S.summary||S.userPaused||S.settingsOpen||S.rosterOpen||S.archiveOpen||S.leaving);
 export const disrespected=()=>S.rep<30;
 
 export function log(txt,cls){ S.logEntries.unshift({txt,cls:cls||""}); S.dailyLog.push(txt); }
@@ -57,6 +57,41 @@ function trackChoice(c,o,win){
   else if(o.style==="technical"){ win?r.techW++:r.techL++; }
   if(o.bribe){ r.bribeTry++; if(win) r.bribeW++; }
   if(c&&c.favor){ if((o.relOk||0)>0) r.favorHelp++; else if((o.relOk||0)<0) r.favorNo++; }
+  if(c){ // daily-objective counters (real files only, not crises)
+    const t=S.today; t.resolved++;
+    if(o.safe) t.safeUsed++;
+    // delayed wins count when REVEALED — counting now would leak the pending die
+    if(win&&!o.delay){ t.wins++; if(o.style==="aggressive") t.aggWin++; }
+  }
+}
+
+/* ---------- daily objectives: "close 2 files today" → bonus INF/REP/FIRM ---------- */
+const OBJ_DEFS={
+  close:{desc:o=>"Close "+o.target+" files", cur:()=>S.today.resolved, make:()=>({target:rnd([2,3])})},
+  wins:{desc:o=>"Win "+o.target+" case(s)", cur:()=>S.today.wins, make:()=>({target:rnd([1,2])})},
+  nosafe:{desc:()=>"Close a file without ever playing it safe", cur:()=>S.today.resolved>0&&S.today.safeUsed===0?1:0, make:()=>({target:1})},
+  aggwin:{desc:()=>"Land an aggressive play", cur:()=>S.today.aggWin, make:()=>({target:1})},
+  deleg:{rank:1, desc:()=>"Delegate a file", cur:()=>S.today.delegated, make:()=>({target:1})},
+  money:{desc:o=>"Bank $"+o.target, cur:()=>S.today.moneyGained, make:()=>({target:rnd([800,1200,1500])})},
+};
+const rewardTxt=r=>Object.entries(r).map(([k,v])=>"+"+v+" "+({inf:"INFL",rep:"REP",firm:"FIRM"}[k])).join(", ");
+function newObjective(){
+  S.today={resolved:0,wins:0,safeUsed:0,aggWin:0,delegated:0,moneyGained:0};
+  const keys=Object.keys(OBJ_DEFS).filter(k=>!(OBJ_DEFS[k].rank>S.rank));
+  const k=rnd(keys);
+  S.objective={tid:k, ...OBJ_DEFS[k].make(), reward:rnd([{inf:6},{inf:8},{rep:5},{firm:5},{inf:4,rep:3}])};
+  log("TODAY'S GOAL: "+OBJ_DEFS[k].desc(S.objective)+" ("+rewardTxt(S.objective.reward)+")","sys");
+}
+export function objectiveInfo(){
+  if(!S||!S.objective) return null;
+  const def=OBJ_DEFS[S.objective.tid], cur=def.cur();
+  return {text:def.desc(S.objective), cur:Math.min(cur,S.objective.target),
+    target:S.objective.target, reward:rewardTxt(S.objective.reward), done:cur>=S.objective.target};
+}
+
+/* ---------- case archive: every resolved file, what you played, how it went ---------- */
+function archiveCase(c,play,win,note,via){
+  S.archive.unshift({day:S.day, title:c.title, play, win, note:note||"", via:via||""});
 }
 
 /* effects: {rep,bold,inf,money,firm} */
@@ -71,7 +106,8 @@ export function apply(fx,quiet){
       if(k==="inf"&&v>0) v=Math.round(v*1.25);
       if(k==="rep"&&v<0) v=Math.round(v*1.25);
     }
-    if(k==="money") S.money+=v; else S[k]=clamp(S[k]+v,0,100);
+    if(k==="money"){ S.money+=v; if(v>0&&S.today) S.today.moneyGained+=v; }
+    else S[k]=clamp(S[k]+v,0,100);
     parts.push((v>0?"+":"")+v+" "+map[k]);
   }
   if(parts.length&&!quiet) log(parts.join(", "),(fx.rep||0)<0?"bad":"good");
@@ -150,6 +186,7 @@ export function startGame(sc,diff,mode){
   else if(sc==="defector"){ const nc=signClient(); if(nc) log("You didn't leave Snidely Fitch empty-handed: "+nc.name+" came with you.","sys"); }
   else log("Zero clients on your book. Win loudly — they'll find you.","sys");
   drawCases(2);
+  newObjective();
   startClock(); sitDown(); startAmbience(); saveGame(); notify();
 }
 
@@ -234,8 +271,10 @@ export function endDay(){
   S.weekMissed+=missed.filter(c=>!c.favor).length;
   missed.forEach(c=>{
     if(c.favor){ const n=S.npcs.find(x=>x.id===c.npc); if(n) relNpc(n,-10);
+      archiveCase(c,"(ignored)",false,"-10 rel","favor");
       log("FAVOR IGNORED: "+c.title+" (-10 rel)","bad"); return; }
     log("DEADLINE MISSED: "+c.title,"bad"); S.runStats.miss++;
+    archiveCase(c,"(deadline missed)",false,DEADLINE_PENALTY+" REP");
     apply({rep:DEADLINE_PENALTY,firm:-2},true); nemesisGain(4,true);
   });
   S.inbox=S.inbox.filter(c=>!missed.includes(c));
@@ -245,6 +284,13 @@ export function endDay(){
   lines.push("Day "+S.day+" closed at "+RANKS[S.rank]+".");
   if(missed.length) lines.push(missed.length+" deadline(s) missed ("+DEADLINE_PENALTY+" REP each).");
   lines.push("The firm forgets fast: -1 REP overnight.");
+  // daily objective: bonus if met, a dry note if not (no penalty)
+  if(S.objective){
+    const info=objectiveInfo();
+    if(info.done){ apply(S.objective.reward,true); lines.push("DAILY GOAL MET: "+info.text+" — "+info.reward+"."); SFX.bell(); }
+    else lines.push("Daily goal missed: "+info.text+". No penalty. The firm merely notices.");
+    S.objective=null;
+  }
   // Friday: the partners review your week (influence gained, reputation kept, deadlines missed)
   const friday=S.day%WEEK_LEN===0;
   if(friday){
@@ -325,6 +371,7 @@ export function endDay(){
         if(ge){ SFX.crisis(); S.event=ge; S.runStats.crises++; }
       }
       clientAcquisition();
+      newObjective();
       sitDown();
     });
   },1400);
@@ -333,7 +380,9 @@ export function endDay(){
 function resolveDelayed(c){
   S.inbox=S.inbox.filter(x=>x!==c);
   const r=c.pending, out=r.win?r.o.ok:r.o.fail;
-  if(r.win){ SFX.win(); log("RESPONSE ["+c.title+"]: SUCCESS","good"); pushMsg("REPLY: "+c.title,out.txt); apply(out.fx); maybeImpressClient(c); if((out.fx.rep||0)+(out.fx.inf||0)>=10) flash("HENDERED!"); }
+  archiveCase(c,r.o.text,r.win,out.txt,"delayed reply");
+  if(r.win){ SFX.win(); S.today.wins++; if(r.o.style==="aggressive") S.today.aggWin++;
+    log("RESPONSE ["+c.title+"]: SUCCESS","good"); pushMsg("REPLY: "+c.title,out.txt); apply(out.fx); maybeImpressClient(c); if((out.fx.rep||0)+(out.fx.inf||0)>=10) flash("HENDERED!"); }
   else { SFX.lose(); log("RESPONSE ["+c.title+"]: FAILED","bad"); pushMsg("REPLY: "+c.title,out.txt); apply(out.fx); maybeLoseClientOnFail(); doShake(); nemesisGain(3,true); }
   if(out.next) queueFollowup(out.next);
   checkPromotion();
@@ -346,9 +395,10 @@ function resolveDelegated(c){
   const d=c.delegated, n=S.npcs.find(x=>x.id===d.npc);
   n.known=true;
   if(d.win){
-    SFX.win(); relNpc(n,6);
+    SFX.win(); relNpc(n,6); S.today.wins++;
     pushMsg("DELEGATED: "+c.title, n.name+" "+rnd(DELEGATE_WIN_TXT));
     log("DELEGATION ["+c.title+"]: "+n.name+" delivered.","good");
+    archiveCase(c,"Delegated to "+n.name,true,"handled it","delegated");
     apply({rep:2,inf:3+(c.tier||0)*2,money:(c.tier||0)*300});
   } else if(d.silent){
     relNpc(n,-3); c.delegated=null; S.inbox.push(c); // the file just... reappears
@@ -359,6 +409,7 @@ function resolveDelegated(c){
     const traitorTax=n.trait==="Traitor"?4:0;
     pushMsg("DELEGATED: "+c.title, n.name+" "+rnd(DELEGATE_FAIL_TXT)+(traitorTax?" Somehow the whole floor knows it was YOUR case.":""));
     log("DELEGATION ["+c.title+"]: "+n.name+" failed it.","bad");
+    archiveCase(c,"Delegated to "+n.name,false,"botched it","delegated");
     apply({rep:-4-traitorTax}); nemesisGain(3,true);
   }
   checkPromotion();
@@ -403,6 +454,7 @@ export function choose(c,o){
   S.inbox=S.inbox.filter(x=>x!==c); S.openCase=null;
   const win=rand()*100<p, out=win?o.ok:o.fail;
   trackChoice(c,o,win);
+  archiveCase(c,o.text,win,out.txt,c.favor?"favor":"");
   if(o.bribe&&win&&S.runStats.bribeW>=3) ach("bribe3");
   if(win){
     SFX.win();
@@ -545,6 +597,7 @@ export function delegateCase(c,npcId){
   const win=rand()*100<delegationChance(n);
   c.delegated={npc:n.id, day:S.day+1, win, silent:n.trait==="Lazy"&&!win&&rand()<.65};
   S.runStats.deleg[n.id]=(S.runStats.deleg[n.id]||0)+1;
+  S.today.delegated++;
   if(n.trait==="Traitor"&&S.runStats.deleg[n.id]>=5) ach("traitor5");
   S.openCase=null;
   log("Handed '"+c.title+"' to "+n.name+". Report tomorrow.","sys");
@@ -716,7 +769,7 @@ export function saveGame(){
   if(!S||S.over||S.mode==="ironman") return; // ironman: no net
   try{
     // strip transient UI fields; everything else is plain JSON data
-    const {infoOpen,event,summary,flash,userPaused,leaving,charAnim,openCase,settingsOpen,sceneRank,rosterOpen,...data}=S;
+    const {infoOpen,event,summary,flash,userPaused,leaving,charAnim,openCase,settingsOpen,sceneRank,rosterOpen,archiveOpen,...data}=S;
     localStorage.setItem(SAVE_KEY,JSON.stringify(data));
   }catch(e){}
 }
@@ -727,7 +780,7 @@ export function loadGame(){
   const d=peekSave(); if(!d) return;
   setS(Object.assign(newState(d.scenario),d,
     {infoOpen:false,event:null,summary:null,flash:null,userPaused:false,leaving:false,
-     charAnim:"arriving",openCase:null,settingsOpen:false,sceneRank:null,rosterOpen:false}));
+     charAnim:"arriving",openCase:null,settingsOpen:false,sceneRank:null,rosterOpen:false,archiveOpen:false}));
   SFX.bell();
   log("Run restored. The firm did not notice you were gone.","sys");
   startClock(); sitDown(); startAmbience(); notify();
@@ -760,6 +813,8 @@ export function openSettings(){ SFX.click(); S.settingsOpen=true; notify(); }
 export function closeSettings(){ SFX.click(); S.settingsOpen=false; notify(); }
 export function openRoster(){ SFX.open(); S.rosterOpen=true; notify(); }
 export function closeRoster(){ SFX.click(); S.rosterOpen=false; notify(); }
+export function openArchive(){ SFX.open(); S.archiveOpen=true; notify(); }
+export function closeArchive(){ SFX.click(); S.archiveOpen=false; notify(); }
 export function updateSetting(k,v){
   setSetting(k,v);
   if(k==="bgm") applyBgmVolume();

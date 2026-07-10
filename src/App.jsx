@@ -55,7 +55,7 @@ export default function App(){
   },[]);
   if(!S) return <StartScreen />;
   return (
-    <div ref={rootRef}>
+    <div ref={rootRef} id="approot">
       <Topbar />
       <OfficeScene />
       <div id="main">

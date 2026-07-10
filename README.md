@@ -24,6 +24,18 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v14.1 — Save slots, restart, fullscreen & layout *(2026-07-10)*
+- **3 save slots.** The start screen gains a SLOT 1/2/3 picker (each shows its saved day or
+  "empty"); new runs write to the selected slot and CONTINUE loads per slot. The old single
+  save migrates to slot 1 automatically.
+- **Restart option** in SETTINGS: wipes the current slot and returns to the title screen —
+  with a two-step confirm (*"SURE? THIS CAREER ENDS NOW."*).
+- **Fullscreen launch:** the Electron (desktop/Steam) build now opens fullscreen.
+- **No-scroll layout:** the game now fits the screen exactly — topbar and office scene are
+  fixed bands, the three panels stretch to fill the rest, and long columns (the ASSOCIATE FILE
+  sidebar included) scroll *internally* instead of scrolling the page. Windows under 900px wide
+  fall back to the old stacked layout.
+
 ### v14 — Daily goals & the case archive *(2026-07-10)*
 - **Daily objectives:** every morning the firm sets a mini-goal — *"Close 2 files"*, *"Win a
   case"*, *"Land an aggressive play"*, *"Close a file without ever playing it safe"*,

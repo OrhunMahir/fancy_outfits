@@ -172,7 +172,7 @@ export function startGame(sc,diff,mode){
     sc=["fraud","debtor","legacy","defector"][h%4]; diff="medium";
     setS(newState(sc,diff)); S.dailyDate=today;
   } else { clearSeed(); setS(newState(sc,diff)); }
-  S.mode=mode;
+  S.mode=mode; S.slot=activeSlot;
   S.pool=buildPool();
   S.npcs=buildNpcs();
   SFX.bell();
@@ -764,28 +764,43 @@ export function hireDetective(c){
   saveGame();
 }
 
-/* ---------- save/load (localStorage) + lifetime firm record ---------- */
+/* ---------- save/load (localStorage, 3 slots) + lifetime firm record ---------- */
+let activeSlot=(()=>{ try{ return Number(localStorage.getItem("fo_slot"))||1; }catch(e){ return 1; } })();
+const slotKey=n=>SAVE_KEY+"_s"+(n||activeSlot);
+// one-time migration: the old single save becomes slot 1
+try{
+  const legacy=localStorage.getItem(SAVE_KEY);
+  if(legacy){ if(!localStorage.getItem(slotKey(1))) localStorage.setItem(slotKey(1),legacy);
+    localStorage.removeItem(SAVE_KEY); }
+}catch(e){}
+export const getSlot=()=>activeSlot;
+export function setSlot(n){ activeSlot=n; try{ localStorage.setItem("fo_slot",String(n)); }catch(e){} }
+
 export function saveGame(){
   if(!S||S.over||S.mode==="ironman") return; // ironman: no net
   try{
     // strip transient UI fields; everything else is plain JSON data
     const {infoOpen,event,summary,flash,userPaused,leaving,charAnim,openCase,settingsOpen,sceneRank,rosterOpen,archiveOpen,...data}=S;
-    localStorage.setItem(SAVE_KEY,JSON.stringify(data));
+    localStorage.setItem(slotKey(S.slot),JSON.stringify(data));
   }catch(e){}
 }
-export function peekSave(){
-  try{ const d=JSON.parse(localStorage.getItem(SAVE_KEY)); return d&&!d.over?d:null; }catch(e){ return null; }
+export function peekSave(n){
+  try{ const d=JSON.parse(localStorage.getItem(slotKey(n))); return d&&!d.over?d:null; }catch(e){ return null; }
 }
-export function loadGame(){
-  const d=peekSave(); if(!d) return;
+export function loadGame(n){
+  const d=peekSave(n); if(!d) return;
+  if(n) setSlot(n);
   setS(Object.assign(newState(d.scenario),d,
-    {infoOpen:false,event:null,summary:null,flash:null,userPaused:false,leaving:false,
+    {slot:n||activeSlot,
+     infoOpen:false,event:null,summary:null,flash:null,userPaused:false,leaving:false,
      charAnim:"arriving",openCase:null,settingsOpen:false,sceneRank:null,rosterOpen:false,archiveOpen:false}));
   SFX.bell();
   log("Run restored. The firm did not notice you were gone.","sys");
   startClock(); sitDown(); startAmbience(); notify();
 }
-function clearSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
+function clearSave(){ try{ localStorage.removeItem(slotKey(S&&S.slot)); }catch(e){} }
+/* restart: wipe the current slot and return to the title screen */
+export function restartRun(){ clearSave(); location.reload(); }
 export function getStats(){
   try{ return JSON.parse(localStorage.getItem(STATS_KEY)); }catch(e){ return null; }
 }

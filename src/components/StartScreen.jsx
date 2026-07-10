@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { SCENARIOS } from "../game/content.js";
 import { RANKS } from "../game/constants.js";
-import { startGame, loadGame, peekSave, getStats } from "../game/engine.js";
+import { startGame, loadGame, peekSave, getStats, getSlot, setSlot } from "../game/engine.js";
 import { ACHIEVEMENTS, getUnlocked } from "../game/achievements.js";
 import { rnd } from "../game/utils.js";
 
@@ -19,9 +19,12 @@ const MODES=[
 ];
 
 export default function StartScreen(){
-  const save=peekSave(), st=getStats(), ach=getUnlocked();
+  const st=getStats(), ach=getUnlocked();
   const [diff,setDiff]=useState("easy");
   const [mode,setMode]=useState("standard");
+  const [slot,setSlotState]=useState(getSlot());
+  const pickSlot=n=>{ setSlot(n); setSlotState(n); };
+  const save=peekSave(slot);
   const nAch=Object.keys(ach).length;
   return (
     <div className="overlay" style={{overflowY:"auto"}}>
@@ -41,11 +44,22 @@ export default function StartScreen(){
             <button key={k} className={"btn small"+(mode===k?" on":"")} onClick={()=>setMode(k)}>{label}</button>
           ))}
         </div>
-        <div className="kv" style={{marginBottom:10}}>{MODES.find(m=>m[0]===mode)[2]}</div>
+        <div className="kv" style={{marginBottom:8}}>{MODES.find(m=>m[0]===mode)[2]}</div>
+        <div className="kv">SAVE SLOT — new runs write here:</div>
+        <div className="diffrow">
+          {[1,2,3].map(n=>{
+            const sv=peekSave(n);
+            return (
+              <button key={n} className={"btn small"+(slot===n?" on":"")} onClick={()=>pickSlot(n)}>
+                SLOT {n}{sv?" · DAY "+sv.day:" · empty"}
+              </button>
+            );
+          })}
+        </div>
         <div className="opts">
           {save && (
-            <button className="btn safe" onClick={loadGame}>
-              CONTINUE<span className="chance">Day {save.day} · {RANKS[save.rank]} · {SCENARIOS[save.scenario].label} · {(save.difficulty||"easy").toUpperCase()}{save.mode&&save.mode!=="standard"?" · "+save.mode.toUpperCase():""}</span>
+            <button className="btn safe" onClick={()=>loadGame(slot)}>
+              CONTINUE SLOT {slot}<span className="chance">Day {save.day} · {RANKS[save.rank]} · {SCENARIOS[save.scenario].label} · {(save.difficulty||"easy").toUpperCase()}{save.mode&&save.mode!=="standard"?" · "+save.mode.toUpperCase():""}</span>
             </button>
           )}
           {mode==="daily" ? (

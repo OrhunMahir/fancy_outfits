@@ -121,7 +121,13 @@
 - **Günlük hedefler:** her sabah `newObjective()` — `OBJ_DEFS` (engine.js): close/wins/nosafe/aggwin/deleg(rank≥1)/money. Ödül rastgele: {inf:6}/{inf:8}/{rep:5}/{firm:5}/{inf:4,rep:3}. Sayaçlar `S.today` (trackChoice + resolveDelayed/Delegated + delegateCase + apply money>0). Gün sonunda tutarsa ödül + "DAILY GOAL MET" satırı; tutmazsa ceza YOK, kuru not. StatsPanel'de canlı ilerleme (`objectiveInfo()`). ÖNEMLİ: delayed dava'nın gizli sonucu reveal olana dek "win" hedefine SAYILMAZ (bilgi sızmasın — zorluk modlarıyla tutarlı).
 - **Dava arşivi (`S.archive`, topbar LOG butonu → `ArchiveOverlay`):** her çözülen dosya `archiveCase()` ile kaydedilir: gün, başlık, oynanan seçenek, WON/LOST, sonuç metni, via etiketi (delayed reply / delegated / favor / deadline missed). Delayed dosyalar SEÇİMDE değil reveal'da arşivlenir. REPLY-hangi-davaydı sorunu çözüldü.
 
-**En son çalışılan konu (2026-07-10):** v1.4 tarayıcıda test edildi (hedef ataması/ödülü/reset, panel ilerlemesi, arşiv girişleri: immediate/delayed/delegated/missed, overlay+pause). Sıradaki onaylı işler: NPC hikâyeleri, rakiple etkileşim, hakim hafızası; sonra mobil (layout + Capacitor).
+**v1.4.1 eklendi (2026-07-10, kullanıcı isteği):**
+- **3 save slotu:** `fo_save_v1_s1/s2/s3` + aktif slot `fo_slot` (engine modül değişkeni `activeSlot`, `getSlot/setSlot`). `S.slot` run'a yazılır; saveGame/peekSave(n)/loadGame(n)/clearSave slot bazlı. Eski tek kayıt otomatik slot 1'e taşınır (tek seferlik migration, engine import'unda). Start ekranında SLOT seçici (gün gösterir) + "CONTINUE SLOT n". Yeni run seçili slota yazar (doluysa ilk kayıtta ezer — slot etiketi günü gösterdiği için bilinçli).
+- **Restart:** SettingsOverlay'de iki adımlı onaylı "RESTART RUN" → `restartRun()` (slotu siler + reload).
+- **Fullscreen:** Electron `fullscreen:true`.
+- **Kaydırmasız yerleşim:** `#approot` dikey flex, `height:100%`, `body{overflow:hidden}`; topbar+scene sabit bant, `#main flex:1 min-height:0`, üç kolon `overflow-y:auto` (sayfa DEĞİL kolon kaydırır). ≤900px'te eski yığılmalı düzene düşer (media query) — mobil geçişin temeli.
+
+**En son çalışılan konu (2026-07-10):** v1.4.1 tarayıcıda 1280×800'de test edildi (slot migration/roundtrip, restart arm, sayfa kaydırmıyor, kolon içi scroll). Sıradaki onaylı işler: NPC hikâyeleri, rakiple etkileşim, hakim hafızası; sonra mobil (layout + Capacitor).
 
 ---
 

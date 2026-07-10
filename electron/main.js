@@ -7,6 +7,7 @@ const path = require("path");
 function createWindow(){
   const win = new BrowserWindow({
     width: 1280, height: 800, minWidth: 960, minHeight: 640,
+    fullscreen: true,                           // the game launches fullscreen (Steam-style)
     backgroundColor: "#1a1c2c",                 // matches --bg so startup doesn't flash white
     title: "FANCY OUTFITS",
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true }

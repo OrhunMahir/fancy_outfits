@@ -1,12 +1,14 @@
 // Global settings (day length, volumes, screen shake). Persisted outside the run.
+import { useState } from "react";
 import { settings } from "../game/settings.js";
-import { closeSettings, updateSetting } from "../game/engine.js";
+import { closeSettings, updateSetting, restartRun } from "../game/engine.js";
 
 const DAYS=[60,75,90];
 const VOL=[0,0.5,1];
 const volLabel=v=>v<=0?"OFF":v<1?"LOW":"FULL";
 
 export default function SettingsOverlay(){
+  const [armed,setArmed]=useState(false);
   return (
     <div className="overlay">
       <div className="box panel">
@@ -42,6 +44,13 @@ export default function SettingsOverlay(){
             <button className={"btn small"+(settings.shake?" on":"")} onClick={()=>updateSetting("shake",true)}>ON</button>
             <button className={"btn small"+(!settings.shake?" on":"")} onClick={()=>updateSetting("shake",false)}>OFF</button>
           </div>
+        </div>
+        <div className="setrow">
+          <div className="kv">RESTART — wipe this save slot, back to the title screen:</div>
+          <button className={"btn small"+(armed?" bold":"")}
+                  onClick={()=>{ if(armed) restartRun(); else setArmed(true); }}>
+            {armed?"SURE? THIS CAREER ENDS NOW.":"RESTART RUN"}
+          </button>
         </div>
         <div className="opts" style={{marginTop:12}}><button className="btn" onClick={closeSettings}>BACK TO BILLING</button></div>
       </div>

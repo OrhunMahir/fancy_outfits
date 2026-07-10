@@ -1,6 +1,8 @@
 // All difficulty/economy tuning lives here (see CLAUDE.md §9).
 export const RANKS=["Junior Associate","Senior Associate","Junior Partner","Senior Partner","NAME PARTNER"];
-export const RANK_REQ=[30,55,80,95]; // influence needed for next rank (95: the INF cap is 100, one bad day shouldn't wall off the finale)
+export const RANK_REQ=[35,60,85,95]; // influence needed for next rank (95: the INF cap is 100, one bad day shouldn't wall off the finale)
+export const INF_EARN=0.6;   // global multiplier on case INF rewards (balance v15.1: wins pile up too fast at 1.0)
+export const INF_DECAY=[1,1,2,2,2]; // nightly INF fade by rank — influence evaporates upward
 export const DAY_HOURS=8;          // the fictional workday: 09:00 -> 17:00
 export const TIER_HOURS=[1,2,3];   // resolving a file costs hours by complexity (tier)
 export const DELEGATE_HOURS=.5;    // handing a file off is quick

@@ -2,7 +2,7 @@
 // Rules (CLAUDE.md §5): stats change ONLY through apply(); after mutating S,
 // call notify() so React re-renders. Pause is derived — no S.paused flag.
 import { S, setS, notify, newState } from "./state.js";
-import { RANKS, RANK_REQ, DAY_HOURS, TIER_HOURS, DELEGATE_HOURS,
+import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DAY_HOURS, TIER_HOURS, DELEGATE_HOURS,
          OVERTIME_HOURS, OVERTIME_FATIGUE, FATIGUE_REST, REP_FIRED, DEADLINE_PENALTY,
          STAKE_REWARD, STAKE_PENALTY, PRICES, SAVE_KEY, STATS_KEY,
          WEEK_LEN, REVIEW_GOOD, REVIEW_BAD, BUYIN_COST, FIRM_COLLAPSE,
@@ -81,7 +81,7 @@ function newObjective(){
   S.today={resolved:0,wins:0,safeUsed:0,aggWin:0,delegated:0,moneyGained:0};
   const keys=Object.keys(OBJ_DEFS).filter(k=>!(OBJ_DEFS[k].rank>S.rank));
   const k=rnd(keys);
-  S.objective={tid:k, ...OBJ_DEFS[k].make(), reward:rnd([{inf:6},{inf:8},{rep:5},{firm:5},{inf:4,rep:3}])};
+  S.objective={tid:k, ...OBJ_DEFS[k].make(), reward:rnd([{inf:4},{inf:5},{rep:4},{firm:4},{inf:3,rep:2}])};
   log("TODAY'S GOAL: "+OBJ_DEFS[k].desc(S.objective)+" ("+rewardTxt(S.objective.reward)+")","sys");
 }
 export function objectiveInfo(){
@@ -131,6 +131,7 @@ export function chance(o,c){
   if(S.scenario==="defector"&&!o.safe&&c&&/Snidely Fitch/.test((c.body||"")+(c.title||""))) p+=8;
   // respect: a low-rep associate gets no benefit of the doubt
   if(!o.safe){
+    p-=4; // opposing counsel exists (balance v15.1: risky plays were too free)
     if(S.rep<30) p-=12; else if(S.rep>70) p+=5;
     p-=S.rank*2; // higher rank, higher stakes, sharper opponents
     p-=Math.round(S.fatigue*.15); // exhaustion dulls the blade (up to -15)
@@ -166,7 +167,7 @@ export const wallTime=()=>{
 /* the hierarchy asks for coffee: bosses interrupt your day with chores */
 function maybeDemand(){
   if(!S||S.over||S.event||S.summary||S.hours<=0.5) return;
-  if(rand()>=.1) return;
+  if(rand()>=.14) return;
   const d=buildDemand(S.rank);
   if(d){ SFX.open(); S.event=d; notify(); }
 }
@@ -221,7 +222,7 @@ export function startGame(sc,diff,mode){
   if(sc==="legacy"){ const nc=signClient(); if(nc) log("A family friend parks the "+nc.name+" account with you. Nepotism has perks.","sys"); }
   else if(sc==="defector"){ const nc=signClient(); if(nc) log("You didn't leave Snidely Fitch empty-handed: "+nc.name+" came with you.","sys"); }
   else log("Zero clients on your book. Win loudly — they'll find you.","sys");
-  drawCases(2);
+  drawCases(3);
   newObjective();
   sitDown(); startAmbience(); saveGame(); notify();
 }
@@ -271,13 +272,19 @@ function spawnFollowups(){
   });
 }
 
-/* higher rank = higher stakes: rewards scale up, failures scale up FASTER.
+/* higher rank = higher stakes: FEES scale up, failures scale up FASTER.
+   Balance v15.1: the reward multiplier applies to money/bold only — INF is
+   instead globally damped (INF_EARN), so climbing doesn't snowball influence.
    Applied to a deep copy at draw time (promotion doesn't retro-scale open files). */
 function scaleStakes(inst){
   const r=S.rank; inst.stakes=r;
-  if(!r) return inst;
-  const mul=fx=>{ if(!fx) return; for(const k of ["rep","bold","inf","money","firm"])
-    if(fx[k]) fx[k]=Math.round(fx[k]*(fx[k]>0?STAKE_REWARD[r]:STAKE_PENALTY[r])); };
+  const mul=fx=>{ if(!fx) return;
+    for(const k of ["rep","bold","inf","money","firm"]){
+      if(!fx[k]) continue;
+      if(fx[k]<0){ if(r) fx[k]=Math.round(fx[k]*STAKE_PENALTY[r]); continue; }
+      if(k==="inf") fx[k]=Math.max(1,Math.round(fx[k]*INF_EARN));
+      else if((k==="money"||k==="bold")&&r) fx[k]=Math.round(fx[k]*STAKE_REWARD[r]);
+    }};
   inst.opts.forEach(o=>{ mul(o.ok&&o.ok.fx); mul(o.fail&&o.fail.fx); });
   return inst;
 }
@@ -313,7 +320,7 @@ export function endDay(){
   const lines=[];
   lines.push("Day "+S.day+" closed at "+RANKS[S.rank]+".");
   if(missed.length) lines.push(missed.length+" deadline(s) missed ("+DEADLINE_PENALTY+" REP each).");
-  lines.push("The firm forgets fast: -1 REP overnight.");
+  lines.push("The firm forgets fast: -1 REP, -"+INF_DECAY[S.rank]+" INFL overnight.");
   // sleep: base recovery + a bonus for every hour you DIDN'T bill
   const rested=Math.min(S.fatigue,Math.round(FATIGUE_REST+leftover*3));
   if(S.fatigue>0) lines.push("Sleep: -"+rested+" FATIGUE."+(leftover>=2?" Leaving early helped.":S.otToday?" Overtime did not.":""));
@@ -373,13 +380,13 @@ export function endDay(){
       if(S.day>=15) ach("day15");
       nemesisGain(rnd([0,1,1,2,2,3])); // he grinds nights too
       if(S.over) return;
-      apply({rep:-1},true); // the firm forgets fast
+      apply({rep:-1,inf:-INF_DECAY[S.rank]},true); // the firm forgets fast — and influence evaporates upward
       if(S.over) return;
       S.inbox.filter(c=>c.pending&&c.pending.day<=S.day).forEach(resolveDelayed);
       S.inbox.filter(c=>c.delegated&&c.delegated.day<=S.day).forEach(resolveDelegated);
       spawnFollowups();
-      drawCases(1+(rand()<.6?1:0));
-      if(rand()<.3&&!S.inbox.some(c=>c.favor)) spawnFavor();
+      drawCases(2+(rand()<.6?1:0)+(S.rank>=2&&rand()<.5?1:0)); // partners get buried
+      if(rand()<.35&&!S.inbox.some(c=>c.favor)) spawnFavor();
       if(rand()<.18) marvMoment();
       rosterTick(); litigationTick();
       // low rep = casual disrespect

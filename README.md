@@ -28,6 +28,19 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v15.1 — Balance pass: the easy career is over *(2026-07-10)*
+- **The workload is real now:** 3 files on day one, 2–4 every morning (partners get buried),
+  more favors (35%) and more boss chores (14%) — the 8-hour day finally runs out, and
+  overtime/fatigue stop being theoretical.
+- **Influence slowed down** (runs were ending in ~10 days):
+  - all case INF rewards globally damped (×0.6),
+  - rank-scaling no longer inflates INF — higher rank now scales **fees and fallout**, not
+    influence (`STAKES ×1.3 fees / ×1.6 fallout`),
+  - influence **decays nightly** (−1, −2 at partner level) — yesterday's win is yesterday's news,
+  - promotion thresholds raised to 35/60/85/95, daily-goal rewards trimmed.
+- **Picking the highest odds is no longer free:** every non-safe play takes a flat −4
+  (opposing counsel exists), stacking with rank pressure and fatigue.
+
 ### v15 — The 8-hour workday: hours, overtime & fatigue *(2026-07-10)*
 - **The real-time countdown is gone.** The day is now a fictional workday, 09:00 → 17:00
   (6/8/10h in settings). Reading is free; DOING costs hours by complexity: errands 1h, real

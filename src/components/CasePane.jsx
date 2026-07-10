@@ -29,7 +29,7 @@ export default function CasePane(){
         </div>}
         <div style={{marginTop:8,fontSize:8}}>
           DEADLINE: DAY {c.dueDay} · TIME: {hoursFor(c)}h
-          {c.stakes>0 && <> · STAKES ×{STAKE_REWARD[c.stakes]} win / ×{STAKE_PENALTY[c.stakes]} loss</>}
+          {c.stakes>0 && <> · STAKES ×{STAKE_REWARD[c.stakes]} fees / ×{STAKE_PENALTY[c.stakes]} fallout</>}
           {c.dossier && <> · DOSSIER ATTACHED (+12%)</>}
         </div>
       </div>

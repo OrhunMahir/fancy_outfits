@@ -134,7 +134,13 @@
 - **Patron angaryaları (`buildDemand`, npcs.js):** istekler SADECE üst rütbeden gelir (BOSSES rank>playerRank filtresi — rank 3+'ta kimse kahve isteyemez, rank 4'te null). Aksiyon sonrası %10 (`maybeDemand`, saat>0.5 iken). Kabul: `o.hours/o.fatigue` maliyeti + 2 INF; ret: −3 REP; "stajyeri gönder" kumarı (45%). Kriz seçeneklerinde `hours/fatigue` alanlarını `resolveCrisis` işler.
 - **PAUSE kaldırıldı** (sayaç yokken anlamı yok): buton, PauseOverlay.jsx ve pauseGame/resumeGame silindi. `isPaused` UI-gating için duruyor.
 
-**En son çalışılan konu (2026-07-10):** v1.5 tarayıcıda uçtan uca test edildi (saat maliyetleri, duvar saati, mesai döngüsü, yorgunluk cezası/uykusu, angarya kabul-ret, hiyerarşi filtresi, save roundtrip). Sıradaki onaylı işler: NPC hikâyeleri, rakiple etkileşim, hakim hafızası; sonra mobil (layout + Capacitor).
+**v1.5.1 eklendi (2026-07-10, kullanıcı şikayeti: "çok kolay, 10-11 günde bitiyor, saatler hiç bitmiyor, hep en yüksek şanslıyı seçmek yetiyor"):**
+- **İş yükü:** gün 1'de 3 dosya; sabahları `2+(60%?1)+(rank≥2&&50%?1)` → 2-4 dosya; favor %30→35, angarya %10→14. Saat bütçesi artık gerçekten zorlanıyor.
+- **INF ekonomisi:** `INF_EARN=0.6` — TÜM dava INF ödülleri instantiate'te ×0.6 (min 1, `scaleStakes` içinde); `STAKE_REWARD` artık SADECE money/bold'u büyütür (INF snowball'u kırıldı; dosyada "×a fees / ×b fallout"); gece INF çürümesi `INF_DECAY=[1,1,2,2,2]` (rütbeye göre); `RANK_REQ=[35,60,85,95]`; günlük hedef ödülleri {inf:4}/{inf:5}/{rep:4}/{firm:4}/{inf:3,rep:2}.
+- **Risksiz spam kırıldı:** `chance()`'te safe olmayan HER seçeneğe global −4 ("opposing counsel exists") — rütbe baskısı ve yorgunlukla üst üste biner.
+- Krizler/favorlar/angaryalar INF ölçeklemesinden MUAF (instantiate edilmezler) — büyük INF artık bilinçli risklerden gelir.
+
+**En son çalışılan konu (2026-07-10):** v1.5.1 balance pass tarayıcıda doğrulandı (şans −4, INF ×0.6, rank2'de para ×1.3/INF sabit/ceza ×1.6, gece −1 INF, iş yükü). Hedef tempo ~18-25 gün — kullanıcının oynayıp geri bildirmesi bekleniyor; sayılar tuning'e açık. Sıradaki onaylı işler: NPC hikâyeleri, rakiple etkileşim, hakim hafızası; sonra mobil.
 
 ---
 
@@ -268,12 +274,15 @@ function chance(o,c){
     if(o.style==="technical")  p+=j.book/5;
   }
   if(!o.safe){
+    p-=4;                                           // v1.5.1: global risk vergisi
     if(S.rep<30) p-=12; else if(S.rep>70) p+=5;     // saygı sistemi
     p-=S.rank*2;                                    // rütbe baskısı
+    p-=Math.round(S.fatigue*.15);                   // yorgunluk (tavan −15)
   }
   return Math.round(clamp(p,5,95));
 }
 ```
+(Gerçek fonksiyonda ayrıca: kriz modifieri, dedektif dosyası +12, Defector'ın Fitch bonusu +8 — engine.js'e bak.)
 
 **Dava/seçenek veri şeması (AI üretimi de buna uyacak):**
 ```js
@@ -328,7 +337,7 @@ if(S.scenario==="legacy"){
 - **RNG kuralı (v1.1):** Oyun mantığında `Math.random` YASAK — `utils.js`'ten `rand()`/`rnd()` kullan (daily modun determinizmi buna bağlı). Tek istisna `sound.js`.
 - **Rakip (nemesis):** İsimli associate seninle yarışır; gece + senin fail'lerinden INF kazanır, önce Name Partner olursa `OUTPACED` game over (`nemesisGain`, engine.js).
 - **Ayarlar (`settings.js`):** run save'inden AYRI global tercihler (`fo_settings_v1`): dayLen 60/75/90, sfx/bgm ses seviyesi, ekran sarsıntısı. Sound bunları okur.
-- **Ekonomi/zorluk sabitleri:** `DAY_HOURS=8` (+`TIER_HOURS=[1,2,3]`, `DELEGATE_HOURS=.5`, `OVERTIME_HOURS=2`, `OVERTIME_FATIGUE=12`, `FATIGUE_REST=22`), `REP_FIRED=20`, `DEADLINE_PENALTY=-9`, `RANK_REQ=[30,55,80,95]`, kriz olasılığı `.6`, ikinci günlük dava olasılığı `.6`, gece REP çürümesi `-1`, Debtor taksiti `$2000/3 gün`, `STAKE_REWARD=[1,1.15,1.3,1.45,1.6]`, `STAKE_PENALTY=[1,1.3,1.6,1.9,2.2]`, `PRICES={suit:1200(×1.5 artar), detective:900, marv:600}`, `WEEK_LEN=5`, `REVIEW_GOOD=10`, `REVIEW_BAD=0`.
+- **Ekonomi/zorluk sabitleri:** `DAY_HOURS=8` (+`TIER_HOURS=[1,2,3]`, `DELEGATE_HOURS=.5`, `OVERTIME_HOURS=2`, `OVERTIME_FATIGUE=12`, `FATIGUE_REST=22`), `REP_FIRED=20`, `DEADLINE_PENALTY=-9`, `RANK_REQ=[35,60,85,95]`, `INF_EARN=0.6`, `INF_DECAY=[1,1,2,2,2]`, kriz olasılığı `.6`, gece REP çürümesi `-1`, Debtor taksiti `$2000/3 gün`, `STAKE_REWARD=[1,1.15,1.3,1.45,1.6]`, `STAKE_PENALTY=[1,1.3,1.6,1.9,2.2]`, `PRICES={suit:1200(×1.5 artar), detective:900, marv:600}`, `WEEK_LEN=5`, `REVIEW_GOOD=10`, `REVIEW_BAD=0`.
 - **Inventory:** Hâlâ yok ama para artık harcanabiliyor (EXPENSES: suit/Marv; dosya başına dedektif).
 
 ---

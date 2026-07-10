@@ -2,6 +2,10 @@
 
 *A pixel-art legal drama sim. Read the file. Pick your line. Don't get HENDERED.*
 
+> **⚠️ License:** Source available for **viewing only** — this is **not** open source.
+> All rights reserved; no use, copying, redistribution or derivative works without
+> written permission. See [LICENSE](LICENSE).
+
 You're a lawyer (maybe) at **Parson Henderson LLP**. Case files land in your inbox on a real-time
 day clock; the winning argument is usually hiding somewhere in the text. Safe options never fail
 but drain your Boldness; bluffs pay big and burn Reputation when they collapse. Climb from Junior

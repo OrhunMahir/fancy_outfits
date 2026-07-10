@@ -389,6 +389,7 @@ if(S.scenario==="legacy"){
 | NPC traitleri gizli başlar, her run'da 4 traitin her birinden bir tane | Keşif oynanışı + her run'da "Traitor kim?" gerilimi | Tuning serbest; gizlilik mekaniği korunmalı |
 | ~~PAUSE ekranı masayı kapatır~~ → v1.5'te PAUSE tamamen kaldırıldı | Gerçek zamanlı sayaç gidince pause anlamsızlaştı; okuma baskısının yerini saat-bütçesi aldı | v1.5 kullanıcı kararı |
 | Zaman = aksiyon bütçesi, gerçek zamanlı sayaç DEĞİL (v1.5) | Kullanıcının açık isteği: kurgusal 8 saatlik mesai, iş başına saat maliyeti, mesai+yorgunluk döngüsü | Kullanıcı kararı; maliyet/yorgunluk sayıları tuning serbest |
+| Lisans: All Rights Reserved (LICENSE dosyası, 2026-07-10) — açık kaynak DEĞİL, "viewing only" | Kullanıcı Steam'e çıkacak; Apache/MIT gibi izin veren lisanslar bilinçli REDDEDİLDİ | Kullanıcı istemeden açık kaynak lisansına geçme |
 | Karakter yürüyüş animasyonu CSS keyframe (SVG `<g>` üzerinde), JS animasyon kütüphanesi yok | Bağımlılık yasağı + basitlik | Koru |
 | Zorluk = bilgi bulanıklığı, zar matematiği DEĞİL (v0.7) | Kullanıcı isteği; aralık merkezden kaymalı + stabil olmalı ki ortası/titremesi gerçek değeri sızdırmasın | Aralık genişlikleri (FUZZ) tuning serbest; "zar değişmez" ilkesi korunur |
 

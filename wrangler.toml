@@ -1,0 +1,9 @@
+# Cloudflare Workers config: serve the Vite build (dist/) as static assets.
+# No worker script needed — this is an assets-only deployment.
+name = "fancy-outfits"
+compatibility_date = "2025-06-01"
+
+[assets]
+directory = "./dist"
+# single-page app: unknown paths fall back to index.html
+not_found_handling = "single-page-application"

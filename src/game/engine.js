@@ -3,7 +3,8 @@
 // call notify() so React re-renders. Pause is derived — no S.paused flag.
 import { S, setS, notify, newState } from "./state.js";
 import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DAY_HOURS, TIER_HOURS, DELEGATE_HOURS,
-         OVERTIME_HOURS, OVERTIME_FATIGUE, FATIGUE_REST, REP_FIRED, DEADLINE_PENALTY,
+         OVERTIME_HOURS, OVERTIME_FATIGUE, FATIGUE_REST, SAFE_HOURS_MULT, TECH_HOURS_MULT,
+         COFFEE_RELIEF, COFFEE_FALLOFF, COFFEE_MIN, REP_FIRED, DEADLINE_PENALTY,
          STAKE_REWARD, STAKE_PENALTY, PRICES, SAVE_KEY, STATS_KEY,
          WEEK_LEN, REVIEW_GOOD, REVIEW_BAD, BUYIN_COST, FIRM_COLLAPSE,
          FIRE_HEAT, FIRE_HEAT_SENIOR, HEAT_DECAY, HEAT_MIN } from "./constants.js";
@@ -12,7 +13,7 @@ import { SFX, startAmbience, stopAmbience, applyBgmVolume } from "./sound.js";
 import { settings, setSetting } from "./settings.js";
 import { buildPool, JUDGES, crises, SCENARIOS } from "./content.js";
 import { genCase } from "./casegen.js";
-import { buildNpcs, buildRoster, buildDemand, delegationChance, relNpc, buildFavor, DELEGATE_WIN_TXT, DELEGATE_FAIL_TXT } from "./npcs.js";
+import { buildNpcs, buildRoster, buildDemand, buildStory, delegationChance, relNpc, buildFavor, DELEGATE_WIN_TXT, DELEGATE_FAIL_TXT } from "./npcs.js";
 import { buildLawsuit } from "./casegen.js";
 import { CLIENT_CAP, makeClient, buildGlobalEvent, buildDinnerEvent, PARTNERS } from "./clients.js";
 import { ACHIEVEMENTS, unlock } from "./achievements.js";
@@ -93,7 +94,8 @@ export function objectiveInfo(){
 
 /* ---------- case archive: every resolved file, what you played, how it went ---------- */
 function archiveCase(c,play,win,note,via){
-  S.archive.unshift({day:S.day, title:c.title, play, win, note:note||"", via:via||""});
+  S.archive.unshift({day:S.day, title:c.title, play, win, note:note||"", via:via||"",
+    body:c.body||"", judge:c.judge?c.judge.name:""}); // full details for the LOG viewer
 }
 
 /* effects: {rep,bold,inf,money,firm} */
@@ -134,13 +136,19 @@ export function chance(o,c){
     p-=4; // opposing counsel exists (balance v15.1: risky plays were too free)
     if(S.rep<30) p-=12; else if(S.rep>70) p+=5;
     p-=S.rank*2; // higher rank, higher stakes, sharper opponents
-    p-=Math.round(S.fatigue*.15); // exhaustion dulls the blade (up to -15)
+    p-=Math.round(S.fatigue*.25); // exhaustion dulls the blade (up to -25, v1.6)
   }
   return Math.round(clamp(p,5,95));
 }
 
 /* ---------- the fictional workday: hours are the currency of a day ---------- */
 export const hoursFor=c=>TIER_HOURS[c.tier||0];
+/* careful lawyering is SLOW lawyering: safe plays cost x1.5 hours, technical
+   x1.25 — the bluff is the only fast move in the building (v1.6) */
+export const optHours=(c,o)=>{
+  const m=o.safe?SAFE_HOURS_MULT:(o.style==="technical"?TECH_HOURS_MULT:1);
+  return Math.round(hoursFor(c)*m*4)/4;
+};
 function spendHours(h,f){
   S.hours=Math.round((S.hours-h)*4)/4;
   if(f) S.fatigue=clamp(S.fatigue+f,0,100);
@@ -385,7 +393,8 @@ export function endDay(){
       S.inbox.filter(c=>c.pending&&c.pending.day<=S.day).forEach(resolveDelayed);
       S.inbox.filter(c=>c.delegated&&c.delegated.day<=S.day).forEach(resolveDelegated);
       spawnFollowups();
-      drawCases(2+(rand()<.6?1:0)+(S.rank>=2&&rand()<.5?1:0)); // partners get buried
+      S.coffeeToday=0; // the espresso counter forgives overnight
+      drawCases(3+(rand()<.4?1:0)+(S.rank>=2&&rand()<.4?1:0)); // v1.6: the inbox does not respect you
       if(rand()<.35&&!S.inbox.some(c=>c.favor)) spawnFavor();
       if(rand()<.18) marvMoment();
       rosterTick(); litigationTick();
@@ -410,6 +419,11 @@ export function endDay(){
       if(!S.event&&rand()<.07){
         const ge=buildGlobalEvent(S.clients);
         if(ge){ SFX.crisis(); S.event=ge; S.runStats.crises++; }
+      }
+      // a colleague you've earned (rel 40+) may open a door — once per run each
+      if(!S.event){
+        const friend=S.npcs.find(n=>n.rel>=40&&!S.npcStories.includes(n.id));
+        if(friend){ const st=buildStory(friend); if(st){ S.npcStories.push(friend.id); SFX.open(); S.event=st; } }
       }
       clientAcquisition();
       newObjective();
@@ -485,14 +499,14 @@ export function choose(c,o){
     apply({money:-o.bribe},true);
   }
   const p=chance(o,c);
-  const cost=hoursFor(c);
+  const cost=optHours(c,o), toil=Math.round(cost*2+(o.safe?2:0)); // careful play grinds you down too
   if(o.delay){
     const win=rand()*100<p;
     c.pending={day:S.day+o.delay,win,o};
     trackChoice(c,o,win); SFX.send();
     log("Sent: '"+o.text+"' — response in "+o.delay+" day(s). ("+cost+"h)","sys");
     S.openCase=null;
-    spendHours(cost,cost*2);
+    spendHours(cost,toil);
     maybeDemand(); checkClock();
     saveGame(); notify(); return;
   }
@@ -517,7 +531,7 @@ export function choose(c,o){
     if(n&&d){ relNpc(n,d); log(n.name+(d>0?" will remember this. (+":" files this away. (")+d+" rel)",d>0?"good":"bad"); }
   }
   if(out.next) queueFollowup(out.next);
-  spendHours(cost,cost*2);
+  spendHours(cost,toil);
   checkPromotion();
   maybeDemand(); checkClock();
   saveGame(); notify();
@@ -671,6 +685,10 @@ export function resolveCrisis(o){
   const win=rand()*100<p, out=win?o.ok:o.fail;
   trackChoice(null,o,win);
   if(o.hours||o.fatigue) spendHours(o.hours||0,o.fatigue||0); // boss chores cost time and stamina
+  if(ev&&ev.npc){ // NPC story scenes move the relationship
+    const n=S.npcs.find(x=>x.id===ev.npc), d=win?(o.relOk||0):(o.relFail||0);
+    if(n&&d){ relNpc(n,d); log(n.name+(d>0?" won't forget this. (+":" recalibrates. (")+d+" rel)",d>0?"good":"bad"); }
+  }
   if(win){ SFX.win(); log("[CRISIS] "+out.txt,"good"); apply(out.fx); if(((out.fx&&out.fx.inf)||0)>=10) flash("HENDERED!"); }
   else { SFX.lose(); log("[CRISIS] "+out.txt,"bad"); apply(out.fx); apply({firm:-2},true); doShake(); nemesisGain(3,true); }
   if(out.client){ // global events move the client book
@@ -815,6 +833,25 @@ export function bribeMarv(){
   apply({money:-PRICES.marv});
   saveGame();
 }
+/* the firm's true fuel: each cup helps less, the third one mostly vibrates */
+export const coffeeRelief=()=>Math.max(COFFEE_MIN,COFFEE_RELIEF-COFFEE_FALLOFF*S.coffeeToday);
+export function buyCoffee(){
+  if(S.money<PRICES.coffee||S.fatigue<=0) return;
+  SFX.send();
+  const relief=coffeeRelief();
+  S.fatigue=clamp(S.fatigue-relief,0,100);
+  S.coffeeToday++;
+  log(rnd(S.coffeeToday===1?[
+    "Double espresso. The fog lifts. (-"+relief+" FATIGUE)",
+    "Coffee. The billable kind of magic. (-"+relief+" FATIGUE)"]
+  :S.coffeeToday===2?[
+    "Second cup. Less magic, more maintenance. (-"+relief+" FATIGUE)"]
+  :[
+    "Cup #"+S.coffeeToday+". Your left eye is billing independently. (-"+relief+" FATIGUE)"]),"sys");
+  apply({money:-PRICES.coffee},true);
+  saveGame();
+}
+
 export function hireDetective(c){
   if(!c||c.dossier||c.msg||S.money<PRICES.detective) return;
   SFX.send();

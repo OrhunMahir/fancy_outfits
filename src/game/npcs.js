@@ -72,6 +72,52 @@ export function buildRoster(npcs,nemesis){
   return R;
 }
 
+/* ---------- NPC stories: earn rel 40+ and a colleague opens a door ----------
+   One scene per NPC per run (S.npcStories). Options carry relOk/relFail —
+   resolveCrisis applies them via the event's npc field. */
+const STORIES={
+  dana:n=>({id:"story_dana",npc:n.id,story:true,title:"DANA'S LEDGER",
+    body:"After hours, Dana Paulsen sets a worn black notebook on your desk. 'Every favor, every sin, every partner. Fifteen years.' She opens it to a single page and slides it toward you. 'You've earned one page. Choose what you do with it.'",
+    opts:[
+      {text:"Read the page. Knowledge is billable.",base:100,safe:true,relOk:6,
+        ok:{fx:{inf:6},txt:"You read it twice and say nothing. Dana approves of people who say nothing."}},
+      {text:"Close the book. Some doors stay closed.",base:100,safe:true,relOk:10,
+        ok:{fx:{rep:3,bold:-2},txt:"'Interesting,' she says, almost warm. 'You're the first one who didn't look.'"}},
+      {text:"Ask for Hardwick's page instead.",base:45,boldW:2,style:"aggressive",relOk:4,relFail:-10,
+        ok:{fx:{inf:10,bold:4},txt:"She hesitates. Then turns to H. What you learn reorganizes your entire career plan."},
+        fail:{fx:{rep:-5},txt:"The notebook closes with a sound like a verdict. 'Too far. Even for you.'"}}]}),
+  raquel:n=>({id:"story_raquel",npc:n.id,story:true,title:"RAQUEL'S SECRET",
+    body:"Raquel Lane closes your office door. 'I passed the bar. Eight months ago. Night school.' She's been doing associate work at paralegal pay while the partners look through her. 'You're the only one who treats my research like it has a name on it. Walk me into that meeting.'",
+    opts:[
+      {text:"Walk her into Hardwick's office yourself.",base:60,style:"technical",relOk:14,relFail:-4,
+        ok:{fx:{rep:6,inf:5},txt:"Hardwick reads her memo, looks up: 'Whose desk is free?' You made an ally for life."},
+        fail:{fx:{rep:-4},txt:"'We're not hiring inward,' says Hardwick, not reading it. Raquel doesn't blame you. That's worse."}},
+      {text:"Advise patience — timing is everything here.",base:100,safe:true,relOk:4,
+        ok:{fx:{bold:-2},txt:"She nods slowly. Patience. The word tastes like paralegal pay."}},
+      {text:"Keep her secret — and keep 'borrowing' her research.",base:100,safe:true,relOk:-8,
+        ok:{fx:{inf:4},txt:"Her memos keep making you look sharp. She starts CC'ing herself. Noted."}}]}),
+  harold:n=>({id:"story_harold",npc:n.id,story:true,title:"HAROLD'S MIDNIGHT",
+    body:"Harold Gustavson appears at your desk at a terrible hour, holding a redweld like it's radioactive. 'I filed the Vance certificate in the wrong county. It's been eleven days. Discovery closes tomorrow.' His voice is doing something between whisper and prayer. 'You're the only one who won't laugh.'",
+    opts:[
+      {text:"Fix it with him. All night. (1.5h, +8 FATIGUE)",base:100,safe:true,hours:1.5,fatigue:8,relOk:14,
+        ok:{fx:{rep:3},txt:"Refiled, backdated legally (barely), survived. Harold would now walk into traffic for you."}},
+      {text:"Tell him to confess to Hardwick first thing.",base:100,safe:true,relOk:-4,
+        ok:{fx:{rep:2,bold:-2},txt:"Correct advice, coldly given. Harold survives the meeting. Something between you doesn't."}},
+      {text:"File it away as leverage. Every firm runs on debts.",base:100,safe:true,relOk:-14,
+        ok:{fx:{inf:7,bold:3},txt:"You say 'don't worry about it' in a way that makes Harold worry about it forever."}}]}),
+  katrina:n=>({id:"story_katrina",npc:n.id,story:true,title:"KATRINA'S OFFER",
+    body:"Katrina Bergman buys you a coffee without being asked, which is how you know something enormous is coming. 'I'm leaving. Eighteen months, my own shop, three clients already whispering.' She slides a napkin across: a name for the door. The second name is blank. 'I don't like most people. You bill honestly and lie well. Think about it.'",
+    opts:[
+      {text:"Shake on 'someday'. Mean it a little.",base:100,safe:true,relOk:10,
+        ok:{fx:{bold:5,inf:3},txt:"'Someday,' she repeats, filing it like a signed contract. Knowing Katrina, it is one."}},
+      {text:"Decline — your name's going on THIS wall.",base:100,safe:true,relOk:2,
+        ok:{fx:{bold:3,rep:2},txt:"She almost smiles. 'Good answer. Wrong, but good.'"}},
+      {text:"String her along and learn her client list.",base:40,boldW:2,style:"aggressive",relOk:-2,relFail:-16,
+        ok:{fx:{inf:8},txt:"Three coffees later you know her whole exit plan. She may know you know. Unclear."},
+        fail:{fx:{rep:-6},txt:"Katrina detects the angle mid-sentence. The temperature drops by a season."}}]}),
+};
+export const buildStory=n=>STORIES[n.id]?STORIES[n.id](n):null;
+
 /* ---------- boss chores: the hierarchy asks, gravity only pulls DOWN ----------
    Requesters always OUTRANK the player (a Senior Partner can send an associate
    for coffee; the reverse universe does not exist). Accept: time + fatigue,

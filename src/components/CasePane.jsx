@@ -1,6 +1,6 @@
 // Middle panel: the desk (tip text) or the open case file with its options.
 import { useGame } from "../game/useGame.js";
-import { displayChance, displayPct, choose, deferCase, delegateCase, hireDetective, hoursFor } from "../game/engine.js";
+import { displayChance, displayPct, choose, deferCase, delegateCase, hireDetective, hoursFor, optHours } from "../game/engine.js";
 import { delegationChance } from "../game/npcs.js";
 import { PRICES, STAKE_REWARD, STAKE_PENALTY } from "../game/constants.js";
 
@@ -28,7 +28,7 @@ export default function CasePane(){
           {c.judge.desc}
         </div>}
         <div style={{marginTop:8,fontSize:8}}>
-          DEADLINE: DAY {c.dueDay} · TIME: {hoursFor(c)}h
+          DEADLINE: DAY {c.dueDay} · BASE TIME: {hoursFor(c)}h (careful plays take longer)
           {c.stakes>0 && <> · STAKES ×{STAKE_REWARD[c.stakes]} fees / ×{STAKE_PENALTY[c.stakes]} fallout</>}
           {c.dossier && <> · DOSSIER ATTACHED (+12%)</>}
         </div>
@@ -36,7 +36,7 @@ export default function CasePane(){
       <div className="opts">
         {c.opts.map((o,i)=>{
           const pct=displayChance(o,c);
-          const label=[pct&&pct+" success", o.delay&&`reply in ${o.delay}d`, o.style].filter(Boolean).join(" · ");
+          const label=[pct&&pct+" success", optHours(c,o)+"h", o.delay&&`reply in ${o.delay}d`, o.style].filter(Boolean).join(" · ");
           return (
             <button key={i}
                     className={"btn"+(o.safe?" safe":o.style==="aggressive"?" bold":o.style==="bribe"?" bribe":"")}

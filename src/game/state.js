@@ -22,6 +22,8 @@ export function newState(scenario,difficulty){
     scenario, day:1, rank:0,
     // the fictional workday: hours remaining, overtime taken today, and how tired you are
     hours:settings.dayLen||DAY_HOURS, otHours:0, otToday:0, fatigue:0,
+    coffeeToday:0,  // each cup helps less; the third one mostly vibrates
+    npcStories:[],  // rel>=40 unlocks each colleague's story scene, once per run
     difficulty:difficulty||"easy", // easy | medium | hard | realistic — blurs INFO only, never the dice
     mode:"standard", dailyDate:null, // standard | ironman | endless | daily (set by startGame)
     endlessWon:false, runRecorded:false, // endless: win once, keep billing; stats recorded once per run

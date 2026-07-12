@@ -2,7 +2,7 @@ import { useGame } from "../game/useGame.js";
 import { REP_FIRED, RANK_REQ, RANKS, PRICES, BUYIN_COST, FIRM_COLLAPSE } from "../game/constants.js";
 import { CLIENT_CAP } from "../game/clients.js";
 import { SCENARIOS } from "../game/content.js";
-import { buySuit, bribeMarv, payBuyIn, objectiveInfo } from "../game/engine.js";
+import { buySuit, bribeMarv, buyCoffee, coffeeRelief, payBuyIn, objectiveInfo } from "../game/engine.js";
 
 export default function StatsPanel(){
   const S=useGame();
@@ -61,6 +61,11 @@ export default function StatsPanel(){
       </button>
       <button className="btn small spend" disabled={S.money<PRICES.marv} onClick={bribeMarv}>
         BRIBE MARV · ${PRICES.marv}<span className="chance">The copy room knows who everyone really is.</span>
+      </button>
+      <button className="btn small spend" disabled={S.money<PRICES.coffee||S.fatigue<=0} onClick={buyCoffee}>
+        DOUBLE ESPRESSO · ${PRICES.coffee}<span className="chance">
+          −{coffeeRelief()} FATIGUE{S.coffeeToday>0?" (cup #"+(S.coffeeToday+1)+" — diminishing returns)":". The firm's true fuel."}
+        </span>
       </button>
       <h2 style={{marginTop:10}}>THE FLOOR</h2>
       {S.npcs.map(n=>(

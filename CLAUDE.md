@@ -140,7 +140,13 @@
 - **Risksiz spam kırıldı:** `chance()`'te safe olmayan HER seçeneğe global −4 ("opposing counsel exists") — rütbe baskısı ve yorgunlukla üst üste biner.
 - Krizler/favorlar/angaryalar INF ölçeklemesinden MUAF (instantiate edilmezler) — büyük INF artık bilinçli risklerden gelir.
 
-**En son çalışılan konu (2026-07-10):** v1.5.1 balance pass tarayıcıda doğrulandı (şans −4, INF ×0.6, rank2'de para ×1.3/INF sabit/ceza ×1.6, gece −1 INF, iş yükü). Hedef tempo ~18-25 gün — kullanıcının oynayıp geri bildirmesi bekleniyor; sayılar tuning'e açık. Sıradaki onaylı işler: NPC hikâyeleri, rakiple etkileşim, hakim hafızası; sonra mobil.
+**v1.6 eklendi (2026-07-12, kullanıcı isteği):**
+- **NPC hikâyeleri (`STORIES`/`buildStory`, npcs.js):** rel≥40 olan ilk NPC'nin sahnesi ertesi sabah event olarak tetiklenir (run başına 1 kez, `S.npcStories`). 4 sahne: Dana'nın kara defteri, Raquel'in gizli baro sınavı, Harold'ın gece yarısı krizi (bir seçenek `hours/fatigue` maliyetli), Katrina'nın ortaklık teklifi. Seçeneklerdeki `relOk/relFail`'i `resolveCrisis` işler (`ev.npc` üzerinden).
+- **Kahve (`buyCoffee`, EXPENSES):** $120, azalan etki `COFFEE_RELIEF(14)−COFFEE_FALLOFF(6)×cupToday`, taban `COFFEE_MIN(2)`; `S.coffeeToday` her sabah sıfırlanır.
+- **Arşiv detayı:** `archiveCase` artık `body` + `judge` saklar; ArchiveOverlay satırları tıklanınca açılır (▶/▼), dava metni + hakim + sonuç gösterir.
+- **Balance sertleşmesi:** yorgunluk cezası ×.15→×.25 (tavan −25); `FATIGUE_REST` 22→18; dava akışı sabah `3+(40%?1)+(rank≥2&&40%?1)` → 3-5; **dikkatli oyun yavaştır**: `optHours` — safe ×1.5 saat (+2 ekstra yorgunluk), technical ×1.25, aggressive ×1 (seçenek etiketlerinde saat maliyeti görünür; dosyada "BASE TIME").
+
+**En son çalışılan konu (2026-07-12):** v1.6 tarayıcıda test edildi (saat çarpanları 3/2.5/2h, yorgunluk −15@60, kahve 14/8/2, arşiv detayı, Dana hikâyesi tetiklenme/tek-seferlik/rel işleme). Sıradaki onaylı işler: rakiple etkileşim, hakim hafızası; sonra mobil.
 
 ---
 

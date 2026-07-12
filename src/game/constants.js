@@ -8,7 +8,10 @@ export const TIER_HOURS=[1,2,3];   // resolving a file costs hours by complexity
 export const DELEGATE_HOURS=.5;    // handing a file off is quick
 export const OVERTIME_HOURS=2;     // one overtime block
 export const OVERTIME_FATIGUE=12;  // ...and what it does to you
-export const FATIGUE_REST=22;      // overnight recovery (+3 per unspent hour — leave early, rest more)
+export const FATIGUE_REST=18;      // overnight recovery (+3 per unspent hour — leave early, rest more)
+// careful play is SLOW play: hour cost multipliers by approach (v1.6)
+export const SAFE_HOURS_MULT=1.5, TECH_HOURS_MULT=1.25;
+export const COFFEE_RELIEF=14, COFFEE_FALLOFF=6, COFFEE_MIN=2; // cup 1: -14, cup 2: -8, then -2 and jitters
 export const REP_FIRED=20;
 export const DEADLINE_PENALTY=-9;
 // rank-scaled stakes: rewards grow, failures grow FASTER (indexed by rank at draw time)
@@ -19,7 +22,7 @@ export const WEEK_LEN=5;
 export const REVIEW_GOOD=10; // week score >= this → praise (+4 REP +4 INFL)
 export const REVIEW_BAD=0;   // week score <= this → scolding (-4 REP)
 // money sinks
-export const PRICES={suit:1200, detective:900, marv:600};
+export const PRICES={suit:1200, detective:900, marv:600, coffee:120};
 // Junior Partner -> Senior Partner requires buying into the partnership
 export const BUYIN_COST=5000;
 // firm health (4th stat). Collapse only threatens a sitting Name Partner.

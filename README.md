@@ -28,6 +28,24 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v16 — NPC stories, espresso & the grind *(2026-07-12)*
+- **NPC stories:** earn a colleague's trust (rel 40+) and they open a door of their own —
+  once per run, each: *DANA'S LEDGER* (fifteen years of partners' sins, one page for you),
+  *RAQUEL'S SECRET* (she passed the bar eight months ago), *HAROLD'S MIDNIGHT* (the wrong
+  county, eleven days ago), *KATRINA'S OFFER* (a napkin with a blank second name). Choices
+  move the relationship hard in both directions.
+- **Espresso in EXPENSES** ($120): fatigue relief with diminishing returns — cup one −14,
+  cup two −8, after that −2 and your left eye starts billing independently. Counter resets
+  overnight.
+- **Case archive detail view:** click any entry in LOG to unfold the full case text, the
+  judge, and the outcome.
+- **The grind is real now (balance):**
+  - fatigue hits harder — risky plays lose up to **−25%** (was −15%), overnight recovery
+    trimmed to 18;
+  - **careful play is slow play**: safe options cost ×1.5 hours (+extra fatigue), technical
+    ×1.25 — the bluff is the only fast move in the building; every option shows its hour cost;
+  - more files: 3–5 cases land every morning.
+
 ### v15.1 — Balance pass: the easy career is over *(2026-07-10)*
 - **The workload is real now:** 3 files on day one, 2–4 every morning (partners get buried),
   more favors (35%) and more boss chores (14%) — the 8-hour day finally runs out, and

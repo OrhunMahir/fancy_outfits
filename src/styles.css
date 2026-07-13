@@ -80,8 +80,10 @@ h2{font-size:10px; color:var(--gold); margin-bottom:10px; border-bottom:2px soli
 .overlay{
   position:fixed; inset:0; background:rgba(15,15,27,.88); z-index:100;
   display:flex; align-items:center; justify-content:center; padding:20px;
+  overflow-y:auto;
 }
-.overlay .box{max-width:560px; width:100%;}
+/* boxes never exceed the screen — long content scrolls INSIDE the box */
+.overlay .box{max-width:560px; width:100%; max-height:calc(100vh - 48px); overflow-y:auto; margin:auto;}
 .flash{
   position:fixed; top:40%; left:50%; transform:translate(-50%,-50%) rotate(-4deg);
   font-size:26px; color:var(--gold); text-shadow:4px 4px 0 var(--red); z-index:200; pointer-events:none;

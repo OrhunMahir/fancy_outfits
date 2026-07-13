@@ -28,6 +28,11 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v16.1 — Overlay hotfix *(2026-07-12)*
+- Overlay boxes (the "i" panel included) are now capped to the screen height and scroll
+  internally — the info panel could previously grow past the viewport and trap you with
+  no reachable close button. Info text size trimmed slightly.
+
 ### v16 — NPC stories, espresso & the grind *(2026-07-12)*
 - **NPC stories:** earn a colleague's trust (rel 40+) and they open a door of their own —
   once per run, each: *DANA'S LEDGER* (fifteen years of partners' sins, one page for you),

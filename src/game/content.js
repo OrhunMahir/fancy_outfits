@@ -174,9 +174,9 @@ export function buildWeekend(){
     opts:[
       {text:"Sleep. Curtains closed. Phone in a drawer.",base:100,safe:true,fatigue:-30,
         ok:{fx:{},txt:"By Sunday evening you feel almost human. Almost. (-30 FATIGUE)"}},
-      {text:"Networking golf at Pinewood Glen. (-$200)",base:55,boldW:1,
-        ok:{fx:{money:-200,inf:5,rep:2},golf:true,txt:"Eighteen holes with people who matter. You now know a judge's handicap, swing, and weaknesses."},
-        fail:{fx:{money:-200,bold:-2},txt:"You lost eleven balls and the thread of every conversation. The club sends a lost-and-found invoice."}},
+      {text:"Networking golf at Pinewood Glen. (-$200, -10 FATIGUE)",base:55,boldW:1,fatigue:-10,
+        ok:{fx:{money:-200,inf:5,rep:2},golf:true,txt:"Eighteen holes with people who matter. You now know a judge's handicap, swing, and weaknesses. Fresh air helped, too."},
+        fail:{fx:{money:-200,bold:-2},txt:"You lost eleven balls and the thread of every conversation. The club sends a lost-and-found invoice. At least the sun was nice."}},
       {text:"Go to the office. The files miss you.",base:100,safe:true,hours:-2,fatigue:10,
         ok:{fx:{inf:1},txt:"You pre-read Monday's files in a silent building. +2h head start. The plants judge you."}}]};
 }

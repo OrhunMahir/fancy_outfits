@@ -42,7 +42,8 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 - **The weekend:** every Saturday after the Friday review, a choice card:
   - *Sleep* — curtains closed, −30 FATIGUE;
   - *Networking golf* (−$200, a gamble) — +INF, +REP, and the next court case arrives
-    **pre-read** (you know the judge's handicap AND their reasoning);
+    **pre-read** (you know the judge's handicap AND their reasoning). Win or lose, the fresh
+    air takes −10 FATIGUE off;
   - *Go to the office* — Monday starts with +2 hours, and +10 FATIGUE, and the plants judge you.
 
 ### v16.1 — Overlay hotfix *(2026-07-12)*

@@ -146,7 +146,15 @@
 - **Arşiv detayı:** `archiveCase` artık `body` + `judge` saklar; ArchiveOverlay satırları tıklanınca açılır (▶/▼), dava metni + hakim + sonuç gösterir.
 - **Balance sertleşmesi:** yorgunluk cezası ×.15→×.25 (tavan −25); `FATIGUE_REST` 22→18; dava akışı sabah `3+(40%?1)+(rank≥2&&40%?1)` → 3-5; **dikkatli oyun yavaştır**: `optHours` — safe ×1.5 saat (+2 ekstra yorgunluk), technical ×1.25, aggressive ×1 (seçenek etiketlerinde saat maliyeti görünür; dosyada "BASE TIME").
 
-**En son çalışılan konu (2026-07-12):** v1.6 tarayıcıda test edildi (saat çarpanları 3/2.5/2h, yorgunluk −15@60, kahve 14/8/2, arşiv detayı, Dana hikâyesi tetiklenme/tek-seferlik/rel işleme). Sıradaki onaylı işler: rakiple etkileşim, hakim hafızası; sonra mobil.
+**v1.7 eklendi (2026-07-12, kullanıcı isteği):**
+- **Rakip etkileşimi (engine):** StatsPanel RIVAL bloğunda hamleler — 2 günde 1 hamle (`S.rivalMoveDay`), saat maliyetli. SABOTAGE 1h: şans `50+(bold-40)/2−(grudge?10)`, başarı rakip INF −6/8/10; yakalanma −10 REP + `nemesis.grudge=true` (kalıcı). TRUCE 0.5h (%70): 4 gün pakt. ALLY 1h (şans `40+infFarkı`): 3 gün, her sabah İKİSİ de +1 INF; ret −4 REP. Pakt (`S.rivalPact`) aktifken `nemesisGain(fromFailure)` çalışmaz.
+- **Rakip misillemesi (`rivalTick`, sabah):** pakt yoksa %12 (+%8 grudge) — dosyan ya POACHED (inbox'tan gider, rakip +4 INF) ya TAMPERED (`c.tampered` → riskli seçenekler −6%, dosyada kırmızı uyarı).
+- **Hafta sonu kartı (`buildWeekend`, content.js):** her cumartesi sabahı ((day−1)%5===0) event: Sleep (−30 FATIGUE, `o.fatigue` negatif), Golf (−$200 kumar; ok'ta `golf:true` → `S.golfEdge` → SONRAKİ judge'lı dosya otomatik dossier), Office (+2h Pazartesi, +10 FATIGUE, `o.hours` negatif). Kriz bloğuna `!S.event` guard'ı eklendi (öncelik hafta sonunda).
+- FIX: content.js'e eksik `rnd` importu eklendi.
+
+**En son çalışılan konu (2026-07-12):** v1.7 tarayıcıda test edildi (sabotaj/ateşkes/cooldown, pakt koruması, tamper −6, hafta sonu kartı, rest −30, golfEdge tüketimi). Sıradaki: hakim hafızası; sonra mobil.
+
+**Aklında tut (kullanıcı onaylı bekleyenler):** hakim hafızası, mobil (layout+Capacitor), uzun vadeli müvekkil davaları (3 aşamalı büyük dava), FATIGUE 100 çöküş günü, ofis kişiselleştirme (SVG eşyalar), "The Boomerang" senaryosu, bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
 
 ---
 

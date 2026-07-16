@@ -11,7 +11,7 @@ import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DAY_HOURS, TIER_HOURS, DELEGATE_H
 import { clamp, rnd, rand, hash, setSeed, clearSeed } from "./utils.js";
 import { SFX, startAmbience, stopAmbience, applyBgmVolume } from "./sound.js";
 import { settings, setSetting } from "./settings.js";
-import { buildPool, JUDGES, crises, SCENARIOS } from "./content.js";
+import { buildPool, JUDGES, crises, SCENARIOS, buildWeekend } from "./content.js";
 import { genCase } from "./casegen.js";
 import { buildNpcs, buildRoster, buildDemand, buildStory, delegationChance, relNpc, buildFavor, DELEGATE_WIN_TXT, DELEGATE_FAIL_TXT } from "./npcs.js";
 import { buildLawsuit } from "./casegen.js";
@@ -38,6 +38,7 @@ function doShake(){ if(settings.shake) S.shakeSeq++; }
 /* the rival associate: your failures are his billable hours */
 function nemesisGain(v,fromFailure){
   const N=S.nemesis; if(!N||S.over||!v) return;
+  if(fromFailure&&S.rivalPact) return; // a pact means he doesn't feed on your stumbles
   N.inf=clamp(N.inf+v,0,100);
   if(fromFailure&&rand()<.25)
     pushMsg("FLOOR NEWS","Your lost file found a new desk. "+N.name+" sends 'sympathies'.");
@@ -49,6 +50,66 @@ function nemesisGain(v,fromFailure){
     pushMsg("FLOOR NEWS",N.name+" promoted to "+RANKS[N.rank]+". The floor compares résumés. Yours is quieter.");
     log(N.name+" outranks the room a little more.","bad");
     apply({rep:-3},true);
+  }
+}
+
+/* ---------- rival interaction: sabotage, truce, alliance — and payback ---------- */
+export const rivalOdds=()=>({
+  sab:clamp(50+Math.round((S.bold-40)/2)-(S.nemesis&&S.nemesis.grudge?10:0),20,85),
+  ally:clamp(40+(S.inf-(S.nemesis?S.nemesis.inf:0)),15,85),
+});
+export const rivalMoveReady=()=>!!(S.nemesis&&!S.rivalPact&&S.day>=S.rivalMoveDay&&!S.over);
+export function rivalSabotage(){
+  const N=S.nemesis; if(!rivalMoveReady()||S.hours<1) return;
+  SFX.send(); S.rivalMoveDay=S.day+2; spendHours(1,3);
+  if(rand()*100<rivalOdds().sab){
+    N.inf=clamp(N.inf-rnd([6,8,10]),0,100);
+    log("SABOTAGE: "+N.name+"'s exhibit binder is 'missing'. His week quietly collapses.","good");
+  } else {
+    N.grudge=true; nemesisGain(3);
+    log("SABOTAGE FAILED: a paralegal saw everything. The floor knows. "+N.name+" KNOWS.","bad");
+    apply({rep:-10}); doShake();
+  }
+  checkClock(); saveGame(); notify();
+}
+export function rivalTruce(){
+  const N=S.nemesis; if(!rivalMoveReady()||S.hours<0.5) return;
+  SFX.send(); S.rivalMoveDay=S.day+2; spendHours(0.5,1);
+  if(rand()*100<70){
+    S.rivalPact={type:"truce",until:S.day+4};
+    log("TRUCE: "+N.name+" shrugs. 'Four days. Then it's billing season again.' He won't feed on your failures.","sys");
+  } else log("TRUCE REFUSED: "+N.name+" laughs at a normal volume, which is worse.","bad");
+  checkClock(); saveGame(); notify();
+}
+export function rivalAlly(){
+  const N=S.nemesis; if(!rivalMoveReady()||S.hours<1) return;
+  SFX.send(); S.rivalMoveDay=S.day+2; spendHours(1,2);
+  if(rand()*100<rivalOdds().ally){
+    S.rivalPact={type:"ally",until:S.day+3};
+    log("ALLIANCE: three days of trading favors with "+N.name+". You both climb. Watch your back anyway.","sys");
+  } else { apply({rep:-4}); log("ALLIANCE REFUSED: "+N.name+" forwards your olive branch to the whole floor. Annotated.","bad"); }
+  checkClock(); saveGame(); notify();
+}
+/* his side of the war: pact upkeep, expiry, and file raids on YOUR inbox */
+export function rivalTick(){
+  const N=S.nemesis; if(!N||S.over) return;
+  if(S.rivalPact){
+    if(S.day>=S.rivalPact.until){ pushMsg("RIVAL","The "+S.rivalPact.type+" with "+N.name+" quietly expires. Business resumes."); S.rivalPact=null; }
+    else if(S.rivalPact.type==="ally"){ apply({inf:1},true); N.inf=clamp(N.inf+1,0,100); }
+    return;
+  }
+  if(rand()>= .12+(N.grudge?.08:0)) return;
+  const targets=S.inbox.filter(c=>!c.msg&&!c.pending&&!c.delegated&&!c.favor&&!c.suit);
+  if(!targets.length) return;
+  const t=rnd(targets);
+  if(rand()<.5){
+    S.inbox=S.inbox.filter(x=>x!==t); if(S.openCase===t) S.openCase=null;
+    N.inf=clamp(N.inf+4,0,100);
+    pushMsg("FILE POACHED","'Heard you were swamped.' "+N.name+" took the "+t.title+" file. Hardwick approved it. Smiling.");
+    log("RIVAL: "+N.name+" poached '"+t.title+"'.","bad");
+  } else {
+    t.tampered=true;
+    pushMsg("TAMPERED FILE","The "+t.title+" file came back from 'the copy room' with pages out of order. "+N.name+" walks past, whistling. (-6% on its risky plays)");
   }
 }
 
@@ -129,6 +190,7 @@ export function chance(o,c){
   }
   if(c&&c.crisisMod&&!o.safe) p+=c.crisisMod.v; // a Traitor leaked / a Brave ally shields (GDD §5-6)
   if(c&&c.dossier&&!o.safe) p+=12;              // detective's dossier on this file
+  if(c&&c.tampered&&!o.safe) p-=6;              // the rival reordered these pages
   // the Defector knows Snidely Fitch's playbook
   if(S.scenario==="defector"&&!o.safe&&c&&/Snidely Fitch/.test((c.body||"")+(c.title||""))) p+=8;
   // respect: a low-rep associate gets no benefit of the doubt
@@ -254,6 +316,10 @@ function drawCases(n){
 export function instantiateCase(c){
   const inst={...c, opts:JSON.parse(JSON.stringify(c.opts)),
     dueDay:S.day+c.deadline, judge:c.judge?rnd(JUDGES):null};
+  if(S.golfEdge&&inst.judge){ // weekend golf pays off: this judge is pre-read
+    inst.dossier=true; S.golfEdge=false;
+    log("Weekend golf pays off: you know exactly how "+inst.judge.name+" thinks. (dossier attached)","sys");
+  }
   if(inst.judge&&inst.judge.corrupt>=40){
     const cost=900+300*S.rank;
     inst.opts.push({text:"Invite the judge to 'discuss golf'. (-$"+cost+")",
@@ -397,7 +463,9 @@ export function endDay(){
       drawCases(3+(rand()<.4?1:0)+(S.rank>=2&&rand()<.4?1:0)); // v1.6: the inbox does not respect you
       if(rand()<.35&&!S.inbox.some(c=>c.favor)) spawnFavor();
       if(rand()<.18) marvMoment();
-      rosterTick(); litigationTick();
+      rosterTick(); litigationTick(); rivalTick();
+      // Saturday interlude: the morning after every Friday, the weekend asks what you did with it
+      if((S.day-1)%WEEK_LEN===0&&S.day>1){ SFX.bell(); S.event=buildWeekend(); }
       // low rep = casual disrespect
       if(disrespected()&&rand()<.5) pushMsg("FYI",rnd([
         "The partners' meeting you weren't told about went great, apparently.",
@@ -407,7 +475,7 @@ export function endDay(){
         "The intern got CC'd on your case. 'For oversight.'"]));
       // crisis? (a Traitor may leak your position; a loyal Brave shields you)
       const cs=crises();
-      if(cs.length&&rand()<.6){
+      if(!S.event&&cs.length&&rand()<.6){
         const c=rnd(cs); S.usedCrises.push(c.id); SFX.crisis();
         const traitor=S.npcs.find(n=>n.trait==="Traitor"&&n.rel<25);
         const brave=S.npcs.find(n=>n.trait==="Brave"&&n.rel>=40);
@@ -691,6 +759,7 @@ export function resolveCrisis(o){
   }
   if(win){ SFX.win(); log("[CRISIS] "+out.txt,"good"); apply(out.fx); if(((out.fx&&out.fx.inf)||0)>=10) flash("HENDERED!"); }
   else { SFX.lose(); log("[CRISIS] "+out.txt,"bad"); apply(out.fx); apply({firm:-2},true); doShake(); nemesisGain(3,true); }
+  if(out.golf) S.golfEdge=true; // the next court judge arrives pre-read
   if(out.client){ // global events move the client book
     if(out.client.lose) loseClient(out.client.lose);
     if(out.client.gain){

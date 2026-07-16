@@ -28,6 +28,23 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v17 — The rival fights back & the weekend *(2026-07-12)*
+- **Rival interaction:** the RIVAL panel now has moves (one attempt per 2 days, real hours):
+  - **SABOTAGE** (1h): his exhibit binder goes 'missing' — his influence drops. Get caught and
+    it's −10 REP, the whole floor knows, and he **holds a grudge** (harder sabotage, meaner
+    retaliation) for the rest of the run.
+  - **TRUCE** (0.5h): four days where he doesn't feed on your failures. Usually accepted.
+  - **ALLIANCE** (1h): three days of trading favors — you BOTH gain +1 INF each morning.
+    Odds depend on who's ahead; refusal gets your olive branch forwarded to the floor, annotated.
+- **He retaliates too:** no pact means mornings carry a chance he raids your inbox — a file
+  gets **POACHED** outright (he takes the credit) or **TAMPERED** (pages reordered, −6% on its
+  risky plays, marked in red on the file).
+- **The weekend:** every Saturday after the Friday review, a choice card:
+  - *Sleep* — curtains closed, −30 FATIGUE;
+  - *Networking golf* (−$200, a gamble) — +INF, +REP, and the next court case arrives
+    **pre-read** (you know the judge's handicap AND their reasoning);
+  - *Go to the office* — Monday starts with +2 hours, and +10 FATIGUE, and the plants judge you.
+
 ### v16.1 — Overlay hotfix *(2026-07-12)*
 - Overlay boxes (the "i" panel included) are now capped to the screen height and scroll
   internally — the info panel could previously grow past the viewport and trap you with

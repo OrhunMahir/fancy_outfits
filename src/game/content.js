@@ -3,6 +3,7 @@
 // { id, tier, title, deadline, judge?, body, opts:[
 //   { text, base, boldW?, style?, safe?, delay?, ok:{fx,txt}, fail:{fx,txt} } ] }
 import { S } from "./state.js";
+import { rnd } from "./utils.js";
 
 export function buildPool(){
   const P=[];
@@ -160,6 +161,24 @@ export function crises(){
       {text:"Attend and pitch them your own case strategy.",base:55,boldW:2,ok:{fx:{inf:10,rep:5},txt:"They interrupt you twice, then steal your idea. That's parental respect."},fail:{fx:{rep:-8},txt:"'Interesting.' The word echoes. Everyone saw the wince."}},
       {text:"Decline. You have actual work.",base:60,boldW:2,ok:{fx:{bold:6,rep:4},txt:"The firm respects it. Your parent, weirdly, respects it more."},fail:{fx:{inf:-6},txt:"Declining the name on the wall has a price. It's invoiced in silence."}}]});
   return C.filter(c=>c.cond()&&!S.usedCrises.includes(c.id));
+}
+
+/* the Saturday interlude: fires the morning after every Friday review.
+   rest = big fatigue wipe; golf = INF gamble + next judge pre-read; office = head start, tired. */
+export function buildWeekend(){
+  return {id:"weekend",weekend:true,title:"SATURDAY — THE WEEK RELEASES YOU",
+    body:"Five days of billing are behind you. The building exhales. Two days belong — theoretically — to you. "+
+      rnd(["Your phone is already lit with 'quick questions'.",
+           "Somewhere, a partner is drafting a Sunday-night email.",
+           "The espresso machine gets the weekend off. You might too."]),
+    opts:[
+      {text:"Sleep. Curtains closed. Phone in a drawer.",base:100,safe:true,fatigue:-30,
+        ok:{fx:{},txt:"By Sunday evening you feel almost human. Almost. (-30 FATIGUE)"}},
+      {text:"Networking golf at Pinewood Glen. (-$200)",base:55,boldW:1,
+        ok:{fx:{money:-200,inf:5,rep:2},golf:true,txt:"Eighteen holes with people who matter. You now know a judge's handicap, swing, and weaknesses."},
+        fail:{fx:{money:-200,bold:-2},txt:"You lost eleven balls and the thread of every conversation. The club sends a lost-and-found invoice."}},
+      {text:"Go to the office. The files miss you.",base:100,safe:true,hours:-2,fatigue:10,
+        ok:{fx:{inf:1},txt:"You pre-read Monday's files in a silent building. +2h head start. The plants judge you."}}]};
 }
 
 export const SCENARIOS={

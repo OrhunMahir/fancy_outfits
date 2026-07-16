@@ -2,7 +2,8 @@ import { useGame } from "../game/useGame.js";
 import { REP_FIRED, RANK_REQ, RANKS, PRICES, BUYIN_COST, FIRM_COLLAPSE } from "../game/constants.js";
 import { CLIENT_CAP } from "../game/clients.js";
 import { SCENARIOS } from "../game/content.js";
-import { buySuit, bribeMarv, buyCoffee, coffeeRelief, payBuyIn, objectiveInfo } from "../game/engine.js";
+import { buySuit, bribeMarv, buyCoffee, coffeeRelief, payBuyIn, objectiveInfo,
+         rivalSabotage, rivalTruce, rivalAlly, rivalMoveReady, rivalOdds, displayPct } from "../game/engine.js";
 
 export default function StatsPanel(){
   const S=useGame();
@@ -40,8 +41,23 @@ export default function StatsPanel(){
             <span style={{color:"var(--red)"}}>RIVAL: {S.nemesis.name.toUpperCase()}</span>
             <span style={{color:S.nemesis.inf>=S.inf?"var(--red)":"var(--grey)"}}>{S.nemesis.inf>=S.inf?"AHEAD":"behind"}</span>
           </div>
-          <div className="tagline">{RANKS[S.nemesis.rank]} · INF {S.nemesis.inf} vs your {S.inf}</div>
+          <div className="tagline">{RANKS[S.nemesis.rank]} · INF {S.nemesis.inf} vs your {S.inf}{S.nemesis.grudge?" · HOLDS A GRUDGE":""}</div>
           <div className="bar" style={{marginTop:3}}><div className="fill" style={{width:S.nemesis.inf+"%",background:"#b13e53"}}/></div>
+          {S.rivalPact
+            ? <div className="tagline" style={{color:"var(--gold)",marginTop:4}}>PACT: {S.rivalPact.type.toUpperCase()} until day {S.rivalPact.until}</div>
+            : !rivalMoveReady()&&!S.over
+              ? <div className="tagline" style={{marginTop:4}}>He's watching you. Next move: day {S.rivalMoveDay}.</div>
+              : (
+                <div className="diffrow" style={{marginTop:5}}>
+                  <button className="btn small bold" disabled={S.hours<1} onClick={rivalSabotage}>
+                    SABOTAGE{displayPct(rivalOdds().sab,"rival|sab")?" "+displayPct(rivalOdds().sab,"rival|sab"):""} · 1h
+                  </button>
+                  <button className="btn small" disabled={S.hours<0.5} onClick={rivalTruce}>TRUCE · 0.5h</button>
+                  <button className="btn small safe" disabled={S.hours<1} onClick={rivalAlly}>
+                    ALLY{displayPct(rivalOdds().ally,"rival|ally")?" "+displayPct(rivalOdds().ally,"rival|ally"):""} · 1h
+                  </button>
+                </div>
+              )}
         </div>
       )}
       <h2 style={{marginTop:10}}>CLIENTS ({S.clients.length}/{CLIENT_CAP(S.rank)})</h2>

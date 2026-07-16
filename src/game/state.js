@@ -41,7 +41,10 @@ export function newState(scenario,difficulty){
     followups:[], // multi-stage cases waiting to land: {day, case}
     weekStart:{inf:10, rep:50}, weekMissed:0, // Friday review baseline (reset every WEEK_LEN days)
     // the rival associate: gains INF nightly and from YOUR failures; name partner before you = game over
-    nemesis:{name:rnd(NEMESES), inf:10, rank:0},
+    nemesis:{name:rnd(NEMESES), inf:10, rank:0, grudge:false},
+    rivalPact:null,   // {type:"truce"|"ally", until:day} — pacts stop him feeding on your failures
+    rivalMoveDay:0,   // cooldown: one rival move attempt per 2 days
+    golfEdge:false,   // weekend golf: the next court case comes pre-read (dossier)
     marvBribes:0, // Marv remembers who pays — his lines and gifts depend on it
     // per-run ledger for the end-of-run breakdown
     runStats:{safe:0,bluffW:0,bluffL:0,techW:0,techL:0,deleg:{},bribeTry:0,bribeW:0,favorHelp:0,favorNo:0,miss:0,crises:0,fired:0},

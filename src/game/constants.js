@@ -24,6 +24,13 @@ export const REVIEW_GOOD=10; // week score >= this → praise (+4 REP +4 INFL)
 export const REVIEW_BAD=0;   // week score <= this → scolding (-4 REP)
 // money sinks
 export const PRICES={suit:1200, detective:900, marv:600, coffee:120};
+// office decor: one-time purchases, visible in the scene, small passive perks
+export const DECOR={
+  fish:    {cost:800,  name:"AQUARIUM",        desc:"Fish don't bill. Watching them: +3 overnight rest."},
+  art:     {cost:600,  name:"REAL ART",        desc:"Clients notice taste. +1 INFL every Friday."},
+  espresso:{cost:1500, name:"ESPRESSO MACHINE",desc:"Your own. Cups cost $40 instead of $120."},
+  monitor: {cost:700,  name:"SECOND MONITOR",  desc:"Two screens, fewer alt-tabs: every play -0.25h."},
+};
 // Junior Partner -> Senior Partner requires buying into the partnership
 export const BUYIN_COST=5000;
 // firm health (4th stat). Collapse only threatens a sitting Name Partner.

@@ -53,7 +53,7 @@ export default function CasePane(){
             HIRE DETECTIVE · ${PRICES.detective} (+12% on this file's risky plays)
           </button>
         )}
-        {S.rank>=1 && !c.judge && !c.favor && (
+        {(S.rank>=1||S.scenario==="boomerang") && !c.judge && !c.favor && (
           <div className="delg">
             <div className="kv">DELEGATE (0.5h) — they do the work, you own the fallout. Report tomorrow:</div>
             {S.npcs.map(n=>{

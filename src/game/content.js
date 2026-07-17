@@ -136,6 +136,12 @@ export function crises(){
       {text:"Draft the retention memo everyone expects.",base:100,safe:true,ok:{fx:{inf:2,bold:-3},txt:"Solid, forgettable, filed. Meridian stays. For now."}},
       {text:"Pitch Meridian yourself, off the books.",base:55,boldW:2,ok:{fx:{rep:8,inf:10},txt:"Meridian's GC likes 'the hungry one'. Hardwick pretends it was his idea. Fine."},fail:{fx:{rep:-9},txt:"Snidely Fitch forwards your pitch deck to Hardwick. With comments."}},
       {text:"Suggest poaching THEIR biggest client instead.",base:40,boldW:3,style:"aggressive",ok:{fx:{inf:12,bold:6},txt:"Mutually assured poaching. Both firms stand down. You get the credit."},fail:{fx:{rep:-10},txt:"'We don't start wars we can't bill,' says Hardwick, coldly."}}]});
+  C.push({id:"oldfile",title:"CRISIS: The Old File",cond:()=>S.scenario==="boomerang"&&S.day>=3,
+    body:"Someone pulled your termination file from archives and left photocopies in the break room. The reason you were fired — the REAL one — is suddenly lunch conversation. Hardwick rehired you anyway; now the floor wants to know what he knows.",
+    opts:[
+      {text:"Let it burn out. Old news ages fast.",base:100,safe:true,ok:{fx:{rep:-4,bold:-2},txt:"It fades. Mostly. 'Mostly' has a long tail in this building."}},
+      {text:"Pin the original firing on bad process — with receipts.",base:60,style:"technical",ok:{fx:{rep:9,inf:6},txt:"Your receipts beat their gossip. The narrative flips: you were RIGHT, and Hardwick knew it."},fail:{fx:{rep:-8},txt:"Read aloud at podium distance, your receipts sound like excuses."}},
+      {text:"Own it. Stand on a chair. Tell the WHOLE story.",base:40,boldW:3,style:"aggressive",ok:{fx:{bold:9,inf:8,rep:4},txt:"The floor expected shame; they got a keynote. Legend status: pending."},fail:{fx:{rep:-11},txt:"Halfway up the chair you remember the whole story isn't flattering."}}]});
   C.push({id:"audit",title:"CRISIS: Bar credentials audit",cond:()=>S.scenario==="fraud"&&S.day>=3,
     body:"The firm is running a routine bar-credentials audit. Yours would come back... creative. The auditor, coincidentally, is drowning in her own caseload and mentions she'd kill for help on a filing.",
     opts:[
@@ -185,5 +191,6 @@ export const SCENARIOS={
   fraud:{label:"THE FRAUD — you never went to law school",desc:"Photographic memory, zero diploma. Special exposure crises. Get caught: game over."},
   debtor:{label:"THE DEBTOR — $180k student loans",desc:"Pay $2,000 every 3 days. Miss a payment: game over. Chase the money options."},
   legacy:{label:"THE LEGACY — your parent's name is on the wall",desc:"Influence gains +25%, reputation losses +25%. Everyone assumes nepotism."},
-  defector:{label:"THE DEFECTOR — you jumped ship from Snidely Fitch",desc:"You know their playbook (+8% vs Fitch). They know where you live. Sabotage crises."}
+  defector:{label:"THE DEFECTOR — you jumped ship from Snidely Fitch",desc:"You know their playbook (+8% vs Fitch). They know where you live. Sabotage crises."},
+  boomerang:{label:"THE BOOMERANG — fired once, hired back",desc:"Everyone remembers why. Relationships start hostile, REP stained — but you know the building: delegate from DAY ONE, INF starts at 18."}
 };

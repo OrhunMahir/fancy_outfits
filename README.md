@@ -28,6 +28,20 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v18 — The Boomerang & office decor *(2026-07-12)*
+- **New scenario: THE BOOMERANG** — fired once, hired back. Every colleague starts at −25
+  relationship (they remember why), your REP starts stained at 42 — but you know the building:
+  **delegation works from day one**, INFLUENCE starts at 18, and Marv kept your mug (his gift
+  moments are active from the start). Special crisis: *The Old File* — photocopies of your
+  termination file appear in the break room; bury it with receipts, own it standing on a chair,
+  or let it burn out. Joins the DAILY rotation.
+- **Office decor:** four one-time purchases, all drawn into the pixel office, each with a small
+  passive perk:
+  - **AQUARIUM** ($800) — two salaried fish; +3 overnight rest.
+  - **REAL ART** ($600) — clients notice taste; +1 INFL every Friday.
+  - **ESPRESSO MACHINE** ($1,500) — your own; cups cost $40 instead of $120.
+  - **SECOND MONITOR** ($700) — fewer alt-tabs; every play costs −0.25h.
+
 ### v17.1 — Working into the dark *(2026-07-12)*
 - Pick a play that needs more hours than the day has left and the game now stops you:
   *"THE DAY IS ENDING — this play needs 3h, you have 2h. Finishing tonight means 1h into the

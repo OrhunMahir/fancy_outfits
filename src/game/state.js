@@ -37,6 +37,7 @@ export function newState(scenario,difficulty){
     money: scenario==="debtor" ? 3000 : 1500,
     debtDue: scenario==="debtor" ? 3 : null,
     suitCost:PRICES.suit, // each suit is fancier and pricier than the last
+    decor:{}, // owned office items (see DECOR in constants) — drawn into the scene
     inbox:[], pool:[], usedCrises:[], openCase:null, npcs:[],
     followups:[], // multi-stage cases waiting to land: {day, case}
     weekStart:{inf:10, rep:50}, weekMissed:0, // Friday review baseline (reset every WEEK_LEN days)

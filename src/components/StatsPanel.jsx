@@ -1,8 +1,8 @@
 import { useGame } from "../game/useGame.js";
-import { REP_FIRED, RANK_REQ, RANKS, PRICES, BUYIN_COST, FIRM_COLLAPSE } from "../game/constants.js";
+import { REP_FIRED, RANK_REQ, RANKS, PRICES, DECOR, BUYIN_COST, FIRM_COLLAPSE } from "../game/constants.js";
 import { CLIENT_CAP } from "../game/clients.js";
 import { SCENARIOS } from "../game/content.js";
-import { buySuit, bribeMarv, buyCoffee, coffeeRelief, payBuyIn, objectiveInfo,
+import { buySuit, bribeMarv, buyCoffee, buyDecor, coffeeRelief, coffeeCost, payBuyIn, objectiveInfo,
          rivalSabotage, rivalTruce, rivalAlly, rivalMoveReady, rivalOdds, displayPct } from "../game/engine.js";
 
 export default function StatsPanel(){
@@ -78,11 +78,19 @@ export default function StatsPanel(){
       <button className="btn small spend" disabled={S.money<PRICES.marv} onClick={bribeMarv}>
         BRIBE MARV · ${PRICES.marv}<span className="chance">The copy room knows who everyone really is.</span>
       </button>
-      <button className="btn small spend" disabled={S.money<PRICES.coffee||S.fatigue<=0} onClick={buyCoffee}>
-        DOUBLE ESPRESSO · ${PRICES.coffee}<span className="chance">
+      <button className="btn small spend" disabled={S.money<coffeeCost()||S.fatigue<=0} onClick={buyCoffee}>
+        DOUBLE ESPRESSO · ${coffeeCost()}<span className="chance">
           −{coffeeRelief()} FATIGUE{S.coffeeToday>0?" (cup #"+(S.coffeeToday+1)+" — diminishing returns)":". The firm's true fuel."}
         </span>
       </button>
+      <h2 style={{marginTop:10}}>OFFICE DECOR</h2>
+      {Object.entries(DECOR).map(([id,d])=>
+        (S.decor&&S.decor[id])
+          ? <div key={id} className="kv" style={{color:"var(--green)"}}>■ {d.name} — owned</div>
+          : <button key={id} className="btn small spend" disabled={S.money<d.cost} onClick={()=>buyDecor(id)}>
+              {d.name} · ${d.cost}<span className="chance">{d.desc}</span>
+            </button>
+      )}
       <h2 style={{marginTop:10}}>THE FLOOR</h2>
       {S.npcs.map(n=>(
         <div key={n.id} className="npcrow">

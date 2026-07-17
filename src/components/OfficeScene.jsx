@@ -8,7 +8,7 @@ import { useGame } from "../game/useGame.js";
 const W=320, H=64;
 const DOOR_X=4; // exit is on the left edge
 
-function buildScene(r,rep){
+function buildScene(r,rep,decor){
   const el=[];
   const rect=(x,y,w,h,f)=>el.push({t:"r",x,y,w,h,f});
   const text=(x,y,size,fill,str)=>el.push({t:"t",x,y,size,fill,str});
@@ -63,6 +63,21 @@ function buildScene(r,rep){
   if(r>=3){ rect(W-84,42,44,8,"#6b1f2e"); rect(W-80,50,6,6,"#0f0f1b"); rect(W-50,50,6,6,"#0f0f1b"); } // leather couch
   if(r>=3){ rect(28,46,14,4,"#8a7550"); rect(30,40,3,6,"#c9a227"); rect(35,41,3,5,"#c9a227"); } // whiskey cart
   if(r===4){ text(W/2,16,9,"#ffcd75","PARSON HENDERSON & YOU"); }
+  // purchased decor (see DECOR in constants) — your money, visibly spent
+  if(decor.fish){ // aquarium on a stand, two salaried fish
+    rect(46,50,16,6,"#4a3828"); rect(47,42,14,8,"#0f0f1b"); rect(48,43,12,6,"#1a3a5c");
+    rect(49,44,10,1,"#2c5f8a"); rect(50,46,2,2,"#ffcd75"); rect(55,47,2,2,"#e8734a");
+  }
+  if(decor.art){ // real art, in the gap between windows (every rank has this gap)
+    rect(87,9,14,12,"#5a4430"); rect(88,10,12,10,"#2c4870");
+    rect(90,12,4,3,"#e8a33d"); rect(94,15,4,3,"#b13e53"); rect(89,17,3,2,"#38b764");
+  }
+  if(decor.espresso){ // the personal machine, hissing like opposing counsel
+    rect(68,50,12,6,"#565b70"); rect(70,44,8,6,"#2a2a34"); rect(72,45,2,1,"#b13e53"); rect(76,46,1,3,"#8a8fa5");
+  }
+  if(decor.monitor){ // second monitor: twice the screens, twice the ignored email
+    rect(dx+dw/2+10,29,10,7,"#0f0f1b"); rect(dx+dw/2+11,30,8,5,"#38b764");
+  }
   // disrespect props
   if(rep<30){ rect(dx+dw-24,32,16,6,"#b0b0b0"); text(dx+dw-16,30,6,"#94b0c2","someone's lunch"); }
   return {el,chairX};
@@ -103,7 +118,7 @@ export default function OfficeScene(){
   const S=useGame();
   // during a promotion walk the room keeps the OLD rank until you're back at the desk
   const shownRank=S.sceneRank!=null?S.sceneRank:S.rank;
-  const {el:shapes,chairX}=buildScene(shownRank,S.rep);
+  const {el:shapes,chairX}=buildScene(shownRank,S.rep,S.decor||{});
   const walkDist=DOOR_X+6-chairX; // negative: door is to the left
   let cap=S.sceneRank!=null?"PROMOTED — packing up the old desk…":CAPS[shownRank];
   if(S.sceneRank==null&&S.rep<30) cap+=" · People 'forget' your name in meetings. (-12% on risky plays)";

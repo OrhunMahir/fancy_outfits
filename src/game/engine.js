@@ -5,7 +5,7 @@ import { S, setS, notify, newState } from "./state.js";
 import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DAY_HOURS, TIER_HOURS, DELEGATE_HOURS,
          OVERTIME_HOURS, OVERTIME_FATIGUE, LATE_FATIGUE, FATIGUE_REST, SAFE_HOURS_MULT, TECH_HOURS_MULT,
          COFFEE_RELIEF, COFFEE_FALLOFF, COFFEE_MIN, REP_FIRED, DEADLINE_PENALTY,
-         STAKE_REWARD, STAKE_PENALTY, PRICES, SAVE_KEY, STATS_KEY,
+         STAKE_REWARD, STAKE_PENALTY, PRICES, DECOR, SAVE_KEY, STATS_KEY,
          WEEK_LEN, REVIEW_GOOD, REVIEW_BAD, BUYIN_COST, FIRM_COLLAPSE,
          FIRE_HEAT, FIRE_HEAT_SENIOR, HEAT_DECAY, HEAT_MIN } from "./constants.js";
 import { clamp, rnd, rand, hash, setSeed, clearSeed } from "./utils.js";
@@ -209,7 +209,8 @@ export const hoursFor=c=>TIER_HOURS[c.tier||0];
    x1.25 — the bluff is the only fast move in the building (v1.6) */
 export const optHours=(c,o)=>{
   const m=o.safe?SAFE_HOURS_MULT:(o.style==="technical"?TECH_HOURS_MULT:1);
-  return Math.round(hoursFor(c)*m*4)/4;
+  const dual=S.decor&&S.decor.monitor?0.25:0; // second monitor: fewer alt-tabs
+  return Math.max(0.5,Math.round((hoursFor(c)*m-dual)*4)/4);
 };
 function spendHours(h,f){
   S.hours=Math.round((S.hours-h)*4)/4;
@@ -276,7 +277,7 @@ export function startGame(sc,diff,mode){
     const today=new Date().toISOString().slice(0,10);
     const h=hash("fo_daily_"+today);
     setSeed(h);
-    sc=["fraud","debtor","legacy","defector"][h%4]; diff="medium";
+    sc=["fraud","debtor","legacy","defector","boomerang"][h%5]; diff="medium";
     setS(newState(sc,diff)); S.dailyDate=today;
   } else { clearSeed(); setS(newState(sc,diff)); }
   S.mode=mode; S.slot=activeSlot;
@@ -286,6 +287,14 @@ export function startGame(sc,diff,mode){
   log("Welcome to Parson Henderson, "+RANKS[0]+".","sys");
   if(sc==="debtor") log("Loan payment: $2000 due day 3.","sys");
   if(sc==="defector") log("You know where Snidely Fitch buries the bodies. They know you know.","sys");
+  if(sc==="boomerang"){ // fired once, hired back: hostile floor, sharper start
+    S.rep=42; S.inf=18; S.marvBribes=1;
+    S.weekStart={inf:18,rep:42}; // Friday baseline matches the stained start
+    S.npcs.forEach(n=>{ n.rel=-25; });
+    log("Security badge reprinted. Same desk. The floor goes quiet when you pass.","sys");
+    log("You know this building better than anyone — you can DELEGATE from day one.","sys");
+    log("Marv kept your mug. Marv never doubted you.","sys");
+  }
   if(mode==="ironman") log("IRONMAN: no save. Close the game, lose the career.","sys");
   if(mode==="daily") log("DAILY CHALLENGE "+S.dailyDate+": same seed for everyone. No excuses.","sys");
   // clients are EARNED, not handed out — you start with an empty book...
@@ -396,7 +405,7 @@ export function endDay(){
   if(missed.length) lines.push(missed.length+" deadline(s) missed ("+DEADLINE_PENALTY+" REP each).");
   lines.push("The firm forgets fast: -1 REP, -"+INF_DECAY[S.rank]+" INFL overnight.");
   // sleep: base recovery + a bonus for every hour you DIDN'T bill
-  const rested=Math.min(S.fatigue,Math.round(FATIGUE_REST+leftover*3));
+  const rested=Math.min(S.fatigue,Math.round(FATIGUE_REST+leftover*3+(S.decor&&S.decor.fish?3:0)));
   if(S.fatigue>0) lines.push("Sleep: -"+rested+" FATIGUE."+(leftover>=2?" Leaving early helped.":S.otToday?" Overtime did not.":""));
   S.fatigue=clamp(S.fatigue-rested,0,100);
   // daily objective: bonus if met, a dry note if not (no penalty)
@@ -434,6 +443,7 @@ export function endDay(){
     if(ret){ apply({money:ret},true); lines.push("Retainers collected: +$"+ret+" ("+S.clients.length+" client(s))."); }
     else if(S.rank>=2){ apply({firm:-4},true); lines.push("A partner with zero clients. The firm bills the air. (-4 FIRM)"); }
     else lines.push("No retainers yet. The partners are watching your book.");
+    if(S.decor&&S.decor.art){ apply({inf:1},true); lines.push("A client lingered at your painting. Taste is billable. (+1 INFL)"); }
     lines.push("The weekend happens to other people. You reread depositions.");
     S.weekStart={inf:S.inf, rep:S.rep}; S.weekMissed=0;
   }
@@ -738,7 +748,7 @@ export function spawnFavor(){
 /* hand a case to a colleague (unlocks at Senior Associate; court cases excluded —
    you can't send a paralegal to argue a motion). Die is rolled now, revealed tomorrow. */
 export function delegateCase(c,npcId){
-  if(S.rank<1||c.judge||c.msg||c.pending||c.delegated||c.favor) return; // you can't delegate THEIR favor back at them
+  if((S.rank<1&&S.scenario!=="boomerang")||c.judge||c.msg||c.pending||c.delegated||c.favor) return; // boomerang knows the floor from day one
   const n=S.npcs.find(x=>x.id===npcId);
   SFX.send();
   const win=rand()*100<delegationChance(n);
@@ -924,8 +934,9 @@ export function bribeMarv(){
 }
 /* the firm's true fuel: each cup helps less, the third one mostly vibrates */
 export const coffeeRelief=()=>Math.max(COFFEE_MIN,COFFEE_RELIEF-COFFEE_FALLOFF*S.coffeeToday);
+export const coffeeCost=()=>S.decor&&S.decor.espresso?40:PRICES.coffee; // your own machine grinds cheaper
 export function buyCoffee(){
-  if(S.money<PRICES.coffee||S.fatigue<=0) return;
+  if(S.money<coffeeCost()||S.fatigue<=0) return;
   SFX.send();
   const relief=coffeeRelief();
   S.fatigue=clamp(S.fatigue-relief,0,100);
@@ -937,7 +948,24 @@ export function buyCoffee(){
     "Second cup. Less magic, more maintenance. (-"+relief+" FATIGUE)"]
   :[
     "Cup #"+S.coffeeToday+". Your left eye is billing independently. (-"+relief+" FATIGUE)"]),"sys");
-  apply({money:-PRICES.coffee},true);
+  apply({money:-coffeeCost()},true);
+  saveGame();
+}
+
+/* office decor: one-time purchases, visible in the scene, small passive perks */
+export function buyDecor(id){
+  const d=DECOR[id]; if(!d) return;
+  S.decor=S.decor||{};
+  if(S.decor[id]||S.money<d.cost) return;
+  SFX.send();
+  S.decor[id]=true;
+  log(rnd({
+    fish:["An aquarium arrives. Two fish. Zero billable hours between them. Perfect colleagues."],
+    art:["The print goes up. It's either brilliant or upside down. Clients nod either way."],
+    espresso:["The machine hisses like opposing counsel. The coffee is EXCELLENT."],
+    monitor:["A second monitor. You can now ignore twice as many emails simultaneously."],
+  }[id]),"sys");
+  apply({money:-d.cost},true);
   saveGame();
 }
 
@@ -985,6 +1013,7 @@ export function loadGame(n){
   if(typeof S.hours!=="number"||isNaN(S.hours)) S.hours=settings.dayLen||DAY_HOURS; // pre-workday saves
   if(typeof S.fatigue!=="number") S.fatigue=0;
   if(typeof S.otHours!=="number"){ S.otHours=0; S.otToday=0; }
+  if(!S.decor) S.decor={}; // pre-decor saves
   sitDown(); startAmbience(); notify();
 }
 function clearSave(){ try{ localStorage.removeItem(slotKey(S&&S.slot)); }catch(e){} }

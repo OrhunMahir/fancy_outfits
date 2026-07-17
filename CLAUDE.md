@@ -154,9 +154,13 @@
 
 **v1.7.1 eklendi (2026-07-12, kullanıcı isteği):** **Geceye sarkma onayı** — `choose()` başında `optHours > S.hours (>0)` ise dava ÇÖZÜLMEDEN "latework" onay eventi açılır (`S.pendingChoice` transient, save'de soyulur): "Push through" → `choose(c,o,true)` devam eder, taşan saat başına `LATE_FATIGUE(5)` ekstra yorgunluk + log satırı; iş bitince saat ≤0 olduğundan QUITTING TIME promptu doğal zincirlenir. "Step back" → dosya masada kalır, maliyet yok. `resolveCrisis` başında `o.lateGo/o.lateNo` intercept'leri.
 
-**En son çalışılan konu (2026-07-12):** v1.7.1 test edildi (uyarı matematiği, vazgeçme, +5/saat ekstra, QUITTING TIME zinciri). Sıradaki: hakim hafızası; sonra mobil.
+**v1.8 eklendi (2026-07-12, kullanıcı isteği):**
+- **5. senaryo "The Boomerang":** startGame'de rep 42 / inf 18 / marvBribes 1 / weekStart eşitlenir / TÜM npc rel −25. Perk: delege gün 1'den açık (`delegateCase` + CasePane gate'lerinde `scenario==="boomerang"` muafiyeti). Özel kriz `oldfile` (day≥3). DAILY rotasyonuna girdi (h%5).
+- **Ofis dekoru (`DECOR`, constants):** fish $800 (+3 gece dinlenme), art $600 (cuma +1 INF satırı), espresso $1500 (`coffeeCost()` 120→40), monitor $700 (`optHours` −0.25, taban 0.5). `S.decor{}` (loadGame backfill); `buyDecor(id)` tek seferlik; StatsPanel "OFFICE DECOR" bölümü (alınan → yeşil "owned"); OfficeScene `buildScene(r,rep,decor)` her eşyayı çizer (tablo pencere arası x87, akvaryum x46, espresso x68, 2. monitör masada).
 
-**Aklında tut (kullanıcı onaylı bekleyenler):** hakim hafızası, mobil (layout+Capacitor), uzun vadeli müvekkil davaları (3 aşamalı büyük dava), FATIGUE 100 çöküş günü, ofis kişiselleştirme (SVG eşyalar), "The Boomerang" senaryosu, bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
+**En son çalışılan konu (2026-07-12):** v1.8 test edildi (boomerang başlangıcı + rank0 delege + oldfile krizi; 4 dekor satın alma, saat/kahve/dinlenme etkileri, sahne çizimi). Sıradaki: hakim hafızası; sonra mobil.
+
+**Aklında tut (kullanıcı onaylı bekleyenler):** hakim hafızası, mobil (layout+Capacitor), uzun vadeli müvekkil davaları (3 aşamalı büyük dava), FATIGUE 100 çöküş günü, bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
 
 ---
 

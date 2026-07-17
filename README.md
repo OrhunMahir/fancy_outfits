@@ -28,6 +28,13 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v17.1 — Working into the dark *(2026-07-12)*
+- Pick a play that needs more hours than the day has left and the game now stops you:
+  *"THE DAY IS ENDING — this play needs 3h, you have 2h. Finishing tonight means 1h into the
+  dark, and that kind of hour bills YOU."* Push through and every overflowing hour costs
+  **+5 extra FATIGUE** (on top of the usual toil) — or step back, and the file waits for
+  the morning. Finishing late chains straight into the quitting-time prompt.
+
 ### v17 — The rival fights back & the weekend *(2026-07-12)*
 - **Rival interaction:** the RIVAL panel now has moves (one attempt per 2 days, real hours):
   - **SABOTAGE** (1h): his exhibit binder goes 'missing' — his influence drops. Get caught and

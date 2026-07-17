@@ -3,7 +3,7 @@
 // call notify() so React re-renders. Pause is derived — no S.paused flag.
 import { S, setS, notify, newState } from "./state.js";
 import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DAY_HOURS, TIER_HOURS, DELEGATE_HOURS,
-         OVERTIME_HOURS, OVERTIME_FATIGUE, FATIGUE_REST, SAFE_HOURS_MULT, TECH_HOURS_MULT,
+         OVERTIME_HOURS, OVERTIME_FATIGUE, LATE_FATIGUE, FATIGUE_REST, SAFE_HOURS_MULT, TECH_HOURS_MULT,
          COFFEE_RELIEF, COFFEE_FALLOFF, COFFEE_MIN, REP_FIRED, DEADLINE_PENALTY,
          STAKE_REWARD, STAKE_PENALTY, PRICES, SAVE_KEY, STATS_KEY,
          WEEK_LEN, REVIEW_GOOD, REVIEW_BAD, BUYIN_COST, FIRM_COLLAPSE,
@@ -560,14 +560,31 @@ function pushMsg(title,txt){ S.inbox.unshift({msg:true,title,body:txt}); }
 
 /* choose option on open case. NOTE: for delayed options the die is rolled NOW,
    the outcome is only revealed later by resolveDelayed (CLAUDE.md §5). */
-export function choose(c,o){
+export function choose(c,o,confirmedLate){
   SFX.click();
+  const cost0=optHours(c,o);
+  // the job runs past quitting time? warn first — pushing through costs extra
+  if(!confirmedLate&&cost0>S.hours&&S.hours>0){
+    const over=Math.round((cost0-S.hours)*4)/4, extra=Math.round(over*LATE_FATIGUE);
+    S.pendingChoice={c,o};
+    S.event={id:"latework",title:wallTime()+" — THE DAY IS ENDING",
+      body:"This play needs "+cost0+"h. You have "+S.hours+"h before the building empties. "+
+        "Finishing tonight means "+over+"h into the dark — and that kind of hour bills YOU: +"+extra+" FATIGUE on top of the usual. "+
+        (S.fatigue>=50?"You're already running on fumes. ":"")+
+        "Are you sure you want to see this through?",
+      opts:[
+        {text:"Push through. Finish it tonight. (+"+extra+" extra FATIGUE)",base:100,safe:true,lateGo:true,ok:{fx:{},txt:""}},
+        {text:"Step back. The file waits for the morning.",base:100,safe:true,lateNo:true,ok:{fx:{},txt:""}}]};
+    notify(); return;
+  }
   if(o.bribe){ // the golf money leaves your account win or lose
     if(S.money<o.bribe){ log("You can't afford the judge's 'green fees'.","bad"); notify(); return; }
     apply({money:-o.bribe},true);
   }
   const p=chance(o,c);
-  const cost=optHours(c,o), toil=Math.round(cost*2+(o.safe?2:0)); // careful play grinds you down too
+  const lateExtra=confirmedLate?Math.round(Math.max(0,cost0-S.hours)*LATE_FATIGUE):0;
+  if(lateExtra) log("You work past the lights. The night collects its fee. (+"+lateExtra+" FATIGUE)","bad");
+  const cost=cost0, toil=Math.round(cost*2+(o.safe?2:0))+lateExtra; // careful play grinds you down too
   if(o.delay){
     const win=rand()*100<p;
     c.pending={day:S.day+o.delay,win,o};
@@ -740,6 +757,9 @@ export function delegateCase(c,npcId){
 export function resolveCrisis(o){
   SFX.click();
   // the quitting-time prompt: go home or push into overtime
+  // late-work confirmation: resume or abandon the pending play
+  if(o.lateGo){ const pc=S.pendingChoice; S.event=null; S.pendingChoice=null; if(pc) choose(pc.c,pc.o,true); return; }
+  if(o.lateNo){ S.event=null; S.pendingChoice=null; log("You put the file down. It will still be there tomorrow. Files always are.","sys"); notify(); return; }
   if(o.home){ S.event=null; endDay(); return; }
   if(o.ot){
     S.event=null;
@@ -946,7 +966,7 @@ export function saveGame(){
   if(!S||S.over||S.mode==="ironman") return; // ironman: no net
   try{
     // strip transient UI fields; everything else is plain JSON data
-    const {infoOpen,event,summary,flash,userPaused,leaving,charAnim,openCase,settingsOpen,sceneRank,rosterOpen,archiveOpen,...data}=S;
+    const {infoOpen,event,summary,flash,userPaused,leaving,charAnim,openCase,settingsOpen,sceneRank,rosterOpen,archiveOpen,pendingChoice,...data}=S;
     localStorage.setItem(slotKey(S.slot),JSON.stringify(data));
   }catch(e){}
 }
@@ -959,7 +979,7 @@ export function loadGame(n){
   setS(Object.assign(newState(d.scenario),d,
     {slot:n||activeSlot,
      infoOpen:false,event:null,summary:null,flash:null,userPaused:false,leaving:false,
-     charAnim:"arriving",openCase:null,settingsOpen:false,sceneRank:null,rosterOpen:false,archiveOpen:false}));
+     charAnim:"arriving",openCase:null,settingsOpen:false,sceneRank:null,rosterOpen:false,archiveOpen:false,pendingChoice:null}));
   SFX.bell();
   log("Run restored. The firm did not notice you were gone.","sys");
   if(typeof S.hours!=="number"||isNaN(S.hours)) S.hours=settings.dayLen||DAY_HOURS; // pre-workday saves

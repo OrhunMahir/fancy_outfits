@@ -152,7 +152,9 @@
 - **Hafta sonu kartı (`buildWeekend`, content.js):** her cumartesi sabahı ((day−1)%5===0) event: Sleep (−30 FATIGUE, `o.fatigue` negatif), Golf (−$200 kumar; kazan-kaybet −10 FATIGUE `o.fatigue`; ok'ta `golf:true` → `S.golfEdge` → SONRAKİ judge'lı dosya otomatik dossier), Office (+2h Pazartesi, +10 FATIGUE, `o.hours` negatif). Kriz bloğuna `!S.event` guard'ı eklendi (öncelik hafta sonunda).
 - FIX: content.js'e eksik `rnd` importu eklendi.
 
-**En son çalışılan konu (2026-07-12):** v1.7 tarayıcıda test edildi (sabotaj/ateşkes/cooldown, pakt koruması, tamper −6, hafta sonu kartı, rest −30, golfEdge tüketimi). Sıradaki: hakim hafızası; sonra mobil.
+**v1.7.1 eklendi (2026-07-12, kullanıcı isteği):** **Geceye sarkma onayı** — `choose()` başında `optHours > S.hours (>0)` ise dava ÇÖZÜLMEDEN "latework" onay eventi açılır (`S.pendingChoice` transient, save'de soyulur): "Push through" → `choose(c,o,true)` devam eder, taşan saat başına `LATE_FATIGUE(5)` ekstra yorgunluk + log satırı; iş bitince saat ≤0 olduğundan QUITTING TIME promptu doğal zincirlenir. "Step back" → dosya masada kalır, maliyet yok. `resolveCrisis` başında `o.lateGo/o.lateNo` intercept'leri.
+
+**En son çalışılan konu (2026-07-12):** v1.7.1 test edildi (uyarı matematiği, vazgeçme, +5/saat ekstra, QUITTING TIME zinciri). Sıradaki: hakim hafızası; sonra mobil.
 
 **Aklında tut (kullanıcı onaylı bekleyenler):** hakim hafızası, mobil (layout+Capacitor), uzun vadeli müvekkil davaları (3 aşamalı büyük dava), FATIGUE 100 çöküş günü, ofis kişiselleştirme (SVG eşyalar), "The Boomerang" senaryosu, bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
 

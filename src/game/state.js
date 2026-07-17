@@ -54,6 +54,7 @@ export function newState(scenario,difficulty){
     dailyLog:[], logEntries:[], over:false,
     // UI state (pause is DERIVED from these — see isPaused() in engine.js)
     infoOpen:false, event:null, summary:null, flash:null, userPaused:false, settingsOpen:false, rosterOpen:false, archiveOpen:false,
+    pendingChoice:null, // a play awaiting the "work into the night?" confirmation
     // office character: "arriving" | "working" | "leaving" (leaving also freezes the clock)
     charAnim:"arriving", leaving:false,
     sceneRank:null, // during a promotion walk the scene briefly keeps the OLD office

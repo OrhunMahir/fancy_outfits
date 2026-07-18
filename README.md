@@ -28,6 +28,22 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19 — THE {CLIENT} WAR *(2026-07-12)*
+- **Long-form retainer matters:** once you're Senior Associate with a client on the book,
+  mornings carry a chance that one of YOUR clients comes under siege — *"THE TESLER MOTORS
+  WAR"* — a three-stage matter measured in weeks, one active at a time:
+  - **Stage 1 — Opening Shots:** a 300-page complaint built on a clause from a draft that was
+    never executed (paragraph 214 vs. the signed version).
+  - **Stage 2 — The Injunction:** their "irreparable harm" affidavit vs. the executive's
+    *"WE ARE CRUSHING IT"* post, timestamped in exhibit 12.
+  - **Stage 3 — Final Trial:** everything the client is, on one verdict.
+- **The dilemma repeats at every stage:** settle safe and the war ends small — *"wars you skip
+  don't pay like wars you win"* — or press on. Winning the final trial pays big (up to +15 INF,
+  +$2,500, +FIRM) and **permanently DOUBLES the client's retainer** (capped at $800/wk).
+- Stages arrive ~4 days apart with their own judges and stakes; war files can't be delegated.
+  Miss a stage deadline and the war dies on your desk. Lose the client mid-war and the war
+  ends *"the only way wars end without clients: quietly, unpaid."*
+
 ### v18.1 — Exhaustion has consequences *(2026-07-12)*
 - **Past 75 FATIGUE, every worked hour is a hazard roll.** Per-hour odds of a clumsy incident:
   `(fatigue−75)×4+10` — **30% at 80**, 70% at 90, **CERTAIN at 100**. Longer jobs compound the

@@ -30,6 +30,7 @@ export default function CasePane(){
         <div style={{marginTop:8,fontSize:8}}>
           DEADLINE: DAY {c.dueDay} · BASE TIME: {hoursFor(c)}h (careful plays take longer)
           {c.stakes>0 && <> · STAKES ×{STAKE_REWARD[c.stakes]} fees / ×{STAKE_PENALTY[c.stakes]} fallout</>}
+          {c.big && <span style={{color:"#8a6a1f"}}> · RETAINER MATTER — STAGE {c.big.stage}/3 ({c.big.client})</span>}
           {c.dossier && <> · DOSSIER ATTACHED (+12%)</>}
           {c.tampered && <span style={{color:"var(--red)"}}> · PAGES REORDERED — someone touched this file (−6%)</span>}
         </div>

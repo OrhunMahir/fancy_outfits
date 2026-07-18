@@ -117,6 +117,55 @@ export function genCase(){
   return c;
 }
 
+/* THE {CLIENT} WAR — a retained client's existential, three-stage matter
+   spanning weeks (stages chain via next:{after,...}). Each stage offers the
+   same dilemma: settle safe and end the war small, or press on. Winning the
+   final trial pays big and DOUBLES the client's retainer. */
+export function buildBigMatter(client){
+  const CU=client.toUpperCase();
+  const rival=rnd(["their biggest competitor","a patent troll named Litigious Minds LLC","a former co-founder with a grudge and a war chest"]);
+  const s3={id:"big3_"+(++seq),tier:2,judge:true,deadline:4,big:{client,stage:3,final:true},
+    title:"THE "+CU+" WAR — FINAL TRIAL",
+    body:"Weeks of billing, condensed: everything "+client+" is rides on this verdict. "+rival.charAt(0).toUpperCase()+rival.slice(1)+" brought their A-team; Snidely Fitch brought extra chairs. Your trial binder has a cracked spine and a page 1 you could recite underwater. The jury looks the way juries look: unknowable.",
+    opts:[
+      {text:"Read the record into the ground. Method wins wars.",base:64,style:"technical",
+        ok:{fx:{rep:8,inf:14,money:2500,firm:4},client:{boost:client},txt:"Verdict: "+client+", on every count. Their GC cries the way billable people rarely cry. RETAINER: DOUBLED."},
+        fail:{fx:{rep:-8,money:-800,firm:-4},txt:"The jury preferred their story. Weeks of war, one flat sentence."}},
+      {text:"Close with theater. Juries remember feelings.",base:42,boldW:3,style:"aggressive",
+        ok:{fx:{bold:9,inf:15,money:2200,firm:4},client:{boost:client},txt:"Your closing gets quoted in a trade magazine. "+client+" signs whatever you slide across the table. RETAINER: DOUBLED."},
+        fail:{fx:{rep:-11,money:-800,firm:-5},txt:"The theater flopped on the only stage that matters."}},
+      {text:"Take the eleventh-hour settlement.",base:100,safe:true,
+        ok:{fx:{inf:5,money:900,bold:-4},txt:"Signed at the courthouse door. "+client+" survives. Nobody toasts."}}]};
+  const s2={id:"big2_"+(++seq),tier:2,judge:true,deadline:3,big:{client,stage:2},
+    title:"THE "+CU+" WAR — THE INJUNCTION",
+    body:"Stage two: "+rival+" wants a preliminary injunction freezing "+client+"'s operations. Their 'irreparable harm' affidavit is signed by an executive who posted 'WE ARE CRUSHING IT' the same week — the screenshot sits in exhibit 12, timestamped, glorious.",
+    opts:[
+      {text:"Consent to narrow terms. End the war here.",base:100,safe:true,
+        ok:{fx:{inf:4,money:700,bold:-3},txt:"A coexistence agreement. The war fizzles. "+client+" keeps trading; you keep the fee."}},
+      {text:"Exhibit 12. Read the post aloud. Slowly.",base:66,style:"technical",
+        ok:{fx:{rep:7,inf:8,money:1100},txt:"'Irreparable harm,' you repeat, over the executive's own caps lock. Injunction denied.",
+          next:{after:4,note:"Denied their injunction — now "+rival+" wants blood. THE "+CU+" WAR heads to trial.",case:s3}},
+        fail:{fx:{rep:-7,firm:-2},txt:"The judge grants a partial freeze. "+client+"'s GC uses the word 'concerning' twice."}},
+      {text:"Move for sanctions over the fake affidavit.",base:40,boldW:3,style:"aggressive",
+        ok:{fx:{bold:7,inf:9,money:900},txt:"Sanctions granted. Their affidavit is now a cautionary tale taught at CLEs.",
+          next:{after:4,note:"Humiliated, "+rival+" goes all-in. THE "+CU+" WAR heads to trial.",case:s3}},
+        fail:{fx:{rep:-9,firm:-2},txt:"'Bold theory, counsel.' The sanctions motion boomerangs into the record."}}]};
+  return {id:"big1_"+(++seq),tier:1,deadline:3,big:{client,stage:1},
+    title:"THE "+CU+" WAR — OPENING SHOTS",
+    body:rival.charAt(0).toUpperCase()+rival.slice(1)+" just hit "+client+" — your client — with a 300-page complaint. Buried at paragraph 214: their core claim quotes a contract clause from a DRAFT that was never executed. The signed version, which you have, reads differently. Snidely Fitch's name is on the cover page, naturally.",
+    opts:[
+      {text:"Settle quietly before it becomes a war.",base:100,safe:true,
+        ok:{fx:{inf:4,money:600,bold:-3},txt:"Paid, sealed, forgotten. "+client+" grumbles about the terms but keeps the retainer flowing."}},
+      {text:"Paragraph 214 vs. the EXECUTED version.",base:70,style:"technical",
+        ok:{fx:{rep:6,inf:7,money:900},txt:"You table the signed contract. Their 300 pages depend on 12 words that don't exist.",
+          next:{after:4,note:rival.charAt(0).toUpperCase()+rival.slice(1)+" regroups and refiles. THE "+CU+" WAR: stage two approaches.",case:s2}},
+        fail:{fx:{rep:-6},txt:"They claim the draft 'reflects intent'. The judge wants briefing. The war footing costs "+client+" real money."}},
+      {text:"Countersue for tortious interference. Loudly.",base:40,boldW:3,style:"aggressive",
+        ok:{fx:{bold:6,inf:8,money:700},txt:"Your countersuit makes two trade publications before lunch.",
+          next:{after:4,note:"Blood is in the water on both sides. THE "+CU+" WAR: stage two approaches.",case:s2}},
+        fail:{fx:{rep:-9,firm:-2},txt:"The countersuit reads as panic. Fitch's reply brief is one page and devastating."}}]};
+}
+
 /* Fired employees sue the firm (Name Partner endgame). fx.firm hits your
    firm-health stat; the plaintiff's counsel is, of course, Snidely Fitch. */
 export function buildLawsuit(exName){

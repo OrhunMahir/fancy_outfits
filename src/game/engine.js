@@ -15,10 +15,10 @@ import { settings, setSetting } from "./settings.js";
 import { buildPool, JUDGES, crises, SCENARIOS, buildWeekend } from "./content.js";
 import { genCase } from "./casegen.js";
 import { buildNpcs, buildRoster, buildDemand, buildStory, bossAbove, delegationChance, relNpc, buildFavor, DELEGATE_WIN_TXT, DELEGATE_FAIL_TXT } from "./npcs.js";
-import { buildLawsuit } from "./casegen.js";
+import { buildLawsuit, buildBigMatter } from "./casegen.js";
 import { CLIENT_CAP, makeClient, buildGlobalEvent, buildDinnerEvent, PARTNERS } from "./clients.js";
 import { ACHIEVEMENTS, unlock } from "./achievements.js";
-export { buildDemand }; // re-export: dev console + tests poke the hierarchy directly
+export { buildDemand, buildBigMatter }; // re-export: dev console + tests poke these directly
 
 let flashSeq=0;
 
@@ -429,6 +429,8 @@ export function endDay(){
       log("FAVOR IGNORED: "+c.title+" (-10 rel)","bad"); return; }
     log("DEADLINE MISSED: "+c.title,"bad"); S.runStats.miss++;
     archiveCase(c,"(deadline missed)",false,DEADLINE_PENALTY+" REP");
+    if(c.big){ S.bigCase=null; S.bigDoneDay=S.day;
+      log("THE "+c.big.client.toUpperCase()+" WAR dies on your desk, unanswered. "+c.big.client+" notices.","bad"); }
     apply({rep:DEADLINE_PENALTY,firm:-2},true); nemesisGain(4,true);
   });
   S.inbox=S.inbox.filter(c=>!missed.includes(c));
@@ -539,6 +541,14 @@ export function endDay(){
         if(friend){ const st=buildStory(friend); if(st){ S.npcStories.push(friend.id); SFX.open(); S.event=st; } }
       }
       clientAcquisition();
+      // a retained client's existential, weeks-long matter (one at a time)
+      if(!S.bigCase&&S.rank>=1&&S.clients.length&&S.day>=4&&S.day>=S.bigDoneDay+4&&rand()<.10){
+        const cl=rnd(S.clients);
+        S.bigCase={client:cl.name, stage:1};
+        S.inbox.unshift(instantiateCase(buildBigMatter(cl.name)));
+        SFX.crisis();
+        log("RETAINER MATTER: "+cl.name+" is under siege. This one is measured in weeks, not hours.","sys");
+      }
       newObjective();
       sitDown();
     });
@@ -661,6 +671,15 @@ export function choose(c,o,confirmedLate){
     const n=S.npcs.find(x=>x.id===c.npc), d=win?(o.relOk||0):(o.relFail||0);
     if(n&&d){ relNpc(n,d); log(n.name+(d>0?" will remember this. (+":" files this away. (")+d+" rel)",d>0?"good":"bad"); }
   }
+  if(out.client&&out.client.boost){ // the war is won: the retainer doubles, permanently
+    const cl=S.clients.find(x=>x.name===out.client.boost);
+    if(cl){ cl.fee=Math.min(800,cl.fee*2); log("RETAINER DOUBLED: "+cl.name+" now pays $"+cl.fee+"/wk.","good"); }
+  }
+  if(c.big){ // THE {CLIENT} WAR bookkeeping: press on, or the matter ends here
+    if(out.next) S.bigCase={client:c.big.client, stage:c.big.stage+1};
+    else { S.bigCase=null; S.bigDoneDay=S.day;
+      if(!c.big.final&&win&&o.safe) log("THE "+c.big.client.toUpperCase()+" WAR ends early, by choice. Wars you skip don't pay like wars you win.","sys"); }
+  }
   if(out.next) queueFollowup(out.next);
   spendHours(cost,toil);
   checkPromotion();
@@ -679,6 +698,12 @@ function signClient(){
 function loseClient(name){
   S.clients=S.clients.filter(c=>c.name!==name);
   log("CLIENT LOST: "+name+". Their logo comes off the lobby wall.","bad");
+  if(S.bigCase&&S.bigCase.client===name){ // no client, no war
+    S.bigCase=null; S.bigDoneDay=S.day;
+    S.inbox=S.inbox.filter(c=>!(c.big&&c.big.client===name));
+    if(S.openCase&&S.openCase.big&&S.openCase.big.client===name) S.openCase=null;
+    log("THE "+name.toUpperCase()+" WAR ends the only way wars end without clients: quietly, unpaid.","bad");
+  }
 }
 
 /* a public failure makes clients nervous — some walk */
@@ -785,7 +810,7 @@ export function spawnFavor(){
 /* hand a case to a colleague (unlocks at Senior Associate; court cases excluded —
    you can't send a paralegal to argue a motion). Die is rolled now, revealed tomorrow. */
 export function delegateCase(c,npcId){
-  if((S.rank<1&&S.scenario!=="boomerang")||c.judge||c.msg||c.pending||c.delegated||c.favor) return; // boomerang knows the floor from day one
+  if((S.rank<1&&S.scenario!=="boomerang")||c.judge||c.msg||c.pending||c.delegated||c.favor||c.big) return; // no delegating YOUR client's war
   const n=S.npcs.find(x=>x.id===npcId);
   SFX.send();
   const win=rand()*100<delegationChance(n);

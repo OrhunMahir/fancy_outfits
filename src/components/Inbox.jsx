@@ -20,7 +20,9 @@ export default function Inbox(){
           return (
             <div key={i} className="inbox-item" onClick={()=>openCaseFile(c)}>
               <div>{c.title}</div>
-              {c.chain && <div className="tag" style={{color:"var(--gold)"}}>FOLLOW-UP FILING</div>}
+              {c.big
+                ? <div className="tag" style={{color:"var(--gold)"}}>RETAINER MATTER · STAGE {c.big.stage}/3</div>
+                : c.chain && <div className="tag" style={{color:"var(--gold)"}}>FOLLOW-UP FILING</div>}
               <div className="due">DUE DAY {c.dueDay}</div>
             </div>);
         })}

@@ -162,9 +162,14 @@
 - **Yorgunluk tehlike sistemi (`fatigueCheck`, engine):** FATIGUE > `FATIGUE_DANGER`(75) iken çalışılan HER SAAT sakarlık zarı atar — saat başı şans `hazardPerHour()=(fatigue−75)×4+10` (76→14, 80→30, 90→70, 95→90, **100→100 kesin**); çok saatlik iş bileşik: `1−(1−p)^saat`. Çağrı noktaları: choose (iki dal), delegateCase, kriz chore'ları (o.fatigue>0), overtime kabulü.
 - **Sonuç:** 6 kazalık INCIDENTS havuzundan biri + üst rütbeli biri (`bossAbove`, npcs.js — rank 3+'ta kimse yok → "kendini eve gönderirsin") + `SENTHOME_REP(−6)/SENTHOME_INF(−4)` + zorunlu `endDay()` (günün kalan deadline'ları yanar — asıl diş bu). Özette `S.sentHomeNote` satırı (100'de "COLLAPSE ... your body filed its own motion — granted"). StatsPanel FATIGUE etiketi >75'te "⚠ n%/h sent-home risk" gösterir.
 
-**En son çalışılan konu (2026-07-12):** v1.8.1 test edildi (eğri değerleri, 100'de kesin çöküş, −6/−4, zorunlu gün sonu + özet satırı + ertesi gün toparlanma). Sıradaki: hakim hafızası; sonra mobil.
+**v1.9 eklendi (2026-07-12, kullanıcı isteği):**
+- **THE {CLIENT} WAR (`buildBigMatter`, casegen.js):** rank≥1 + müşteri varken sabah %10 (day≥4, `bigDoneDay+4` cooldown, tek aktif — `S.bigCase={client,stage}`) müşterilerinden birine 3 aşamalı savaş başlar. Aşamalar `next:{after:4}` ile zincirlenir (s1 tier1 → s2/s3 tier2+judge, iç içe veri). Her aşamada safe = erken uzlaşma (zincir YOK, savaş biter) / technical+aggressive kazanımı sonraki aşamayı kuyruklar.
+- **Final ödülü:** ok'ta `client:{boost:name}` — `choose()` işler: `fee=min(800,fee*2)` + "RETAINER DOUBLED" logu. Kayıplar/erken çıkış/deadline kaçırma `S.bigCase=null`+`bigDoneDay` (yeni savaş için cooldown).
+- **Kurallar:** war dosyaları delege edilemez (`c.big` guard); deadline kaçarsa savaş ölür; savaşın müşterisi giderse (`loseClient` kancası) savaş + sahnedeki stage dosyası birlikte çözülür. Inbox/CasePane'de altın "RETAINER MATTER · STAGE n/3" etiketi.
 
-**Aklında tut (kullanıcı onaylı bekleyenler):** hakim hafızası, mobil (layout+Capacitor), uzun vadeli müvekkil davaları (3 aşamalı büyük dava), bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
+**En son çalışılan konu (2026-07-12):** v1.9 test edildi (s1→s2→s3 zinciri 4'er gün arayla, etiketler, boost 250→500, cap 800, müşteri kaybında savaşın sönmesi). Sıradaki: hakim hafızası; sonra mobil.
+
+**Aklında tut (kullanıcı onaylı bekleyenler):** hakim hafızası, mobil (layout+Capacitor), bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
 
 ---
 

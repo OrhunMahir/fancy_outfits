@@ -34,6 +34,7 @@ export function newState(scenario,difficulty){
     roster:null, fireHeat:0, everFired:false, firedNames:[],
     // the client book: parody brands, signed from a per-run shuffled pool
     clients:[], clientPool:buildClientPool(),
+    bigCase:null, bigDoneDay:0, // THE {CLIENT} WAR: one 3-stage retainer matter at a time
     money: scenario==="debtor" ? 3000 : 1500,
     debtDue: scenario==="debtor" ? 3 : null,
     suitCost:PRICES.suit, // each suit is fancier and pricier than the last

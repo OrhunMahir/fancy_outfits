@@ -136,6 +136,11 @@ const CHORES=[
   {txt:"needs their car moved before it's towed. It is parked across two handicap spots and a hydrant.",h:.5,f:4},
   {txt:"wants 'a quick summary' of a 220-page deposition. By lunch. 'Bullet points are fine.'",h:1.5,f:9},
 ];
+/* who outranks the player? (used by chores AND by "someone sends you home") */
+export const bossAbove=playerRank=>{
+  const e=BOSSES.filter(b=>b.rank>playerRank);
+  return e.length?rnd(e).name:null;
+};
 export function buildDemand(playerRank){
   const eligible=BOSSES.filter(b=>b.rank>playerRank);
   if(!eligible.length) return null; // nobody outranks a Name Partner

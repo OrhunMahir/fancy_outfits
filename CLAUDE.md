@@ -158,9 +158,13 @@
 - **5. senaryo "The Boomerang":** startGame'de rep 42 / inf 18 / marvBribes 1 / weekStart eşitlenir / TÜM npc rel −25. Perk: delege gün 1'den açık (`delegateCase` + CasePane gate'lerinde `scenario==="boomerang"` muafiyeti). Özel kriz `oldfile` (day≥3). DAILY rotasyonuna girdi (h%5).
 - **Ofis dekoru (`DECOR`, constants):** fish $800 (+3 gece dinlenme), art $600 (cuma +1 INF satırı), espresso $1500 (`coffeeCost()` 120→40), monitor $700 (`optHours` −0.25, taban 0.5). `S.decor{}` (loadGame backfill); `buyDecor(id)` tek seferlik; StatsPanel "OFFICE DECOR" bölümü (alınan → yeşil "owned"); OfficeScene `buildScene(r,rep,decor)` her eşyayı çizer (tablo pencere arası x87, akvaryum x46, espresso x68, 2. monitör masada).
 
-**En son çalışılan konu (2026-07-12):** v1.8 test edildi (boomerang başlangıcı + rank0 delege + oldfile krizi; 4 dekor satın alma, saat/kahve/dinlenme etkileri, sahne çizimi). Sıradaki: hakim hafızası; sonra mobil.
+**v1.8.1 eklendi (2026-07-12, kullanıcı isteği — oranlar kullanıcının: 80→%30, 100→%100):**
+- **Yorgunluk tehlike sistemi (`fatigueCheck`, engine):** FATIGUE > `FATIGUE_DANGER`(75) iken çalışılan HER SAAT sakarlık zarı atar — saat başı şans `hazardPerHour()=(fatigue−75)×4+10` (76→14, 80→30, 90→70, 95→90, **100→100 kesin**); çok saatlik iş bileşik: `1−(1−p)^saat`. Çağrı noktaları: choose (iki dal), delegateCase, kriz chore'ları (o.fatigue>0), overtime kabulü.
+- **Sonuç:** 6 kazalık INCIDENTS havuzundan biri + üst rütbeli biri (`bossAbove`, npcs.js — rank 3+'ta kimse yok → "kendini eve gönderirsin") + `SENTHOME_REP(−6)/SENTHOME_INF(−4)` + zorunlu `endDay()` (günün kalan deadline'ları yanar — asıl diş bu). Özette `S.sentHomeNote` satırı (100'de "COLLAPSE ... your body filed its own motion — granted"). StatsPanel FATIGUE etiketi >75'te "⚠ n%/h sent-home risk" gösterir.
 
-**Aklında tut (kullanıcı onaylı bekleyenler):** hakim hafızası, mobil (layout+Capacitor), uzun vadeli müvekkil davaları (3 aşamalı büyük dava), FATIGUE 100 çöküş günü, bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
+**En son çalışılan konu (2026-07-12):** v1.8.1 test edildi (eğri değerleri, 100'de kesin çöküş, −6/−4, zorunlu gün sonu + özet satırı + ertesi gün toparlanma). Sıradaki: hakim hafızası; sonra mobil.
+
+**Aklında tut (kullanıcı onaylı bekleyenler):** hakim hafızası, mobil (layout+Capacitor), uzun vadeli müvekkil davaları (3 aşamalı büyük dava), bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
 
 ---
 

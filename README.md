@@ -28,6 +28,19 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v18.1 — Exhaustion has consequences *(2026-07-12)*
+- **Past 75 FATIGUE, every worked hour is a hazard roll.** Per-hour odds of a clumsy incident:
+  `(fatigue−75)×4+10` — **30% at 80**, 70% at 90, **CERTAIN at 100**. Longer jobs compound the
+  risk; the FATIGUE bar shows the live per-hour risk (`⚠ 30%/h sent-home risk`).
+- **The incidents:** pouring a triple espresso onto a partner's deposition notes (and lap),
+  falling asleep mid-sentence (your own sentence), shredding the ORIGINAL, calling the client
+  by the opposing party's name — twice, with confidence — walking into the glass wall, or
+  stapling your tie to a filing.
+- **The consequence:** whoever outranks you points at the elevator — *"Home. Now. Before you
+  cost us a client."* (At Senior Partner+, you catch your own reflection and send yourself.)
+  **−6 REP, −4 INFL**, the day ends immediately, and whatever was still due today burns.
+  At FATIGUE 100 it's not a risk, it's a verdict: *"your body filed its own motion — granted."*
+
 ### v18 — The Boomerang & office decor *(2026-07-12)*
 - **New scenario: THE BOOMERANG** — fired once, hired back. Every colleague starts at −25
   relationship (they remember why), your REP starts stained at 42 — but you know the building:

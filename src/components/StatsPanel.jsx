@@ -2,7 +2,7 @@ import { useGame } from "../game/useGame.js";
 import { REP_FIRED, RANK_REQ, RANKS, PRICES, DECOR, BUYIN_COST, FIRM_COLLAPSE } from "../game/constants.js";
 import { CLIENT_CAP } from "../game/clients.js";
 import { SCENARIOS } from "../game/content.js";
-import { buySuit, bribeMarv, buyCoffee, buyDecor, coffeeRelief, coffeeCost, payBuyIn, objectiveInfo,
+import { buySuit, bribeMarv, buyCoffee, buyDecor, coffeeRelief, coffeeCost, payBuyIn, objectiveInfo, hazardPerHour,
          rivalSabotage, rivalTruce, rivalAlly, rivalMoveReady, rivalOdds, displayPct } from "../game/engine.js";
 
 export default function StatsPanel(){
@@ -23,7 +23,9 @@ export default function StatsPanel(){
           if(n==="REPUTATION") extra=" (fired < "+REP_FIRED+")";
           if(n==="INFLUENCE"&&S.rank<4) extra=" (next rank: "+RANK_REQ[S.rank]+(S.rank===2?" + buy-in":"")+")";
           if(n==="FIRM") extra=(S.endlessWon||S.rank===4)?" (collapse < "+FIRM_COLLAPSE+")":" (the partners' problem. for now)";
-          if(n==="FATIGUE") extra=S.fatigue>0?" (risky plays -"+Math.round(S.fatigue*.15)+"%)":" (fresh)";
+          if(n==="FATIGUE") extra=hazardPerHour()>0
+            ?" (⚠ "+hazardPerHour()+"%/h sent-home risk)"
+            :(S.fatigue>0?" (risky plays -"+Math.round(S.fatigue*.25)+"%)":" (fresh)");
           return (
             <div key={n} className="statrow">
               <div className="lbl"><span>{n+extra}</span><span>{v}</span></div>

@@ -4,7 +4,8 @@
 import { S, setS, notify, newState } from "./state.js";
 import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DAY_HOURS, TIER_HOURS, DELEGATE_HOURS,
          OVERTIME_HOURS, OVERTIME_FATIGUE, LATE_FATIGUE, FATIGUE_REST, SAFE_HOURS_MULT, TECH_HOURS_MULT,
-         COFFEE_RELIEF, COFFEE_FALLOFF, COFFEE_MIN, REP_FIRED, DEADLINE_PENALTY,
+         COFFEE_RELIEF, COFFEE_FALLOFF, COFFEE_MIN, FATIGUE_DANGER, SENTHOME_REP, SENTHOME_INF,
+         REP_FIRED, DEADLINE_PENALTY,
          STAKE_REWARD, STAKE_PENALTY, PRICES, DECOR, SAVE_KEY, STATS_KEY,
          WEEK_LEN, REVIEW_GOOD, REVIEW_BAD, BUYIN_COST, FIRM_COLLAPSE,
          FIRE_HEAT, FIRE_HEAT_SENIOR, HEAT_DECAY, HEAT_MIN } from "./constants.js";
@@ -13,7 +14,7 @@ import { SFX, startAmbience, stopAmbience, applyBgmVolume } from "./sound.js";
 import { settings, setSetting } from "./settings.js";
 import { buildPool, JUDGES, crises, SCENARIOS, buildWeekend } from "./content.js";
 import { genCase } from "./casegen.js";
-import { buildNpcs, buildRoster, buildDemand, buildStory, delegationChance, relNpc, buildFavor, DELEGATE_WIN_TXT, DELEGATE_FAIL_TXT } from "./npcs.js";
+import { buildNpcs, buildRoster, buildDemand, buildStory, bossAbove, delegationChance, relNpc, buildFavor, DELEGATE_WIN_TXT, DELEGATE_FAIL_TXT } from "./npcs.js";
 import { buildLawsuit } from "./casegen.js";
 import { CLIENT_CAP, makeClient, buildGlobalEvent, buildDinnerEvent, PARTNERS } from "./clients.js";
 import { ACHIEVEMENTS, unlock } from "./achievements.js";
@@ -216,6 +217,39 @@ function spendHours(h,f){
   S.hours=Math.round((S.hours-h)*4)/4;
   if(f) S.fatigue=clamp(S.fatigue+f,0,100);
 }
+/* exhaustion hazard: past FATIGUE_DANGER every worked hour risks a clumsy
+   incident. Per-hour odds (fatigue-75)*4+10 — 30% at 80, certain at 100. */
+export const hazardPerHour=()=>S.fatigue>=100?100:(S.fatigue>FATIGUE_DANGER?clamp((S.fatigue-FATIGUE_DANGER)*4+10,0,100):0);
+const INCIDENTS=[
+  "You pour a triple espresso squarely onto {BOSS}'s deposition notes. And lap.",
+  "You fall asleep mid-sentence in the conference room. Your own sentence.",
+  "You feed the ORIGINAL signed contract into the shredder. The copy was in your other hand.",
+  "You call the client by the opposing party's name. Twice. With confidence.",
+  "You walk into the glass wall of the conference room. The glass wall wins.",
+  "You staple your own tie to the Meridian filing. It takes three people to notice and one to photograph.",
+];
+function fatigueCheck(hoursWorked){
+  if(!S||S.over||S.summary||S.leaving) return;
+  const ph=hazardPerHour(); if(!ph) return;
+  const p=S.fatigue>=100?1:1-Math.pow(1-ph/100,Math.max(1,hoursWorked||1));
+  if(rand()>=p) return;
+  const boss=bossAbove(S.rank);
+  const what=rnd(INCIDENTS).replace("{BOSS}",boss||"a Senior Partner");
+  SFX.lose(); doShake();
+  log("EXHAUSTION: "+what,"bad");
+  log(boss
+    ? boss+" points at the elevator: 'Home. Now. Before you cost us a client.'"
+    : "You catch your reflection in the glass wall. Even you can see it. You send yourself home.","bad");
+  S.sentHomeNote=S.fatigue>=100
+    ? "COLLAPSE at "+wallTime()+": your body filed its own motion — granted. The firm sent you home."
+    : "SENT HOME at "+wallTime()+": "+what;
+  apply({rep:SENTHOME_REP,inf:SENTHOME_INF});
+  if(S.over) return;
+  if(S.event) S.event=null; // whatever was pending, the day is over
+  S.pendingChoice=null;
+  endDay();
+}
+
 /* out of hours? the building asks the eternal question */
 function checkClock(){
   if(!S||S.over||S.summary||S.event||S.hours>0) return;
@@ -402,6 +436,7 @@ export function endDay(){
   // day summary then advance
   const lines=[];
   lines.push("Day "+S.day+" closed at "+RANKS[S.rank]+".");
+  if(S.sentHomeNote){ lines.push(S.sentHomeNote); lines.push("The floor will retell this for weeks."); S.sentHomeNote=null; }
   if(missed.length) lines.push(missed.length+" deadline(s) missed ("+DEADLINE_PENALTY+" REP each).");
   lines.push("The firm forgets fast: -1 REP, -"+INF_DECAY[S.rank]+" INFL overnight.");
   // sleep: base recovery + a bonus for every hour you DIDN'T bill
@@ -602,6 +637,7 @@ export function choose(c,o,confirmedLate){
     log("Sent: '"+o.text+"' — response in "+o.delay+" day(s). ("+cost+"h)","sys");
     S.openCase=null;
     spendHours(cost,toil);
+    fatigueCheck(cost);
     maybeDemand(); checkClock();
     saveGame(); notify(); return;
   }
@@ -628,6 +664,7 @@ export function choose(c,o,confirmedLate){
   if(out.next) queueFollowup(out.next);
   spendHours(cost,toil);
   checkPromotion();
+  fatigueCheck(cost);
   maybeDemand(); checkClock();
   saveGame(); notify();
 }
@@ -759,6 +796,7 @@ export function delegateCase(c,npcId){
   S.openCase=null;
   log("Handed '"+c.title+"' to "+n.name+". Report tomorrow. ("+DELEGATE_HOURS+"h)","sys");
   spendHours(DELEGATE_HOURS,1);
+  fatigueCheck(DELEGATE_HOURS);
   maybeDemand(); checkClock();
   saveGame(); notify();
 }
@@ -776,13 +814,14 @@ export function resolveCrisis(o){
     S.hours+=OVERTIME_HOURS; S.otHours+=OVERTIME_HOURS; S.otToday++;
     S.fatigue=clamp(S.fatigue+OVERTIME_FATIGUE,0,100);
     log("Overtime. The building empties around you. (+"+OVERTIME_HOURS+"h, +"+OVERTIME_FATIGUE+" FATIGUE)","sys");
+    fatigueCheck(1); // your body may veto the overtime you just chose
     saveGame(); notify(); return;
   }
   const ev=S.event, p=chance(o,ev);
   S.event=null;
   const win=rand()*100<p, out=win?o.ok:o.fail;
   trackChoice(null,o,win);
-  if(o.hours||o.fatigue) spendHours(o.hours||0,o.fatigue||0); // boss chores cost time and stamina
+  if(o.hours||o.fatigue){ spendHours(o.hours||0,o.fatigue||0); if((o.fatigue||0)>0) fatigueCheck(o.hours||1); } // boss chores cost time and stamina
   if(ev&&ev.npc){ // NPC story scenes move the relationship
     const n=S.npcs.find(x=>x.id===ev.npc), d=win?(o.relOk||0):(o.relFail||0);
     if(n&&d){ relNpc(n,d); log(n.name+(d>0?" won't forget this. (+":" recalibrates. (")+d+" rel)",d>0?"good":"bad"); }

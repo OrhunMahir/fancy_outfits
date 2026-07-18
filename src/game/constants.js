@@ -9,6 +9,11 @@ export const DELEGATE_HOURS=.5;    // handing a file off is quick
 export const OVERTIME_HOURS=2;     // one overtime block
 export const OVERTIME_FATIGUE=12;  // ...and what it does to you
 export const LATE_FATIGUE=5;       // extra fatigue PER HOUR a job runs past quitting time
+// exhaustion hazard: above FATIGUE_DANGER every worked hour risks a clumsy
+// incident — a boss sends you home (REP/INF loss, day over). Per-hour odds:
+// (fatigue-75)*4+10 → 30% at 80, 70% at 90, CERTAIN at 100.
+export const FATIGUE_DANGER=75;
+export const SENTHOME_REP=-6, SENTHOME_INF=-4;
 export const FATIGUE_REST=18;      // overnight recovery (+3 per unspent hour — leave early, rest more)
 // careful play is SLOW play: hour cost multipliers by approach (v1.6)
 export const SAFE_HOURS_MULT=1.5, TECH_HOURS_MULT=1.25;

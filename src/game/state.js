@@ -53,7 +53,7 @@ export function newState(scenario,difficulty){
     // daily objective ("close 2 files today") + per-day counters feeding it
     objective:null, today:{resolved:0,wins:0,safeUsed:0,aggWin:0,delegated:0,moneyGained:0},
     archive:[], // every resolved case: {day,title,play,style,win,note,via}
-    dailyLog:[], logEntries:[], over:false,
+    logEntries:[], over:false,
     // UI state (pause is DERIVED from these — see isPaused() in engine.js)
     infoOpen:false, event:null, summary:null, flash:null, userPaused:false, settingsOpen:false, rosterOpen:false, archiveOpen:false,
     pendingChoice:null, // a play awaiting the "work into the night?" confirmation

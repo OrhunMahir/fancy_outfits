@@ -104,7 +104,7 @@ export default function StatsPanel(){
         </div>
       ))}
       <div id="log">
-        {S.logEntries.map((e,i)=>(
+        {S.logEntries.slice(0,80).map((e,i)=>( /* cap: endless runs were re-rendering thousands of rows */
           <div key={S.logEntries.length-i} className={e.cls}>{"> "+e.txt}</div>
         ))}
       </div>

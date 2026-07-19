@@ -167,7 +167,13 @@
 - **Final ödülü:** ok'ta `client:{boost:name}` — `choose()` işler: `fee=min(800,fee*2)` + "RETAINER DOUBLED" logu. Kayıplar/erken çıkış/deadline kaçırma `S.bigCase=null`+`bigDoneDay` (yeni savaş için cooldown).
 - **Kurallar:** war dosyaları delege edilemez (`c.big` guard); deadline kaçarsa savaş ölür; savaşın müşterisi giderse (`loseClient` kancası) savaş + sahnedeki stage dosyası birlikte çözülür. Inbox/CasePane'de altın "RETAINER MATTER · STAGE n/3" etiketi.
 
-**En son çalışılan konu (2026-07-12):** v1.9 test edildi (s1→s2→s3 zinciri 4'er gün arayla, etiketler, boost 250→500, cap 800, müşteri kaybında savaşın sönmesi). Sıradaki: hakim hafızası; sonra mobil.
+**v1.9.1 eklendi (2026-07-12, oyun taraması sonrası denge/temizlik):**
+- **A1 — Delege dengesi:** delege kazanç INF'i artık `×INF_EARN(0.6)` (engine.js resolveDelegated); günde en fazla `DELEGATE_CAP(2)` delege (`S.today.delegated` guard, delegateCase). Reliable-NPC delege spam'i kapandı — v15.1'in risksiz-ilerleme kırığının arka kapısıydı.
+- **B1 — Performans:** StatsPanel log render `.slice(0,80)` (endless'ta binlerce DOM satırı diff'leniyordu). **B2:** ölü `dailyLog` dizisi kaldırıldı (log() artık sadece logEntries; state'ten de silindi).
+- **A5:** "nosafe" günlük hedefi 2+ dosya ister (tek ayak işiyle trivial değildi).
+- **A7:** `bossAbove`/`buildDemand` artık `firedNames` filtreler (kovulan patron angarya/eve-gönderme yapamaz); `maybeImpressClient` başlık regex'i prefiks + " — ..." sonekini soyar (savaş başlıkları temiz okunur).
+
+**En son çalışılan konu (2026-07-12):** v1.9.1 tarayıcıda doğrulandı (delege cap+INF, log cap 80, nosafe@2, başlık temizliği, kovulan patron filtresi). Sıradaki: hakim hafızası; sonra mobil.
 
 **Aklında tut (kullanıcı onaylı bekleyenler):** hakim hafızası, mobil (layout+Capacitor), bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
 

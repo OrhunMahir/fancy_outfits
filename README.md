@@ -28,6 +28,19 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.1 — Balance & cleanup pass *(2026-07-12)*
+- **Delegation is no longer a free lunch:** delegated wins now have their INFLUENCE reward
+  damped like every other case (×0.6), and you can hand off at most **2 files per day** — the
+  reliable-colleague spam loop is closed.
+- **Performance:** the activity log now renders only its 80 most recent lines (long endless
+  runs were re-rendering thousands of DOM rows on every action). Removed a dead `dailyLog`
+  array that grew unbounded and bloated the save.
+- **Daily goal:** "close a file without playing it safe" now needs **2+** files, not one
+  trivial errand.
+- **Polish:** fired employees can no longer send you on coffee runs (or send you home for
+  exhaustion); the "we were impressed" client message now reads a clean matter name instead
+  of echoing a full case title.
+
 ### v19 — THE {CLIENT} WAR *(2026-07-12)*
 - **Long-form retainer matters:** once you're Senior Associate with a client on the book,
   mornings carry a chance that one of YOUR clients comes under siege — *"THE TESLER MOTORS

@@ -2,7 +2,7 @@
 // Rules (CLAUDE.md §5): stats change ONLY through apply(); after mutating S,
 // call notify() so React re-renders. Pause is derived — no S.paused flag.
 import { S, setS, notify, newState } from "./state.js";
-import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DAY_HOURS, TIER_HOURS, DELEGATE_HOURS,
+import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DELEGATE_CAP, DAY_HOURS, TIER_HOURS, DELEGATE_HOURS,
          OVERTIME_HOURS, OVERTIME_FATIGUE, LATE_FATIGUE, FATIGUE_REST, SAFE_HOURS_MULT, TECH_HOURS_MULT,
          COFFEE_RELIEF, COFFEE_FALLOFF, COFFEE_MIN, FATIGUE_DANGER, SENTHOME_REP, SENTHOME_INF,
          REP_FIRED, DEADLINE_PENALTY,
@@ -27,7 +27,7 @@ let flashSeq=0;
 export const isPaused=()=>!!(S.infoOpen||S.event||S.summary||S.userPaused||S.settingsOpen||S.rosterOpen||S.archiveOpen||S.leaving);
 export const disrespected=()=>S.rep<30;
 
-export function log(txt,cls){ S.logEntries.unshift({txt,cls:cls||""}); S.dailyLog.push(txt); }
+export function log(txt,cls){ S.logEntries.unshift({txt,cls:cls||""}); }
 
 export function flash(txt){
   const id=++flashSeq;
@@ -134,7 +134,7 @@ function trackChoice(c,o,win){
 const OBJ_DEFS={
   close:{desc:o=>"Close "+o.target+" files", cur:()=>S.today.resolved, make:()=>({target:rnd([2,3])})},
   wins:{desc:o=>"Win "+o.target+" case(s)", cur:()=>S.today.wins, make:()=>({target:rnd([1,2])})},
-  nosafe:{desc:()=>"Close a file without ever playing it safe", cur:()=>S.today.resolved>0&&S.today.safeUsed===0?1:0, make:()=>({target:1})},
+  nosafe:{desc:()=>"Close 2+ files without ever playing it safe", cur:()=>S.today.resolved>=2&&S.today.safeUsed===0?1:0, make:()=>({target:1})},
   aggwin:{desc:()=>"Land an aggressive play", cur:()=>S.today.aggWin, make:()=>({target:1})},
   deleg:{rank:1, desc:()=>"Delegate a file", cur:()=>S.today.delegated, make:()=>({target:1})},
   money:{desc:o=>"Bank $"+o.target, cur:()=>S.today.moneyGained, make:()=>({target:rnd([800,1200,1500])})},
@@ -233,7 +233,7 @@ function fatigueCheck(hoursWorked){
   const ph=hazardPerHour(); if(!ph) return;
   const p=S.fatigue>=100?1:1-Math.pow(1-ph/100,Math.max(1,hoursWorked||1));
   if(rand()>=p) return;
-  const boss=bossAbove(S.rank);
+  const boss=bossAbove(S.rank,S.firedNames);
   const what=rnd(INCIDENTS).replace("{BOSS}",boss||"a Senior Partner");
   SFX.lose(); doShake();
   log("EXHAUSTION: "+what,"bad");
@@ -273,7 +273,7 @@ export const wallTime=()=>{
 function maybeDemand(){
   if(!S||S.over||S.event||S.summary||S.hours<=0.5) return;
   if(rand()>=.14) return;
-  const d=buildDemand(S.rank);
+  const d=buildDemand(S.rank,S.firedNames);
   if(d){ SFX.open(); S.event=d; notify(); }
 }
 
@@ -577,7 +577,7 @@ function resolveDelegated(c){
     pushMsg("DELEGATED: "+c.title, n.name+" "+rnd(DELEGATE_WIN_TXT));
     log("DELEGATION ["+c.title+"]: "+n.name+" delivered.","good");
     archiveCase(c,"Delegated to "+n.name,true,"handled it","delegated");
-    apply({rep:2,inf:3+(c.tier||0)*2,money:(c.tier||0)*300});
+    apply({rep:2,inf:Math.max(1,Math.round((3+(c.tier||0)*2)*INF_EARN)),money:(c.tier||0)*300}); // delegated glory is damped like all INF (v19.1)
   } else if(d.silent){
     relNpc(n,-3); c.delegated=null; S.inbox.push(c); // the file just... reappears
     pushMsg("RETURNED: "+c.title, n.name+" 'never got around to it'. The file is back on YOUR desk, deadline intact.");
@@ -724,8 +724,11 @@ function maybeImpressClient(c){
   if(S.clients.length>=CLIENT_CAP(S.rank)||!S.clientPool.length) return;
   if(rand()<clamp((S.rep-45)*.004,0,.14)){
     const nc=signClient();
-    if(nc) pushMsg("NEW CLIENT: "+nc.name,
-      "'We followed the "+c.title.replace(/^[A-Z]+: ?/,"")+" matter. We were impressed. Represent us.' ($"+nc.fee+"/wk)");
+    if(nc){
+      const ref=c.title.replace(/^(CASE|COURT|MEMO|APPEAL|LAWSUIT|Errand|Doc review): ?/,"").replace(/ — .*/,"").trim();
+      pushMsg("NEW CLIENT: "+nc.name,
+        "'We followed your work on the "+ref+" matter. We were impressed. Represent us.' ($"+nc.fee+"/wk)");
+    }
   }
 }
 
@@ -811,6 +814,7 @@ export function spawnFavor(){
    you can't send a paralegal to argue a motion). Die is rolled now, revealed tomorrow. */
 export function delegateCase(c,npcId){
   if((S.rank<1&&S.scenario!=="boomerang")||c.judge||c.msg||c.pending||c.delegated||c.favor||c.big) return; // no delegating YOUR client's war
+  if(S.today.delegated>=DELEGATE_CAP){ log("The floor has limits: nobody takes a third handoff from the same desk in one day.","sys"); notify(); return; }
   const n=S.npcs.find(x=>x.id===npcId);
   SFX.send();
   const win=rand()*100<delegationChance(n);

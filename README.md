@@ -28,6 +28,11 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.2 — Weekday display *(2026-07-12)*
+- The topbar now shows the day of the week (`DAY 11 · MONDAY`) instead of a Friday countdown.
+  Day 1 is Monday, day 5 is Friday (highlighted gold — it's still review day), day 6 starts
+  the next week. Purely cosmetic; the Friday/weekend cycle is unchanged.
+
 ### v19.1 — Balance & cleanup pass *(2026-07-12)*
 - **Delegation is no longer a free lunch:** delegated wins now have their INFLUENCE reward
   damped like every other case (×0.6), and you can hand off at most **2 files per day** — the

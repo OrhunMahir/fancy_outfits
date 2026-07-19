@@ -4,16 +4,19 @@ import { settings } from "../game/settings.js";
 import { endDay, openInfo, openSettings, openRoster, openArchive, updateSetting, wallTime } from "../game/engine.js";
 import { SFX } from "../game/sound.js";
 
+const WEEKDAYS=["MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY"];
+
 export default function Topbar(){
   const S=useGame();
   const dayLen=settings.dayLen||DAY_HOURS;
   const late=S.otHours>0; // past quitting time
+  const weekday=WEEKDAYS[(S.day-1)%WEEK_LEN]; // day 1=Mon … day 5=Fri (review day)
   return (
     <div id="topbar">
       <span className="logo">PARSON{" "}HENDERSON{" "}LLP</span>
       <span>{RANKS[S.rank]}</span>
       <div className="clockbox">
-        <span>DAY {S.day}{S.day%WEEK_LEN===0?" · FRIDAY":" · FRI IN "+(WEEK_LEN-S.day%WEEK_LEN)}</span>
+        <span>DAY {S.day} · <span style={{color:weekday==="FRIDAY"?"var(--gold)":"inherit"}}>{weekday}</span></span>
         <span style={{color:late||S.hours<=1?"var(--red)":(S.hours<=2?"#e8a33d":"var(--gold)")}}>
           {wallTime()}{late?" · OT":""}
         </span>

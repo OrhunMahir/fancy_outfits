@@ -173,7 +173,9 @@
 - **A5:** "nosafe" günlük hedefi 2+ dosya ister (tek ayak işiyle trivial değildi).
 - **A7:** `bossAbove`/`buildDemand` artık `firedNames` filtreler (kovulan patron angarya/eve-gönderme yapamaz); `maybeImpressClient` başlık regex'i prefiks + " — ..." sonekini soyar (savaş başlıkları temiz okunur).
 
-**En son çalışılan konu (2026-07-12):** v1.9.1 tarayıcıda doğrulandı (delege cap+INF, log cap 80, nosafe@2, başlık temizliği, kovulan patron filtresi). Sıradaki: hakim hafızası; sonra mobil.
+**v1.9.2 eklendi (2026-07-12, kullanıcı isteği):** Topbar'da "FRI IN n" yerine haftanın günü (`WEEKDAYS[(day-1)%WEEK_LEN]` — gün 1 Pazartesi, gün 5 Cuma altın renkli). Salt kozmetik; cuma review'ı hâlâ `day%5===0`, hafta sonu kartı `(day-1)%5===0`. Topbar.jsx.
+
+**En son çalışılan konu (2026-07-12):** v1.9.2 (topbar haftanın günü) doğrulandı. Sıradaki: hakim hafızası; sonra mobil.
 
 **Aklında tut (kullanıcı onaylı bekleyenler):** hakim hafızası, mobil (layout+Capacitor), bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
 

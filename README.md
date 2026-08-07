@@ -20,13 +20,36 @@ Associate to **NAME PARTNER** before your secret — or your reputation — ends
 | `npm run build` | static production build in `dist/` (deployable to GitHub Pages / itch.io) |
 | `npm start` | build + open as a desktop app (Electron, the Steam target) |
 
-**Tech:** React 18 + Vite 5, zero asset files — sounds are WebAudio synthesis, graphics are CSS +
+Requires **Node.js 22.12+**.
+
+**Tech:** React 18 + Vite 7, zero asset files — sounds are WebAudio synthesis, graphics are CSS +
 runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free); UI in
 `src/components/`. Case generation is fully offline and procedural — **no API keys, no network**.
 
 ---
 
 ## Changelog
+
+### v19.6 — Save integrity & desktop security *(2026-08-07)*
+- **Client Wars now end cleanly:** losing the retained client, missing a stage deadline, ending
+  the matter or loading an older inconsistent save removes every matching inbox/follow-up
+  carrier. Stale filings are discarded instead of reviving a dead three-stage matter.
+- **Versioned, validated saves:** slots carry a schema version and migrate through an ordered
+  pipeline. Malformed, incompatible and newer-version saves are preserved and labelled rather
+  than silently deleted or overwritten; legacy single-slot saves move only after a verified copy.
+- **No end-of-day rollback:** nightly penalties, deadlines, reviews and debt are checkpointed
+  before the walk-out animation. Reloading during that animation resumes the summary and advances
+  the calendar exactly once.
+- **Storage failures are visible:** quota, blocked-storage and serialization failures keep the last
+  good slot and show a persistent warning. A terminal screen retries a failed slot deletion before
+  reloading, so a finished run cannot revive. Logs and case archives are bounded on disk while their
+  all-time archive count remains accurate; stat and ledger counters are range-checked on load.
+- **Desktop/web hardening:** upgraded to Vite 7 and Electron 43, reached a zero-vulnerability npm
+  audit, added a production Content Security Policy, and blocked Electron popups, external
+  navigation and permission requests. Development alone permits Vite's inline Fast Refresh preamble
+  and loopback HMR WebSocket; neither exception reaches the production HTML.
+- **Regression harness:** `npm test` now exercises old-save migration, damaged/future slots,
+  storage failure recovery, reload-at-day-end and Client War ownership/cleanup invariants.
 
 ### v19.5 — Approach rebalance & workday limits *(2026-08-07)*
 - **No more "just press 2":** every live case deterministically shuffles its base options when

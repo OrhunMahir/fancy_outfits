@@ -197,9 +197,18 @@
 - **Eski save güvenliği:** eksik `otToday`, `otHours/OVERTIME_HOURS` üzerinden türetilir; kayıtlı değer 0..2 aralığına clamp edilir.
 - **Kalıcı regresyon testi:** `npm test` (`scripts/v195-check.mjs`) shuffle/save/DAILY cursor, stil ödülleri, kahve+overtime guard/migration ve 5 senaryo × 4 mod başlangıcını kapsar.
 
-**Dış denetim notu (Codex, 2026-08-07):** YAPILDI: v1.9.3 çökme/kilit+Windows, v1.9.4 bütünlük, v1.9.5 seçenek/stil/kahve/mesai dengesi. KALAN (öncelikli): npm audit Electron/Vite güncellemesi; FIRM'in Standard modda anlamı; Defector/Boomerang özel finalleri; Client War müşteri-kaybı follow-up temizliği; versiyonlu save/migration+quota uyarısı.
+**v1.9.6 eklendi (2026-08-07, bütünlük + güvenlik turu):**
+- **Client War yaşam döngüsü:** `endClientWar(client)` bütün bitiş/kayıp/deadline yollarını merkezileştirir; inbox, follow-up, açık dosya ve latework seçimini idempotent temizler. `reconcileClientWarState()` eski kayıtlardaki sahipsiz/çift taşıyıcıları load sırasında onarır; spawn günü müşterisi veya aktif mandate'i olmayan filing düşürülür.
+- **Versiyonlu save/migration:** payload `SAVE_SCHEMA_VERSION` + `savedAt` taşır; schema 0→1 migration'ı eksik modern alanları ve Client Book prospect havuzunu güvenli tamamlar. Yalnız `newState()` whitelist'i hydrate edilir; temel sayılar, koleksiyonlar, dava/option/outcome zincirleri, event, roster, rival ve Client War metadata doğrulanır. Gelecek sürüm, bozuk JSON ve geçersiz save ham hali korunarak Start ekranında ayrı gösterilir.
+- **Kayıt hata güvenliği:** quota/blocked/serialize/write hataları son sağlam slotu bozmadan kalıcı `AUTO-SAVE FAILED` banner'ı verir; başarılı sonraki save uyarıyı temizler. Slot silme iki aşamalı; silme başarısızsa restart/reload ve terminal `NEW GAME` eski run'ı diriltmez, aynı buton silmeyi yeniden dener. Legacy tek-save anahtarı ancak hedef kopya doğrulandıktan sonra silinir. Ironman bozuk/yeni/blocked slotu değiştirmeden başlayabilir.
+- **Büyüme sınırı:** diskte yalnız son `SAVE_LOG_LIMIT(200)` log ve `SAVE_ARCHIVE_LIMIT(200)` arşiv kaydı tutulur; `archiveTotal` tüm kariyer sayısını korur.
+- **Gün sonu checkpoint'i:** deadline/review/debt/gece statları yürüyüş animasyonundan ÖNCE serileştirilen `pendingSummary` ile kaydedilir. Animasyon sırasında reload özeti geri getirir ve `advanceDay()` yalnız bir kez çalışır.
+- **Toolchain/güvenlik:** Vite 7.3.6, plugin-react 5.2.0, Electron 43.3.0, esbuild 0.28.1, postcss 8.5.26; Node ≥22.12. `npm audit` 0 açık. Production CSP sıkı `script-src/connect-src 'self'`; yalnız Vite dev sunucusu Fast Refresh inline preamble'ı + loopback HMR WebSocket izni ekler. Electron popup, dış navigation ve tüm permission request'lerini reddeder; dev URL yalnız loopback host kabul eder.
+- **Kalıcı testler:** `npm test` artık schema/migration, 5000 kayıt sınırı, bozuk/gelecek/boş save koruması, quota/storage/serialize/remove arızaları, animasyonda reload ve Client War cleanup/reconciliation invariantlarını kapsar.
 
-**En son çalışılan konu (2026-08-07):** v1.9.5 denge turu 2. parça tamamlandı; `npm test`, production build, bağımsız diff review ve gerçek tarayıcı turu geçti. Sıradaki: Defector/Boomerang finalleri + Standard FIRM anlamı veya daha önce onaylı hakim hafızası.
+**Dış denetim notu (Codex, 2026-08-07):** YAPILDI: v1.9.3 çökme/kilit+Windows, v1.9.4 bütünlük, v1.9.5 seçenek/stil/kahve/mesai dengesi, v1.9.6 Client War+save bütünlüğü ve bağımlılık/Electron/CSP güvenliği. KALAN (ürün tasarımı): FIRM'in Standard modda anlamı; Defector/Boomerang özel finalleri; hakim hafızası; mobil geçiş.
+
+**En son çalışılan konu (2026-08-07):** v1.9.6 bütünlük/güvenlik turu tamamlandı; Client War ghost filing'leri, versiyonlu save/migration, gün sonu reload rollback'i, storage hata UX'i ve npm/Electron/CSP yüzeyi ele alındı. Sıradaki öneri: Standard modda FIRM statına oyuncu eylemi/sonuç anlamı kazandırmak ve Defector/Boomerang özel finallerini aynı ürün turunda tamamlamak; ardından onaylı hakim hafızası.
 
 **Aklında tut (kullanıcı onaylı bekleyenler):** hakim hafızası, mobil (layout+Capacitor), bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
 
@@ -207,12 +216,12 @@
 
 # 3. Tech Stack
 
-- **Framework:** React 18 + Vite 5 (karar: 2026-07-05, kullanıcı isteğiyle — önceki "tek dosya vanilla" kararının yerini aldı). JSX, ES modülleri.
+- **Framework:** React 18 + Vite 7 (ilk React/Vite kararı: 2026-07-05; Vite 7 güvenlik güncellemesi: 2026-08-07). JSX, ES modülli config (`vite.config.mjs`). Node ≥22.12.
 - **State:** Framework state kütüphanesi YOK. Tek global mutable obje `S` (`src/game/state.js`) + minimal store: engine `S`'i mutasyona uğratır, `notify()` çağırır; React `useSyncExternalStore` ile dinler (`useGame()` hook'u). Oyun mantığı React'ten tamamen bağımsız saf JS modülleri.
 - **Dış bağımlılık (runtime):** react, react-dom + Google Fonts'tan `Press Start 2P` (CSS `@import`; internet yoksa monospace fallback). Başka runtime bağımlılığı EKLENMEZ.
 - **Ses:** Web Audio API ile runtime sentez — hiçbir ses dosyası yok (`src/game/sound.js`).
 - **Grafik:** CSS (chunky border, scanline overlay) + ofis sahnesi için runtime üretilen inline SVG (`OfficeScene.jsx`). Hiçbir görsel asset dosyası yok.
-- **Build/deploy:** `npm run dev` (Vite dev server, tarayıcı), `npm run build` (statik `dist/` — GitHub Pages/itch.io'ya konabilir), `npm start` (build + Electron masaüstü penceresi, Steam hedefi). `vite.config.js`'te `base:'./'` — Electron `file://` ve Pages alt yolları için gerekli, bozma.
+- **Build/deploy:** `npm run dev` (Vite dev server, tarayıcı), `npm run build` (statik `dist/` — GitHub Pages/itch.io'ya konabilir), `npm start` (build + Electron masaüstü penceresi, Steam hedefi). `vite.config.mjs`'te `base:'./'` — Electron `file://` ve Pages alt yolları için gerekli, bozma.
 - **Steam yolu:** Electron wrapper `electron/main.js`. İleride: `electron-builder` ile exe/app paketleme + `steamworks.js` ile Steamworks entegrasyonu (henüz eklenmedi).
 
 ---
@@ -222,7 +231,7 @@
 ```
 fancy-outfits/
 ├── index.html                    ← Vite giriş HTML'i (sadece #root + main.jsx import)
-├── vite.config.js                ← Vite ayarı (react plugin, base:'./')
+├── vite.config.mjs               ← Vite ayarı (react plugin, dev-only CSP dönüşümü, base:'./')
 ├── package.json                  ← scripts: dev / build / preview / start(=build+electron)
 ├── electron/main.js              ← Electron ana süreci: pencere açar, dist/index.html yükler
 ├── src/
@@ -441,7 +450,7 @@ if(S.scenario==="legacy"){
 
 | Karar | Gerekçe | Değiştirilebilir mi? |
 |---|---|---|
-| ~~Tek dosya, vanilla JS~~ → **React 18 + Vite 5** (2026-07-05) | Kullanıcı Steam hedefiyle birlikte "reacte geçir, dışarıdan bakan neyin nerede olduğunu anlasın" dedi; mantık `src/game/` (saf JS), UI `src/components/` olarak ayrıldı | Kullanıcı kararı; geri dönüş yok. Eski tek dosya sürüm git geçmişinde (commit "v2") |
+| ~~Tek dosya, vanilla JS~~ → **React 18 + Vite 7** (React geçişi 2026-07-05; Vite 7 güncellemesi 2026-08-07) | Kullanıcı Steam hedefiyle birlikte "reacte geçir, dışarıdan bakan neyin nerede olduğunu anlasın" dedi; mantık `src/game/` (saf JS), UI `src/components/` olarak ayrıldı. Vite 7 güncel güvenlik/toolchain tabanı | Kullanıcı kararı; geri dönüş yok. Eski tek dosya sürüm git geçmişinde (commit "v2") |
 | State: mutable `S` + notify() store, Redux/Zustand yok | Oyun mantığı 1:1 port edildi, denge riski sıfırlandı; ekstra bağımlılık yasağı sürüyor | Yeni state kütüphanesi eklenmez |
 | Oyun dili İngilizce | Kullanıcının açık kararı ("dili ingilizce olsun") | Sorulmadan değiştirme |
 | Web deploy = `npm run build` çıktısı (`dist/`) | Vite girişi kök `index.html`; Pages'e artık dist atılır | Koru |
@@ -469,7 +478,7 @@ if(S.scenario==="legacy"){
 
 Sen bu projeye yeni katılan geliştiricisin. Şunları bilmelisin:
 
-1. Proje `fancy-outfits/` klasöründe; React 18 + Vite 5. Oyun mantığı `src/game/` (saf JS, React'ten bağımsız), UI `src/components/`. `FANCY_OUTFITS_GDD.md` gelecek özelliklerin spec'i, bu `CLAUDE.md` tam bağlam.
+1. Proje `fancy-outfits/` klasöründe; React 18 + Vite 7 (Node ≥22.12). Oyun mantığı `src/game/` (saf JS, React'ten bağımsız), UI `src/components/`. `FANCY_OUTFITS_GDD.md` gelecek özelliklerin spec'i, bu `CLAUDE.md` tam bağlam.
 2. Çalıştırmak: `npm run dev` (tarayıcı), `npm start` (Electron/Steam hedefi). Her değişiklikten sonra `npm run build` ile doğrula, davranışı tarayıcıda elle test et.
 3. Dokunmadan önce oku: `src/game/engine.js` içinde `chance()` (denge), `apply()` (tüm stat mutasyonu buradan) ve `endDay()` (gün akışı); dava JSON şeması (CLAUDE.md §7, gerçek veri `src/game/content.js`).
 4. Kırmızı çizgiler: yeni runtime bağımlılığı/asset dosyası ekleme; oyun metinlerine "Suits/Papers Please" yazma; safe-vs-bluff çekirdek gerilimini bozma; `apply()`'ı bypass etme; `src/game/` ↔ `src/components/` katman ayrımını bozma; oyun dili İngilizce kalır, kullanıcıyla Türkçe konuşulur.

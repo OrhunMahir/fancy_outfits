@@ -49,6 +49,8 @@ export const FIRM_COLLAPSE=15;
 // voted-out senior), decays x HEAT_DECAY nightly, but never below HEAT_MIN
 // once you've fired anyone — ex-employees have long memories.
 export const FIRE_HEAT=9, FIRE_HEAT_SENIOR=16, HEAT_DECAY=0.93, HEAT_MIN=1;
-// localStorage keys (bump the suffix if the save shape changes)
+// The storage key stays stable; ordered migrations use the embedded schema.
+export const SAVE_SCHEMA_VERSION=1;
+export const SAVE_LOG_LIMIT=200, SAVE_ARCHIVE_LIMIT=200;
 export const SAVE_KEY="fo_save_v1";
 export const STATS_KEY="fo_stats_v1";

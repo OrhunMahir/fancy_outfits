@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { SCENARIOS } from "../game/content.js";
 import { RANKS } from "../game/constants.js";
-import { startGame, loadGame, peekSave, getStats, getSlot, setSlot } from "../game/engine.js";
+import { startGame, loadGame, inspectSave, clearSaveSlot, canStartWithSlot, getStats, getSlot, setSlot } from "../game/engine.js";
 import { ACHIEVEMENTS, getUnlocked } from "../game/achievements.js";
 import { rnd } from "../game/utils.js";
 
@@ -23,8 +23,27 @@ export default function StartScreen(){
   const [diff,setDiff]=useState("easy");
   const [mode,setMode]=useState("standard");
   const [slot,setSlotState]=useState(getSlot());
-  const pickSlot=n=>{ setSlot(n); setSlotState(n); };
-  const save=peekSave(slot);
+  const [,setSlotRevision]=useState(0);
+  const [clearArmed,setClearArmed]=useState(null);
+  const [storageNotice,setStorageNotice]=useState("");
+  const infos=[1,2,3].map(n=>inspectSave(n));
+  const selected=infos[slot-1], save=selected&&selected.save;
+  const blocked=selected&&["corrupt","invalid","future"].includes(selected.status);
+  const unavailable=selected&&selected.status==="unavailable";
+  const canStart=canStartWithSlot(selected&&selected.status,mode);
+  const pickSlot=n=>{
+    const ok=setSlot(n); setSlotState(n); setClearArmed(null);
+    setStorageNotice(ok?"":"The active slot could not be remembered. Browser storage may be blocked.");
+  };
+  const clearSelected=()=>{
+    if(clearArmed!==slot){ setClearArmed(slot); return; }
+    const ok=clearSaveSlot(slot);
+    setClearArmed(null); setStorageNotice(ok?"Damaged slot cleared.":"The slot could not be cleared. Browser storage is blocked.");
+    setSlotRevision(v=>v+1);
+  };
+  const slotLabel=info=>info.status==="ready"?"DAY "+info.save.day:
+    info.status==="empty"?"empty":info.status==="future"?"NEWER VERSION":
+    info.status==="unavailable"?"STORAGE BLOCKED":"DAMAGED";
   const nAch=Object.keys(ach).length;
   return (
     <div className="overlay" style={{overflowY:"auto"}}>
@@ -48,14 +67,24 @@ export default function StartScreen(){
         <div className="kv">SAVE SLOT — new runs write here:</div>
         <div className="diffrow">
           {[1,2,3].map(n=>{
-            const sv=peekSave(n);
+            const info=infos[n-1];
             return (
               <button key={n} className={"btn small"+(slot===n?" on":"")} onClick={()=>pickSlot(n)}>
-                SLOT {n}{sv?" · DAY "+sv.day:" · empty"}
+                SLOT {n} · {slotLabel(info)}
               </button>
             );
           })}
         </div>
+        {(blocked||unavailable) && (
+          <div className="save-slot-warning" role="alert">
+            <strong>{selected.status==="future"?"NEWER SAVE — DO NOT OVERWRITE":unavailable?"STORAGE BLOCKED":"DAMAGED SAVE"}</strong><br/>
+            {selected.message}{unavailable?" Select IRONMAN to play without persistence.":" The raw slot is still preserved. IRONMAN can start without touching it."}
+            {!unavailable && <button className={"btn small"+(clearArmed===slot?" bold":"")} onClick={clearSelected}>
+              {clearArmed===slot?"CONFIRM — DELETE SLOT "+slot:selected.status==="future"?"CLEAR NEWER SLOT":"CLEAR DAMAGED SLOT"}
+            </button>}
+          </div>
+        )}
+        {storageNotice && <div className="kv" style={{color:"var(--gold)"}}>{storageNotice}</div>}
         <div className="opts">
           {save && (
             <button className="btn safe" onClick={()=>loadGame(slot)}>
@@ -63,16 +92,16 @@ export default function StartScreen(){
             </button>
           )}
           {mode==="daily" ? (
-            <button className="btn bold" onClick={()=>startGame(null,diff,"daily")}>
+            <button className="btn bold" disabled={!canStart} onClick={()=>startGame(null,diff,"daily")}>
               START TODAY'S DAILY<span className="chance">Scenario and cases are decided by the date. Difficulty locks to MEDIUM.</span>
             </button>
           ) : (<>
             {Object.entries(SCENARIOS).map(([k,v])=>(
-              <button key={k} className="btn" onClick={()=>startGame(k,diff,mode)}>
+              <button key={k} className="btn" disabled={!canStart} onClick={()=>startGame(k,diff,mode)}>
                 {v.label}<span className="chance">{v.desc}</span>
               </button>
             ))}
-            <button className="btn bold" onClick={()=>startGame(rnd(Object.keys(SCENARIOS)),diff,mode)}>RANDOM SCENARIO</button>
+            <button className="btn bold" disabled={!canStart} onClick={()=>startGame(rnd(Object.keys(SCENARIOS)),diff,mode)}>RANDOM SCENARIO</button>
           </>)}
         </div>
         {st && (

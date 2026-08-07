@@ -1,5 +1,5 @@
-// End-of-day / game-over / win screen. `sum.cb` runs when the button is
-// pressed (advances the day, or reloads for a new game).
+// End-of-day / game-over / win screen. The serializable `sum.action` is
+// resolved by the engine when the button is pressed.
 import { dismissSummary } from "../game/engine.js";
 
 export default function SummaryOverlay({sum}){

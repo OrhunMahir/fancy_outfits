@@ -11,10 +11,11 @@ export default function ArchiveOverlay(){
   const S=useGame();
   const [open,setOpen]=useState(null);
   const rows=S.archive.slice(0,SHOW);
+  const total=Math.max(S.archiveTotal||0,S.archive.length);
   return (
     <div className="overlay" style={{overflowY:"auto"}}>
       <div className="box panel" style={{maxWidth:640,margin:"auto"}}>
-        <h2>CASE ARCHIVE ({S.archive.length})</h2>
+        <h2>CASE ARCHIVE ({total})</h2>
         {!S.archive.length && <div className="kv">Nothing resolved yet. The archive, like your career, awaits content.</div>}
         {rows.map((e,i)=>(
           <div key={i} className="rosterrow" style={{cursor:"pointer"}}
@@ -35,7 +36,7 @@ export default function ArchiveOverlay(){
             )}
           </div>
         ))}
-        {S.archive.length>SHOW && <div className="kv">…and {S.archive.length-SHOW} earlier entries.</div>}
+        {total>SHOW && <div className="kv">…and {total-SHOW} earlier entries.</div>}
         <div className="opts" style={{marginTop:12}}><button className="btn" onClick={closeArchive}>BACK TO BILLING</button></div>
       </div>
     </div>

@@ -7,7 +7,7 @@ import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DELEGATE_CAP, DAY_HOURS, TIER_HOU
          FATIGUE_REST, SAFE_HOURS_MULT, TECH_HOURS_MULT, TECH_INF_MULT, AGG_INF_MULT,
          COFFEE_RELIEF, COFFEE_FALLOFF, COFFEE_LIMIT, FATIGUE_DANGER, SENTHOME_REP, SENTHOME_INF,
          REP_FIRED, DEADLINE_PENALTY,
-         STAKE_REWARD, STAKE_PENALTY, PRICES, DECOR, SAVE_KEY, STATS_KEY,
+         STAKE_REWARD, STAKE_PENALTY, PRICES, DECOR, SAVE_SCHEMA_VERSION, SAVE_LOG_LIMIT, SAVE_ARCHIVE_LIMIT, SAVE_KEY, STATS_KEY,
          WEEK_LEN, REVIEW_GOOD, REVIEW_BAD, BUYIN_COST, FIRM_COLLAPSE,
          FIRE_HEAT, FIRE_HEAT_SENIOR, HEAT_DECAY, HEAT_MIN } from "./constants.js";
 import { clamp, rnd, rand, shuffle, hash, setSeed, clearSeed, getRngState, setRngState } from "./utils.js";
@@ -17,18 +17,22 @@ import { buildPool, JUDGES, crises, SCENARIOS, buildWeekend } from "./content.js
 import { genCase } from "./casegen.js";
 import { buildNpcs, buildRoster, buildDemand, buildStory, bossAbove, delegationChance, relNpc, buildFavor, DELEGATE_WIN_TXT, DELEGATE_FAIL_TXT } from "./npcs.js";
 import { buildLawsuit, buildBigMatter } from "./casegen.js";
-import { CLIENT_CAP, makeClient, buildGlobalEvent, buildDinnerEvent, PARTNERS } from "./clients.js";
+import { CLIENT_CAP, CLIENT_NAMES, makeClient, buildGlobalEvent, buildDinnerEvent, PARTNERS } from "./clients.js";
 import { ACHIEVEMENTS, unlock } from "./achievements.js";
 export { buildDemand, buildBigMatter }; // re-export: dev console + tests poke these directly
 
 let flashSeq=0;
+let terminalClearDone=false;
 
 /* The clock stops whenever any overlay is up, the player hit PAUSE, or the
    character is walking out. Replaces the old S.paused flag. */
 export const isPaused=()=>!!(S.infoOpen||S.event||S.summary||S.userPaused||S.settingsOpen||S.rosterOpen||S.archiveOpen||S.leaving);
 export const disrespected=()=>S.rep<30;
 
-export function log(txt,cls){ S.logEntries.unshift({txt,cls:cls||""}); }
+export function log(txt,cls){
+  S.logEntries.unshift({txt,cls:cls||""});
+  if(S.logEntries.length>SAVE_LOG_LIMIT) S.logEntries.length=SAVE_LOG_LIMIT;
+}
 
 export function flash(txt){
   const id=++flashSeq;
@@ -157,8 +161,10 @@ export function objectiveInfo(){
 
 /* ---------- case archive: every resolved file, what you played, how it went ---------- */
 function archiveCase(c,play,win,note,via){
+  S.archiveTotal=(S.archiveTotal||S.archive.length)+1;
   S.archive.unshift({day:S.day, title:c.title, play, win, note:note||"", via:via||"",
     body:c.body||"", judge:c.judge?c.judge.name:""}); // full details for the LOG viewer
+  if(S.archive.length>SAVE_ARCHIVE_LIMIT) S.archive.length=SAVE_ARCHIVE_LIMIT;
 }
 
 /* effects: {rep,bold,inf,money,firm} */
@@ -310,6 +316,7 @@ function ach(id){
    modes: standard (default) · ironman (no save — close the game, lose the run)
    · endless (winning doesn't end the run) · daily (date-seeded, same for everyone) */
 export function startGame(sc,diff,mode){
+  terminalClearDone=false;
   mode=mode||"standard";
   if(mode==="daily"){
     const today=new Date().toISOString().slice(0,10);
@@ -377,6 +384,65 @@ export function instantiateCase(c){
   return scaleStakes(inst);
 }
 
+/* A Client War has exactly one owner and one carrier: either its current inbox
+   stage or its queued follow-up. Every terminal/cancellation path goes through
+   this idempotent cleanup so a lost client can never leave a ghost filing. */
+const warBelongs=(c,client)=>!!(c&&c.big&&c.big.client===client);
+export function endClientWar(client){
+  if(!S||!client) return false;
+  const inbox=Array.isArray(S.inbox)?S.inbox:[];
+  const followups=Array.isArray(S.followups)?S.followups:[];
+  const active=!!(S.bigCase&&S.bigCase.client===client);
+  const inboxHits=inbox.filter(c=>warBelongs(c,client));
+  const followupHits=followups.filter(f=>warBelongs(f&&f.case,client));
+  const openHit=warBelongs(S.openCase,client);
+  const pendingHit=warBelongs(S.pendingChoice&&S.pendingChoice.c,client);
+  const touched=active||inboxHits.length>0||followupHits.length>0||openHit||pendingHit;
+
+  if(inboxHits.length) S.inbox=inbox.filter(c=>!warBelongs(c,client));
+  if(followupHits.length) S.followups=followups.filter(f=>!warBelongs(f&&f.case,client));
+  if(openHit) S.openCase=null;
+  if(pendingHit){ S.pendingChoice=null; if(S.event&&S.event.id==="latework") S.event=null; }
+  if(active) S.bigCase=null;
+  if(touched) S.bigDoneDay=Math.max(Number(S.bigDoneDay)||0,Number(S.day)||0);
+  return touched;
+}
+
+/* Repair pre-v1.9.6 saves and fail closed on impossible multi-war states. */
+function reconcileClientWarState(){
+  if(!S) return 0;
+  const retained=new Set((Array.isArray(S.clients)?S.clients:[]).map(c=>c&&c.name).filter(Boolean));
+  const canonical=S.bigCase&&S.bigCase.client;
+  const names=new Set([
+    canonical,
+    ...(Array.isArray(S.inbox)?S.inbox:[]).map(c=>c&&c.big&&c.big.client),
+    ...(Array.isArray(S.followups)?S.followups:[]).map(f=>f&&f.case&&f.case.big&&f.case.big.client),
+  ].filter(Boolean));
+  let repaired=0;
+
+  for(const name of names){
+    if(!canonical||name!==canonical||!retained.has(name)){
+      if(endClientWar(name)) repaired++;
+    }
+  }
+  if(!S.bigCase) return repaired;
+
+  const client=S.bigCase.client, stage=S.bigCase.stage;
+  const carriers=[
+    ...(Array.isArray(S.inbox)?S.inbox:[]).filter(c=>warBelongs(c,client)).map(ref=>({kind:"inbox",ref,c:ref})),
+    ...(Array.isArray(S.followups)?S.followups:[]).filter(f=>warBelongs(f&&f.case,client)).map(ref=>({kind:"followup",ref,c:ref.case})),
+  ];
+  const matching=carriers.filter(x=>x.c.big.stage===stage);
+  if(!matching.length){ if(endClientWar(client)) repaired++; return repaired; }
+  if(carriers.length>1){
+    const keep=matching[0];
+    S.inbox=S.inbox.filter(c=>!warBelongs(c,client)||(keep.kind==="inbox"&&c===keep.ref));
+    S.followups=S.followups.filter(f=>!warBelongs(f&&f.case,client)||(keep.kind==="followup"&&f===keep.ref));
+    repaired++;
+  }
+  return repaired;
+}
+
 /* multi-stage cases: an outcome with `next` queues a follow-up filing that
    lands in the inbox `after` days later (stake-scaled at ITS spawn, not now) */
 function queueFollowup(nx){
@@ -387,6 +453,16 @@ function spawnFollowups(){
   const due=S.followups.filter(f=>f.day<=S.day);
   S.followups=S.followups.filter(f=>!due.includes(f));
   due.forEach(f=>{
+    if(f.case&&f.case.big){
+      const b=f.case.big;
+      const retained=S.clients.some(c=>c.name===b.client);
+      const expected=S.bigCase&&S.bigCase.client===b.client&&S.bigCase.stage===b.stage;
+      if(!retained||!expected){
+        endClientWar(b.client);
+        log("STALE FILING DISMISSED: THE "+b.client.toUpperCase()+" WAR no longer has a client or an active mandate.","sys");
+        return;
+      }
+    }
     const inst=instantiateCase({...f.case, chain:true});
     S.inbox.unshift(inst);
     log("NEW FILING: "+inst.title,"sys");
@@ -436,7 +512,7 @@ export function endDay(){
       log("FAVOR IGNORED: "+c.title+" (-10 rel)","bad"); return; }
     log("DEADLINE MISSED: "+c.title,"bad"); S.runStats.miss++;
     archiveCase(c,"(deadline missed)",false,DEADLINE_PENALTY+" REP");
-    if(c.big){ S.bigCase=null; S.bigDoneDay=S.day;
+    if(c.big){ endClientWar(c.big.client);
       log("THE "+c.big.client.toUpperCase()+" WAR dies on your desk, unanswered. "+c.big.client+" notices.","bad"); }
     apply({rep:DEADLINE_PENALTY,firm:-2},true); nemesisGain(4,true);
   });
@@ -498,68 +574,76 @@ export function endDay(){
     else { gameOver("STUDENT DEBT DEFAULT","You missed a loan payment. The collectors know where you bill hours. Career over."); return; }
   }
   // walk out first, then the summary
+  S.pendingSummary={title:"END OF DAY "+S.day+(friday?" — FRIDAY":""),lines,btnTxt:"START DAY "+(S.day+1),action:"nextDay"};
+  saveGame(); // checkpoint BEFORE the walk animation so reload cannot undo the night
   S.leaving=true; S.charAnim="leaving"; notify();
   setTimeout(()=>{
     if(!S||S.over) return;
     S.leaving=false;
     SFX.bell();
-    showSummary("END OF DAY "+S.day+(friday?" — FRIDAY":""), lines, "START DAY "+(S.day+1), ()=>{
-      S.day++; S.hours=settings.dayLen||DAY_HOURS; S.otHours=0; S.otToday=0;
-      if(S.day>=15) ach("day15");
-      nemesisGain(rnd([0,1,1,2,2,3])); // he grinds nights too
-      if(S.over) return;
-      apply({rep:-1,inf:-INF_DECAY[S.rank]},true); // the firm forgets fast — and influence evaporates upward
-      if(S.over) return;
-      newObjective(); // set the day's goal FIRST so replies that land this morning count toward it
-      S.inbox.filter(c=>c.pending&&c.pending.day<=S.day).forEach(resolveDelayed);
-      S.inbox.filter(c=>c.delegated&&c.delegated.day<=S.day).forEach(resolveDelegated);
-      spawnFollowups();
-      S.coffeeToday=0; // the espresso counter forgives overnight
-      drawCases(3+(rand()<.4?1:0)+(S.rank>=2&&rand()<.4?1:0)); // v1.6: the inbox does not respect you
-      if(rand()<.35&&!S.inbox.some(c=>c.favor)) spawnFavor();
-      if(rand()<.18) marvMoment();
-      rosterTick(); litigationTick(); rivalTick();
-      // Saturday interlude: the morning after every Friday, the weekend asks what you did with it
-      if((S.day-1)%WEEK_LEN===0&&S.day>1){ SFX.bell(); S.event=buildWeekend(); }
-      // low rep = casual disrespect
-      if(disrespected()&&rand()<.5) pushMsg("FYI",rnd([
-        "The partners' meeting you weren't told about went great, apparently.",
-        "Someone booked 'your' desk for a client call. You can use the hallway.",
-        "IT reset your password to 'temp123'. They didn't tell you either.",
-        "Your nameplate now reads 'ASSOCIATE (TEMP)'. Nobody knows who ordered it.",
-        "The intern got CC'd on your case. 'For oversight.'"]));
-      // crisis? (a Traitor may leak your position; a loyal Brave shields you)
-      const cs=crises();
-      if(!S.event&&cs.length&&rand()<.6){
-        const c=rnd(cs); S.usedCrises.push(c.id); SFX.crisis();
-        const traitor=S.npcs.find(n=>n.trait==="Traitor"&&n.rel<25);
-        const brave=S.npcs.find(n=>n.trait==="Brave"&&n.rel>=40);
-        if(traitor&&rand()<.4){ traitor.known=true; c.crisisMod={v:-8,txt:traitor.name+" leaked your position before you entered the room. (-8% on every play)"}; }
-        else if(brave){ brave.known=true; c.crisisMod={v:8,txt:brave.name+" is standing at your shoulder. (+8% on every play)"}; }
-        S.event=c; S.runStats.crises++;
-      }
-      // no firm crisis today? the outside world may still bite (rare, repeatable)
-      if(!S.event&&rand()<.07){
-        const ge=buildGlobalEvent(S.clients);
-        if(ge){ SFX.crisis(); S.event=ge; S.runStats.crises++; }
-      }
-      // a colleague you've earned (rel 40+) may open a door — once per run each
-      if(!S.event){
-        const friend=S.npcs.find(n=>n.rel>=40&&!S.npcStories.includes(n.id));
-        if(friend){ const st=buildStory(friend); if(st){ S.npcStories.push(friend.id); SFX.open(); S.event=st; } }
-      }
-      clientAcquisition();
-      // a retained client's existential, weeks-long matter (one at a time)
-      if(!S.bigCase&&S.rank>=1&&S.clients.length&&S.day>=4&&S.day>=S.bigDoneDay+4&&rand()<.10){
-        const cl=rnd(S.clients);
-        S.bigCase={client:cl.name, stage:1};
-        S.inbox.unshift(instantiateCase(buildBigMatter(cl.name)));
-        SFX.crisis();
-        log("RETAINER MATTER: "+cl.name+" is under siege. This one is measured in weeks, not hours.","sys");
-      }
-      sitDown();
-    });
+    const pending=S.pendingSummary;
+    S.pendingSummary=null;
+    if(pending) showSummary(pending.title,pending.lines,pending.btnTxt,pending.action);
   },1400);
+}
+
+/* Serializable continuation for the end-of-day summary. A reload while the
+   summary is open can now resume here exactly once instead of rolling back. */
+function advanceDay(){
+  S.day++; S.hours=settings.dayLen||DAY_HOURS; S.otHours=0; S.otToday=0;
+  if(S.day>=15) ach("day15");
+  nemesisGain(rnd([0,1,1,2,2,3])); // he grinds nights too
+  if(S.over) return;
+  apply({rep:-1,inf:-INF_DECAY[S.rank]},true); // the firm forgets fast — and influence evaporates upward
+  if(S.over) return;
+  newObjective(); // set the day's goal FIRST so replies that land this morning count toward it
+  S.inbox.filter(c=>c.pending&&c.pending.day<=S.day).forEach(resolveDelayed);
+  S.inbox.filter(c=>c.delegated&&c.delegated.day<=S.day).forEach(resolveDelegated);
+  spawnFollowups();
+  S.coffeeToday=0; // the espresso counter forgives overnight
+  drawCases(3+(rand()<.4?1:0)+(S.rank>=2&&rand()<.4?1:0)); // v1.6: the inbox does not respect you
+  if(rand()<.35&&!S.inbox.some(c=>c.favor)) spawnFavor();
+  if(rand()<.18) marvMoment();
+  rosterTick(); litigationTick(); rivalTick();
+  // Saturday interlude: the morning after every Friday, the weekend asks what you did with it
+  if((S.day-1)%WEEK_LEN===0&&S.day>1){ SFX.bell(); S.event=buildWeekend(); }
+  // low rep = casual disrespect
+  if(disrespected()&&rand()<.5) pushMsg("FYI",rnd([
+    "The partners' meeting you weren't told about went great, apparently.",
+    "Someone booked 'your' desk for a client call. You can use the hallway.",
+    "IT reset your password to 'temp123'. They didn't tell you either.",
+    "Your nameplate now reads 'ASSOCIATE (TEMP)'. Nobody knows who ordered it.",
+    "The intern got CC'd on your case. 'For oversight.'"]));
+  // crisis? (a Traitor may leak your position; a loyal Brave shields you)
+  const cs=crises();
+  if(!S.event&&cs.length&&rand()<.6){
+    const c=rnd(cs); S.usedCrises.push(c.id); SFX.crisis();
+    const traitor=S.npcs.find(n=>n.trait==="Traitor"&&n.rel<25);
+    const brave=S.npcs.find(n=>n.trait==="Brave"&&n.rel>=40);
+    if(traitor&&rand()<.4){ traitor.known=true; c.crisisMod={v:-8,txt:traitor.name+" leaked your position before you entered the room. (-8% on every play)"}; }
+    else if(brave){ brave.known=true; c.crisisMod={v:8,txt:brave.name+" is standing at your shoulder. (+8% on every play)"}; }
+    S.event=c; S.runStats.crises++;
+  }
+  // no firm crisis today? the outside world may still bite (rare, repeatable)
+  if(!S.event&&rand()<.07){
+    const ge=buildGlobalEvent(S.clients);
+    if(ge){ SFX.crisis(); S.event=ge; S.runStats.crises++; }
+  }
+  // a colleague you've earned (rel 40+) may open a door — once per run each
+  if(!S.event){
+    const friend=S.npcs.find(n=>n.rel>=40&&!S.npcStories.includes(n.id));
+    if(friend){ const st=buildStory(friend); if(st){ S.npcStories.push(friend.id); SFX.open(); S.event=st; } }
+  }
+  clientAcquisition();
+  // a retained client's existential, weeks-long matter (one at a time)
+  if(!S.bigCase&&S.rank>=1&&S.clients.length&&S.day>=4&&S.day>=S.bigDoneDay+4&&rand()<.10){
+    const cl=rnd(S.clients);
+    S.bigCase={client:cl.name, stage:1};
+    S.inbox.unshift(instantiateCase(buildBigMatter(cl.name)));
+    SFX.crisis();
+    log("RETAINER MATTER: "+cl.name+" is under siege. This one is measured in weeks, not hours.","sys");
+  }
+  sitDown();
 }
 
 function resolveDelayed(c){
@@ -689,7 +773,7 @@ export function choose(c,o,confirmedLate){
   }
   if(c.big){ // THE {CLIENT} WAR bookkeeping: press on, or the matter ends here
     if(out.next) S.bigCase={client:c.big.client, stage:c.big.stage+1};
-    else { S.bigCase=null; S.bigDoneDay=S.day;
+    else { endClientWar(c.big.client);
       if(!c.big.final&&win&&o.safe) log("THE "+c.big.client.toUpperCase()+" WAR ends early, by choice. Wars you skip don't pay like wars you win.","sys"); }
   }
   if(out.next) queueFollowup(out.next);
@@ -710,10 +794,7 @@ function signClient(){
 function loseClient(name){
   S.clients=S.clients.filter(c=>c.name!==name);
   log("CLIENT LOST: "+name+". Their logo comes off the lobby wall.","bad");
-  if(S.bigCase&&S.bigCase.client===name){ // no client, no war
-    S.bigCase=null; S.bigDoneDay=S.day;
-    S.inbox=S.inbox.filter(c=>!(c.big&&c.big.client===name));
-    if(S.openCase&&S.openCase.big&&S.openCase.big.client===name) S.openCase=null;
+  if(endClientWar(name)){ // no client, no inbox stage, no queued follow-up, no war
     log("THE "+name.toUpperCase()+" WAR ends the only way wars end without clients: quietly, unpaid.","bad");
   }
 }
@@ -950,8 +1031,8 @@ function ledger(){
 }
 function gameOver(title,txt){
   S.over=true; SFX.fired(); stopAmbience(); doShake();
-  clearSave(); recordRun(false,title);
-  showSummary("GAME OVER: "+title,[txt,"","Survived "+S.day+" day(s) as "+RANKS[S.rank]+".","",...ledger()],"NEW GAME",()=>location.reload());
+  terminalClearDone=clearSave(); recordRun(false,title);
+  showSummary("GAME OVER: "+title,[txt,"","Survived "+S.day+" day(s) as "+RANKS[S.rank]+".","",...ledger()],"NEW GAME","reload");
 }
 function winAchievements(){
   ach("win");
@@ -973,11 +1054,11 @@ function gameWin(){
       "ENDLESS: the firm is yours now — payroll included. Open the FIRM tab to meet it.",
       "Keep FIRM health above "+FIRM_COLLAPSE+" or the name comes off the wall.",
       "Day "+S.day+". Reputation "+S.rep+". Boldness "+S.bold+"."],
-      "KEEP BILLING",()=>{});
+      "KEEP BILLING","dismiss");
     return;
   }
   S.over=true; SFX.promo(); stopAmbience();
-  clearSave(); recordRun(true,"NAME PARTNER");
+  terminalClearDone=clearSave(); recordRun(true,"NAME PARTNER");
   // the ending remembers HOW you climbed
   const epithet=
     S.bold>=65?"THE SHARK. You bluffed judges, partners and probability itself. The wall flinched first.":
@@ -995,7 +1076,7 @@ function gameWin(){
     "Day "+S.day+". Reputation "+S.rep+". Boldness "+S.bold+".",
     seal,
     S.nemesis?"Down the hall, "+S.nemesis.name+" quietly clears out his desk.":"Your rival's desk has been empty for a while now.","",
-    "You've been HENDERED. Permanently.","",...ledger()],"NEW GAME",()=>location.reload());
+    "You've been HENDERED. Permanently.","",...ledger()],"NEW GAME","reload");
 }
 
 /* ---------- money sinks ---------- */
@@ -1070,58 +1151,301 @@ export function hireDetective(c){
   saveGame();
 }
 
-/* ---------- save/load (localStorage, 3 slots) + lifetime firm record ---------- */
-let activeSlot=(()=>{ try{ return Number(localStorage.getItem("fo_slot"))||1; }catch(e){ return 1; } })();
-const slotKey=n=>SAVE_KEY+"_s"+(n||activeSlot);
-// one-time migration: the old single save becomes slot 1
-try{
-  const legacy=localStorage.getItem(SAVE_KEY);
-  if(legacy){ if(!localStorage.getItem(slotKey(1))) localStorage.setItem(slotKey(1),legacy);
-    localStorage.removeItem(SAVE_KEY); }
-}catch(e){}
-export const getSlot=()=>activeSlot;
-export function setSlot(n){ activeSlot=n; try{ localStorage.setItem("fo_slot",String(n)); }catch(e){} }
+/* ---------- versioned save/load (localStorage, 3 slots) ---------- */
+const normalizeSlot=n=>clamp(Number.isFinite(Number(n))?Math.floor(Number(n)):1,1,3);
+let activeSlot=(()=>{ try{ return normalizeSlot(Number(localStorage.getItem("fo_slot"))||1); }catch(e){ return 1; } })();
+const slotKey=n=>SAVE_KEY+"_s"+normalizeSlot(n==null?activeSlot:n);
+const plain=v=>!!v&&typeof v==="object"&&!Array.isArray(v);
+const validSummary=sum=>plain(sum)&&["nextDay","dismiss","reload"].includes(sum.action)&&typeof sum.title==="string"&&Array.isArray(sum.lines)&&typeof sum.btnTxt==="string";
+const persistedSummary=sum=>validSummary(sum)?{title:sum.title,lines:sum.lines.map(x=>String(x??"")),btnTxt:sum.btnTxt,action:sum.action}:null;
 
-export function saveGame(){
-  if(!S||S.over||S.mode==="ironman") return; // ironman: no net
+const validBig=b=>b==null||(plain(b)&&typeof b.client==="string"&&b.client.length>0&&Number.isInteger(b.stage)&&b.stage>=1&&b.stage<=3);
+const validFx=fx=>fx==null||(plain(fx)&&Object.values(fx).every(Number.isFinite));
+const validJudge=j=>j==null||j===true||(plain(j)&&typeof j.name==="string"&&Number.isFinite(j.temper)&&Number.isFinite(j.book)&&Number.isFinite(j.corrupt));
+function validOutcome(out,depth){
+  if(!plain(out)||!validFx(out.fx)||typeof out.txt!=="string") return false;
+  if(out.next==null) return true;
+  return plain(out.next)&&(out.next.after==null||Number.isFinite(out.next.after))&&validCase(out.next.case,(depth||0)+1);
+}
+function validOption(o,depth){
+  if(!plain(o)||typeof o.text!=="string"||!Number.isFinite(o.base)||!validOutcome(o.ok,depth)) return false;
+  for(const key of ["boldW","delay","bribe","hours","fatigue","relOk","relFail"])
+    if(o[key]!=null&&!Number.isFinite(o[key])) return false;
+  if(o.fail!=null&&!validOutcome(o.fail,depth)) return false;
+  return !!o.safe||o.base>=100||validOutcome(o.fail,depth);
+}
+function validCase(c,depth=0){
+  return depth<=8&&plain(c)&&typeof c.title==="string"&&typeof c.body==="string"&&validJudge(c.judge)&&
+    Array.isArray(c.opts)&&c.opts.length>0&&validBig(c.big)&&c.opts.every(o=>validOption(o,depth))&&
+    (!c.big||c.opts.every(o=>o.delay==null)); // delayed Client War resolution has no lifecycle bookkeeping
+}
+
+class SaveDataError extends Error{ constructor(code,message){ super(message); this.code=code; } }
+const ensureArray=(d,key)=>{ if(d[key]==null) d[key]=[]; };
+const RUN_COUNTER_KEYS=["safe","bluffW","bluffL","techW","techL","bribeTry","bribeW","favorHelp","favorNo","miss","crises","fired"];
+const TODAY_COUNTER_KEYS=["resolved","wins","safeUsed","aggWin","delegated","moneyGained"];
+const nonNegativeInt=v=>Number.isInteger(v)&&v>=0;
+const validCounters=(v,keys)=>plain(v)&&keys.every(k=>nonNegativeInt(v[k]));
+const backfillCounters=(v,keys)=>{
+  if(v==null) v={};
+  if(plain(v)) for(const key of keys) if(v[key]==null) v[key]=0;
+  return v;
+};
+const migrateV0ToV1=raw=>{
+  const d={...raw};
+  if(!Number.isFinite(d.hours)) d.hours=settings.dayLen||DAY_HOURS;
+  d.hours=clamp(d.hours,0,48);
+  if(!Number.isFinite(d.fatigue)) d.fatigue=0;
+  d.fatigue=clamp(d.fatigue,0,100);
+  if(!Number.isFinite(d.otHours)) d.otHours=0;
+  d.otHours=clamp(d.otHours,0,OVERTIME_HOURS*OVERTIME_LIMIT);
+  if(!Number.isFinite(d.otToday)) d.otToday=Math.floor(d.otHours/OVERTIME_HOURS);
+  d.otToday=clamp(Math.floor(d.otToday),0,OVERTIME_LIMIT);
+  if(!Number.isFinite(d.coffeeToday)) d.coffeeToday=0;
+  d.coffeeToday=clamp(Math.floor(d.coffeeToday),0,COFFEE_LIMIT);
+  if(!plain(d.decor)) d.decor={};
+  if(!d.mode) d.mode="standard";
+  if(!d.difficulty) d.difficulty="easy";
+  for(const key of ["inbox","pool","usedCrises","npcs","followups","clients","npcStories","firedNames","archive","logEntries"])
+    ensureArray(d,key);
+  // Client Book arrived after save/load. Rebuild the missing prospect list
+  // without consuming RNG, excluding any brands already retained.
+  if(d.clientPool==null){
+    const retained=new Set(Array.isArray(d.clients)?d.clients.map(c=>c&&c.name):[]);
+    d.clientPool=CLIENT_NAMES.filter(name=>!retained.has(name));
+  }
+  d.runStats=backfillCounters(d.runStats,RUN_COUNTER_KEYS);
+  if(plain(d.runStats)&&d.runStats.deleg==null) d.runStats.deleg={};
+  d.today=backfillCounters(d.today,TODAY_COUNTER_KEYS);
+  if(d.weekStart==null) d.weekStart={inf:d.inf,rep:d.rep};
+  if(Array.isArray(d.logEntries)) d.logEntries=d.logEntries.slice(0,SAVE_LOG_LIMIT);
+  if(Array.isArray(d.archive)) d.archive=d.archive.slice(0,SAVE_ARCHIVE_LIMIT);
+  d.archiveTotal=Math.max(Number(d.archiveTotal)||0,Array.isArray(raw.archive)?raw.archive.length:0);
+  d.schemaVersion=1;
+  return d;
+};
+const SAVE_MIGRATIONS={0:migrateV0ToV1};
+
+function migrateSaveData(raw){
+  if(!plain(raw)) throw new SaveDataError("invalid","The slot is not a save object.");
+  let d={...raw};
+  let version=d.schemaVersion==null?0:Number(d.schemaVersion);
+  if(!Number.isInteger(version)||version<0) throw new SaveDataError("invalid","The save schema number is invalid.");
+  if(version>SAVE_SCHEMA_VERSION) throw new SaveDataError("future","This slot belongs to a newer version of FANCY OUTFITS.");
+  while(version<SAVE_SCHEMA_VERSION){
+    const migrate=SAVE_MIGRATIONS[version];
+    if(!migrate) throw new SaveDataError("invalid","No safe migration exists for this slot.");
+    d=migrate(d); version++;
+    d.schemaVersion=version;
+  }
+  if(!Object.prototype.hasOwnProperty.call(SCENARIOS,d.scenario)) throw new SaveDataError("invalid","The scenario in this slot is unknown.");
+  if(!Number.isInteger(d.day)||d.day<1) throw new SaveDataError("invalid","The saved day is invalid.");
+  if(!Number.isInteger(d.rank)||d.rank<0||d.rank>=RANKS.length) throw new SaveDataError("invalid","The saved rank is invalid.");
+  if(!["standard","ironman","endless","daily"].includes(d.mode)) throw new SaveDataError("invalid","The saved mode is invalid.");
+  if(!["easy","medium","hard","realistic"].includes(d.difficulty)) throw new SaveDataError("invalid","The saved difficulty is invalid.");
+  for(const key of ["rep","bold","inf"])
+    if(!Number.isFinite(d[key])||d[key]<0||d[key]>100) throw new SaveDataError("invalid","The saved "+key+" value is invalid.");
+  if(!Number.isFinite(d.money)) throw new SaveDataError("invalid","The saved money value is invalid.");
+  if(!Number.isFinite(d.hours)||d.hours<0||d.hours>48) throw new SaveDataError("invalid","The saved hours value is invalid.");
+  if(!Number.isFinite(d.fatigue)||d.fatigue<0||d.fatigue>100) throw new SaveDataError("invalid","The saved fatigue value is invalid.");
+  if(!Number.isFinite(d.otHours)||d.otHours<0||d.otHours>OVERTIME_HOURS*OVERTIME_LIMIT)
+    throw new SaveDataError("invalid","The saved overtime value is invalid.");
+  if(!Number.isInteger(d.otToday)||d.otToday<0||d.otToday>OVERTIME_LIMIT)
+    throw new SaveDataError("invalid","The saved overtime counter is invalid.");
+  if(d.firm!=null&&(!Number.isFinite(d.firm)||d.firm<0||d.firm>100))
+    throw new SaveDataError("invalid","The saved firm value is invalid.");
+  for(const key of ["suitCost","weekMissed","bigDoneDay","fireHeat","coffeeToday","marvBribes","rivalMoveDay","archiveTotal","seed"])
+    if(d[key]!=null&&!Number.isFinite(d[key])) throw new SaveDataError("invalid","The saved "+key+" value is invalid.");
+  for(const key of ["weekMissed","bigDoneDay","coffeeToday","marvBribes","rivalMoveDay","archiveTotal"])
+    if(d[key]!=null&&!nonNegativeInt(d[key])) throw new SaveDataError("invalid","The saved "+key+" counter is invalid.");
+  if(d.coffeeToday!=null&&d.coffeeToday>COFFEE_LIMIT) throw new SaveDataError("invalid","The saved coffee counter is invalid.");
+  if(d.suitCost!=null&&d.suitCost<0) throw new SaveDataError("invalid","The saved suit price is invalid.");
+  if(d.fireHeat!=null&&d.fireHeat<0) throw new SaveDataError("invalid","The saved litigation heat is invalid.");
+  if(d.seed!=null&&(!Number.isInteger(d.seed)||d.seed<0||d.seed>0xffffffff)) throw new SaveDataError("invalid","The saved run seed is invalid.");
+  if(d.debtDue!=null&&!Number.isFinite(d.debtDue)) throw new SaveDataError("invalid","The saved debt deadline is invalid.");
+  if(d.rngState!=null&&(!Number.isInteger(d.rngState)||d.rngState<0||d.rngState>0xffffffff))
+    throw new SaveDataError("invalid","The Daily random cursor is invalid.");
+  for(const key of ["inbox","pool","usedCrises","npcs","followups","clients","clientPool","npcStories","firedNames","archive","logEntries"])
+    if(!Array.isArray(d[key])) throw new SaveDataError("invalid","The saved "+key+" collection is damaged.");
+  if(d.inbox.some(c=>!plain(c)||typeof c.title!=="string"||(c.msg?typeof c.body!=="string":!validCase(c))))
+    throw new SaveDataError("invalid","An inbox file is damaged.");
+  if(d.pool.some(c=>!validCase(c))) throw new SaveDataError("invalid","The case pool is damaged.");
+  if(d.followups.some(f=>!plain(f)||!Number.isFinite(f.day)||!validCase(f.case)))
+    throw new SaveDataError("invalid","A queued filing is damaged.");
+  if(!validBig(d.bigCase)) throw new SaveDataError("invalid","The Client War mandate is damaged.");
+  if(d.inbox.some(c=>c.big&&(c.pending!=null||c.delegated!=null)))
+    throw new SaveDataError("invalid","A Client War stage cannot be delayed or delegated.");
+  if(d.inbox.some(c=>c.pending!=null&&(!plain(c.pending)||!Number.isFinite(c.pending.day)||typeof c.pending.win!=="boolean"||!validOption(c.pending.o,0))))
+    throw new SaveDataError("invalid","A delayed case result is damaged.");
+  if(d.inbox.some(c=>c.delegated!=null&&(!plain(c.delegated)||!Number.isFinite(c.delegated.day)||typeof c.delegated.npc!=="string"||typeof c.delegated.win!=="boolean")))
+    throw new SaveDataError("invalid","A delegated case result is damaged.");
+  if(d.clients.some(c=>!plain(c)||typeof c.name!=="string"||!Number.isFinite(c.fee)))
+    throw new SaveDataError("invalid","The client book is damaged.");
+  if(d.clientPool.some(name=>typeof name!=="string")) throw new SaveDataError("invalid","The prospect pool is damaged.");
+  if(d.npcs.some(n=>!plain(n)||typeof n.id!=="string"||typeof n.name!=="string"||typeof n.role!=="string"||typeof n.trait!=="string"||!Number.isFinite(n.rel)))
+    throw new SaveDataError("invalid","The floor roster is damaged.");
+  if(d.logEntries.some(e=>!plain(e)||typeof e.txt!=="string")) throw new SaveDataError("invalid","The activity log is damaged.");
+  if(d.archive.some(e=>!plain(e)||typeof e.title!=="string")) throw new SaveDataError("invalid","The case archive is damaged.");
+  if(d.event!=null&&(!plain(d.event)||typeof d.event.title!=="string"||typeof d.event.body!=="string"||!Array.isArray(d.event.opts)||!d.event.opts.length||!d.event.opts.every(o=>validOption(o,0))))
+    throw new SaveDataError("invalid","The pending event is damaged.");
+  if(d.roster!=null&&(!Array.isArray(d.roster)||d.roster.some(e=>!plain(e)||typeof e.id!=="string"||typeof e.name!=="string"||typeof e.role!=="string"||
+    !Number.isFinite(e.impact)||!Number.isFinite(e.won)||!Number.isFinite(e.lost))))
+    throw new SaveDataError("invalid","The firm roster is damaged.");
+  if(d.nemesis!=null&&(!plain(d.nemesis)||typeof d.nemesis.name!=="string"||!Number.isFinite(d.nemesis.inf)||!Number.isInteger(d.nemesis.rank)||d.nemesis.rank<0||d.nemesis.rank>=RANKS.length))
+    throw new SaveDataError("invalid","The rival record is damaged.");
+  if(!validCounters(d.runStats,RUN_COUNTER_KEYS)||!plain(d.runStats.deleg)||Object.values(d.runStats.deleg).some(v=>!nonNegativeInt(v)))
+    throw new SaveDataError("invalid","The run ledger is damaged.");
+  if(!validCounters(d.today,TODAY_COUNTER_KEYS)) throw new SaveDataError("invalid","The daily counters are damaged.");
+  if(d.weekStart!=null&&(!plain(d.weekStart)||!Number.isFinite(d.weekStart.inf)||!Number.isFinite(d.weekStart.rep)))
+    throw new SaveDataError("invalid","The weekly baseline is damaged.");
+  if(d.objective!=null&&(!plain(d.objective)||!Object.prototype.hasOwnProperty.call(OBJ_DEFS,d.objective.tid)||!validFx(d.objective.reward)))
+    throw new SaveDataError("invalid","The daily objective is damaged.");
+  if(d.summary!=null&&!validSummary(d.summary)) throw new SaveDataError("invalid","The pending summary is damaged.");
+  if(d.pendingSummary!=null&&!validSummary(d.pendingSummary)) throw new SaveDataError("invalid","The pending day checkpoint is damaged.");
+  d.logEntries=d.logEntries.slice(0,SAVE_LOG_LIMIT);
+  d.archive=d.archive.slice(0,SAVE_ARCHIVE_LIMIT);
+  d.archiveTotal=Math.max(Number(d.archiveTotal)||0,d.archive.length);
+  return d;
+}
+
+function hydrateSaveData(d,slot){
+  const base=newState(d.scenario,d.difficulty);
+  const defaults={runStats:base.runStats,today:base.today,weekStart:base.weekStart,nemesis:base.nemesis};
+  const transient=new Set(["infoOpen","flash","userPaused","leaving","charAnim","openCase","settingsOpen","sceneRank","rosterOpen","archiveOpen","pendingChoice","saveError","shakeSeq"]);
+  for(const key of Object.keys(base)){
+    if(!transient.has(key)&&Object.prototype.hasOwnProperty.call(d,key)) base[key]=d[key];
+  }
+  const merge=(fallback,value)=>plain(value)?{...fallback,...value}:{...fallback};
+  base.runStats=merge(defaults.runStats,d.runStats);
+  base.runStats.deleg=merge({},d.runStats&&d.runStats.deleg);
+  base.today=merge(defaults.today,d.today);
+  base.weekStart=merge(defaults.weekStart,d.weekStart);
+  base.decor=merge({},d.decor);
+  if(d.nemesis===null) base.nemesis=null;
+  else base.nemesis=merge(defaults.nemesis,d.nemesis);
+  base.hours=Number.isFinite(d.hours)?d.hours:(settings.dayLen||DAY_HOURS);
+  base.fatigue=clamp(Number.isFinite(d.fatigue)?d.fatigue:0,0,100);
+  base.otHours=Math.max(0,Number.isFinite(d.otHours)?d.otHours:0);
+  base.otToday=clamp(Number.isFinite(d.otToday)?d.otToday:Math.floor(base.otHours/OVERTIME_HOURS),0,OVERTIME_LIMIT);
+  base.archive=d.archive.slice(0,SAVE_ARCHIVE_LIMIT);
+  base.archiveTotal=Math.max(Number(d.archiveTotal)||0,base.archive.length);
+  base.logEntries=d.logEntries.slice(0,SAVE_LOG_LIMIT);
+  base.summary=persistedSummary(d.summary);
+  base.pendingSummary=persistedSummary(d.pendingSummary);
+  base.slot=normalizeSlot(slot);
+  base.infoOpen=false; base.flash=null; base.userPaused=false; base.leaving=false;
+  base.charAnim="working"; base.openCase=null; base.settingsOpen=false; base.sceneRank=null;
+  base.rosterOpen=false; base.archiveOpen=false; base.pendingChoice=null; base.saveError=null; base.shakeSeq=0;
+  return base;
+}
+
+function storageFailure(kind,message){
+  if(!S) return false;
+  const changed=!S.saveError||S.saveError.kind!==kind;
+  S.saveError={kind,message};
+  if(changed){ log("AUTO-SAVE FAILED: "+message,"bad"); notify(); }
+  return false;
+}
+function writeFailure(error){
+  const quota=error&&(error.name==="QuotaExceededError"||error.name==="NS_ERROR_DOM_QUOTA_REACHED"||error.code===22||error.code===1014);
+  const blocked=error&&error.name==="SecurityError";
+  return storageFailure(quota?"quota":(blocked?"blocked":"write"),
+    quota?"Browser storage is full. Progress after the last successful save is unprotected.":
+    blocked?"Browser storage is blocked. Keep this run open or enable site storage.":
+    "The browser rejected the save. Progress after the last successful save is unprotected.");
+}
+
+// One-time key migration: preserve a resumable legacy save when slot 1 is
+// empty or damaged, and never delete the only healthy copy.
+export function migrateLegacySave(){
   try{
-    // strip transient UI fields; everything else is plain JSON data
-    const {infoOpen,event,summary,flash,userPaused,leaving,charAnim,openCase,settingsOpen,sceneRank,rosterOpen,archiveOpen,pendingChoice,...data}=S;
-    // content events (crises/favors/stories/weekend/demands) are restored so they aren't
-    // silently lost; the transient CLOCK events are re-derived on load instead
-    const ev=(event&&event.id!=="overtime"&&event.id!=="latework")?event:null;
-    localStorage.setItem(slotKey(S.slot),JSON.stringify({...data,event:ev,rngState:getRngState()}));
+    const legacy=localStorage.getItem(SAVE_KEY);
+    const target=localStorage.getItem(slotKey(1));
+    const resumable=raw=>{ try{ const d=migrateSaveData(JSON.parse(raw)); return !d.over; }catch(e){ return false; } };
+    if(legacy&&resumable(legacy)&&!resumable(target)){
+      localStorage.setItem(slotKey(1),legacy);
+      if(localStorage.getItem(slotKey(1))===legacy) localStorage.removeItem(SAVE_KEY);
+    } else if(legacy&&resumable(target)) localStorage.removeItem(SAVE_KEY);
   }catch(e){}
 }
-export function peekSave(n){
-  try{ const d=JSON.parse(localStorage.getItem(slotKey(n))); return d&&!d.over?d:null; }catch(e){ return null; }
+migrateLegacySave();
+
+export const getSlot=()=>activeSlot;
+export function setSlot(n){
+  activeSlot=normalizeSlot(n);
+  try{ localStorage.setItem("fo_slot",String(activeSlot)); return true; }
+  catch(e){ return false; }
 }
+
+export function saveGame(){
+  if(!S||S.over||S.mode==="ironman") return true; // ironman: no net by design
+  const {infoOpen,event,summary,flash,userPaused,leaving,charAnim,openCase,settingsOpen,sceneRank,rosterOpen,archiveOpen,pendingChoice,saveError,shakeSeq,...data}=S;
+  const ev=(event&&event.id!=="overtime"&&event.id!=="latework")?event:null;
+  const payload={...data,event:ev,summary:persistedSummary(summary),schemaVersion:SAVE_SCHEMA_VERSION,savedAt:Date.now(),rngState:getRngState(),
+    logEntries:(data.logEntries||[]).slice(0,SAVE_LOG_LIMIT),archive:(data.archive||[]).slice(0,SAVE_ARCHIVE_LIMIT)};
+  let json;
+  try{ json=JSON.stringify(payload); }
+  catch(e){ return storageFailure("serialize","The run contains data the save system cannot serialize. This session is still playable."); }
+  try{
+    localStorage.setItem(slotKey(S.slot),json);
+    if(S.saveError){ S.saveError=null; log("AUTO-SAVE RESTORED: this run is protected again.","sys"); notify(); }
+    return true;
+  }catch(e){ return writeFailure(e); }
+}
+
+export function inspectSave(n){
+  const slot=normalizeSlot(n);
+  let raw;
+  try{ raw=localStorage.getItem(slotKey(slot)); }
+  catch(e){ return {slot,status:"unavailable",save:null,message:"Browser storage is unavailable."}; }
+  if(raw===null) return {slot,status:"empty",save:null};
+  let parsed;
+  try{ parsed=JSON.parse(raw); }
+  catch(e){ return {slot,status:"corrupt",save:null,message:"The slot is not valid JSON. It has not been deleted."}; }
+  const oldVersion=plain(parsed)&&parsed.schemaVersion!=null?Number(parsed.schemaVersion):0;
+  try{
+    const save=migrateSaveData(parsed);
+    if(save.over) return {slot,status:"empty",save:null};
+    return {slot,status:"ready",save,version:save.schemaVersion,needsUpgrade:oldVersion<SAVE_SCHEMA_VERSION};
+  }catch(e){
+    const status=e&&e.code==="future"?"future":"invalid";
+    return {slot,status,save:null,version:Number.isFinite(oldVersion)?oldVersion:null,message:e.message||"The slot is damaged."};
+  }
+}
+export const peekSave=n=>inspectSave(n).save;
+export const canStartWithSlot=(status,mode)=>mode==="ironman"||!["corrupt","invalid","future","unavailable"].includes(status);
+
 export function loadGame(n){
-  const d=peekSave(n); if(!d) return;
-  if(n) setSlot(n);
-  const ev=(d.event&&d.event.id!=="overtime"&&d.event.id!=="latework")?d.event:null; // clock events re-derived below
-  setS(Object.assign(newState(d.scenario),d,
-    {slot:n||activeSlot,
-     infoOpen:false,event:ev,summary:null,flash:null,userPaused:false,leaving:false,
-     charAnim:"arriving",openCase:null,settingsOpen:false,sceneRank:null,rosterOpen:false,archiveOpen:false,pendingChoice:null}));
+  const slot=normalizeSlot(n), inspected=inspectSave(slot), d=inspected.save;
+  if(!d) return false;
+  setSlot(slot);
+  const rngState=d.rngState;
+  setS(hydrateSaveData(d,slot));
+  terminalClearDone=false;
+  if(!S.summary&&S.pendingSummary){ S.summary=S.pendingSummary; S.pendingSummary=null; }
+  const repaired=reconcileClientWarState();
   SFX.bell();
   log("Run restored. The firm did not notice you were gone.","sys");
-  if(typeof S.hours!=="number"||isNaN(S.hours)) S.hours=settings.dayLen||DAY_HOURS; // pre-workday saves
-  if(typeof S.fatigue!=="number") S.fatigue=0;
-  if(typeof S.otHours!=="number") S.otHours=0;
-  if(typeof d.otToday!=="number") S.otToday=clamp(Math.floor(S.otHours/OVERTIME_HOURS),0,OVERTIME_LIMIT);
-  else S.otToday=clamp(S.otToday,0,OVERTIME_LIMIT);
-  if(!S.decor) S.decor={}; // pre-decor saves
+  if(repaired) log("SAVE REPAIR: "+repaired+" stale Client War state(s) were closed safely.","sys");
   // DAILY determinism: resume the exact seeded cursor (or re-seed if an old save lacks it)
-  if(S.mode==="daily"){ if(S.rngState!=null) setRngState(S.rngState); else if(S.dailyDate) setSeed(hash("fo_daily_"+S.dailyDate)); }
+  if(S.mode==="daily"){ if(rngState!=null) setRngState(rngState); else if(S.dailyDate) setSeed(hash("fo_daily_"+S.dailyDate)); }
   else clearSeed();
-  sitDown(); startAmbience();
-  if(!S.event&&S.hours<=0) checkClock(); // out of hours with no prompt → reopen it (closes the reload-skips-overtime exploit)
+  if(!S.summary) sitDown();
+  startAmbience();
+  if(!S.summary&&!S.event&&S.hours<=0) checkClock(); // re-derive transient clock prompts
+  saveGame(); // persist migrations/repairs immediately; failure becomes a visible banner
   notify();
+  return true;
 }
-function clearSave(){ try{ localStorage.removeItem(slotKey(S&&S.slot)); }catch(e){} }
-/* restart: wipe the current slot and return to the title screen */
-export function restartRun(){ clearSave(); location.reload(); }
+
+export function clearSaveSlot(n){
+  try{ localStorage.removeItem(slotKey(n)); return true; }
+  catch(e){ if(S) writeFailure(e); return false; }
+}
+function clearSave(){ return S&&S.mode==="ironman"?true:clearSaveSlot(S&&S.slot); }
+/* restart: wipe the current slot only when storage confirms the deletion */
+export function restartRun(){ if(clearSave()) location.reload(); }
+export function dismissSaveError(){ if(S&&S.saveError){ S.saveError=null; notify(); } }
 export function getStats(){
   try{ return JSON.parse(localStorage.getItem(STATS_KEY)); }catch(e){ return null; }
 }
@@ -1137,8 +1461,23 @@ function recordRun(won,cause){
 }
 
 /* ---------- UI actions (overlays, inbox, topbar) ---------- */
-function showSummary(title,lines,btnTxt,cb){ S.summary={title,lines,btnTxt,cb}; notify(); }
-export function dismissSummary(){ SFX.click(); const cb=S.summary&&S.summary.cb; S.summary=null; if(cb)cb(); saveGame(); notify(); }
+function showSummary(title,lines,btnTxt,action="dismiss"){
+  S.pendingSummary=null;
+  S.summary={title,lines,btnTxt,action};
+  saveGame(); // persist the checkpoint before the player advances it
+  notify();
+}
+export function dismissSummary(){
+  SFX.click();
+  const action=S.summary&&S.summary.action;
+  if(action==="reload"){
+    if(!terminalClearDone){ terminalClearDone=clearSave(); if(!terminalClearDone){ notify(); return; } }
+    S.summary=null; location.reload(); return;
+  }
+  S.summary=null;
+  if(action==="nextDay") advanceDay();
+  saveGame(); notify();
+}
 export function openCaseFile(c){ SFX.open(); S.openCase=c; notify(); }
 export function deferCase(){ SFX.click(); S.openCase=null; notify(); }
 export function openInfo(){ SFX.click(); S.infoOpen=true; notify(); }

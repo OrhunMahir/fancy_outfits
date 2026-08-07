@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { useGame } from "./game/useGame.js";
 import { S } from "./game/state.js";
 import { choose, deferCase, resolveCrisis, dismissSummary,
-         closeSettings, closeInfo, closeRoster, closeArchive } from "./game/engine.js";
+         closeSettings, closeInfo, closeRoster, closeArchive, dismissSaveError } from "./game/engine.js";
 import StartScreen from "./components/StartScreen.jsx";
 import Topbar from "./components/Topbar.jsx";
 import OfficeScene from "./components/OfficeScene.jsx";
@@ -55,6 +55,10 @@ export default function App(){
   return (
     <div ref={rootRef} id="approot">
       <Topbar />
+      {S.saveError && <div className="save-warning" role="alert">
+        <span><strong>AUTO-SAVE FAILED</strong> — {S.saveError.message}</span>
+        <button className="btn small" onClick={dismissSaveError}>DISMISS</button>
+      </div>}
       <OfficeScene />
       <div id="main">
         <Inbox />

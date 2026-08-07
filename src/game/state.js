@@ -52,10 +52,11 @@ export function newState(scenario,difficulty){
     runStats:{safe:0,bluffW:0,bluffL:0,techW:0,techL:0,deleg:{},bribeTry:0,bribeW:0,favorHelp:0,favorNo:0,miss:0,crises:0,fired:0},
     // daily objective ("close 2 files today") + per-day counters feeding it
     objective:null, today:{resolved:0,wins:0,safeUsed:0,aggWin:0,delegated:0,moneyGained:0},
-    archive:[], // every resolved case: {day,title,play,style,win,note,via}
+    archive:[], archiveTotal:0, // recent resolved cases + all-time count for bounded saves
     logEntries:[], over:false,
     // UI state (pause is DERIVED from these — see isPaused() in engine.js)
-    infoOpen:false, event:null, summary:null, flash:null, userPaused:false, settingsOpen:false, rosterOpen:false, archiveOpen:false,
+    infoOpen:false, event:null, summary:null, pendingSummary:null, flash:null, userPaused:false, settingsOpen:false, rosterOpen:false, archiveOpen:false,
+    saveError:null, // transient autosave warning; never serialized into the slot it failed to write
     pendingChoice:null, // a play awaiting the "work into the night?" confirmation
     sentHomeNote:null,  // set when exhaustion gets you sent home; shown in that day's summary
     // office character: "arriving" | "working" | "leaving" (leaving also freezes the clock)

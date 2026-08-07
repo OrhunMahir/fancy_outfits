@@ -45,12 +45,16 @@ export const BUYIN_COST=5000;
 // firm health (4th stat). Collapse only threatens a sitting Name Partner.
 export const FIRM_START=62;
 export const FIRM_COLLAPSE=15;
+// STANDARD career confidence: the firm affects client trust and partner gates.
+export const FIRM_CRITICAL=25, FIRM_STABLE=50, FIRM_THRIVING=75;
+export const FIRM_RANK_REQ=[0,40,45,50]; // current rank -> FIRM needed for the next promotion
+export const FIRM_PLAN_GAIN=10, FIRM_PLAN_HOURS=1.5, FIRM_PLAN_FATIGUE=6, FIRM_PLAN_COOLDOWN=5;
 // firing employees builds litigation heat: +FIRE_HEAT per firing (more for a
 // voted-out senior), decays x HEAT_DECAY nightly, but never below HEAT_MIN
 // once you've fired anyone — ex-employees have long memories.
 export const FIRE_HEAT=9, FIRE_HEAT_SENIOR=16, HEAT_DECAY=0.93, HEAT_MIN=1;
 // The storage key stays stable; ordered migrations use the embedded schema.
-export const SAVE_SCHEMA_VERSION=1;
+export const SAVE_SCHEMA_VERSION=2;
 export const SAVE_LOG_LIMIT=200, SAVE_ARCHIVE_LIMIT=200;
 export const SAVE_KEY="fo_save_v1";
 export const STATS_KEY="fo_stats_v1";

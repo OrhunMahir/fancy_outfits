@@ -29,6 +29,7 @@ export function newState(scenario,difficulty){
     endlessWon:false, runRecorded:false, // endless: win once, keep billing; stats recorded once per run
     seed:Math.floor(rand()*1e9), // per-run seed so odds ranges are stable but not centered
     rep:50, bold:40, inf:10, firm:FIRM_START,
+    firmPlanDay:0, firmGateHintRank:null, // STANDARD: turnaround cooldown + one-shot promotion warning
     buyinPaid:false, buyinHinted:false, // rank 2->3 needs the partnership buy-in
     // Name Partner endgame: the roster you manage, and the fired suing you back
     roster:null, fireHeat:0, everFired:false, firedNames:[],

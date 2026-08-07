@@ -9,6 +9,8 @@ import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DELEGATE_CAP, DAY_HOURS, TIER_HOU
          REP_FIRED, DEADLINE_PENALTY,
          STAKE_REWARD, STAKE_PENALTY, PRICES, DECOR, SAVE_SCHEMA_VERSION, SAVE_LOG_LIMIT, SAVE_ARCHIVE_LIMIT, SAVE_KEY, STATS_KEY,
          WEEK_LEN, REVIEW_GOOD, REVIEW_BAD, BUYIN_COST, FIRM_COLLAPSE,
+         FIRM_CRITICAL, FIRM_STABLE, FIRM_THRIVING, FIRM_RANK_REQ,
+         FIRM_PLAN_GAIN, FIRM_PLAN_HOURS, FIRM_PLAN_FATIGUE, FIRM_PLAN_COOLDOWN,
          FIRE_HEAT, FIRE_HEAT_SENIOR, HEAT_DECAY, HEAT_MIN } from "./constants.js";
 import { clamp, rnd, rand, shuffle, hash, setSeed, clearSeed, getRngState, setRngState } from "./utils.js";
 import { SFX, startAmbience, stopAmbience, applyBgmVolume } from "./sound.js";
@@ -28,6 +30,30 @@ let terminalClearDone=false;
    character is walking out. Replaces the old S.paused flag. */
 export const isPaused=()=>!!(S.infoOpen||S.event||S.summary||S.userPaused||S.settingsOpen||S.rosterOpen||S.archiveOpen||S.leaving);
 export const disrespected=()=>S.rep<30;
+
+/* STANDARD mode business confidence. Other modes keep their established
+   balance; ENDLESS already makes FIRM lethal through payroll and collapse. */
+export function firmCondition(value=S&&S.firm){
+  const v=Number.isFinite(value)?value:0;
+  if(v<FIRM_CRITICAL) return {id:"critical",label:"CRITICAL",prospect:-.04,walk:.10};
+  if(v<FIRM_STABLE) return {id:"strained",label:"STRAINED",prospect:-.02,walk:.05};
+  if(v<FIRM_THRIVING) return {id:"stable",label:"STABLE",prospect:0,walk:0};
+  return {id:"thriving",label:"THRIVING",prospect:.02,walk:-.04};
+}
+export function clientConfidenceOdds(rep=S&&S.rep,mode=S&&S.mode,firm=S&&S.firm){
+  const mod=mode==="standard"?firmCondition(firm):{prospect:0,walk:0};
+  // Preserve the original client curve first, then let STANDARD FIRM move it.
+  // Applying the modifier before the legacy cap made every high-REP band equal
+  // and accidentally buffed DAILY / IRONMAN / ENDLESS by two percentage points.
+  const baseImpress=clamp((rep-45)*.004,0,.14);
+  const baseAcquisition=clamp((rep-50)*.0033,0,.12);
+  return {
+    impress:clamp(baseImpress+mod.prospect,0,.16),
+    acquisition:clamp(baseAcquisition+mod.prospect,0,.14),
+    walk:clamp(.12+(rep<30?.08:0)+mod.walk,.04,.30),
+  };
+}
+export const promotionFirmRequirement=(rank=S&&S.rank,mode=S&&S.mode)=>mode==="standard"?(FIRM_RANK_REQ[rank]||0):0;
 
 export function log(txt,cls){
   S.logEntries.unshift({txt,cls:cls||""});
@@ -76,6 +102,7 @@ export function rivalSabotage(){
     log("SABOTAGE FAILED: a paralegal saw everything. The floor knows. "+N.name+" KNOWS.","bad");
     apply({rep:-10}); doShake();
   }
+  if(fatigueCheck(1)) return;
   checkClock(); saveGame(); notify();
 }
 export function rivalTruce(){
@@ -85,6 +112,7 @@ export function rivalTruce(){
     S.rivalPact={type:"truce",until:S.day+4};
     log("TRUCE: "+N.name+" shrugs. 'Four days. Then it's billing season again.' He won't feed on your failures.","sys");
   } else log("TRUCE REFUSED: "+N.name+" laughs at a normal volume, which is worse.","bad");
+  if(fatigueCheck(0.5)) return;
   checkClock(); saveGame(); notify();
 }
 export function rivalAlly(){
@@ -94,6 +122,7 @@ export function rivalAlly(){
     S.rivalPact={type:"ally",until:S.day+3};
     log("ALLIANCE: three days of trading favors with "+N.name+". You both climb. Watch your back anyway.","sys");
   } else { apply({rep:-4}); log("ALLIANCE REFUSED: "+N.name+" forwards your olive branch to the whole floor. Annotated.","bad"); }
+  if(fatigueCheck(1)) return;
   checkClock(); saveGame(); notify();
 }
 /* his side of the war: pact upkeep, expiry, and file raids on YOUR inbox */
@@ -236,10 +265,10 @@ const INCIDENTS=[
   "You staple your own tie to the Meridian filing. It takes three people to notice and one to photograph.",
 ];
 function fatigueCheck(hoursWorked){
-  if(!S||S.over||S.summary||S.leaving) return;
-  const ph=hazardPerHour(); if(!ph) return;
+  if(!S||S.over||S.summary||S.leaving) return false;
+  const ph=hazardPerHour(); if(!ph) return false;
   const p=S.fatigue>=100?1:1-Math.pow(1-ph/100,Math.max(1,hoursWorked||1));
-  if(rand()>=p) return;
+  if(rand()>=p) return false;
   const boss=bossAbove(S.rank,S.firedNames);
   const what=rnd(INCIDENTS).replace("{BOSS}",boss||"a Senior Partner");
   SFX.lose(); doShake();
@@ -251,10 +280,11 @@ function fatigueCheck(hoursWorked){
     ? "COLLAPSE at "+wallTime()+": your body filed its own motion — granted. The firm sent you home."
     : "SENT HOME at "+wallTime()+": "+what;
   apply({rep:SENTHOME_REP,inf:SENTHOME_INF});
-  if(S.over) return;
+  if(S.over) return true;
   if(S.event) S.event=null; // whatever was pending, the day is over
   S.pendingChoice=null;
   endDay();
+  return true;
 }
 
 /* out of hours? the building asks the eternal question */
@@ -597,14 +627,25 @@ function advanceDay(){
   apply({rep:-1,inf:-INF_DECAY[S.rank]},true); // the firm forgets fast — and influence evaporates upward
   if(S.over) return;
   newObjective(); // set the day's goal FIRST so replies that land this morning count toward it
-  S.inbox.filter(c=>c.pending&&c.pending.day<=S.day).forEach(resolveDelayed);
-  S.inbox.filter(c=>c.delegated&&c.delegated.day<=S.day).forEach(resolveDelegated);
+  for(const c of S.inbox.filter(c=>c.pending&&c.pending.day<=S.day)){
+    resolveDelayed(c);
+    if(S.over) return;
+  }
+  for(const c of S.inbox.filter(c=>c.delegated&&c.delegated.day<=S.day)){
+    resolveDelegated(c);
+    if(S.over) return;
+  }
   spawnFollowups();
   S.coffeeToday=0; // the espresso counter forgives overnight
   drawCases(3+(rand()<.4?1:0)+(S.rank>=2&&rand()<.4?1:0)); // v1.6: the inbox does not respect you
   if(rand()<.35&&!S.inbox.some(c=>c.favor)) spawnFavor();
   if(rand()<.18) marvMoment();
-  rosterTick(); litigationTick(); rivalTick();
+  rosterTick();
+  if(S.over) return; // payroll drift can collapse an ENDLESS firm
+  litigationTick();
+  if(S.over) return;
+  rivalTick();
+  if(S.over) return;
   // Saturday interlude: the morning after every Friday, the weekend asks what you did with it
   if((S.day-1)%WEEK_LEN===0&&S.day>1){ SFX.bell(); S.event=buildWeekend(); }
   // low rep = casual disrespect
@@ -673,7 +714,8 @@ function resolveDelegated(c){
     pushMsg("DELEGATED: "+c.title, n.name+" "+rnd(DELEGATE_WIN_TXT));
     log("DELEGATION ["+c.title+"]: "+n.name+" delivered.","good");
     archiveCase(c,"Delegated to "+n.name,true,"handled it","delegated");
-    apply({rep:2,inf:Math.max(1,Math.round((3+(c.tier||0)*2)*INF_EARN)),money:(c.tier||0)*300}); // delegated glory is damped like all INF (v19.1)
+    apply({rep:2,inf:Math.max(1,Math.round((3+(c.tier||0)*2)*INF_EARN)),money:(c.tier||0)*300,
+      firm:(c.tier||0)>=1?1:0}); // delegated glory is damped like all INF; real matters also move FIRM
   } else if(d.silent){
     relNpc(n,-3); c.delegated=null; S.inbox.push(c); // the file just... reappears
     pushMsg("RETURNED: "+c.title, n.name+" 'never got around to it'. The file is back on YOUR desk, deadline intact.");
@@ -684,7 +726,7 @@ function resolveDelegated(c){
     pushMsg("DELEGATED: "+c.title, n.name+" "+rnd(DELEGATE_FAIL_TXT)+(traitorTax?" Somehow the whole floor knows it was YOUR case.":""));
     log("DELEGATION ["+c.title+"]: "+n.name+" failed it.","bad");
     archiveCase(c,"Delegated to "+n.name,false,"botched it","delegated");
-    apply({rep:-4-traitorTax}); nemesisGain(3,true);
+    apply({rep:-4-traitorTax,firm:(c.tier||0)>=1?-1:0}); nemesisGain(3,true);
   }
   checkPromotion();
 }
@@ -743,7 +785,7 @@ export function choose(c,o,confirmedLate){
     log("Sent: '"+o.text+"' — response in "+o.delay+" day(s). ("+cost+"h)","sys");
     S.openCase=null;
     spendHours(cost,toil);
-    fatigueCheck(cost);
+    if(fatigueCheck(cost)) return;
     maybeDemand(); checkClock();
     saveGame(); notify(); return;
   }
@@ -778,8 +820,8 @@ export function choose(c,o,confirmedLate){
   }
   if(out.next) queueFollowup(out.next);
   spendHours(cost,toil);
+  if(fatigueCheck(cost)) return;
   checkPromotion();
-  fatigueCheck(cost);
   maybeDemand(); checkClock();
   saveGame(); notify();
 }
@@ -802,7 +844,7 @@ function loseClient(name){
 /* a public failure makes clients nervous — some walk */
 function maybeLoseClientOnFail(){
   if(!S.clients.length) return;
-  if(rand()<.12+(S.rep<30?.08:0)){
+  if(rand()<clientConfidenceOdds().walk){
     const c=rnd(S.clients);
     loseClient(c.name);
     pushMsg("CLIENT LOST: "+c.name, rnd([
@@ -815,7 +857,7 @@ function maybeLoseClientOnFail(){
 /* a strong win can bring a client to YOU — reputation opens the door */
 function maybeImpressClient(c){
   if(S.clients.length>=CLIENT_CAP(S.rank)||!S.clientPool.length) return;
-  if(rand()<clamp((S.rep-45)*.004,0,.14)){
+  if(rand()<clientConfidenceOdds().impress){
     const nc=signClient();
     if(nc){
       const ref=c.title.replace(/^(CASE|COURT|MEMO|APPEAL|LAWSUIT|Errand|Doc review): ?/,"").replace(/ — .*/,"").trim();
@@ -829,7 +871,7 @@ function maybeImpressClient(c){
    likes you) or a dinner invitation you still have to land */
 export function clientAcquisition(){
   if(S.clients.length>=CLIENT_CAP(S.rank)||!S.clientPool.length) return;
-  if(rand()>=clamp((S.rep-50)*.0033,0,.12)) return;
+  if(rand()>=clientConfidenceOdds().acquisition) return;
   if(S.rep>=55&&rand()<.5){
     const nc=signClient();
     if(nc) pushMsg("INHERITANCE","Partner "+rnd(PARTNERS)+" retires to 'consulting'. On the way out: 'The "+nc.name+" account? Give it to the one with the future.' Apparently that's you. ($"+nc.fee+"/wk)");
@@ -893,11 +935,28 @@ export const voteChance=()=>clamp(30+S.rep/2+S.inf/4,20,90);
 /* the partnership buy-in: rank 2 -> 3 costs real money */
 export function payBuyIn(){
   if(S.rank!==2||S.buyinPaid||S.inf<RANK_REQ[2]||S.money<BUYIN_COST) return;
+  if(S.firm<promotionFirmRequirement(2)){ checkPromotion(); return; }
   SFX.send();
   S.buyinPaid=true;
   log("Buy-in wired. The partnership agreement has your name in actual ink.","sys");
   apply({money:-BUYIN_COST},true);
   checkPromotion(); saveGame(); notify();
+}
+
+/* STANDARD recovery valve: trade scarce desk time for a credible turnaround
+   plan. The cooldown prevents converting every spare hour into free FIRM. */
+export const canPitchTurnaround=()=>!!S&&S.mode==="standard"&&!S.over&&!S.summary&&!S.event&&!S.leaving&&
+  S.firm<FIRM_STABLE&&S.day>=(S.firmPlanDay||0)&&S.hours>=FIRM_PLAN_HOURS;
+export function pitchTurnaround(){
+  if(!canPitchTurnaround()) return;
+  SFX.send();
+  spendHours(FIRM_PLAN_HOURS,FIRM_PLAN_FATIGUE);
+  S.firmPlanDay=S.day+FIRM_PLAN_COOLDOWN;
+  log("TURNAROUND PLAN: clients, staffing, cash flow — ninety minutes of promises with footnotes. (+"+FIRM_PLAN_GAIN+" FIRM, "+FIRM_PLAN_HOURS+"h)","sys");
+  apply({firm:FIRM_PLAN_GAIN},true);
+  if(fatigueCheck(FIRM_PLAN_HOURS)) return;
+  checkPromotion();
+  checkClock(); saveGame(); notify();
 }
 
 /* an NPC asks YOU for help — a one-day file where rel is the real stake */
@@ -924,7 +983,7 @@ export function delegateCase(c,npcId){
   S.openCase=null;
   log("Handed '"+c.title+"' to "+n.name+". Report tomorrow. ("+DELEGATE_HOURS+"h)","sys");
   spendHours(DELEGATE_HOURS,1);
-  fatigueCheck(DELEGATE_HOURS);
+  if(fatigueCheck(DELEGATE_HOURS)) return;
   maybeDemand(); checkClock();
   saveGame(); notify();
 }
@@ -947,14 +1006,17 @@ export function resolveCrisis(o){
     S.hours+=OVERTIME_HOURS; S.otHours+=OVERTIME_HOURS; S.otToday++;
     S.fatigue=clamp(S.fatigue+fatigue,0,100);
     log("Overtime block "+S.otToday+"/"+OVERTIME_LIMIT+". The building empties around you. (+"+OVERTIME_HOURS+"h, +"+fatigue+" FATIGUE)","sys");
-    fatigueCheck(1); // your body may veto the overtime you just chose
+    if(fatigueCheck(1)) return; // your body may veto the overtime you just chose
     saveGame(); notify(); return;
   }
   const ev=S.event, p=chance(o,ev);
   S.event=null;
   const win=rand()*100<p, out=win?o.ok:o.fail;
   trackChoice(null,o,win);
-  if(o.hours||o.fatigue){ spendHours(o.hours||0,o.fatigue||0); if((o.fatigue||0)>0) fatigueCheck(o.hours||1); } // boss chores cost time and stamina
+  if(o.hours||o.fatigue){
+    spendHours(o.hours||0,o.fatigue||0);
+    if((o.fatigue||0)>0&&fatigueCheck(o.hours||1)) return;
+  } // boss chores cost time and stamina; an exhaustion incident ends the action and the day
   if(ev&&ev.npc){ // NPC story scenes move the relationship
     const n=S.npcs.find(x=>x.id===ev.npc), d=win?(o.relOk||0):(o.relFail||0);
     if(n&&d){ relNpc(n,d); log(n.name+(d>0?" won't forget this. (+":" recalibrates. (")+d+" rel)",d>0?"good":"bad"); }
@@ -979,13 +1041,21 @@ function checkPromotion(){
   if(S.over) return;
   const oldRank=S.rank;
   while(S.rank<4 && S.inf>=RANK_REQ[S.rank]){
+    const firmReq=promotionFirmRequirement(S.rank);
+    if(S.firm<firmReq){
+      if(S.firmGateHintRank!==S.rank){
+        S.firmGateHintRank=S.rank; SFX.bell();
+        log("PROMOTION HELD: the partnership will not elevate you while FIRM is "+S.firm+"/"+firmReq+". Pitch a turnaround from the FIRM CONTROL panel.","bad");
+      }
+      break;
+    }
     // Junior Partner -> Senior Partner: influence isn't enough, you buy in
     if(S.rank===2&&!S.buyinPaid){
       if(!S.buyinHinted){ S.buyinHinted=true; SFX.bell();
         log("The Senior Partnership is yours — once you buy in. ($"+BUYIN_COST+", see EXPENSES.)","sys"); }
       break;
     }
-    S.rank++;
+    S.rank++; S.firmGateHintRank=null;
     if(S.rank===4){ gameWin(); return; }
     SFX.promo(); flash("PROMOTED!");
     log("PROMOTED to "+RANKS[S.rank]+"!","sys");
@@ -1032,13 +1102,19 @@ function ledger(){
 function gameOver(title,txt){
   S.over=true; SFX.fired(); stopAmbience(); doShake();
   terminalClearDone=clearSave(); recordRun(false,title);
-  showSummary("GAME OVER: "+title,[txt,"","Survived "+S.day+" day(s) as "+RANKS[S.rank]+".","",...ledger()],"NEW GAME","reload");
+  const seal={
+    defector:"Across town, Snidely Fitch sends a one-line note: 'We kept your old office open.' It is not an invitation.",
+    boomerang:"Second exits are quieter. Marv keeps the mug again; the rest of the floor calls it precedent.",
+  }[S.scenario];
+  showSummary("GAME OVER: "+title,[txt,"","Survived "+S.day+" day(s) as "+RANKS[S.rank]+".",
+    ...(seal?["",seal]:[]),"",...ledger()],"NEW GAME","reload");
 }
 function winAchievements(){
   ach("win");
   if(S.difficulty==="realistic") ach("win_realistic");
   if(S.runStats.safe===0) ach("win_nosafe");
   if(S.scenario==="defector") ach("win_defector");
+  if(S.scenario==="boomerang") ach("win_boomerang");
   if(S.mode==="ironman") ach("win_ironman");
   if(S.bold>=65) ach("win_bold");
 }
@@ -1053,7 +1129,7 @@ function gameWin(){
       "The sign painters add your name to the wall. The inbox does not attend the ceremony.",
       "ENDLESS: the firm is yours now — payroll included. Open the FIRM tab to meet it.",
       "Keep FIRM health above "+FIRM_COLLAPSE+" or the name comes off the wall.",
-      "Day "+S.day+". Reputation "+S.rep+". Boldness "+S.bold+"."],
+      "Day "+S.day+". Reputation "+S.rep+". Boldness "+S.bold+". Firm "+S.firm+"."],
       "KEEP BILLING","dismiss");
     return;
   }
@@ -1069,12 +1145,14 @@ function gameWin(){
     fraud:"P.S. You still never went to law school. The diploma on your wall is a photocopy of a rumor.",
     debtor:"The loans are PAID. The collectors send a fruit basket and, out of habit, an invoice for it.",
     legacy:"Your parent signs the wall change-order personally. They spell your name right. First try.",
+    defector:"Across town, Snidely Fitch's name partner reads the announcement twice. By lunch, your old office has been converted into document storage.",
+    boomerang:"The badge they once deactivated now opens the Name Partner suite. Marv puts your old mug on the desk. 'Knew you'd need it.'",
   }[S.scenario];
   showSummary("YOU MADE NAME PARTNER",[
     "The sign painters are already on the wall: PARSON HENDERSON & YOU.",
     epithet,
-    "Day "+S.day+". Reputation "+S.rep+". Boldness "+S.bold+".",
-    seal,
+    "Day "+S.day+". Reputation "+S.rep+". Boldness "+S.bold+". Firm "+S.firm+".",
+    ...(seal?[seal]:[]),
     S.nemesis?"Down the hall, "+S.nemesis.name+" quietly clears out his desk.":"Your rival's desk has been empty for a while now.","",
     "You've been HENDERED. Permanently.","",...ledger()],"NEW GAME","reload");
 }
@@ -1224,7 +1302,14 @@ const migrateV0ToV1=raw=>{
   d.schemaVersion=1;
   return d;
 };
-const SAVE_MIGRATIONS={0:migrateV0ToV1};
+const migrateV1ToV2=raw=>{
+  const d={...raw};
+  if(d.firmPlanDay==null) d.firmPlanDay=0;
+  if(!Object.prototype.hasOwnProperty.call(d,"firmGateHintRank")) d.firmGateHintRank=null;
+  d.schemaVersion=2;
+  return d;
+};
+const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2};
 
 function migrateSaveData(raw){
   if(!plain(raw)) throw new SaveDataError("invalid","The slot is not a save object.");
@@ -1254,6 +1339,9 @@ function migrateSaveData(raw){
     throw new SaveDataError("invalid","The saved overtime counter is invalid.");
   if(d.firm!=null&&(!Number.isFinite(d.firm)||d.firm<0||d.firm>100))
     throw new SaveDataError("invalid","The saved firm value is invalid.");
+  if(!nonNegativeInt(d.firmPlanDay)) throw new SaveDataError("invalid","The saved turnaround cooldown is invalid.");
+  if(d.firmGateHintRank!==null&&(!Number.isInteger(d.firmGateHintRank)||d.firmGateHintRank<0||d.firmGateHintRank>3))
+    throw new SaveDataError("invalid","The saved FIRM promotion hint is invalid.");
   for(const key of ["suitCost","weekMissed","bigDoneDay","fireHeat","coffeeToday","marvBribes","rivalMoveDay","archiveTotal","seed"])
     if(d[key]!=null&&!Number.isFinite(d[key])) throw new SaveDataError("invalid","The saved "+key+" value is invalid.");
   for(const key of ["weekMissed","bigDoneDay","coffeeToday","marvBribes","rivalMoveDay","archiveTotal"])

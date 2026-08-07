@@ -6,6 +6,7 @@ export const ACHIEVEMENTS=[
   {id:"win_realistic",name:"NO NUMBERS, NO FEAR", desc:"Win on REALISTIC difficulty."},
   {id:"win_nosafe",   name:"ALLERGIC TO GREEN",   desc:"Win without a single safe play."},
   {id:"win_defector", name:"DOUBLE AGENT",        desc:"Win The Defector scenario."},
+  {id:"win_boomerang",name:"RETURN TO SENDER",    desc:"Win The Boomerang scenario."},
   {id:"win_ironman",  name:"NO SAFETY NET",       desc:"Win in IRONMAN mode."},
   {id:"win_bold",     name:"APEX BILLING",        desc:"Win with Boldness 65 or higher."},
   {id:"traitor5",     name:"TRUST EXERCISE",      desc:"Delegate 5 cases to the Traitor and live."},

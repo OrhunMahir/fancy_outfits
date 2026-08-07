@@ -1,14 +1,19 @@
 import { useGame } from "../game/useGame.js";
-import { REP_FIRED, RANK_REQ, RANKS, PRICES, DECOR, BUYIN_COST, FIRM_COLLAPSE, COFFEE_LIMIT } from "../game/constants.js";
+import { REP_FIRED, RANK_REQ, RANKS, PRICES, DECOR, BUYIN_COST, FIRM_COLLAPSE, FIRM_STABLE,
+         FIRM_PLAN_GAIN, FIRM_PLAN_HOURS, FIRM_PLAN_FATIGUE, FIRM_PLAN_COOLDOWN, COFFEE_LIMIT } from "../game/constants.js";
 import { CLIENT_CAP } from "../game/clients.js";
 import { SCENARIOS } from "../game/content.js";
 import { buySuit, bribeMarv, buyCoffee, buyDecor, coffeeRelief, coffeeCost, canBuyCoffee, payBuyIn, objectiveInfo, hazardPerHour,
-         rivalSabotage, rivalTruce, rivalAlly, rivalMoveReady, rivalOdds, displayPct } from "../game/engine.js";
+         rivalSabotage, rivalTruce, rivalAlly, rivalMoveReady, rivalOdds, displayPct,
+         firmCondition, promotionFirmRequirement, canPitchTurnaround, pitchTurnaround } from "../game/engine.js";
+
+const pp=v=>(v>0?"+":"")+Math.round(v*100)+"pp";
 
 export default function StatsPanel(){
   const S=useGame();
   const bars=[["REPUTATION",S.rep,"#38b764"],["BOLDNESS",S.bold,"#b13e53"],["INFLUENCE",S.inf,"#ffcd75"],["FIRM",S.firm,"#4d73e8"],["FATIGUE",S.fatigue,"#b06ad9"]];
   const obj=objectiveInfo();
+  const firm=firmCondition(), nextFirm=promotionFirmRequirement();
   return (
     <div id="stats" className="panel">
       <h2>ASSOCIATE FILE</h2>
@@ -21,8 +26,8 @@ export default function StatsPanel(){
         {bars.map(([n,v,col])=>{
           let extra="";
           if(n==="REPUTATION") extra=" (fired < "+REP_FIRED+")";
-          if(n==="INFLUENCE"&&S.rank<4) extra=" (next rank: "+RANK_REQ[S.rank]+(S.rank===2?" + buy-in":"")+")";
-          if(n==="FIRM") extra=(S.endlessWon||S.rank===4)?" (collapse < "+FIRM_COLLAPSE+")":" (the partners' problem. for now)";
+          if(n==="INFLUENCE"&&S.rank<4) extra=" (next rank: "+RANK_REQ[S.rank]+" INF"+(nextFirm?", "+nextFirm+" FIRM":"")+(S.rank===2?" + buy-in":"")+")";
+          if(n==="FIRM") extra=(S.endlessWon||S.rank===4)?" (collapse < "+FIRM_COLLAPSE+")":S.mode==="standard"?" ("+firm.label+")":" (tracked; STANDARD rules off)";
           if(n==="FATIGUE") extra=hazardPerHour()>0
             ?" (⚠ "+hazardPerHour()+"%/h sent-home risk)"
             :(S.fatigue>0?" (risky plays -"+Math.round(S.fatigue*.25)+"%)":" (fresh)");
@@ -33,6 +38,24 @@ export default function StatsPanel(){
             </div>);
         })}
       </div>
+      {S.mode==="standard" && (
+        <div className="npcrow" style={{marginTop:8}}>
+          <div className="lblrow"><span style={{color:firm.id==="critical"?"var(--red)":firm.id==="thriving"?"var(--green)":"var(--gold)"}}>FIRM CONTROL · {firm.label}</span><span>{S.firm}/100</span></div>
+          <div className="tagline">Prospect chance {pp(firm.prospect)} · walk risk after a case loss {pp(firm.walk)}{nextFirm?" · promotion needs "+nextFirm:""}</div>
+          {S.firm<FIRM_STABLE && (
+            <button className="btn small spend" disabled={!canPitchTurnaround()} onClick={pitchTurnaround}>
+              PITCH TURNAROUND PLAN · {FIRM_PLAN_HOURS}h
+              <span className="chance">
+                {S.day<(S.firmPlanDay||0)
+                  ? "COOLDOWN · ready day "+S.firmPlanDay
+                  : S.hours<FIRM_PLAN_HOURS
+                    ? "NEEDS "+FIRM_PLAN_HOURS+"h REMAINING"
+                    : "+"+FIRM_PLAN_GAIN+" FIRM · +"+FIRM_PLAN_FATIGUE+" FATIGUE · once per "+FIRM_PLAN_COOLDOWN+" days"}
+              </span>
+            </button>
+          )}
+        </div>
+      )}
       <div className="kv">MONEY: ${S.money}{S.debtDue!==null?"  ·  loan due day "+S.debtDue:""}</div>
       <div className="kv">RUN: {SCENARIOS[S.scenario].label} · {(S.difficulty||"easy").toUpperCase()}
         {S.mode&&S.mode!=="standard"?" · "+S.mode.toUpperCase()+(S.mode==="daily"&&S.dailyDate?" "+S.dailyDate:""):""}
@@ -70,8 +93,10 @@ export default function StatsPanel(){
       </div>
       <h2 style={{marginTop:10}}>EXPENSES</h2>
       {S.rank===2&&!S.buyinPaid&&S.inf>=RANK_REQ[2] && (
-        <button className="btn small spend safe" disabled={S.money<BUYIN_COST} onClick={payBuyIn}>
-          PARTNERSHIP BUY-IN · ${BUYIN_COST}<span className="chance">Wire it and the Senior Partnership is yours.</span>
+        <button className="btn small spend safe" disabled={S.money<BUYIN_COST||S.firm<promotionFirmRequirement(2)} onClick={payBuyIn}>
+          PARTNERSHIP BUY-IN · ${BUYIN_COST}<span className="chance">
+            {S.firm<promotionFirmRequirement(2)?"BLOCKED · FIRM "+S.firm+"/"+promotionFirmRequirement(2):"Wire it and the Senior Partnership is yours."}
+          </span>
         </button>
       )}
       <button className="btn small spend" disabled={S.money<S.suitCost} onClick={buySuit}>

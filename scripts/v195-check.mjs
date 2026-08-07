@@ -314,6 +314,8 @@ globalThis.clearInterval = () => {};
   assert.equal(migratedInfo.save.coffeeToday, constants.COFFEE_LIMIT);
   assert.equal(migratedInfo.save.runStats.fired, 0);
   assert.equal(migratedInfo.save.today.moneyGained, 0);
+  assert.equal(migratedInfo.save.firmPlanDay, 0);
+  assert.equal(migratedInfo.save.firmGateHintRank, null);
   assert.equal(migratedInfo.save.logEntries.length, constants.SAVE_LOG_LIMIT);
   assert.equal(migratedInfo.save.archive.length, constants.SAVE_ARCHIVE_LIMIT);
   assert.equal(engine.loadGame(1), true);
@@ -322,6 +324,17 @@ globalThis.clearInterval = () => {};
   // Corrupt, malformed and future-version slots are diagnosed without deletion.
   const readyBase = JSON.parse(storage.get(saveKey));
   const clone = value => JSON.parse(JSON.stringify(value));
+  const v1Raw = clone(readyBase);
+  v1Raw.schemaVersion = 1;
+  delete v1Raw.firmPlanDay;
+  delete v1Raw.firmGateHintRank;
+  storage.set(`${constants.SAVE_KEY}_s2`, JSON.stringify(v1Raw));
+  const v2Info = engine.inspectSave(2);
+  assert.equal(v2Info.status, "ready");
+  assert.equal(v2Info.needsUpgrade, true);
+  assert.equal(v2Info.save.schemaVersion, 2);
+  assert.equal(v2Info.save.firmPlanDay, 0);
+  assert.equal(v2Info.save.firmGateHintRank, null);
   const delayedWar = clone(engine.buildBigMatter("Abibas"));
   delayedWar.opts[0].delay = 1;
   const pendingWar = clone(engine.buildBigMatter("Abibas"));
@@ -340,6 +353,8 @@ globalThis.clearInterval = () => {};
     { raw: JSON.stringify({ ...clone(readyBase), hours: -0.25 }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), otToday: 1.5 }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), archiveTotal: -1 }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), firmPlanDay: -1 }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), firmGateHintRank: 4 }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), money: {} }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), inbox: {} }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), inbox: [{ title: "BAD", body: "bad", opts: [null] }] }), status: "invalid" },
@@ -553,6 +568,219 @@ globalThis.clearInterval = () => {};
   };
   visitWar(engine.buildBigMatter("Abibas"));
 
+  // v1.9.7: STANDARD FIRM confidence has exact, stable boundaries and no RNG.
+  assert.equal(engine.firmCondition(24).id, "critical");
+  assert.equal(engine.firmCondition(25).id, "strained");
+  assert.equal(engine.firmCondition(49).id, "strained");
+  assert.equal(engine.firmCondition(50).id, "stable");
+  assert.equal(engine.firmCondition(74).id, "stable");
+  assert.equal(engine.firmCondition(75).id, "thriving");
+  const approx = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-10, `${actual} != ${expected}`);
+  let odds = engine.clientConfidenceOdds(70, "standard", 24);
+  approx(odds.impress, .06); approx(odds.acquisition, .026); approx(odds.walk, .22);
+  odds = engine.clientConfidenceOdds(70, "standard", 25);
+  approx(odds.impress, .08); approx(odds.acquisition, .046); approx(odds.walk, .17);
+  odds = engine.clientConfidenceOdds(70, "standard", 50);
+  approx(odds.impress, .10); approx(odds.acquisition, .066); approx(odds.walk, .12);
+  odds = engine.clientConfidenceOdds(70, "standard", 75);
+  approx(odds.impress, .12); approx(odds.acquisition, .086); approx(odds.walk, .08);
+  assert.deepEqual(engine.clientConfidenceOdds(70, "daily", 24), engine.clientConfidenceOdds(70, "daily", 75));
+  odds = engine.clientConfidenceOdds(100, "standard", 24);
+  approx(odds.impress, .10); approx(odds.acquisition, .08);
+  odds = engine.clientConfidenceOdds(100, "standard", 25);
+  approx(odds.impress, .12); approx(odds.acquisition, .10);
+  odds = engine.clientConfidenceOdds(100, "standard", 50);
+  approx(odds.impress, .14); approx(odds.acquisition, .12);
+  odds = engine.clientConfidenceOdds(100, "standard", 75);
+  approx(odds.impress, .16); approx(odds.acquisition, .14);
+  for (const mode of ["daily", "ironman", "endless"]) {
+    odds = engine.clientConfidenceOdds(100, mode, 24);
+    approx(odds.impress, .14); approx(odds.acquisition, .12); approx(odds.walk, .12);
+  }
+  assert.equal(engine.promotionFirmRequirement(1, "standard"), 40);
+  assert.equal(engine.promotionFirmRequirement(2, "standard"), 45);
+  assert.equal(engine.promotionFirmRequirement(3, "standard"), 50);
+  assert.equal(engine.promotionFirmRequirement(3, "ironman"), 0);
+
+  // Partner-track promotions stop at the FIRM gate; other modes retain their old curve.
+  const promotionOption = { text: "Review promotion", base: 100, safe: true, ok: { fx: {}, txt: "reviewed" } };
+  const drivePromotion = () => {
+    state.S.event = { id: "test_promotion", title: "PROMOTION", body: "test", opts: [promotionOption] };
+    engine.resolveCrisis(promotionOption);
+  };
+  fresh();
+  Object.assign(state.S, { rank: 1, inf: 60, firm: 39 });
+  drivePromotion();
+  assert.equal(state.S.rank, 1);
+  assert.equal(state.S.firmGateHintRank, 1);
+  state.S.firm = 40;
+  drivePromotion();
+  assert.equal(state.S.rank, 2);
+  assert.equal(state.S.firmGateHintRank, null);
+
+  fresh();
+  Object.assign(state.S, { rank: 2, inf: 85, firm: 44, money: 6000, buyinPaid: false });
+  engine.payBuyIn();
+  assert.deepEqual([state.S.rank, state.S.buyinPaid, state.S.money], [2, false, 6000]);
+  state.S.firm = 45;
+  engine.payBuyIn();
+  assert.deepEqual([state.S.rank, state.S.buyinPaid, state.S.money], [3, true, 1000]);
+
+  fresh("ironman");
+  Object.assign(state.S, { rank: 1, inf: 60, firm: 0 });
+  drivePromotion();
+  assert.equal(state.S.rank, 2, "non-STANDARD modes must keep their established promotion curve");
+
+  fresh();
+  Object.assign(state.S, { rank: 3, inf: 95, firm: 49 });
+  drivePromotion();
+  assert.deepEqual([state.S.rank, state.S.over, state.S.firmGateHintRank], [3, false, 3]);
+  state.S.firm = 50;
+  drivePromotion();
+  assert.equal(state.S.over, true);
+  assert.match(state.S.summary.title, /YOU MADE NAME PARTNER/);
+
+  // Turnaround is deterministic, costly, cooldown-safe, persisted and can clear a promotion gate.
+  fresh();
+  Object.assign(state.S, { day: 3, rank: 1, inf: 60, firm: 35, hours: 8, fatigue: 0, firmPlanDay: 0, event: null, summary: null });
+  engine.pitchTurnaround();
+  assert.deepEqual([state.S.firm, state.S.hours, state.S.fatigue, state.S.firmPlanDay, state.S.rank], [45, 6.5, 6, 8, 2]);
+  const afterPlan = [state.S.firm, state.S.hours, state.S.fatigue, state.S.firmPlanDay];
+  engine.pitchTurnaround();
+  assert.deepEqual([state.S.firm, state.S.hours, state.S.fatigue, state.S.firmPlanDay], afterPlan);
+  engine.saveGame();
+  engine.loadGame(1);
+  assert.equal(state.S.firmPlanDay, 8);
+  Object.assign(state.S, { day: 8, firm: 35, hours: 1, event: null, summary: null });
+  engine.pitchTurnaround();
+  assert.deepEqual([state.S.firm, state.S.hours], [35, 1]);
+  fresh("daily");
+  Object.assign(state.S, { firm: 20, hours: 8, fatigue: 0 });
+  engine.pitchTurnaround();
+  assert.deepEqual([state.S.firm, state.S.hours, state.S.fatigue], [20, 8, 0]);
+
+  // The full 90-minute plan lands before the exhaustion incident, like a resolved
+  // case: its FIRM gain/cooldown persist, then the day ends exactly once with no
+  // stale overtime prompt and no promotion-animation bypass.
+  const certainTurnaroundIncident = ({ rank, inf }) => {
+    fresh();
+    Object.assign(state.S, {
+      day: 3, rank, inf, firm: 35, hours: 1.5, fatigue: 94, firmPlanDay: 0,
+      inbox: [], objective: null, debtDue: null, event: null, summary: null,
+    });
+    timeoutQueue = [];
+    engine.pitchTurnaround();
+    assert.equal(state.S.pendingSummary?.action, "nextDay");
+    assert.equal(state.S.event, null, "sent-home flow must not leave a stale overtime event");
+    assert.equal(state.S.leaving, true);
+    assert.equal(state.S.rank, rank, "an exhaustion incident must not be bypassed by promotion animation");
+    assert.deepEqual([state.S.firm, state.S.firmPlanDay], [45, 8]);
+    while (timeoutQueue.length) timeoutQueue.shift()();
+    timeoutQueue = null;
+    assert.equal(state.S.summary?.action, "nextDay");
+    assert.equal(state.S.event, null);
+  };
+  certainTurnaroundIncident({ rank: 0, inf: 0 });
+  certainTurnaroundIncident({ rank: 1, inf: 60 });
+
+  fresh();
+  Object.assign(state.S, { hours: 1, fatigue: 99, money: 0, inbox: [], objective: null, debtDue: null });
+  const exhaustingChore = {
+    text: "Finish the impossible chore", base: 100, safe: true, hours: 1, fatigue: 1,
+    ok: { fx: { money: 999 }, txt: "The reward should never land." },
+  };
+  state.S.event = { id: "test_exhaustion", title: "CHORE", body: "test", opts: [exhaustingChore] };
+  timeoutQueue = [];
+  engine.resolveCrisis(exhaustingChore);
+  assert.equal(state.S.money, 0, "crisis outcome must stop when exhaustion sends the player home");
+  assert.equal(state.S.event, null);
+  assert.equal(state.S.pendingSummary?.action, "nextDay");
+  while (timeoutQueue.length) timeoutQueue.shift()();
+  timeoutQueue = null;
+
+  // Delegated real matters now move FIRM exactly like instant and delayed matters.
+  const delegatedFirmResult = (win, silent = false) => {
+    fresh();
+    Object.assign(state.S, { firm: 60, inbox: [], objective: null, debtDue: null, event: null, hours: 8 });
+    const delegatedCase = engine.instantiateCase(template());
+    delegatedCase.delegated = { npc: state.S.npcs[0].id, day: 2, win, silent };
+    state.S.inbox = [delegatedCase];
+    engine.endDay();
+    engine.dismissSummary();
+    return state.S.firm;
+  };
+  assert.equal(delegatedFirmResult(true), 61);
+  assert.equal(delegatedFirmResult(false), 59);
+  assert.equal(delegatedFirmResult(false, true), 60);
+
+  // A morning resolver that ends an ENDLESS run must short-circuit the rest of
+  // advanceDay: no fresh files, favors, events or later resolver side effects.
+  fresh("endless");
+  Object.assign(state.S, {
+    rank: 4, endlessWon: true, firm: 15, inbox: [], objective: null,
+    debtDue: null, event: null, hours: 8,
+  });
+  const collapseCase = engine.instantiateCase(template());
+  collapseCase.delegated = { npc: state.S.npcs[0].id, day: 2, win: false, silent: false };
+  state.S.inbox = [collapseCase];
+  engine.endDay();
+  engine.dismissSummary();
+  assert.equal(state.S.over, true);
+  assert.match(state.S.summary.title, /FIRM COLLAPSE/);
+  assert.equal(state.S.inbox.length, 1, "only the delegated-result message may survive terminal resolution");
+  assert.equal(state.S.inbox[0].msg, true);
+  assert.equal(state.S.event, null);
+
+  // Payroll is the natural ENDLESS collapse path. Once roster drift ends the
+  // run on Saturday morning, advanceDay must not install the weekend card,
+  // sit the character down or generate any later event.
+  fresh("endless");
+  Object.assign(state.S, {
+    day: 5, rank: 4, inf: 50, endlessWon: true, firm: 15, inbox: [], objective: null,
+    debtDue: null, event: null, hours: 8, clients: [{ name: "Abibas", fee: 100 }],
+    weekStart: { inf: 45, rep: state.S.rep }, weekMissed: 0,
+    roster: Array.from({ length: 100 }, (_, i) => ({
+      id: "collapse-" + i, name: "Loss " + i, impact: -100, won: 0, lost: 0,
+      senior: false, src: "generated",
+    })),
+  });
+  utils.setSeed(197);
+  engine.endDay();
+  engine.dismissSummary();
+  assert.equal(state.S.over, true);
+  assert.match(state.S.summary.title, /FIRM COLLAPSE/);
+  assert.equal(state.S.charAnim, "leaving", "terminal payroll drift must stop before sitDown");
+  assert.equal(state.S.event, null);
+
+  // All scenarios produce defined terminal prose; Defector/Boomerang close both arcs.
+  const endingMarkers = {
+    fraud: /law school/,
+    debtor: /loans are PAID/,
+    legacy: /parent signs/,
+    defector: /Snidely Fitch/,
+    boomerang: /deactivated/,
+  };
+  const endingOption = { text: "Close the final file", base: 100, safe: true, ok: { fx: { inf: 1 }, txt: "won" } };
+  for (const [scenario, marker] of Object.entries(endingMarkers)) {
+    engine.startGame(scenario, "easy", "standard");
+    Object.assign(state.S, { rank: 3, inf: 94, firm: 50 });
+    state.S.event = { id: "test_ending", title: "FINAL", body: "test", opts: [endingOption] };
+    engine.resolveCrisis(endingOption);
+    assert.equal(state.S.over, true, `${scenario} should reach a terminal win`);
+    assert.ok(state.S.summary.lines.every(line => typeof line === "string"), `${scenario} ending has an undefined row`);
+    assert.match(state.S.summary.lines.join(" "), marker);
+  }
+  assert.equal(JSON.parse(storage.get("fo_ach_v1")).win_boomerang, true);
+
+  for (const [scenario, marker] of [["defector", /old office open/], ["boomerang", /Marv keeps the mug/]]) {
+    engine.startGame(scenario, "easy", "standard");
+    state.S.rep = 20;
+    engine.apply({ rep: -1 });
+    assert.match(state.S.summary.title, /GAME OVER: FIRED/);
+    assert.match(state.S.summary.lines.join(" "), marker);
+    assert.ok(state.S.summary.lines.every(line => typeof line === "string"));
+  }
+
   // Production CSP has no loopback WebSocket escape hatch; Vite adds it only in dev.
   const indexHtml = readFileSync("index.html", "utf8");
   const viteConfig = readFileSync("vite.config.mjs", "utf8");
@@ -573,7 +801,7 @@ globalThis.clearInterval = () => {};
     }
   }
 
-  console.log("v1.9.5–v1.9.6 checks passed: balance, strict saves, terminal recovery, summary checkpoints, Client War integrity, CSP, 20 starts");
+  console.log("v1.9.5–v1.9.7 checks passed: balance, strict saves, FIRM confidence/gates, scenario endings, Client War integrity, CSP, 20 starts");
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;

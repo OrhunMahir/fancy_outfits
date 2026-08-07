@@ -30,6 +30,24 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.7 — Firm confidence & scenario endings *(2026-08-07)*
+- **FIRM now matters in Standard careers:** its condition changes client-impress,
+  prospect and post-loss walk-away odds. The bands are visible in the sidebar, while
+  non-Standard modes keep their established client curve.
+- **Partnership has a business-health gate:** promotions now require 40 / 45 / 50 FIRM
+  in Standard mode (the $5,000 buy-in still applies). A struggling firm does not cause
+  an early game over; instead, a 1.5-hour turnaround plan restores 10 FIRM at the cost
+  of 6 FATIGUE, with a five-day cooldown.
+- **Delegation is economically complete:** real delegated matters move FIRM +1 on a win
+  and -1 on an ordinary loss. A Lazy colleague's silent return remains unresolved work,
+  so it does not double-charge business health before the deadline outcome.
+- **Scenario payoffs:** The Defector and The Boomerang now have bespoke terminal victory
+  and loss lines. Boomerang victories unlock the permanent **RETURN TO SENDER**
+  achievement, bringing the total to 11.
+- **Save schema v2:** older slots migrate the new cooldown/hint fields in order. The
+  regression harness covers every FIRM boundary, mode isolation, promotion and buy-in
+  guards, turnaround recovery, delegated outcomes, migrations and all special endings.
+
 ### v19.6 — Save integrity & desktop security *(2026-08-07)*
 - **Client Wars now end cleanly:** losing the retained client, missing a stage deadline, ending
   the matter or loading an older inconsistent save removes every matching inbox/follow-up
@@ -287,8 +305,9 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ### v12 — The firm is yours (and it can sink) *(2026-07-09)*
 - **4th stat: FIRM** — a firm-health bar next to Reputation/Boldness/Influence. Case wins and
-  losses, missed deadlines, crises and Friday reviews all nudge it. While you're an associate
-  it's "the partners' problem"; once your name is on the wall (ENDLESS), **FIRM below 15 =
+  losses, missed deadlines, crises and Friday reviews all nudge it. In this original v12 design
+  it was "the partners' problem" before Name Partner (v19.7 later gave it Standard-career
+  consequences); once your name is on the wall (ENDLESS), **FIRM below 15 =
   FIRM COLLAPSE, game over.** The name comes off the wall faster than it went up.
 - **The payroll (FIRM tab):** on making Name Partner you inherit a ~13-person roster — the four
   floor colleagues, your rival, Daniel Hardwick, Lou Bitt and generated employees. Each shows

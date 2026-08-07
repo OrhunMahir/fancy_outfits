@@ -97,7 +97,7 @@
 
 **v1.1 eklendi (2026-07-09, kullanıcı isteği):**
 - **4. senaryo "The Defector":** Snidely Fitch'ten transfer. `chance()`'te Fitch geçen dosyalara riskli seçeneklerde +8 (metin match: `/Snidely Fitch/`, parodi isim sabit olduğu için güvenli). 2 özel sabotaj krizi: `poisonfile` (gün≥2), `counteroffer` (gün≥4).
-- **Başarımlar (`achievements.js`, `fo_ach_v1`):** 10 adet, run'lar arası kalıcı, start ekranında listelenir (■/□). `unlock(id)` ilk açılışta true döner; engine `ach(id)` ile log+SFX.bell fanfarı basar. Kancalar: gameWin (win/realistic/nosafe/defector/ironman/bold≥65), delegateCase (Traitor'a 5.), choose (bribeW≥3), cuma övgüsü, gün≥15. İleride Steamworks'e 1:1 map'lenecek.
+- **Başarımlar (`achievements.js`, `fo_ach_v1`):** 11 adet, run'lar arası kalıcı, start ekranında listelenir (■/□). `unlock(id)` ilk açılışta true döner; engine `ach(id)` ile log+SFX.bell fanfarı basar. Kancalar: gameWin (win/realistic/nosafe/defector/boomerang/ironman/bold≥65), delegateCase (Traitor'a 5.), choose (bribeW≥3), cuma övgüsü, gün≥15. İleride Steamworks'e 1:1 map'lenecek.
 - **Oyun modları (`S.mode`, start ekranında seçilir):** standard / **ironman** (saveGame no-op — kayıt yok) / **endless** (gameWin ilk seferde `S.endlessWon=true` + "KEEP BILLING" özeti, run devam eder; nemesis rank 4'e çıkamaz; `recordRun` `S.runRecorded` ile tek sefer sayar) / **daily** (tarih hash'i `setSeed`'e verilir, senaryo tarihten seçilir, zorluk MEDIUM'a kilitli, `S.dailyDate`).
 - **Deterministik RNG (`utils.js`):** mulberry32 tabanlı `rand()/setSeed()/clearSeed()`. TÜM oyun mantığı artık `rand()` kullanır — `Math.random` SADECE `sound.js`'te kalır (ses jitter'ı deterministik akışı tüketmesin). Yeni kod yazarken bu kurala uy.
 - **Klavye kısayolları (App.jsx `handleKey`):** 1-4 seçenek seçer (dava + kriz; paran yetmeyen bribe yok sayılır), Space dosya erteler/özeti ilerletir, Esc panelleri kapatır. Seçenek metinleri numaralandı. Handler modül `S`'ini okur (stale closure yok), sadece engine fonksiyonu çağırır.
@@ -206,9 +206,16 @@
 - **Toolchain/güvenlik:** Vite 7.3.6, plugin-react 5.2.0, Electron 43.3.0, esbuild 0.28.1, postcss 8.5.26; Node ≥22.12. `npm audit` 0 açık. Production CSP sıkı `script-src/connect-src 'self'`; yalnız Vite dev sunucusu Fast Refresh inline preamble'ı + loopback HMR WebSocket izni ekler. Electron popup, dış navigation ve tüm permission request'lerini reddeder; dev URL yalnız loopback host kabul eder.
 - **Kalıcı testler:** `npm test` artık schema/migration, 5000 kayıt sınırı, bozuk/gelecek/boş save koruması, quota/storage/serialize/remove arızaları, animasyonda reload ve Client War cleanup/reconciliation invariantlarını kapsar.
 
-**Dış denetim notu (Codex, 2026-08-07):** YAPILDI: v1.9.3 çökme/kilit+Windows, v1.9.4 bütünlük, v1.9.5 seçenek/stil/kahve/mesai dengesi, v1.9.6 Client War+save bütünlüğü ve bağımlılık/Electron/CSP güvenliği. KALAN (ürün tasarımı): FIRM'in Standard modda anlamı; Defector/Boomerang özel finalleri; hakim hafızası; mobil geçiş.
+**v1.9.7 eklendi (2026-08-07, FIRM anlamı + senaryo finalleri):**
+- **Standard FIRM güveni:** `firmCondition()` FIRM'i CRITICAL/STRAINED/STABLE/THRIVING bantlarına ayırır. Yalnız Standard modda dava sonrası müşteri etkilenmesi, sabah prospect edinimi ve kayıp sonrası müşteri ayrılma oranlarını değiştirir; diğer modların mevcut eğrisi korunur.
+- **Terfi kapıları:** Standard rütbe geçişleri sırasıyla FIRM 40/45/50 ister; buy-in parası şart sağlanmadan kesilmez. Mevcut yüksek rütbeli kayıtlar geriye düşürülmez. FIRM<50 iken TURNAROUND PLAN 1.5 saat +6 FATIGUE karşılığında +10 FIRM verir, 5 gün cooldown taşır; erken otomatik batış eklenmedi.
+- **Delege simetrisi:** tier≥1 delege sonuçları kazanırsa +1, normal kaybederse −1 FIRM; Lazy sessiz bırakma henüz hüküm olmadığı için nötrdür.
+- **Özel finaller:** Defector ve Boomerang terminal kazanma/kaybetme ekranlarına senaryoya özgü kapanış satırları eklendi. Boomerang zaferi `RETURN TO SENDER` başarımını açar; toplam 11 başarım.
+- **Save schema v2 + testler:** `firmPlanDay` ve `firmGateHintRank` 1→2 migration'ıyla backfill edilir ve doğrulanır. `npm test` bant sınırlarını, oranları, mod izolasyonunu, terfi/buy-in guard'larını, turnaround maliyet-cooldown'unu, delege FIRM sonuçlarını ve beş senaryonun finallerini kapsar.
 
-**En son çalışılan konu (2026-08-07):** v1.9.6 bütünlük/güvenlik turu tamamlandı; Client War ghost filing'leri, versiyonlu save/migration, gün sonu reload rollback'i, storage hata UX'i ve npm/Electron/CSP yüzeyi ele alındı. Sıradaki öneri: Standard modda FIRM statına oyuncu eylemi/sonuç anlamı kazandırmak ve Defector/Boomerang özel finallerini aynı ürün turunda tamamlamak; ardından onaylı hakim hafızası.
+**Dış denetim notu (Codex, 2026-08-07):** YAPILDI: v1.9.3 çökme/kilit+Windows, v1.9.4 bütünlük, v1.9.5 seçenek/stil/kahve/mesai dengesi, v1.9.6 Client War+save bütünlüğü ve bağımlılık/Electron/CSP güvenliği, v1.9.7 Standard FIRM anlamı + Defector/Boomerang finalleri. KALAN (ürün tasarımı): hakim hafızası; uzun-run denge/soak testi; mobil geçiş; bağlamsal SFX; yayın/paketleme.
+
+**En son çalışılan konu (2026-08-07):** v1.9.7 tamamlandı; Standard modda FIRM müşteri güvenini ve ortaklık terfilerini etkiliyor, oyuncuya kontrollü bir toparlanma hamlesi sunuyor; Defector/Boomerang özel finalleri ve 11. başarım eklendi. Sıradaki öneri: onaylı **hakim hafızası**; ardından 30–50 günlük Standard/Endless soak dengesi ve mobil sekmeli layout + Capacitor hazırlığı.
 
 **Aklında tut (kullanıcı onaylı bekleyenler):** hakim hafızası, mobil (layout+Capacitor), bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
 
@@ -246,7 +253,7 @@ fancy-outfits/
 │   │   ├── content.js            ← buildPool() 9 el yazması dava, JUDGES(7), crises(), SCENARIOS
 │   │   ├── casegen.js            ← PROSEDÜREL dava üreticisi (12 şablon, API'siz, offline)
 │   │   ├── clients.js            ← client book: 20 parodi marka, CLIENT_CAP, global event üretici
-│   │   ├── achievements.js       ← 10 başarım, localStorage (fo_ach_v1), unlock()
+│   │   ├── achievements.js       ← 11 başarım, localStorage (fo_ach_v1), unlock()
 │   │   ├── npcs.js               ← NPC roster, trait dağıtımı, delegationChance(), buildFavor()
 │   │   ├── sound.js              ← WebAudio sentez SFX + prosedürel ambiyans (settings'ten ses)
 │   │   ├── utils.js              ← clamp, rnd, hash, rand/setSeed (deterministik RNG — daily mod)

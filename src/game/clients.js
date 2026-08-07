@@ -2,12 +2,12 @@
 // Pure data + builders: the engine owns all mutations. Client count scales
 // with rank (CLIENT_CAP), retainers pay out every Friday, and global events
 // target this list — bankruptcies, poaching, scandals, walk-in prospects.
-import { rnd, rand } from "./utils.js";
+import { rnd, rand, shuffle } from "./utils.js";
 
 const BRANDS=["Abibas","Mike Sportswear","Pumba Athletics","Starbux Coffee","McRonald's","Panasonique","Dolce & Banana","Rolexx Timepieces","KFG — Kentucky Fried Gravy","Guccy","Microsofa","Goggle","Amazun Logistics","Tesler Motors","Koka-Kola Bottling","Blue Bull Energy","Idea Flatpacks","Samsong Electronics","Adobo Systems","Whatsupp Messaging"];
 
 export const CLIENT_CAP=r=>3+r*2; // the book grows with your rank: 3 → 11
-export const buildClientPool=()=>[...BRANDS].sort(()=>rand()-.5);
+export const buildClientPool=()=>shuffle(BRANDS);
 export const makeClient=name=>({name, fee:100+50*Math.floor(rand()*5)}); // $100-300 weekly retainer
 
 /* Global events: repeatable world drama aimed at the client book. Options may

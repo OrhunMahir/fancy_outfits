@@ -6,8 +6,8 @@
 > All rights reserved; no use, copying, redistribution or derivative works without
 > written permission. See [LICENSE](LICENSE).
 
-You're a lawyer (maybe) at **Parson Henderson LLP**. Case files land in your inbox on a real-time
-day clock; the winning argument is usually hiding somewhere in the text. Safe options never fail
+You're a lawyer (maybe) at **Parson Henderson LLP**. Case files land in your inbox during a
+fictional workday where every action costs hours; the winning argument is usually hiding somewhere in the text. Safe options never fail
 but drain your Boldness; bluffs pay big and burn Reputation when they collapse. Climb from Junior
 Associate to **NAME PARTNER** before your secret — or your reputation — ends you.
 
@@ -27,6 +27,23 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 ---
 
 ## Changelog
+
+### v19.5 — Approach rebalance & workday limits *(2026-08-07)*
+- **No more "just press 2":** every live case deterministically shuffles its base options when
+  it reaches the inbox. DAILY runs keep the same order for the same seed, templates stay
+  immutable, and a judge's special golf/bribe option always remains last.
+- **Distinct career paths:** technical case wins now earn ×0.70 INFLUENCE after normal case
+  scaling, preserving their strong reputation profile; aggressive wins earn ×1.25, making
+  high-Boldness risk the faster route up the firm. Safe/neutral, crisis and delegation rewards
+  are unchanged.
+- **The night has an ending:** overtime is capped at two blocks per day. The first adds 2 hours
+  for 12 FATIGUE, the second adds 2 for 18; after that the building sends you home.
+- **Coffee is a tool, not a time machine:** at most two espressos per day (14 then 8 FATIGUE).
+  The espresso-machine decor still lowers their price, but no longer enables infinite recovery.
+- **Deterministic shuffles:** client pools and hidden NPC traits now use Fisher–Yates instead of
+  random `sort()`, keeping DAILY behavior portable and reproducible.
+- **Regression harness:** `npm test` now covers shuffle/save determinism, style rewards, coffee
+  and overtime guards/migration, plus all 20 scenario/mode start combinations.
 
 ### v19.4 — Integrity & consistency pass *(2026-07-12)*
 - **Reload-skips-overtime exploit closed:** reloading with the day's hours spent no longer

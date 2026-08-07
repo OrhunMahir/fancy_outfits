@@ -3,13 +3,14 @@
 // call notify() so React re-renders. Pause is derived — no S.paused flag.
 import { S, setS, notify, newState } from "./state.js";
 import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DELEGATE_CAP, DAY_HOURS, TIER_HOURS, DELEGATE_HOURS,
-         OVERTIME_HOURS, OVERTIME_FATIGUE, LATE_FATIGUE, FATIGUE_REST, SAFE_HOURS_MULT, TECH_HOURS_MULT,
-         COFFEE_RELIEF, COFFEE_FALLOFF, COFFEE_MIN, FATIGUE_DANGER, SENTHOME_REP, SENTHOME_INF,
+         OVERTIME_HOURS, OVERTIME_LIMIT, OVERTIME_FATIGUE, OVERTIME_FATIGUE_STEP, LATE_FATIGUE,
+         FATIGUE_REST, SAFE_HOURS_MULT, TECH_HOURS_MULT, TECH_INF_MULT, AGG_INF_MULT,
+         COFFEE_RELIEF, COFFEE_FALLOFF, COFFEE_LIMIT, FATIGUE_DANGER, SENTHOME_REP, SENTHOME_INF,
          REP_FIRED, DEADLINE_PENALTY,
          STAKE_REWARD, STAKE_PENALTY, PRICES, DECOR, SAVE_KEY, STATS_KEY,
          WEEK_LEN, REVIEW_GOOD, REVIEW_BAD, BUYIN_COST, FIRM_COLLAPSE,
          FIRE_HEAT, FIRE_HEAT_SENIOR, HEAT_DECAY, HEAT_MIN } from "./constants.js";
-import { clamp, rnd, rand, hash, setSeed, clearSeed, getRngState, setRngState } from "./utils.js";
+import { clamp, rnd, rand, shuffle, hash, setSeed, clearSeed, getRngState, setRngState } from "./utils.js";
 import { SFX, startAmbience, stopAmbience, applyBgmVolume } from "./sound.js";
 import { settings, setSetting } from "./settings.js";
 import { buildPool, JUDGES, crises, SCENARIOS, buildWeekend } from "./content.js";
@@ -255,16 +256,19 @@ function checkClock(){
   if(!S||S.over||S.summary||S.event||S.hours>0) return;
   S.hours=0;
   const due=S.inbox.filter(c=>!c.msg&&!c.pending&&!c.delegated).length;
+  const canStay=canOvertime(), otFatigue=overtimeFatigue();
+  const opts=[{text:"Go home. Sleep is a legal strategy.",base:100,safe:true,home:true,ok:{fx:{},txt:""}}];
+  if(canStay) opts.push({text:"Overtime: +"+OVERTIME_HOURS+" hours at the desk. (+"+otFatigue+" FATIGUE)",base:100,safe:true,ot:true,ok:{fx:{},txt:""}});
   SFX.bell();
   S.event={id:"overtime",title:wallTime()+" — QUITTING TIME",
     body:(due?due+" file(s) still sit on your desk. ":"The desk is clear. ")+
       "The cleaning crew is vacuuming around the associates who stayed. Fatigue at "+S.fatigue+"/100"+(S.fatigue>=60?" — your eyes are doing that thing again.":".")+
-      " Go home, or bill the night?",
-    opts:[
-      {text:"Go home. Sleep is a legal strategy.",base:100,safe:true,home:true,ok:{fx:{},txt:""}},
-      {text:"Overtime: +"+OVERTIME_HOURS+" hours at the desk. (+"+OVERTIME_FATIGUE+" FATIGUE)",base:100,safe:true,ot:true,ok:{fx:{},txt:""}}]};
+      (canStay?" Go home, or bill the night?":" Two overtime blocks are gone. The building is locking up. Go home."),
+    opts};
   notify();
 }
+export const canOvertime=()=>!!S&&(S.otToday||0)<OVERTIME_LIMIT;
+export const overtimeFatigue=()=>OVERTIME_FATIGUE+OVERTIME_FATIGUE_STEP*Math.min(S&&S.otToday||0,OVERTIME_LIMIT-1);
 export const wallTime=()=>{
   const t=9+(settings.dayLen||DAY_HOURS)+S.otHours-S.hours;
   return String(Math.floor(t)).padStart(2,"0")+":"+String(Math.round(t%1*60)).padStart(2,"0");
@@ -357,7 +361,7 @@ function drawCases(n){
 /* turn a case template into a live inbox file (deep-copied, stake-scaled, judge drawn).
    A corruptible judge (GDD §7) quietly adds one very risky, very expensive option. */
 export function instantiateCase(c){
-  const inst={...c, opts:JSON.parse(JSON.stringify(c.opts)),
+  const inst={...c, opts:shuffle(JSON.parse(JSON.stringify(c.opts))),
     dueDay:S.day+c.deadline, judge:c.judge?rnd(JUDGES):null};
   if(S.golfEdge&&inst.judge){ // weekend golf pays off: this judge is pre-read
     inst.dossier=true; S.golfEdge=false;
@@ -395,14 +399,17 @@ function spawnFollowups(){
    Applied to a deep copy at draw time (promotion doesn't retro-scale open files). */
 function scaleStakes(inst){
   const r=S.rank; inst.stakes=r;
-  const mul=fx=>{ if(!fx) return;
+  const mul=(fx,style,won)=>{ if(!fx) return;
     for(const k of ["rep","bold","inf","money","firm"]){
       if(!fx[k]) continue;
       if(fx[k]<0){ if(r) fx[k]=Math.round(fx[k]*STAKE_PENALTY[r]); continue; }
-      if(k==="inf") fx[k]=Math.max(1,Math.round(fx[k]*INF_EARN));
+      if(k==="inf"){
+        const approach=won&&style==="technical"?TECH_INF_MULT:(won&&style==="aggressive"?AGG_INF_MULT:1);
+        fx[k]=Math.max(1,Math.round(fx[k]*INF_EARN*approach));
+      }
       else if((k==="money"||k==="bold")&&r) fx[k]=Math.round(fx[k]*STAKE_REWARD[r]);
     }};
-  inst.opts.forEach(o=>{ mul(o.ok&&o.ok.fx); mul(o.fail&&o.fail.fx); });
+  inst.opts.forEach(o=>{ mul(o.ok&&o.ok.fx,o.style,true); mul(o.fail&&o.fail.fx,o.style,false); });
   return inst;
 }
 
@@ -851,9 +858,14 @@ export function resolveCrisis(o){
   if(o.home){ S.event=null; endDay(); return; }
   if(o.ot){
     S.event=null;
+    if(!canOvertime()){
+      log("No more overtime. Security wants the floor empty and your keycard has stopped negotiating.","sys");
+      checkClock(); saveGame(); notify(); return;
+    }
+    const fatigue=overtimeFatigue();
     S.hours+=OVERTIME_HOURS; S.otHours+=OVERTIME_HOURS; S.otToday++;
-    S.fatigue=clamp(S.fatigue+OVERTIME_FATIGUE,0,100);
-    log("Overtime. The building empties around you. (+"+OVERTIME_HOURS+"h, +"+OVERTIME_FATIGUE+" FATIGUE)","sys");
+    S.fatigue=clamp(S.fatigue+fatigue,0,100);
+    log("Overtime block "+S.otToday+"/"+OVERTIME_LIMIT+". The building empties around you. (+"+OVERTIME_HOURS+"h, +"+fatigue+" FATIGUE)","sys");
     fatigueCheck(1); // your body may veto the overtime you just chose
     saveGame(); notify(); return;
   }
@@ -1013,23 +1025,22 @@ export function bribeMarv(){
   apply({money:-PRICES.marv});
   saveGame();
 }
-/* the firm's true fuel: each cup helps less, the third one mostly vibrates */
-export const coffeeRelief=()=>Math.max(COFFEE_MIN,COFFEE_RELIEF-COFFEE_FALLOFF*S.coffeeToday);
+/* the firm's true fuel: two diminishing cups, then caffeine stops being a strategy */
+export const coffeeRelief=()=>S&&S.coffeeToday<COFFEE_LIMIT?Math.max(0,COFFEE_RELIEF-COFFEE_FALLOFF*S.coffeeToday):0;
 export const coffeeCost=()=>S.decor&&S.decor.espresso?40:PRICES.coffee; // your own machine grinds cheaper
+export const canBuyCoffee=()=>!!S&&coffeeRelief()>0&&S.fatigue>0&&S.money>=coffeeCost();
 export function buyCoffee(){
-  if(S.money<coffeeCost()||S.fatigue<=0) return;
+  if(!canBuyCoffee()) return;
   SFX.send();
-  const relief=coffeeRelief();
+  const relief=coffeeRelief(), cost=coffeeCost();
   S.fatigue=clamp(S.fatigue-relief,0,100);
   S.coffeeToday++;
   log(rnd(S.coffeeToday===1?[
     "Double espresso. The fog lifts. (-"+relief+" FATIGUE)",
     "Coffee. The billable kind of magic. (-"+relief+" FATIGUE)"]
-  :S.coffeeToday===2?[
-    "Second cup. Less magic, more maintenance. (-"+relief+" FATIGUE)"]
   :[
-    "Cup #"+S.coffeeToday+". Your left eye is billing independently. (-"+relief+" FATIGUE)"]),"sys");
-  apply({money:-coffeeCost()},true);
+    "Second cup. Less magic, more maintenance. The machine cuts you off after this one. (-"+relief+" FATIGUE)"]),"sys");
+  apply({money:-cost},true);
   saveGame();
 }
 
@@ -1097,7 +1108,9 @@ export function loadGame(n){
   log("Run restored. The firm did not notice you were gone.","sys");
   if(typeof S.hours!=="number"||isNaN(S.hours)) S.hours=settings.dayLen||DAY_HOURS; // pre-workday saves
   if(typeof S.fatigue!=="number") S.fatigue=0;
-  if(typeof S.otHours!=="number"){ S.otHours=0; S.otToday=0; }
+  if(typeof S.otHours!=="number") S.otHours=0;
+  if(typeof d.otToday!=="number") S.otToday=clamp(Math.floor(S.otHours/OVERTIME_HOURS),0,OVERTIME_LIMIT);
+  else S.otToday=clamp(S.otToday,0,OVERTIME_LIMIT);
   if(!S.decor) S.decor={}; // pre-decor saves
   // DAILY determinism: resume the exact seeded cursor (or re-seed if an old save lacks it)
   if(S.mode==="daily"){ if(S.rngState!=null) setRngState(S.rngState); else if(S.dailyDate) setSeed(hash("fo_daily_"+S.dailyDate)); }

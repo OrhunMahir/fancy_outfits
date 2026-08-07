@@ -1,8 +1,8 @@
 import { useGame } from "../game/useGame.js";
-import { REP_FIRED, RANK_REQ, RANKS, PRICES, DECOR, BUYIN_COST, FIRM_COLLAPSE } from "../game/constants.js";
+import { REP_FIRED, RANK_REQ, RANKS, PRICES, DECOR, BUYIN_COST, FIRM_COLLAPSE, COFFEE_LIMIT } from "../game/constants.js";
 import { CLIENT_CAP } from "../game/clients.js";
 import { SCENARIOS } from "../game/content.js";
-import { buySuit, bribeMarv, buyCoffee, buyDecor, coffeeRelief, coffeeCost, payBuyIn, objectiveInfo, hazardPerHour,
+import { buySuit, bribeMarv, buyCoffee, buyDecor, coffeeRelief, coffeeCost, canBuyCoffee, payBuyIn, objectiveInfo, hazardPerHour,
          rivalSabotage, rivalTruce, rivalAlly, rivalMoveReady, rivalOdds, displayPct } from "../game/engine.js";
 
 export default function StatsPanel(){
@@ -80,9 +80,11 @@ export default function StatsPanel(){
       <button className="btn small spend" disabled={S.money<PRICES.marv} onClick={bribeMarv}>
         BRIBE MARV · ${PRICES.marv}<span className="chance">The copy room knows who everyone really is.</span>
       </button>
-      <button className="btn small spend" disabled={S.money<coffeeCost()||S.fatigue<=0} onClick={buyCoffee}>
+      <button className="btn small spend" disabled={!canBuyCoffee()} onClick={buyCoffee}>
         DOUBLE ESPRESSO · ${coffeeCost()}<span className="chance">
-          −{coffeeRelief()} FATIGUE{S.coffeeToday>0?" (cup #"+(S.coffeeToday+1)+" — diminishing returns)":". The firm's true fuel."}
+          {coffeeRelief()>0
+            ? "−"+coffeeRelief()+" FATIGUE"+(S.coffeeToday>0?" (cup "+(S.coffeeToday+1)+"/"+COFFEE_LIMIT+" — last one today)":" (cup 1/"+COFFEE_LIMIT+")")
+            : "DAILY LIMIT REACHED · the machine has stopped enabling you"}
         </span>
       </button>
       <h2 style={{marginTop:10}}>OFFICE DECOR</h2>

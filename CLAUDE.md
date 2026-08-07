@@ -189,9 +189,17 @@
 - **Delayed/delegated hedef+FIRM:** endDay cb'de `newObjective()` artık resolveDelayed/Delegated'DEN ÖNCE çağrılıyor (sabah gelen cevap günün hedefine sayılsın); resolveDelayed'e tier≥1 için FIRM ±1 simetrisi eklendi.
 - **Fraud EXPOSED finali:** audit "do nothing" fail'ine `expose:true`; resolveCrisis'te `if(out.expose) gameOver("EXPOSED")`. Diğer audit fail'leri hâlâ sadece stat cezası.
 
-**Dış denetim notu (Codex, 2026-07-12):** Doğrulanan açık sorunlar. YAPILDI: v1.9.3 (4 çökme/kilit + Windows), v1.9.4 (save exploit, Daily RNG, delayed hedef/FIRM, Fraud finali). KALAN (öncelikli): **"ikinci seçenek hep doğru" + technical baskın strateji** (chance/EV — davalarda içerik değişikliği + playtest gerektirir, kendi turu); **sınırsız kahve/overtime** saat ekonomisi; npm audit 3 high+1 moderate (Electron 31/Vite 5 — Steam paketlemesiyle birlikte); FIRM'in Standard modda anlamı; Defector/Boomerang özel finalleri.
+**v1.9.5 eklendi (2026-08-07, denge turu — 2. parça):**
+- **"İkinci seçeneğe bas" kalıbı kırıldı:** `instantiateCase` deep-copy edilen temel seçenekleri seed'li Fisher–Yates (`shuffle`, utils.js) ile karıştırır; corrupt judge bribe'ı SONRADAN eklenir ve daima son sıradadır. Save mevcut görünen sırayı korur. `clients.js`/`npcs.js` random `sort()` kullanımları da Fisher–Yates'e geçti.
+- **Stil ekonomisi ayrıldı:** yalnız başarılı CASE ödüllerinde technical INF `×TECH_INF_MULT(.70)`, aggressive INF `×AGG_INF_MULT(1.25)`; mevcut `INF_EARN(.6)` ile tek geçişte ölçeklenir. Safe/neutral, fail, kriz ve delege ödülleri değişmez. Technical güven/REP yolu, aggressive hızlı terfi yoludur.
+- **Mesai tavanı:** günde `OVERTIME_LIMIT(2)` blok; ilk +2h/+12 FATIGUE, ikinci +2h/+18 (`OVERTIME_FATIGUE_STEP(6)`). Limitten sonra prompt yalnız eve git seçeneği verir; engine guard sahte/stale üçüncü çağrıyı da reddeder.
+- **Kahve tavanı:** `COFFEE_LIMIT(2)`; ilk −14, ikinci −8 FATIGUE, üçüncü satın alma strict no-op. Espresso dekoru yalnız fiyatı $40'a indirir, limiti kaldırmaz. UI aynı `canBuyCoffee()` guard'ını kullanır.
+- **Eski save güvenliği:** eksik `otToday`, `otHours/OVERTIME_HOURS` üzerinden türetilir; kayıtlı değer 0..2 aralığına clamp edilir.
+- **Kalıcı regresyon testi:** `npm test` (`scripts/v195-check.mjs`) shuffle/save/DAILY cursor, stil ödülleri, kahve+overtime guard/migration ve 5 senaryo × 4 mod başlangıcını kapsar.
 
-**En son çalışılan konu (2026-07-12):** v1.9.4 tarayıcıda 5 maddesiyle doğrulandı (sıfır-saat reopen, içerik event persist, Daily rngState, delayed→hedef+FIRM, EXPOSED). Sıradaki: denge turu 2. parça (kahve/overtime limiti) + asıl büyük iş "ikinci-seçenek/technical" yeniden dengeleme.
+**Dış denetim notu (Codex, 2026-08-07):** YAPILDI: v1.9.3 çökme/kilit+Windows, v1.9.4 bütünlük, v1.9.5 seçenek/stil/kahve/mesai dengesi. KALAN (öncelikli): npm audit Electron/Vite güncellemesi; FIRM'in Standard modda anlamı; Defector/Boomerang özel finalleri; Client War müşteri-kaybı follow-up temizliği; versiyonlu save/migration+quota uyarısı.
+
+**En son çalışılan konu (2026-08-07):** v1.9.5 denge turu 2. parça tamamlandı; `npm test`, production build, bağımsız diff review ve gerçek tarayıcı turu geçti. Sıradaki: Defector/Boomerang finalleri + Standard FIRM anlamı veya daha önce onaylı hakim hafızası.
 
 **Aklında tut (kullanıcı onaylı bekleyenler):** hakim hafızası, mobil (layout+Capacitor), bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
 
@@ -372,7 +380,7 @@ if(S.scenario==="legacy"){
 
 - **Asset dosyası SIFIR.** Font CDN'den, sesler sentez, grafikler CSS+SVG.
 - **Grafik tarzı:** Piksel/retro. Font `Press Start 2P` (8-10px). Palet `:root`'ta: lacivert zeminler (`--bg #1a1c2c`, `--panel #29366f`), altın vurgu (`--gold #ffcd75`), yeşil=güvenli (`--green`), kırmızı=risk (`--red`), dava kağıdı krem (`--paper #f2e9d8`). CRT hissi için `body::after` scanline overlay. `image-rendering:pixelated` global.
-- **UI:** 3 sütun — INBOX (sol), CASE FILE/DESK (orta, kağıt görünümü), ASSOCIATE FILE (sağ: stat barları + log). Üstte topbar + ofis sahnesi bandı. Topbar'da saatin yanında süre barı: gün ilerledikçe kısalır (altın → ≤30sn kehribar → ≤15sn kırmızı, saat rakamı da kırmızıya döner). Buton renk kodu: yeşil=safe, mavi=nötr, kırmızı=aggressive/blöf. Her butonun altında küçük altın satırla % ve etiketler.
+- **UI:** 3 sütun — INBOX (sol), CASE FILE/DESK (orta, kağıt görünümü), ASSOCIATE FILE (sağ: stat barları + log). Üstte topbar + ofis sahnesi bandı. Topbar duvar saatini, kalan kurgusal iş saatini ve gün bütçesi barını gösterir; gerçek zamanlı sayaç yoktur. Buton renk kodu: yeşil=safe, mavi=nötr/technical, kırmızı=aggressive/blöf. Her butonun altında küçük altın satırla bulanık oran, saat maliyeti ve stil etiketi görünür.
 - **Animasyon:** `.flash` (HENDERED!/PROMOTED! pop), stat barı `width .3s`, karakter yürüyüşü (`char-leave/arrive` CSS keyframe), ekran sarsıntısı (`.shaking`, App'te fail'de replay, `settings.shake` gate). Başka animasyon sistemi yok, gerekmedikçe ekleme.
 - **Ses:** `SFX.{click,open,win,lose,promo,fired,bell,tick,send,crisis}` + prosedürel lo-fi ambiyans (v0.9: 4 akorluk Web Audio döngüsü + noise cızırtısı, `startAmbience/stopAmbience`). Topbar'da SFX ve BGM ayrı toggle'lar; BGM tercihi `localStorage`'da. Ses dosyası hâlâ SIFIR.
 
@@ -383,14 +391,14 @@ if(S.scenario==="legacy"){
 - **Player:** 5 stat. REP (başlangıç 50; <20 kovulma; her gece −1; <30 disrespect, >70 respect), BOLD (40; blöf şansını besler, safe seçenekler kemirir), INF (10; terfi para birimi), FIRM (62; firma sağlığı — NP iken <15 batış), MONEY ($1500, Debtor'da $3000).
 - **"Enemy" karşılığı:** Karşı taraf ayrı bir AI değil — zorluk `chance()` formülü + hakim statları + kriz eventleri üzerinden. Rakip firma Snidely Fitch flavor + bazı davaların konusu.
 - **Level karşılığı:** Rütbeler. `checkPromotion()`: `inf >= RANK_REQ[rank]` oldukça yüksel (while ile zincirleme terfi mümkün). Rütbe 4 = win. Tier-2 (mahkeme) davaları rank≥1'de havuza girer (`drawCases` filtresi).
-- **Combat karşılığı:** Dava çözümü — oku, seç, zar. Zar: `Math.random()*100 < chance(o,c)`.
+- **Combat karşılığı:** Dava çözümü — oku, seç, zar. Zar: deterministik oyun RNG'siyle `rand()*100 < chance(o,c)`; `Math.random` yalnız ses jitter'ında kullanılabilir.
 - **Progression:** Influence→rütbe→daha iyi ofis (görsel) + daha zor davalar (rank başı −2 şans) + daha büyük kriz maruziyeti.
 - **Physics:** YOK (bilinçli).
 - **Controls:** Fare/tık + klavye (v1.1): 1-4 seçenek, Space defer/özet ilerlet, Esc panel kapat.
 - **RNG kuralı (v1.1):** Oyun mantığında `Math.random` YASAK — `utils.js`'ten `rand()`/`rnd()` kullan (daily modun determinizmi buna bağlı). Tek istisna `sound.js`.
 - **Rakip (nemesis):** İsimli associate seninle yarışır; gece + senin fail'lerinden INF kazanır, önce Name Partner olursa `OUTPACED` game over (`nemesisGain`, engine.js).
-- **Ayarlar (`settings.js`):** run save'inden AYRI global tercihler (`fo_settings_v1`): dayLen 60/75/90, sfx/bgm ses seviyesi, ekran sarsıntısı. Sound bunları okur.
-- **Ekonomi/zorluk sabitleri:** `DAY_HOURS=8` (+`TIER_HOURS=[1,2,3]`, `DELEGATE_HOURS=.5`, `OVERTIME_HOURS=2`, `OVERTIME_FATIGUE=12`, `FATIGUE_REST=22`), `REP_FIRED=20`, `DEADLINE_PENALTY=-9`, `RANK_REQ=[35,60,85,95]`, `INF_EARN=0.6`, `INF_DECAY=[1,1,2,2,2]`, kriz olasılığı `.6`, gece REP çürümesi `-1`, Debtor taksiti `$2000/3 gün`, `STAKE_REWARD=[1,1.15,1.3,1.45,1.6]`, `STAKE_PENALTY=[1,1.3,1.6,1.9,2.2]`, `PRICES={suit:1200(×1.5 artar), detective:900, marv:600}`, `WEEK_LEN=5`, `REVIEW_GOOD=10`, `REVIEW_BAD=0`.
+- **Ayarlar (`settings.js`):** run save'inden AYRI global tercihler (`fo_settings_v1`): dayLen 6/8/10 saat, sfx/bgm ses seviyesi, ekran sarsıntısı. Sound bunları okur.
+- **Ekonomi/zorluk sabitleri:** `DAY_HOURS=8` (+`TIER_HOURS=[1,2,3]`, `DELEGATE_HOURS=.5`, `OVERTIME_HOURS=2`, `OVERTIME_LIMIT=2`, `OVERTIME_FATIGUE=12`, `OVERTIME_FATIGUE_STEP=6`, `FATIGUE_REST=18`), `COFFEE_LIMIT=2` (`COFFEE_RELIEF=14`, `COFFEE_FALLOFF=6`), `REP_FIRED=20`, `DEADLINE_PENALTY=-9`, `RANK_REQ=[35,60,85,95]`, `INF_EARN=0.6`, `TECH_INF_MULT=.70`, `AGG_INF_MULT=1.25`, `INF_DECAY=[1,1,2,2,2]`, kriz olasılığı `.6`, gece REP çürümesi `-1`, Debtor taksiti `$2000/3 gün`, `STAKE_REWARD=[1,1.15,1.3,1.45,1.6]`, `STAKE_PENALTY=[1,1.3,1.6,1.9,2.2]`, `PRICES={suit:1200(×1.5 artar), detective:900, marv:600}`, `WEEK_LEN=5`, `REVIEW_GOOD=10`, `REVIEW_BAD=0`.
 - **Inventory:** Hâlâ yok ama para artık harcanabiliyor (EXPENSES: suit/Marv; dosya başına dedektif).
 
 ---

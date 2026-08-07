@@ -182,9 +182,16 @@
 - **Buy-in çift terfi:** `checkPromotion` while'ında rank 3'e ulaşınca `break` (2→3→4 tek adımda zincirlenmiyor; Name Partner ayrı bir tetikleme gerektiriyor).
 - **Windows donma:** `app.disableHardwareAcceleration()` (GPU sürücüsü boyanmayan pencere sorunu — kullanıcının Windows'taki arkadaşı "donup kalıyor" demişti); açılışta `fullscreen:true` yerine `win.maximize()` + `show:false`/`ready-to-show`; F11 fullscreen toggle, Esc çıkış. `electron/main.js`.
 
-**Dış denetim notu (Codex, 2026-07-12):** kapsamlı analiz geldi. Doğrulanan AÇIK sorunlar (henüz YAPILMADI, öncelik sırası): (1) save/load `event`+`pendingChoice` siliyor → reload ile sıfır-saat/overtime atlama exploit'i; (2) Daily RNG cursor `S`'te değil (utils.js modül-scope) → reload determinizmi bozuluyor; (3) "ikinci seçenek hep doğru" tasarım kalıbı + technical baskın strateji (chance/EV); (4) sınırsız kahve/overtime saat ekonomisini deliyor; (5) Fraud "yakalanınca game over" ama audit fail sadece −18 REP; (6) delayed/delegated sonuç günlük "win" hedefine sayılmıyor + tier≥1 delayed'e FIRM ±1 uygulanmıyor; (7) npm audit 3 high+1 moderate (Electron 31/Vite 5 eski). Kullanıcıyla mutabık plan: önce bu stabilite hotfix'i (v1.9.3, YAPILDI), sonra DENGE turu (ikinci-seçenek + technical + kahve/mesai + save exploit), sonra senaryo finalleri, sonra hakim hafızası.
+**v1.9.4 eklendi (2026-07-12, denge&bütünlük turu — 1. parça):**
+- **Sıfır-saat reload exploit'i KAPANDI:** saat 0'ken reload artık overtime'ı atlamıyor — loadGame sonunda `if(!S.event&&S.hours<=0) checkClock()` prompt'u yeniden açıyor.
+- **İçerik eventleri reload'da kaybolmuyor:** saveGame/loadGame `event`'i saklıyor AMA sadece içerik eventleri (`id!=="overtime"&&id!=="latework"`); geçici saat promptları yeniden türetiliyor. `pendingChoice` hâlâ transient.
+- **Daily determinizmi:** `utils.js`'e `getRngState/setRngState` (mulberry cursor `_t` modül-scope); saveGame `rngState` yazıyor, loadGame daily'de `setRngState` (yoksa `setSeed(hash)`), diğer modlarda `clearSeed()`.
+- **Delayed/delegated hedef+FIRM:** endDay cb'de `newObjective()` artık resolveDelayed/Delegated'DEN ÖNCE çağrılıyor (sabah gelen cevap günün hedefine sayılsın); resolveDelayed'e tier≥1 için FIRM ±1 simetrisi eklendi.
+- **Fraud EXPOSED finali:** audit "do nothing" fail'ine `expose:true`; resolveCrisis'te `if(out.expose) gameOver("EXPOSED")`. Diğer audit fail'leri hâlâ sadece stat cezası.
 
-**En son çalışılan konu (2026-07-12):** v1.9.3 tarayıcıda doğrulandı (4 çökme/kilit + Windows sertleştirme, build+syntax temiz). Sıradaki: denge turu (save exploit'i dahil).
+**Dış denetim notu (Codex, 2026-07-12):** Doğrulanan açık sorunlar. YAPILDI: v1.9.3 (4 çökme/kilit + Windows), v1.9.4 (save exploit, Daily RNG, delayed hedef/FIRM, Fraud finali). KALAN (öncelikli): **"ikinci seçenek hep doğru" + technical baskın strateji** (chance/EV — davalarda içerik değişikliği + playtest gerektirir, kendi turu); **sınırsız kahve/overtime** saat ekonomisi; npm audit 3 high+1 moderate (Electron 31/Vite 5 — Steam paketlemesiyle birlikte); FIRM'in Standard modda anlamı; Defector/Boomerang özel finalleri.
+
+**En son çalışılan konu (2026-07-12):** v1.9.4 tarayıcıda 5 maddesiyle doğrulandı (sıfır-saat reopen, içerik event persist, Daily rngState, delayed→hedef+FIRM, EXPOSED). Sıradaki: denge turu 2. parça (kahve/overtime limiti) + asıl büyük iş "ikinci-seçenek/technical" yeniden dengeleme.
 
 **Aklında tut (kullanıcı onaylı bekleyenler):** hakim hafızası, mobil (layout+Capacitor), bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
 

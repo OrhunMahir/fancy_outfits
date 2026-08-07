@@ -28,6 +28,20 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.4 — Integrity & consistency pass *(2026-07-12)*
+- **Reload-skips-overtime exploit closed:** reloading with the day's hours spent no longer
+  bypasses the quitting-time / overtime prompt — the clock state is re-derived on load.
+- **Crises no longer vanish on reload:** an open crisis, favor, story, weekend or boss chore is
+  now saved and restored (only the transient clock prompts are re-derived).
+- **DAILY is deterministic across reloads:** the seeded RNG cursor is saved and resumed, so the
+  same daily really is the same daily even if you reload mid-run.
+- **Delayed & delegated results now count fairly:** a reply that lands in the morning credits
+  that day's goal (previously it counted toward neither day), and a delayed win/loss moves FIRM
+  health ±1 just like an instant one.
+- **The Fraud can actually get caught:** failing the "do nothing" option in the bar-credentials
+  audit is now an **EXPOSED** game over, matching the scenario's promise (other audit failures
+  still just cost you).
+
 ### v19.3 — Stability hotfix + Windows hardening *(2026-07-12)*
 - **Crash/soft-lock fixes:** firing a colleague who's mid-delegation no longer crashes the
   inbox — the file is handed back to your desk first. Favor generation no longer crashes when

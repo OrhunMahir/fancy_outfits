@@ -147,7 +147,7 @@ export function crises(){
     opts:[
       {text:"Help with her filing. All night. Every night.",base:80,ok:{fx:{inf:4,bold:2},txt:"Your file mysteriously moves to the bottom of the pile. Forever, hopefully."},fail:{fx:{rep:-8},txt:"She helps you back — by escalating your file 'as a courtesy'. Sweat."}},
       {text:"Pay a 'database consultant'. ($1500)",base:65,ok:{fx:{money:-1500},txt:"Your record now exists. It even has a GPA. A modest one, for realism."},fail:{fx:{money:-1500,rep:-12},txt:"The consultant vanishes with the money and leaves a typo in your fake bar number."}},
-      {text:"Do nothing. You've survived worse.",base:35,boldW:3,ok:{fx:{bold:6},txt:"The audit skips associates below Senior. Breathe."},fail:{fx:{rep:-18},txt:"'Quick question about your law school,' says an email you'll never forget."}}]});
+      {text:"Do nothing. You've survived worse.",base:35,boldW:3,ok:{fx:{bold:6},txt:"The audit skips associates below Senior. Breathe."},fail:{expose:true,fx:{},txt:"'Quick question about your law school,' says the email. Then HR. Then a man with a clipboard and your fake transcript."}}]});
   C.push({id:"poisonfile",title:"CRISIS: The poison file",cond:()=>S.scenario==="defector"&&S.day>=2,
     body:"A memo surfaces suggesting you left Snidely Fitch with a briefcase full of client files. The memo is doctored — you left with a plant and a grudge — but it carries your (forged) initials, and Hardwick's undivided attention.",
     opts:[

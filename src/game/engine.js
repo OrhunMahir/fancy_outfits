@@ -9,7 +9,7 @@ import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DELEGATE_CAP, DAY_HOURS, TIER_HOU
          STAKE_REWARD, STAKE_PENALTY, PRICES, DECOR, SAVE_KEY, STATS_KEY,
          WEEK_LEN, REVIEW_GOOD, REVIEW_BAD, BUYIN_COST, FIRM_COLLAPSE,
          FIRE_HEAT, FIRE_HEAT_SENIOR, HEAT_DECAY, HEAT_MIN } from "./constants.js";
-import { clamp, rnd, rand, hash, setSeed, clearSeed } from "./utils.js";
+import { clamp, rnd, rand, hash, setSeed, clearSeed, getRngState, setRngState } from "./utils.js";
 import { SFX, startAmbience, stopAmbience, applyBgmVolume } from "./sound.js";
 import { settings, setSetting } from "./settings.js";
 import { buildPool, JUDGES, crises, SCENARIOS, buildWeekend } from "./content.js";
@@ -503,6 +503,7 @@ export function endDay(){
       if(S.over) return;
       apply({rep:-1,inf:-INF_DECAY[S.rank]},true); // the firm forgets fast — and influence evaporates upward
       if(S.over) return;
+      newObjective(); // set the day's goal FIRST so replies that land this morning count toward it
       S.inbox.filter(c=>c.pending&&c.pending.day<=S.day).forEach(resolveDelayed);
       S.inbox.filter(c=>c.delegated&&c.delegated.day<=S.day).forEach(resolveDelegated);
       spawnFollowups();
@@ -549,7 +550,6 @@ export function endDay(){
         SFX.crisis();
         log("RETAINER MATTER: "+cl.name+" is under siege. This one is measured in weeks, not hours.","sys");
       }
-      newObjective();
       sitDown();
     });
   },1400);
@@ -560,8 +560,12 @@ function resolveDelayed(c){
   const r=c.pending, out=r.win?r.o.ok:r.o.fail;
   archiveCase(c,r.o.text,r.win,out.txt,"delayed reply");
   if(r.win){ SFX.win(); S.today.wins++; if(r.o.style==="aggressive") S.today.aggWin++;
-    log("RESPONSE ["+c.title+"]: SUCCESS","good"); pushMsg("REPLY: "+c.title,out.txt); apply(out.fx); maybeImpressClient(c); if((out.fx.rep||0)+(out.fx.inf||0)>=10) flash("HENDERED!"); }
-  else { SFX.lose(); log("RESPONSE ["+c.title+"]: FAILED","bad"); pushMsg("REPLY: "+c.title,out.txt); apply(out.fx); maybeLoseClientOnFail(); doShake(); nemesisGain(3,true); }
+    log("RESPONSE ["+c.title+"]: SUCCESS","good"); pushMsg("REPLY: "+c.title,out.txt); apply(out.fx);
+    if((c.tier||0)>=1) apply({firm:1},true); // same firm effect as an instant win (v1.9.4 symmetry)
+    maybeImpressClient(c); if((out.fx.rep||0)+(out.fx.inf||0)>=10) flash("HENDERED!"); }
+  else { SFX.lose(); log("RESPONSE ["+c.title+"]: FAILED","bad"); pushMsg("REPLY: "+c.title,out.txt); apply(out.fx);
+    if((c.tier||0)>=1) apply({firm:-1},true);
+    maybeLoseClientOnFail(); doShake(); nemesisGain(3,true); }
   if(out.next) queueFollowup(out.next);
   checkPromotion();
 }
@@ -864,6 +868,7 @@ export function resolveCrisis(o){
   }
   if(win){ SFX.win(); log("[CRISIS] "+out.txt,"good"); apply(out.fx); if(((out.fx&&out.fx.inf)||0)>=10) flash("HENDERED!"); }
   else { SFX.lose(); log("[CRISIS] "+out.txt,"bad"); apply(out.fx); apply({firm:-2},true); doShake(); nemesisGain(3,true); }
+  if(out.expose){ gameOver("EXPOSED","There is no bar record. No law school. No you-with-a-JD. The audit found the empty space where your credentials should be, and the firm found it at the same time. Security is very polite about it. The Fraud is over."); return; }
   if(out.golf) S.golfEdge=true; // the next court judge arrives pre-read
   if(out.client){ // global events move the client book
     if(out.client.lose) loseClient(out.client.lose);
@@ -1071,7 +1076,10 @@ export function saveGame(){
   try{
     // strip transient UI fields; everything else is plain JSON data
     const {infoOpen,event,summary,flash,userPaused,leaving,charAnim,openCase,settingsOpen,sceneRank,rosterOpen,archiveOpen,pendingChoice,...data}=S;
-    localStorage.setItem(slotKey(S.slot),JSON.stringify(data));
+    // content events (crises/favors/stories/weekend/demands) are restored so they aren't
+    // silently lost; the transient CLOCK events are re-derived on load instead
+    const ev=(event&&event.id!=="overtime"&&event.id!=="latework")?event:null;
+    localStorage.setItem(slotKey(S.slot),JSON.stringify({...data,event:ev,rngState:getRngState()}));
   }catch(e){}
 }
 export function peekSave(n){
@@ -1080,9 +1088,10 @@ export function peekSave(n){
 export function loadGame(n){
   const d=peekSave(n); if(!d) return;
   if(n) setSlot(n);
+  const ev=(d.event&&d.event.id!=="overtime"&&d.event.id!=="latework")?d.event:null; // clock events re-derived below
   setS(Object.assign(newState(d.scenario),d,
     {slot:n||activeSlot,
-     infoOpen:false,event:null,summary:null,flash:null,userPaused:false,leaving:false,
+     infoOpen:false,event:ev,summary:null,flash:null,userPaused:false,leaving:false,
      charAnim:"arriving",openCase:null,settingsOpen:false,sceneRank:null,rosterOpen:false,archiveOpen:false,pendingChoice:null}));
   SFX.bell();
   log("Run restored. The firm did not notice you were gone.","sys");
@@ -1090,7 +1099,12 @@ export function loadGame(n){
   if(typeof S.fatigue!=="number") S.fatigue=0;
   if(typeof S.otHours!=="number"){ S.otHours=0; S.otToday=0; }
   if(!S.decor) S.decor={}; // pre-decor saves
-  sitDown(); startAmbience(); notify();
+  // DAILY determinism: resume the exact seeded cursor (or re-seed if an old save lacks it)
+  if(S.mode==="daily"){ if(S.rngState!=null) setRngState(S.rngState); else if(S.dailyDate) setSeed(hash("fo_daily_"+S.dailyDate)); }
+  else clearSeed();
+  sitDown(); startAmbience();
+  if(!S.event&&S.hours<=0) checkClock(); // out of hours with no prompt → reopen it (closes the reload-skips-overtime exploit)
+  notify();
 }
 function clearSave(){ try{ localStorage.removeItem(slotKey(S&&S.slot)); }catch(e){} }
 /* restart: wipe the current slot and return to the title screen */

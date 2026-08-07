@@ -28,6 +28,17 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.3 — Stability hotfix + Windows hardening *(2026-07-12)*
+- **Crash/soft-lock fixes:** firing a colleague who's mid-delegation no longer crashes the
+  inbox — the file is handed back to your desk first. Favor generation no longer crashes when
+  you've fired the entire floor (endless). The rival can no longer poach an active client-war
+  stage (it used to soft-lock the war). Paying the partnership buy-in with high influence no
+  longer cascades straight past Senior Partner to Name Partner in one step.
+- **Windows "frozen window on startup" fix:** hardware acceleration is now disabled (a 2D
+  pixel game doesn't need it, and it's the most common cause of unpainted/frozen Electron
+  windows on Windows GPU drivers). The app launches maximized instead of forced-fullscreen,
+  reveals only once painted, and F11 toggles fullscreen (Esc leaves it).
+
 ### v19.2 — Weekday display *(2026-07-12)*
 - The topbar now shows the day of the week (`DAY 11 · MONDAY`) instead of a Friday countdown.
   Day 1 is Monday, day 5 is Friday (highlighted gold — it's still review day), day 6 starts

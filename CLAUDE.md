@@ -175,7 +175,16 @@
 
 **v1.9.2 eklendi (2026-07-12, kullanıcı isteği):** Topbar'da "FRI IN n" yerine haftanın günü (`WEEKDAYS[(day-1)%WEEK_LEN]` — gün 1 Pazartesi, gün 5 Cuma altın renkli). Salt kozmetik; cuma review'ı hâlâ `day%5===0`, hafta sonu kartı `(day-1)%5===0`. Topbar.jsx.
 
-**En son çalışılan konu (2026-07-12):** v1.9.2 (topbar haftanın günü) doğrulandı. Sıradaki: hakim hafızası; sonra mobil.
+**v1.9.3 eklendi (2026-07-12, dış denetim sonrası doğrulanan çökme/kilit bugları + Windows):**
+- **NPC kovma çökmesi:** `dismissEmployee` artık kovulan NPC'nin aktif delege dosyalarını masaya geri veriyor (`c.delegated=null`) ÖNCE, sonra `S.npcs`'ten çıkarıyor; `resolveDelegated` ve `Inbox.jsx` null-guard'lı (`(...||{}).name||"a colleague"`).
+- **Boş roster favor çökmesi:** `spawnFavor` başında `if(!S.npcs.length) return`.
+- **Rakip savaş dosyası poach kilidi:** `rivalTick` hedef filtresine `&&!c.big` eklendi.
+- **Buy-in çift terfi:** `checkPromotion` while'ında rank 3'e ulaşınca `break` (2→3→4 tek adımda zincirlenmiyor; Name Partner ayrı bir tetikleme gerektiriyor).
+- **Windows donma:** `app.disableHardwareAcceleration()` (GPU sürücüsü boyanmayan pencere sorunu — kullanıcının Windows'taki arkadaşı "donup kalıyor" demişti); açılışta `fullscreen:true` yerine `win.maximize()` + `show:false`/`ready-to-show`; F11 fullscreen toggle, Esc çıkış. `electron/main.js`.
+
+**Dış denetim notu (Codex, 2026-07-12):** kapsamlı analiz geldi. Doğrulanan AÇIK sorunlar (henüz YAPILMADI, öncelik sırası): (1) save/load `event`+`pendingChoice` siliyor → reload ile sıfır-saat/overtime atlama exploit'i; (2) Daily RNG cursor `S`'te değil (utils.js modül-scope) → reload determinizmi bozuluyor; (3) "ikinci seçenek hep doğru" tasarım kalıbı + technical baskın strateji (chance/EV); (4) sınırsız kahve/overtime saat ekonomisini deliyor; (5) Fraud "yakalanınca game over" ama audit fail sadece −18 REP; (6) delayed/delegated sonuç günlük "win" hedefine sayılmıyor + tier≥1 delayed'e FIRM ±1 uygulanmıyor; (7) npm audit 3 high+1 moderate (Electron 31/Vite 5 eski). Kullanıcıyla mutabık plan: önce bu stabilite hotfix'i (v1.9.3, YAPILDI), sonra DENGE turu (ikinci-seçenek + technical + kahve/mesai + save exploit), sonra senaryo finalleri, sonra hakim hafızası.
+
+**En son çalışılan konu (2026-07-12):** v1.9.3 tarayıcıda doğrulandı (4 çökme/kilit + Windows sertleştirme, build+syntax temiz). Sıradaki: denge turu (save exploit'i dahil).
 
 **Aklında tut (kullanıcı onaylı bekleyenler):** hakim hafızası, mobil (layout+Capacitor), bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
 

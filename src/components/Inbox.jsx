@@ -16,7 +16,7 @@ export default function Inbox(){
           if(c.pending) return (
             <div key={i} className="inbox-item"><div>{c.title}</div><div className="tag">Awaiting response (day {c.pending.day})</div></div>);
           if(c.delegated) return (
-            <div key={i} className="inbox-item"><div>{c.title}</div><div className="tag">With {S.npcs.find(n=>n.id===c.delegated.npc).name} (report day {c.delegated.day})</div></div>);
+            <div key={i} className="inbox-item"><div>{c.title}</div><div className="tag">With {(S.npcs.find(n=>n.id===c.delegated.npc)||{}).name||"a colleague"} (report day {c.delegated.day})</div></div>);
           return (
             <div key={i} className="inbox-item" onClick={()=>openCaseFile(c)}>
               <div>{c.title}</div>

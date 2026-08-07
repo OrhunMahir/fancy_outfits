@@ -100,7 +100,7 @@ export function rivalTick(){
     return;
   }
   if(rand()>= .12+(N.grudge?.08:0)) return;
-  const targets=S.inbox.filter(c=>!c.msg&&!c.pending&&!c.delegated&&!c.favor&&!c.suit);
+  const targets=S.inbox.filter(c=>!c.msg&&!c.pending&&!c.delegated&&!c.favor&&!c.suit&&!c.big); // never poach a client-war stage (would soft-lock the war)
   if(!targets.length) return;
   const t=rnd(targets);
   if(rand()<.5){
@@ -571,6 +571,7 @@ function resolveDelayed(c){
 function resolveDelegated(c){
   S.inbox=S.inbox.filter(x=>x!==c);
   const d=c.delegated, n=S.npcs.find(x=>x.id===d.npc);
+  if(!n){ c.delegated=null; S.inbox.push(c); log("A delegated file drifts back — its handler no longer works here.","sys"); return; }
   n.known=true;
   if(d.win){
     SFX.win(); relNpc(n,6); S.today.wins++;
@@ -772,7 +773,12 @@ function litigationTick(){
 
 function dismissEmployee(e,heat){
   S.roster=S.roster.filter(x=>x!==e);
-  if(e.src==="npc") S.npcs=S.npcs.filter(n=>n.id!==e.npcId); // they leave THE FLOOR too — one less delegate
+  if(e.src==="npc"){
+    // hand back any file they were mid-delegation on BEFORE they leave the floor,
+    // or resolveDelegated / the inbox would dereference a colleague who's gone
+    S.inbox.forEach(c=>{ if(c.delegated&&c.delegated.npc===e.npcId){ c.delegated=null; } });
+    S.npcs=S.npcs.filter(n=>n.id!==e.npcId);
+  }
   if(e.src==="nemesis"){ S.nemesis=null; log(e.name+" — your rival — is escorted out. The floor is very quiet.","sys"); }
   S.fireHeat+=heat; S.everFired=true; S.firedNames.push(e.name);
   S.runStats.fired=(S.runStats.fired||0)+1;
@@ -804,6 +810,7 @@ export function payBuyIn(){
 
 /* an NPC asks YOU for help — a one-day file where rel is the real stake */
 export function spawnFavor(){
+  if(!S.npcs.length) return; // endless: you may have fired the entire floor
   const n=rnd(S.npcs);
   S.inbox.unshift(instantiateCase(buildFavor(n)));
   log(n.name.split(" ")[0]+" left a favor on your desk. Due today.","sys");
@@ -886,6 +893,7 @@ function checkPromotion(){
     log("PROMOTED to "+RANKS[S.rank]+"!","sys");
     if(S.rank===1) log("Senior Associate perk unlocked: DELEGATE cases from the file view.","sys");
     apply({rep:5},true); // (the book doesn't grow with the title — clients are earned)
+    if(S.rank===3) break; // reaching Senior Partner (via buy-in) must NOT cascade straight to Name Partner
   }
   if(S.rank>oldRank&&!S.over) promoWalk(oldRank);
 }

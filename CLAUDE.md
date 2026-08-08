@@ -213,11 +213,19 @@
 - **Özel finaller:** Defector ve Boomerang terminal kazanma/kaybetme ekranlarına senaryoya özgü kapanış satırları eklendi. Boomerang zaferi `RETURN TO SENDER` başarımını açar; toplam 11 başarım.
 - **Save schema v2 + testler:** `firmPlanDay` ve `firmGateHintRank` 1→2 migration'ıyla backfill edilir ve doğrulanır. `npm test` bant sınırlarını, oranları, mod izolasyonunu, terfi/buy-in guard'larını, turnaround maliyet-cooldown'unu, delege FIRM sonuçlarını ve beş senaryonun finallerini kapsar.
 
-**Dış denetim notu (Codex, 2026-08-07):** YAPILDI: v1.9.3 çökme/kilit+Windows, v1.9.4 bütünlük, v1.9.5 seçenek/stil/kahve/mesai dengesi, v1.9.6 Client War+save bütünlüğü ve bağımlılık/Electron/CSP güvenliği, v1.9.7 Standard FIRM anlamı + Defector/Boomerang finalleri. KALAN (ürün tasarımı): hakim hafızası; uzun-run denge/soak testi; mobil geçiş; bağlamsal SFX; yayın/paketleme.
+**v1.9.8 eklendi (2026-08-08, hakim hafızası):**
+- **Stabil hakim kimliği + run hafızası:** 7 `JUDGES` kaydı sırası bozulmadan `id` ve deterministik iyi/kötü replik aldı. `S.judgeMemory`, katalog nesnelerini MUTATE ETMEDEN, ID başına görünme/stil/sonuç/son gün sayaçlarını tutar; yeni run'da sıfırlanır.
+- **Canlı ve tavanlı modifier:** aynı hakimde agresif geçmiş kazanım başına −5 / kayıp başına −6 (toplam min −8); teknik W +4 / L −3 (−6..+6); tekrar bribe −7 (min −8). Safe garanti %100 kalır ve eski kalıbı silmez. Başka hakim etkilenmez. `judgeMemoryModifier/Info` saf ve RNG tüketmez.
+- **Bilgi + replik UX'i:** CasePane ilk görünme veya önceki görünme/son stil/sonuç, son stile ve sonuca uyan hakime özel replik, W/L özeti ve tam canlı stil etkisini gösterir. Case Archive, gelecekteki duruşmalardan etkilenmemesi için duruşma anındaki `judgeMemory` metnini snapshot saklar; delayed dosya bu güvenli metni seçim anında `pending.judgeMemorySnapshot` içine dondurur. Info paneli ve GDD §7 güncellendi.
+- **Sonuç bütünlüğü:** instant sonuç archive'dan sonra tam bir kez hafızaya yazılır; delayed sonuç seçimde DEĞİL REPLY reveal'da yazılır (gizli `pending.win` oranlardan sızmaz). `choose()` stale/double-click guard'ı aynı davanın iki kez ödül/hafıza üretmesini engeller. Deadline kaçırma görünme sayılmaz.
+- **Save schema v3 + sert doğrulama:** 2→3 migration eksik `judgeMemory:{}` backfill eder; eski ID'siz açık hakim snapshot'ları kalıcı `LEGACY_JUDGE_IDS` isim→ID alias'ıyla çalışır. v3'te yalnız bilinen stabil ID güven kaynağıdır (çakışan isim ID'yi ezemez); isim/stat snapshot'ı güncel `JUDGES` kaydından yeniden kurulur. Memory sayaç/enums/son-stil-tutarlılığı/gün sınırı, option style enumu, canlı `judge:true`, pending/archive memory tipi ve delegated-court sahteciliği doğrulanır.
+- **DAILY/test:** replik, modifier, bilgi render ve memory update RNG cursor tüketmez. `npm test`; kimlik/quote, exact cap, same/other judge, safe, instant/delayed tek-yazım, delayed hearing snapshot'ı, non-empty memory save/reload, immutable archive, legacy ID fallback, malformed save ve aynı DAILY trace'i kapsar.
 
-**En son çalışılan konu (2026-08-07):** v1.9.7 tamamlandı; Standard modda FIRM müşteri güvenini ve ortaklık terfilerini etkiliyor, oyuncuya kontrollü bir toparlanma hamlesi sunuyor; Defector/Boomerang özel finalleri ve 11. başarım eklendi. Sıradaki öneri: onaylı **hakim hafızası**; ardından 30–50 günlük Standard/Endless soak dengesi ve mobil sekmeli layout + Capacitor hazırlığı.
+**Dış denetim notu (Codex, 2026-08-08):** YAPILDI: v1.9.3 çökme/kilit+Windows, v1.9.4 bütünlük, v1.9.5 seçenek/stil/kahve/mesai dengesi, v1.9.6 Client War+save bütünlüğü ve bağımlılık/Electron/CSP güvenliği, v1.9.7 Standard FIRM anlamı + Defector/Boomerang finalleri, v1.9.8 hakim hafızası. KALAN: 30–50 günlük Standard/Endless soak denge testi; mobil geçiş; bağlamsal SFX; yayın/paketleme.
 
-**Aklında tut (kullanıcı onaylı bekleyenler):** hakim hafızası, mobil (layout+Capacitor), bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
+**En son çalışılan konu (2026-08-08):** v1.9.8 hakim hafızası tamamlandı; tekrar karşılaşılan hakimler oyuncunun stil/sonuç geçmişini canlı oranlarda ve özel repliklerde hatırlıyor, arşiv duruşma bağlamını sabitliyor, schema v3 eski kayıtları güvenle taşıyor ve DAILY akışı RNG tüketmeden korunuyor. Sıradaki öneri: **30–50 günlük Standard/Endless soak denge testi**; ardından mobil sekmeli layout + Capacitor hazırlığı.
+
+**Aklında tut (kullanıcı onaylı bekleyenler):** mobil (layout+Capacitor), bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
 
 ---
 
@@ -444,7 +452,7 @@ if(S.scenario==="legacy"){
 - ~~Dava arşivi~~ — v1.4'te EKLENDİ (LOG butonu + günlük hedeflerle birlikte).
 - **NPC hikâyeleri** — rel eşiklerinde tetiklenen mini-sahneler (Dana'nın sırrı, Katrina'nın teklifi). (ONAYLANDI)
 - **Rakiple etkileşim** — nemesis'e sabotaj/ittifak seçenekleri. (ONAYLANDI)
-- **Hakim hafızası** — aynı hakime ikinci çıkışta geçmişi hatırlama ("geçen sefer blöf yaptın, −5"). (ONAYLANDI)
+- ~~**Hakim hafızası** — aynı hakime ikinci çıkışta geçmişi hatırlama ("geçen sefer blöf yaptın, −5").~~ — v1.9.8'de EKLENDİ.
 - **Mobil yayın** — önce mobil layout geçişi (3 sütun → sekmeli görünüm, 44px dokunma hedefleri, safe-area, visibilitychange pause), sonra **Capacitor** sarmalama (Electron'un mobil karşılığı; oyun mantığına dokunulmaz). iOS'ta localStorage yerine Capacitor Preferences. (ONAYLANDI, yukarıdakilerden sonra)
 - ~~4. senaryo, başarımlar, oyun modları, klavye kısayolları~~ — v1.1'de EKLENDİ.
 - **GitHub Pages demo yayını** — `dist/`i yayınlayan tek workflow; oyun linkle paylaşılabilir olur.

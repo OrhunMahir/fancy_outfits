@@ -30,6 +30,26 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.8 — Judges remember *(2026-08-08)*
+- **Per-career court history:** all seven judges now have stable IDs and remember your resolved
+  appearances. Their case card shows first appearance vs. prior history, the last approach/result,
+  a judge-specific line and the exact live style modifier before you choose.
+- **Small, capped consequences:** a familiar bluff loses 5 points after a prior win or 6 after a
+  prior loss (total cap −8); technical wins build +4 credibility and losses spend 3 (−6..+6);
+  repeated judge bribes lose 7 points (cap −8). Safe lawyering stays guaranteed and cannot erase
+  an existing pattern. Other judges are unaffected.
+- **No hidden-result leak:** instant hearings update memory once after the roll; delayed hearings
+  update only when REPLY reveals the already-rolled result. Memory helpers and dialogue consume no
+  RNG, preserving DAILY runs and save/reload continuity. A delayed file freezes its visible court
+  context when it is sent, so another hearing before the reply cannot rewrite the archive.
+- **Audit trail and integrity:** the case archive freezes the memory context that applied at each
+  hearing. Save schema v3 migrates older slots to empty court history, supports old live judge
+  snapshots without IDs, rebuilds v3 judges from their stable catalog IDs and rejects live judge
+  sentinels, delegated court files, malformed style/memory data and stale double-resolution attempts.
+- **Regression coverage:** `npm test` covers all IDs/quotes, exact caps, safe/other-judge isolation,
+  live and delayed recording, archive immutability, old-save fallback, malformed saves, RNG cursor
+  stability and identical DAILY traces.
+
 ### v19.7 — Firm confidence & scenario endings *(2026-08-07)*
 - **FIRM now matters in Standard careers:** its condition changes client-impress,
   prospect and post-loss walk-away odds. The bands are visible in the sidebar, while

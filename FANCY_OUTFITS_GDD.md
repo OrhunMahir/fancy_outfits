@@ -55,9 +55,10 @@ Random firm-level drama in the Suits mold — e.g. a Louis-type partner maneuver
 ## 7. Judges
 Each courtroom case draws a judge with stats:
 - **Temper** — low tolerance for aggressive options (bluff penalty).
-- **By-the-book** — rewards technically correct interpretations, punishes theatrics.
+- **By-the-book** — rewards technically correct interpretations. Temper handles theatrics.
 - **Corruptible** — opens a special (very risky) option.
-Judge stats are visible on the case file, so reading the file matters twice.
+- **Memory (per run)** — every judge has a stable ID and remembers resolved appearances for that career. A repeated bluff is penalized (first prior win −5, loss −6; capped at −8); technical wins add credibility (+4) and technical losses remove it (−3; total capped −6..+6); repeated bribe attempts are penalized (−7, capped −8). Safe appearances are remembered as history but never lose their guaranteed result or erase prior patterns.
+Judge stats, prior appearance, deterministic style-aware quote and exact live memory modifier are visible on the case file before the choice. Delayed outcomes enter memory only when their REPLY is revealed, so hidden results never leak through later odds; their archive context is frozen when the filing is sent, not recomputed on reply day. Court history resets with a new run and persists through save/load.
 
 ## 8. Starting Scenarios (roguelike seeds)
 Each run starts with a different hook:

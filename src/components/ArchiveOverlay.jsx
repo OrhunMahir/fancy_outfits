@@ -31,6 +31,7 @@ export default function ArchiveOverlay(){
                   ? <div className="tagline" style={{color:"var(--ink)",opacity:.85,lineHeight:1.9}}>{e.body}</div>
                   : <div className="tagline">No file text on record (resolved before the archive kept full copies).</div>}
                 {e.judge && <div className="tagline" style={{marginTop:4}}>JUDGE: {e.judge}</div>}
+                {e.judgeMemory && <div className="tagline" style={{marginTop:4}}>MEMORY AT HEARING: {e.judgeMemory}</div>}
                 {e.note && <div className="tagline" style={{marginTop:4,color:e.win?"var(--green)":"var(--red)"}}>OUTCOME: {e.note}</div>}
               </div>
             )}

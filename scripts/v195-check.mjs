@@ -42,6 +42,7 @@ globalThis.clearInterval = () => {};
   const constants = await import("../src/game/constants.js");
   const clients = await import("../src/game/clients.js");
   const npcs = await import("../src/game/npcs.js");
+  const content = await import("../src/game/content.js");
   const { settings } = await import("../src/game/settings.js");
   settings.sfx = 0;
   settings.bgm = 0;
@@ -133,6 +134,162 @@ globalThis.clearInterval = () => {};
     }
   }
   assert.ok(bribes > 0);
+
+  // v1.9.8: every judge has a stable identity and deterministic recall lines.
+  assert.equal(content.JUDGES.length, 7);
+  assert.equal(new Set(content.JUDGES.map(judge => judge.id)).size, content.JUDGES.length);
+  assert.ok(content.JUDGES.every(judge => judge.id && judge.memoryGood && judge.memoryBad));
+  fresh();
+  assert.deepEqual(state.S.judgeMemory, {});
+  const judgeCase = judge => ({ ...template(), tier: 2, judge });
+  const judgeOption = style => ({
+    text: style.toUpperCase(), base: 50, style,
+    ok: { fx: {}, txt: "won" }, fail: { fx: {}, txt: "lost" },
+  });
+  const ironwoodCase = judgeCase(content.JUDGES[0]);
+  const marshCase = judgeCase(content.JUDGES[1]);
+  const aggMemoryOption = judgeOption("aggressive");
+  const techMemoryOption = judgeOption("technical");
+  const bribeMemoryOption = judgeOption("bribe");
+  const safeMemoryOption = { text: "SAFE", base: 100, safe: true, ok: { fx: {}, txt: "safe" } };
+  assert.equal(engine.judgeMemoryInfo(ironwoodCase).first, true);
+  assert.equal(engine.judgeMemoryModifier(aggMemoryOption, ironwoodCase), 0);
+  assert.equal(engine.chance(safeMemoryOption, ironwoodCase), 100);
+  const firstBluffChance = engine.chance(aggMemoryOption, ironwoodCase);
+  engine.rememberJudgeOutcome(ironwoodCase, aggMemoryOption, true);
+  assert.equal(engine.judgeMemoryModifier(aggMemoryOption, ironwoodCase), -5);
+  assert.equal(engine.chance(aggMemoryOption, ironwoodCase), firstBluffChance - 5);
+  assert.equal(engine.judgeMemoryModifier(aggMemoryOption, marshCase), 0);
+  assert.match(engine.judgeMemoryInfo(ironwoodCase).quote, /last bluff landed/i);
+  engine.rememberJudgeOutcome(ironwoodCase, safeMemoryOption, true);
+  assert.equal(engine.judgeMemoryModifier(aggMemoryOption, ironwoodCase), -5, "safe play does not erase bluff memory");
+  assert.match(engine.judgeMemoryInfo(ironwoodCase).quote, /kept it conventional/i);
+  engine.rememberJudgeOutcome(ironwoodCase, aggMemoryOption, false);
+  assert.equal(engine.judgeMemoryModifier(aggMemoryOption, ironwoodCase), -8, "bluff memory is capped");
+  engine.rememberJudgeOutcome(ironwoodCase, techMemoryOption, true);
+  engine.rememberJudgeOutcome(ironwoodCase, techMemoryOption, true);
+  assert.equal(engine.judgeMemoryModifier(techMemoryOption, ironwoodCase), 6, "technical trust is capped");
+  engine.rememberJudgeOutcome(ironwoodCase, bribeMemoryOption, false);
+  engine.rememberJudgeOutcome(ironwoodCase, bribeMemoryOption, true);
+  assert.equal(engine.judgeMemoryModifier(bribeMemoryOption, ironwoodCase), -8, "repeat impropriety is capped");
+  assert.equal(engine.chance(safeMemoryOption, ironwoodCase), 100, "memory never breaks a safe option");
+
+  fresh();
+  const technicalLossCase = judgeCase(content.JUDGES[2]);
+  engine.rememberJudgeOutcome(technicalLossCase, techMemoryOption, false);
+  engine.rememberJudgeOutcome(technicalLossCase, techMemoryOption, false);
+  assert.equal(engine.judgeMemoryModifier(techMemoryOption, technicalLossCase), -6);
+
+  // Instant court results record exactly once. The archive freezes the memory
+  // that applied at the hearing; a stale second click cannot duplicate either.
+  fresh();
+  state.S.inbox = [];
+  state.S.hours = 8;
+  const instantCourt = engine.instantiateCase({ ...template(), tier: 2, judge: true });
+  state.S.inbox = [instantCourt];
+  const instantAgg = instantCourt.opts.find(option => option.style === "aggressive");
+  engine.choose(instantCourt, instantAgg);
+  const instantJudgeId = engine.judgeId(instantCourt.judge);
+  assert.equal(state.S.judgeMemory[instantJudgeId].seen, 1);
+  assert.match(state.S.archive[0].judgeMemory, /FIRST APPEARANCE/);
+  const instantStats = JSON.stringify(state.S.judgeMemory[instantJudgeId]);
+  const archiveSnapshot = state.S.archive[0].judgeMemory;
+  engine.choose(instantCourt, instantAgg);
+  assert.equal(JSON.stringify(state.S.judgeMemory[instantJudgeId]), instantStats);
+  engine.rememberJudgeOutcome(instantCourt, techMemoryOption, true);
+  assert.equal(state.S.archive[0].judgeMemory, archiveSnapshot, "archive memory snapshots are immutable");
+
+  // Judge memory helpers and recording consume no RNG; equal DAILY seeds keep
+  // judge draws, option order, memory and the next cursor identical.
+  const dailyMemoryTrace = () => {
+    fresh("daily");
+    state.S.inbox = [];
+    state.S.event = null;
+    utils.setSeed(1988);
+    const first = engine.instantiateCase({ ...template(), tier: 2, judge: true });
+    const beforeHelpers = utils.getRngState();
+    engine.judgeMemoryInfo(first);
+    engine.judgeMemoryModifier(aggMemoryOption, first);
+    engine.chance(aggMemoryOption, first);
+    engine.rememberJudgeOutcome(first, aggMemoryOption, false);
+    assert.equal(utils.getRngState(), beforeHelpers);
+    const second = engine.instantiateCase({ ...template(), tier: 2, judge: true });
+    return {
+      first: engine.judgeId(first.judge), second: engine.judgeId(second.judge),
+      order: order(second), memory: JSON.parse(JSON.stringify(state.S.judgeMemory)),
+      cursor: utils.getRngState(),
+    };
+  };
+  assert.deepEqual(dailyMemoryTrace(), dailyMemoryTrace());
+
+  // A non-empty memory map survives a DAILY save/load without shifting the
+  // next judge, option permutation, or seeded cursor.
+  const dailyMemoryResumeTrace = resume => {
+    fresh("daily");
+    state.S.inbox = [];
+    state.S.event = null;
+    utils.setSeed(2018);
+    const heard = engine.instantiateCase({ ...template(), tier: 2, judge: true });
+    engine.rememberJudgeOutcome(heard, techMemoryOption, true);
+    engine.saveGame();
+    if (resume) assert.equal(engine.loadGame(1), true);
+    const next = engine.instantiateCase({ ...template(), tier: 2, judge: true });
+    return {
+      judge: engine.judgeId(next.judge), order: order(next),
+      memory: JSON.parse(JSON.stringify(state.S.judgeMemory)), cursor: utils.getRngState(),
+    };
+  };
+  assert.deepEqual(dailyMemoryResumeTrace(false), dailyMemoryResumeTrace(true));
+
+  // Delayed court outcomes remain secret until REPLY. A save/reload preserves
+  // the rolled result and RNG cursor; reveal records memory exactly once.
+  fresh("daily");
+  state.S.inbox = [];
+  state.S.event = null;
+  state.S.hours = 8;
+  utils.setSeed(2088);
+  const delayedCourtRaw = { ...template(), tier: 2, judge: true };
+  delayedCourtRaw.opts.forEach(option => { option.delay = 1; });
+  const delayedCourt = engine.instantiateCase(delayedCourtRaw);
+  state.S.inbox = [delayedCourt];
+  const delayedTech = delayedCourt.opts.find(option => option.style === "technical");
+  const delayedJudgeId = engine.judgeId(delayedCourt.judge);
+  engine.choose(delayedCourt, delayedTech);
+  assert.equal(state.S.judgeMemory[delayedJudgeId], undefined);
+  assert.equal(engine.judgeMemoryModifier(delayedTech, delayedCourt), 0);
+  const hiddenResult = delayedCourt.pending.win;
+  const delayedCursor = utils.getRngState();
+  assert.equal(engine.loadGame(1), true);
+  assert.equal(state.S.inbox.find(c => c.pending).pending.win, hiddenResult);
+  assert.match(state.S.inbox.find(c => c.pending).pending.judgeMemorySnapshot, /FIRST APPEARANCE/);
+  assert.equal(state.S.judgeMemory[delayedJudgeId], undefined);
+  assert.equal(utils.getRngState(), delayedCursor);
+  // A later hearing before the REPLY must not rewrite the first hearing's
+  // frozen archive context.
+  const resumedDelayed = state.S.inbox.find(c => c.pending);
+  const interveningCourt = engine.instantiateCase({ ...template(), tier: 2, judge: true });
+  interveningCourt.judge = resumedDelayed.judge;
+  state.S.inbox.push(interveningCourt);
+  engine.choose(interveningCourt, interveningCourt.opts.find(option => option.style === "technical"));
+  assert.equal(state.S.judgeMemory[delayedJudgeId].seen, 1);
+  engine.endDay();
+  engine.dismissSummary();
+  assert.equal(state.S.judgeMemory[delayedJudgeId].seen, 2);
+  assert.ok(state.S.judgeMemory[delayedJudgeId][hiddenResult ? "technicalW" : "technicalL"] >= 1);
+  const delayedArchive = state.S.archive.find(entry => entry.via === "delayed reply");
+  assert.match(delayedArchive.judgeMemory, /FIRST APPEARANCE/);
+  engine.saveGame();
+  engine.loadGame(1);
+  assert.equal(state.S.judgeMemory[delayedJudgeId].seen, 2, "revealed memory must not replay on reload");
+
+  fresh();
+  const missedCourt = engine.instantiateCase({ ...template(), tier: 2, judge: true });
+  missedCourt.dueDay = state.S.day;
+  state.S.inbox = [missedCourt];
+  state.S.objective = null;
+  state.S.debtDue = null;
+  engine.endDay();
+  assert.deepEqual(state.S.judgeMemory, {}, "missing a deadline is not a court appearance");
 
   // Existing saves preserve visible order; DAILY restores the next RNG cursor too.
   fresh();
@@ -298,6 +455,7 @@ globalThis.clearInterval = () => {};
   delete persisted.fatigue;
   delete persisted.otToday;
   delete persisted.decor;
+  delete persisted.judgeMemory;
   delete persisted.runStats.fired;
   delete persisted.today.moneyGained;
   persisted.otHours = 4;
@@ -316,6 +474,7 @@ globalThis.clearInterval = () => {};
   assert.equal(migratedInfo.save.today.moneyGained, 0);
   assert.equal(migratedInfo.save.firmPlanDay, 0);
   assert.equal(migratedInfo.save.firmGateHintRank, null);
+  assert.deepEqual(migratedInfo.save.judgeMemory, {});
   assert.equal(migratedInfo.save.logEntries.length, constants.SAVE_LOG_LIMIT);
   assert.equal(migratedInfo.save.archive.length, constants.SAVE_ARCHIVE_LIMIT);
   assert.equal(engine.loadGame(1), true);
@@ -328,19 +487,69 @@ globalThis.clearInterval = () => {};
   v1Raw.schemaVersion = 1;
   delete v1Raw.firmPlanDay;
   delete v1Raw.firmGateHintRank;
+  delete v1Raw.judgeMemory;
   storage.set(`${constants.SAVE_KEY}_s2`, JSON.stringify(v1Raw));
+  const v1Info = engine.inspectSave(2);
+  assert.equal(v1Info.status, "ready");
+  assert.equal(v1Info.needsUpgrade, true);
+  assert.equal(v1Info.save.schemaVersion, 3);
+  assert.equal(v1Info.save.firmPlanDay, 0);
+  assert.equal(v1Info.save.firmGateHintRank, null);
+  assert.deepEqual(v1Info.save.judgeMemory, {});
+  const legacyJudge = clone(content.JUDGES[0]);
+  delete legacyJudge.id;
+  delete legacyJudge.memoryGood;
+  delete legacyJudge.memoryBad;
+  const legacyCourt = { ...template(), tier: 2, judge: legacyJudge, dueDay: 3 };
+  const v2Raw = clone(readyBase);
+  v2Raw.schemaVersion = 2;
+  delete v2Raw.judgeMemory;
+  v2Raw.inbox = [legacyCourt];
+  v2Raw.inbox[0].judge.book = -999; // old balance snapshots are not gameplay authority
+  storage.set(`${constants.SAVE_KEY}_s2`, JSON.stringify(v2Raw));
   const v2Info = engine.inspectSave(2);
   assert.equal(v2Info.status, "ready");
   assert.equal(v2Info.needsUpgrade, true);
-  assert.equal(v2Info.save.schemaVersion, 2);
-  assert.equal(v2Info.save.firmPlanDay, 0);
-  assert.equal(v2Info.save.firmGateHintRank, null);
+  assert.equal(v2Info.save.schemaVersion, 3);
+  assert.deepEqual(v2Info.save.judgeMemory, {});
+  assert.equal(engine.judgeId(v2Info.save.inbox[0].judge), "ironwood", "legacy judge names resolve to stable ids");
+  assert.equal(v2Info.save.inbox[0].judge.book, content.JUDGES[0].book);
+  assert.equal(engine.loadGame(2), true);
+  const loadedLegacyCourt = state.S.inbox[0];
+  engine.choose(loadedLegacyCourt, loadedLegacyCourt.opts.find(option => option.style === "technical"));
+  assert.equal(state.S.judgeMemory.ironwood.seen, 1, "legacy id-less judges write to the canonical memory key");
+  engine.setSlot(1);
   const delayedWar = clone(engine.buildBigMatter("Abibas"));
   delayedWar.opts[0].delay = 1;
   const pendingWar = clone(engine.buildBigMatter("Abibas"));
   pendingWar.pending = { day: pendingWar.deadline, win: true, o: { ...clone(pendingWar.opts[0]), delay: 1 } };
   const delegatedWar = clone(engine.buildBigMatter("Abibas"));
   delegatedWar.delegated = { day: delegatedWar.deadline, npc: "dana", win: true };
+  const validMemoryRecord = {
+    seen: 1, aggressiveW: 1, aggressiveL: 0, technicalW: 0, technicalL: 0,
+    bribeW: 0, bribeL: 0, safe: 0, neutralW: 0, neutralL: 0,
+    lastStyle: "aggressive", lastWin: true, lastDay: 1,
+  };
+  // Stable ids are the only persisted authority in v3: stale/tampered balance
+  // fields are replaced by the current catalog before they can affect play.
+  const forgedIdCourt = { ...template(), tier: 2,
+    judge: { ...clone(content.JUDGES[6]), name: content.JUDGES[0].name, book: 999 }, dueDay: 3 };
+  storage.set(`${constants.SAVE_KEY}_s2`, JSON.stringify({ ...clone(readyBase), inbox: [forgedIdCourt] }));
+  const canonicalJudgeInfo = engine.inspectSave(2);
+  assert.equal(canonicalJudgeInfo.status, "ready");
+  assert.equal(canonicalJudgeInfo.save.inbox[0].judge.id, "fairway", "stable id wins over a conflicting valid name");
+  assert.equal(canonicalJudgeInfo.save.inbox[0].judge.name, content.JUDGES[6].name);
+  assert.equal(canonicalJudgeInfo.save.inbox[0].judge.book, content.JUDGES[6].book);
+  const forgedCourt = clone(legacyCourt);
+  forgedCourt.judge.book = 999;
+  const badStyleCourt = clone(legacyCourt);
+  badStyleCourt.opts[0].style = "showboat";
+  const delegatedCourt = clone(legacyCourt);
+  delegatedCourt.delegated = { day: 2, npc: "dana", win: true };
+  const sentinelCourt = clone(legacyCourt);
+  sentinelCourt.judge = true;
+  const badPendingSnapshot = { ...template(), tier: 2, judge: clone(content.JUDGES[0]), dueDay: 3 };
+  badPendingSnapshot.pending = { day: 2, win: true, o: clone(badPendingSnapshot.opts[0]), judgeMemorySnapshot: 7 };
   const invalidRaws = [
     { raw: "{", status: "corrupt" },
     { raw: "", status: "corrupt" },
@@ -355,6 +564,14 @@ globalThis.clearInterval = () => {};
     { raw: JSON.stringify({ ...clone(readyBase), archiveTotal: -1 }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), firmPlanDay: -1 }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), firmGateHintRank: 4 }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), judgeMemory: { stranger: validMemoryRecord } }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), judgeMemory: { ironwood: { ...validMemoryRecord, aggressiveW: -1 } } }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), judgeMemory: { ironwood: { ...validMemoryRecord, seen: 1.5 } } }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), judgeMemory: { ironwood: { ...validMemoryRecord, seen: 2 } } }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), judgeMemory: { ironwood: { ...validMemoryRecord, lastStyle: "showboat" } } }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), judgeMemory: { ironwood: { ...validMemoryRecord, lastStyle: "bribe", lastWin: false } } }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), judgeMemory: { ironwood: { ...validMemoryRecord, aggressiveW: 0, safe: 1, lastStyle: "safe", lastWin: false } } }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), judgeMemory: { ironwood: { ...validMemoryRecord, lastDay: readyBase.day + 1 } } }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), money: {} }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), inbox: {} }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), inbox: [{ title: "BAD", body: "bad", opts: [null] }] }), status: "invalid" },
@@ -366,6 +583,12 @@ globalThis.clearInterval = () => {};
     { raw: JSON.stringify({ ...clone(readyBase), inbox: [delayedWar] }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), inbox: [pendingWar] }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), inbox: [delegatedWar] }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), inbox: [forgedCourt] }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), inbox: [badStyleCourt] }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), inbox: [delegatedCourt] }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), inbox: [sentinelCourt] }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), inbox: [badPendingSnapshot] }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), archive: [{ day: 1, title: "BAD MEMORY", judgeMemory: 7 }] }), status: "invalid" },
   ];
   for (const { raw, status } of invalidRaws) {
     storage.set(`${constants.SAVE_KEY}_s2`, raw);
@@ -801,7 +1024,7 @@ globalThis.clearInterval = () => {};
     }
   }
 
-  console.log("v1.9.5–v1.9.7 checks passed: balance, strict saves, FIRM confidence/gates, scenario endings, Client War integrity, CSP, 20 starts");
+  console.log("v1.9.5–v1.9.8 checks passed: balance, strict saves, FIRM, judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;

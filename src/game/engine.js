@@ -55,6 +55,84 @@ export function clientConfidenceOdds(rep=S&&S.rep,mode=S&&S.mode,firm=S&&S.firm)
 }
 export const promotionFirmRequirement=(rank=S&&S.rank,mode=S&&S.mode)=>mode==="standard"?(FIRM_RANK_REQ[rank]||0):0;
 
+/* ---------- judge memory: per-run, deterministic, visible before the roll ---------- */
+const JUDGE_MEMORY_STYLES=["safe","aggressive","technical","bribe","neutral"];
+const emptyJudgeMemory=()=>({seen:0,aggressiveW:0,aggressiveL:0,technicalW:0,technicalL:0,
+  bribeW:0,bribeL:0,safe:0,neutralW:0,neutralL:0,lastStyle:null,lastWin:null,lastDay:0});
+// Keep these pre-v3 display names forever: unopened legacy slots had no ids.
+const LEGACY_JUDGE_IDS={
+  "Hon. R. Ironwood":"ironwood", "Hon. C. Marsh":"marsh", "Hon. B. Pelt":"pelt",
+  "Hon. D. Crane Jr.":"crane", "Hon. A. Whitlock":"whitlock",
+  "Hon. M. Okonkwo":"okonkwo", "Hon. T. Fairway":"fairway",
+};
+const canonicalJudge=j=>{
+  if(!j||j===true) return null;
+  if(j.id!=null) return JUDGES.find(x=>x.id===j.id)||null; // stable id always wins over a conflicting name
+  const legacyId=LEGACY_JUDGE_IDS[j.name];
+  return JUDGES.find(x=>x.id===legacyId)||null;
+};
+export const judgeId=j=>canonicalJudge(j)?.id||null;
+const judgeStyle=o=>o&&o.safe?"safe":JUDGE_MEMORY_STYLES.includes(o&&o.style)?o.style:"neutral";
+const memoryFor=c=>{
+  const id=judgeId(c&&c.judge);
+  return id&&S&&S.judgeMemory&&S.judgeMemory[id]||null;
+};
+/* Bluffs become familiar (-5 win / -6 loss, capped -8); technical credibility
+   grows +4 on a win and falls -3 on a loss (capped -6..+6). Repeated impropriety
+   is harder to sell (-7 each, capped -8). Pure arithmetic: DAILY RNG is untouched. */
+export function judgeMemoryModifier(o,c){
+  const m=memoryFor(c); if(!m) return 0;
+  const style=judgeStyle(o);
+  if(style==="aggressive") return clamp(-(m.aggressiveW*5+m.aggressiveL*6),-8,0);
+  if(style==="technical") return clamp(m.technicalW*4-m.technicalL*3,-6,6);
+  if(style==="bribe") return clamp(-(m.bribeW+m.bribeL)*7,-8,0);
+  return 0;
+}
+const signedPct=n=>(n>0?"+":"")+n+"%";
+const memoryStyleLabel=s=>({safe:"SAFE",aggressive:"AGGRESSIVE",technical:"TECHNICAL",bribe:"BRIBE",neutral:"NEUTRAL"}[s]||"UNKNOWN");
+const memoryStyleCue=m=>({
+  safe:"Last time, you kept it conventional.",
+  aggressive:m.lastWin?"Your last bluff landed.":"Your last bluff collapsed.",
+  technical:m.lastWin?"Your last technical argument held.":"Your last technical argument did not survive.",
+  bribe:m.lastWin?"Our last 'golf conversation' was noticed.":"Your last 'golf invitation' was poorly timed.",
+  neutral:m.lastWin?"Your last approach worked.":"Your last approach did not.",
+}[m.lastStyle]||"");
+export function judgeMemoryInfo(c){
+  const def=canonicalJudge(c&&c.judge), m=memoryFor(c);
+  if(!def) return null;
+  if(!m||!m.seen) return {first:true,history:"FIRST APPEARANCE",quote:"",record:"No prior transcript.",effects:"NO MEMORY MODIFIER"};
+  const effects=[
+    ["AGGRESSIVE",judgeMemoryModifier({style:"aggressive"},c)],
+    ["TECHNICAL",judgeMemoryModifier({style:"technical"},c)],
+    ["BRIBE",judgeMemoryModifier({style:"bribe"},c)],
+  ].filter(([,v])=>v).map(([label,v])=>label+" "+signedPct(v));
+  return {first:false,
+    history:m.seen+" PRIOR · LAST: "+memoryStyleLabel(m.lastStyle)+" — "+(m.lastWin?"WON":"LOST"),
+    quote:memoryStyleCue(m)+" "+(m.lastWin?def.memoryGood:def.memoryBad),
+    record:"BLUFF "+m.aggressiveW+"W/"+m.aggressiveL+"L · TECH "+m.technicalW+"W/"+m.technicalL+"L",
+    effects:effects.length?effects.join(" · "):"NO STYLE MODIFIER YET"};
+}
+const judgeMemoryArchiveText=c=>{
+  const info=judgeMemoryInfo(c); if(!info) return "";
+  return info.first?"FIRST APPEARANCE · NO MEMORY MODIFIER":info.history+" · "+info.effects;
+};
+export function rememberJudgeOutcome(c,o,win){
+  const id=judgeId(c&&c.judge); if(!id||!S) return null;
+  if(!S.judgeMemory||typeof S.judgeMemory!=="object") S.judgeMemory={};
+  const m=S.judgeMemory[id]||emptyJudgeMemory(), style=judgeStyle(o), suffix=win?"W":"L";
+  m.seen++;
+  if(style==="safe") m.safe++;
+  else m[style+suffix]++;
+  m.lastStyle=style; m.lastWin=!!win; m.lastDay=S.day;
+  S.judgeMemory[id]=m;
+  return m;
+}
+function logJudgeMemory(c,o){
+  const info=judgeMemoryInfo(c); if(!info||info.first) return;
+  const mod=judgeMemoryModifier(o,c), label=memoryStyleLabel(judgeStyle(o));
+  log("["+c.judge.name+"] \""+info.quote+"\""+(mod?" ("+label+" "+signedPct(mod)+")":""),mod<0?"bad":mod>0?"good":"sys");
+}
+
 export function log(txt,cls){
   S.logEntries.unshift({txt,cls:cls||""});
   if(S.logEntries.length>SAVE_LOG_LIMIT) S.logEntries.length=SAVE_LOG_LIMIT;
@@ -189,10 +267,12 @@ export function objectiveInfo(){
 }
 
 /* ---------- case archive: every resolved file, what you played, how it went ---------- */
-function archiveCase(c,play,win,note,via){
+function archiveCase(c,play,win,note,via,judgeMemorySnapshot){
   S.archiveTotal=(S.archiveTotal||S.archive.length)+1;
   S.archive.unshift({day:S.day, title:c.title, play, win, note:note||"", via:via||"",
-    body:c.body||"", judge:c.judge?c.judge.name:""}); // full details for the LOG viewer
+    body:c.body||"", judge:c.judge?c.judge.name:"",
+    judgeMemory:c.judge&&play!=="(deadline missed)"?
+      (typeof judgeMemorySnapshot==="string"?judgeMemorySnapshot:judgeMemoryArchiveText(c)):""}); // snapshot at hearing; later appearances cannot rewrite history
   if(S.archive.length>SAVE_ARCHIVE_LIMIT) S.archive.length=SAVE_ARCHIVE_LIMIT;
 }
 
@@ -224,6 +304,7 @@ export function chance(o,c){
   if(j){
     if(o.style==="aggressive") p-=j.temper/4;
     if(o.style==="technical")  p+=j.book/5;
+    p+=judgeMemoryModifier(o,c);
   }
   if(c&&c.crisisMod&&!o.safe) p+=c.crisisMod.v; // a Traitor leaked / a Brave ally shields (GDD §5-6)
   if(c&&c.dossier&&!o.safe) p+=12;              // detective's dossier on this file
@@ -690,7 +771,8 @@ function advanceDay(){
 function resolveDelayed(c){
   S.inbox=S.inbox.filter(x=>x!==c);
   const r=c.pending, out=r.win?r.o.ok:r.o.fail;
-  archiveCase(c,r.o.text,r.win,out.txt,"delayed reply");
+  archiveCase(c,r.o.text,r.win,out.txt,"delayed reply",r.judgeMemorySnapshot);
+  rememberJudgeOutcome(c,r.o,r.win); // reveal first: hidden delayed outcomes never leak through future odds
   if(r.win){ SFX.win(); S.today.wins++; if(r.o.style==="aggressive") S.today.aggWin++;
     log("RESPONSE ["+c.title+"]: SUCCESS","good"); pushMsg("REPLY: "+c.title,out.txt); apply(out.fx);
     if((c.tier||0)>=1) apply({firm:1},true); // same firm effect as an instant win (v1.9.4 symmetry)
@@ -754,6 +836,7 @@ function pushMsg(title,txt){ S.inbox.unshift({msg:true,title,body:txt}); }
 /* choose option on open case. NOTE: for delayed options the die is rolled NOW,
    the outcome is only revealed later by resolveDelayed (CLAUDE.md §5). */
 export function choose(c,o,confirmedLate){
+  if(!S||!c||!o||!S.inbox.includes(c)||c.pending||c.delegated) return; // stale/double clicks resolve nothing twice
   SFX.click();
   const cost0=optHours(c,o);
   // the job runs past quitting time? warn first — pushing through costs extra
@@ -774,13 +857,15 @@ export function choose(c,o,confirmedLate){
     if(S.money<o.bribe){ log("You can't afford the judge's 'green fees'.","bad"); notify(); return; }
     apply({money:-o.bribe},true);
   }
+  logJudgeMemory(c,o);
   const p=chance(o,c);
   const lateExtra=confirmedLate?Math.round(Math.max(0,cost0-S.hours)*LATE_FATIGUE):0;
   if(lateExtra) log("You work past the lights. The night collects its fee. (+"+lateExtra+" FATIGUE)","bad");
   const cost=cost0, toil=Math.round(cost*2+(o.safe?2:0))+lateExtra; // careful play grinds you down too
   if(o.delay){
     const win=rand()*100<p;
-    c.pending={day:S.day+o.delay,win,o};
+    c.pending={day:S.day+o.delay,win,o,
+      judgeMemorySnapshot:c.judge?judgeMemoryArchiveText(c):""};
     trackChoice(c,o,win); SFX.send();
     log("Sent: '"+o.text+"' — response in "+o.delay+" day(s). ("+cost+"h)","sys");
     S.openCase=null;
@@ -793,6 +878,7 @@ export function choose(c,o,confirmedLate){
   const win=rand()*100<p, out=win?o.ok:o.fail;
   trackChoice(c,o,win);
   archiveCase(c,o.text,win,out.txt,c.favor?"favor":"");
+  rememberJudgeOutcome(c,o,win);
   if(o.bribe&&win&&S.runStats.bribeW>=3) ach("bribe3");
   if(win){
     SFX.win();
@@ -1239,7 +1325,13 @@ const persistedSummary=sum=>validSummary(sum)?{title:sum.title,lines:sum.lines.m
 
 const validBig=b=>b==null||(plain(b)&&typeof b.client==="string"&&b.client.length>0&&Number.isInteger(b.stage)&&b.stage>=1&&b.stage<=3);
 const validFx=fx=>fx==null||(plain(fx)&&Object.values(fx).every(Number.isFinite));
-const validJudge=j=>j==null||j===true||(plain(j)&&typeof j.name==="string"&&Number.isFinite(j.temper)&&Number.isFinite(j.book)&&Number.isFinite(j.corrupt));
+const validJudge=j=>{
+  if(j==null||j===true) return true;
+  if(!plain(j)) return false;
+  if(j.id!=null) return typeof j.id==="string"&&JUDGES.some(def=>def.id===j.id);
+  const def=JUDGES.find(x=>x.name===j.name); // pre-v3 saves had no stable id
+  return !!def&&j.temper===def.temper&&j.book===def.book&&j.corrupt===def.corrupt;
+};
 function validOutcome(out,depth){
   if(!plain(out)||!validFx(out.fx)||typeof out.txt!=="string") return false;
   if(out.next==null) return true;
@@ -1247,6 +1339,7 @@ function validOutcome(out,depth){
 }
 function validOption(o,depth){
   if(!plain(o)||typeof o.text!=="string"||!Number.isFinite(o.base)||!validOutcome(o.ok,depth)) return false;
+  if(o.style!=null&&!["technical","aggressive","bribe","neutral"].includes(o.style)) return false;
   for(const key of ["boldW","delay","bribe","hours","fatigue","relOk","relFail"])
     if(o[key]!=null&&!Number.isFinite(o[key])) return false;
   if(o.fail!=null&&!validOutcome(o.fail,depth)) return false;
@@ -1256,6 +1349,26 @@ function validCase(c,depth=0){
   return depth<=8&&plain(c)&&typeof c.title==="string"&&typeof c.body==="string"&&validJudge(c.judge)&&
     Array.isArray(c.opts)&&c.opts.length>0&&validBig(c.big)&&c.opts.every(o=>validOption(o,depth))&&
     (!c.big||c.opts.every(o=>o.delay==null)); // delayed Client War resolution has no lifecycle bookkeeping
+}
+
+/* Persisted v3 judges trust only their stable id. Rebuild every live snapshot
+   from the current catalog so future balance edits neither break old slots nor
+   let forged temper/book/corrupt values reach chance() or the UI. */
+function canonicalizeCaseJudges(c,depth=0){
+  if(!plain(c)||depth>8) return;
+  if(c.judge&&c.judge!==true){ const def=canonicalJudge(c.judge); if(def) c.judge=def; }
+  const visitOption=o=>{
+    if(!plain(o)) return;
+    for(const result of [o.ok,o.fail]) if(plain(result)&&plain(result.next)) canonicalizeCaseJudges(result.next.case,depth+1);
+  };
+  if(Array.isArray(c.opts)) c.opts.forEach(visitOption);
+  if(plain(c.pending)) visitOption(c.pending.o);
+}
+function canonicalizeSaveJudges(d){
+  for(const key of ["inbox","pool"]) if(Array.isArray(d[key])) d[key].forEach(c=>canonicalizeCaseJudges(c));
+  if(Array.isArray(d.followups)) d.followups.forEach(f=>canonicalizeCaseJudges(f&&f.case));
+  if(plain(d.event)&&Array.isArray(d.event.opts)) for(const o of d.event.opts)
+    for(const result of [o&&o.ok,o&&o.fail]) if(plain(result)&&plain(result.next)) canonicalizeCaseJudges(result.next.case,1);
 }
 
 class SaveDataError extends Error{ constructor(code,message){ super(message); this.code=code; } }
@@ -1309,7 +1422,31 @@ const migrateV1ToV2=raw=>{
   d.schemaVersion=2;
   return d;
 };
-const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2};
+const migrateV2ToV3=raw=>{
+  const d={...raw};
+  if(!Object.prototype.hasOwnProperty.call(d,"judgeMemory")) d.judgeMemory={};
+  canonicalizeSaveJudges(d); // name-only legacy judges become current stable-id records
+  d.schemaVersion=3;
+  return d;
+};
+const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3};
+
+const JUDGE_MEMORY_COUNTERS=["seen","aggressiveW","aggressiveL","technicalW","technicalL","bribeW","bribeL","safe","neutralW","neutralL"];
+function validJudgeMemory(memory,day){
+  if(!plain(memory)) return false;
+  const entries=Object.entries(memory), known=new Set(JUDGES.map(j=>j.id));
+  if(entries.length>JUDGES.length) return false;
+  return entries.every(([id,m])=>{
+    if(!known.has(id)||!plain(m)) return false;
+    if(!JUDGE_MEMORY_COUNTERS.every(k=>Number.isSafeInteger(m[k])&&m[k]>=0&&m[k]<=1000000)) return false;
+    const total=m.aggressiveW+m.aggressiveL+m.technicalW+m.technicalL+m.bribeW+m.bribeL+m.safe+m.neutralW+m.neutralL;
+    if(m.seen!==total||m.seen<=0||!JUDGE_MEMORY_STYLES.includes(m.lastStyle)||typeof m.lastWin!=="boolean"||
+      !Number.isInteger(m.lastDay)||m.lastDay<1||m.lastDay>day) return false;
+    if(m.lastStyle==="safe") return m.lastWin===true&&m.safe>0;
+    const lastCounter=m.lastStyle+(m.lastWin?"W":"L");
+    return Number.isSafeInteger(m[lastCounter])&&m[lastCounter]>0;
+  });
+}
 
 function migrateSaveData(raw){
   if(!plain(raw)) throw new SaveDataError("invalid","The slot is not a save object.");
@@ -1342,6 +1479,7 @@ function migrateSaveData(raw){
   if(!nonNegativeInt(d.firmPlanDay)) throw new SaveDataError("invalid","The saved turnaround cooldown is invalid.");
   if(d.firmGateHintRank!==null&&(!Number.isInteger(d.firmGateHintRank)||d.firmGateHintRank<0||d.firmGateHintRank>3))
     throw new SaveDataError("invalid","The saved FIRM promotion hint is invalid.");
+  if(!validJudgeMemory(d.judgeMemory,d.day)) throw new SaveDataError("invalid","The saved court history is damaged.");
   for(const key of ["suitCost","weekMissed","bigDoneDay","fireHeat","coffeeToday","marvBribes","rivalMoveDay","archiveTotal","seed"])
     if(d[key]!=null&&!Number.isFinite(d[key])) throw new SaveDataError("invalid","The saved "+key+" value is invalid.");
   for(const key of ["weekMissed","bigDoneDay","coffeeToday","marvBribes","rivalMoveDay","archiveTotal"])
@@ -1355,7 +1493,7 @@ function migrateSaveData(raw){
     throw new SaveDataError("invalid","The Daily random cursor is invalid.");
   for(const key of ["inbox","pool","usedCrises","npcs","followups","clients","clientPool","npcStories","firedNames","archive","logEntries"])
     if(!Array.isArray(d[key])) throw new SaveDataError("invalid","The saved "+key+" collection is damaged.");
-  if(d.inbox.some(c=>!plain(c)||typeof c.title!=="string"||(c.msg?typeof c.body!=="string":!validCase(c))))
+  if(d.inbox.some(c=>!plain(c)||typeof c.title!=="string"||(c.msg?typeof c.body!=="string":c.judge===true||!validCase(c))))
     throw new SaveDataError("invalid","An inbox file is damaged.");
   if(d.pool.some(c=>!validCase(c))) throw new SaveDataError("invalid","The case pool is damaged.");
   if(d.followups.some(f=>!plain(f)||!Number.isFinite(f.day)||!validCase(f.case)))
@@ -1363,7 +1501,10 @@ function migrateSaveData(raw){
   if(!validBig(d.bigCase)) throw new SaveDataError("invalid","The Client War mandate is damaged.");
   if(d.inbox.some(c=>c.big&&(c.pending!=null||c.delegated!=null)))
     throw new SaveDataError("invalid","A Client War stage cannot be delayed or delegated.");
-  if(d.inbox.some(c=>c.pending!=null&&(!plain(c.pending)||!Number.isFinite(c.pending.day)||typeof c.pending.win!=="boolean"||!validOption(c.pending.o,0))))
+  if(d.inbox.some(c=>c.judge&&c.delegated!=null))
+    throw new SaveDataError("invalid","A court appearance cannot be delegated.");
+  if(d.inbox.some(c=>c.pending!=null&&(!plain(c.pending)||!Number.isFinite(c.pending.day)||typeof c.pending.win!=="boolean"||
+    (c.pending.judgeMemorySnapshot!=null&&typeof c.pending.judgeMemorySnapshot!=="string")||!validOption(c.pending.o,0))))
     throw new SaveDataError("invalid","A delayed case result is damaged.");
   if(d.inbox.some(c=>c.delegated!=null&&(!plain(c.delegated)||!Number.isFinite(c.delegated.day)||typeof c.delegated.npc!=="string"||typeof c.delegated.win!=="boolean")))
     throw new SaveDataError("invalid","A delegated case result is damaged.");
@@ -1373,7 +1514,8 @@ function migrateSaveData(raw){
   if(d.npcs.some(n=>!plain(n)||typeof n.id!=="string"||typeof n.name!=="string"||typeof n.role!=="string"||typeof n.trait!=="string"||!Number.isFinite(n.rel)))
     throw new SaveDataError("invalid","The floor roster is damaged.");
   if(d.logEntries.some(e=>!plain(e)||typeof e.txt!=="string")) throw new SaveDataError("invalid","The activity log is damaged.");
-  if(d.archive.some(e=>!plain(e)||typeof e.title!=="string")) throw new SaveDataError("invalid","The case archive is damaged.");
+  if(d.archive.some(e=>!plain(e)||typeof e.title!=="string"||(e.judgeMemory!=null&&typeof e.judgeMemory!=="string")))
+    throw new SaveDataError("invalid","The case archive is damaged.");
   if(d.event!=null&&(!plain(d.event)||typeof d.event.title!=="string"||typeof d.event.body!=="string"||!Array.isArray(d.event.opts)||!d.event.opts.length||!d.event.opts.every(o=>validOption(o,0))))
     throw new SaveDataError("invalid","The pending event is damaged.");
   if(d.roster!=null&&(!Array.isArray(d.roster)||d.roster.some(e=>!plain(e)||typeof e.id!=="string"||typeof e.name!=="string"||typeof e.role!=="string"||
@@ -1393,6 +1535,7 @@ function migrateSaveData(raw){
   d.logEntries=d.logEntries.slice(0,SAVE_LOG_LIMIT);
   d.archive=d.archive.slice(0,SAVE_ARCHIVE_LIMIT);
   d.archiveTotal=Math.max(Number(d.archiveTotal)||0,d.archive.length);
+  canonicalizeSaveJudges(d);
   return d;
 }
 
@@ -1409,6 +1552,7 @@ function hydrateSaveData(d,slot){
   base.today=merge(defaults.today,d.today);
   base.weekStart=merge(defaults.weekStart,d.weekStart);
   base.decor=merge({},d.decor);
+  base.judgeMemory=merge({},d.judgeMemory);
   if(d.nemesis===null) base.nemesis=null;
   else base.nemesis=merge(defaults.nemesis,d.nemesis);
   base.hours=Number.isFinite(d.hours)?d.hours:(settings.dayLen||DAY_HOURS);

@@ -101,13 +101,13 @@ export function buildPool(){
 
 /* corrupt >= 40 quietly unlocks a bribe option on the case file (GDD §7) */
 export const JUDGES=[
-  {name:"Hon. R. Ironwood",temper:80,book:70,corrupt:5,desc:"Zero patience for theatrics. Worships procedure."},
-  {name:"Hon. C. Marsh",temper:30,book:40,corrupt:45,desc:"Enjoys a good show. Bored by footnotes."},
-  {name:"Hon. B. Pelt",temper:55,book:85,corrupt:10,desc:"Reads every exhibit. Twice. Cites page numbers from memory."},
-  {name:"Hon. D. Crane Jr.",temper:20,book:20,corrupt:75,desc:"Unpredictable. Once ruled based on a coin flip. Allegedly."},
-  {name:"Hon. A. Whitlock",temper:65,book:55,corrupt:20,desc:"Ex-prosecutor. Smells weakness. Bills it as contempt."},
-  {name:"Hon. M. Okonkwo",temper:40,book:78,corrupt:5,desc:"Kind, thorough, immune to theater. Quotes you back at yourself."},
-  {name:"Hon. T. Fairway",temper:25,book:25,corrupt:85,desc:"Owns four golf memberships. Asks about your 'handicap' unprompted."}];
+  {id:"ironwood",name:"Hon. R. Ironwood",temper:80,book:70,corrupt:5,desc:"Zero patience for theatrics. Worships procedure.",memoryGood:"You were effective. Keep it disciplined.",memoryBad:"The transcript remembers. So do I."},
+  {id:"marsh",name:"Hon. C. Marsh",temper:30,book:40,corrupt:45,desc:"Enjoys a good show. Bored by footnotes.",memoryGood:"Last time was tolerable. Surprise me twice.",memoryBad:"You again? Make this one shorter."},
+  {id:"pelt",name:"Hon. B. Pelt",temper:55,book:85,corrupt:10,desc:"Reads every exhibit. Twice. Cites page numbers from memory.",memoryGood:"Your last appearance survived a second reading.",memoryBad:"Your last appearance remains unfortunate."},
+  {id:"crane",name:"Hon. D. Crane Jr.",temper:20,book:20,corrupt:75,desc:"Unpredictable. Once ruled based on a coin flip. Allegedly.",memoryGood:"I remember you winning. Or I dreamed it.",memoryBad:"I remember you. That is all the warning you get."},
+  {id:"whitlock",name:"Hon. A. Whitlock",temper:65,book:55,corrupt:20,desc:"Ex-prosecutor. Smells weakness. Bills it as contempt.",memoryGood:"Last time, you gave me no opening.",memoryBad:"I remember the opening you gave me."},
+  {id:"okonkwo",name:"Hon. M. Okonkwo",temper:40,book:78,corrupt:5,desc:"Kind, thorough, immune to theater. Quotes you back at yourself.",memoryGood:"You respected both record and court.",memoryBad:"Last time, your own record answered you."},
+  {id:"fairway",name:"Hon. T. Fairway",temper:25,book:25,corrupt:85,desc:"Owns four golf memberships. Asks about your 'handicap' unprompted.",memoryGood:"Back under par, counsel. Don't ruin the card.",memoryBad:"Back for another round? Your handicap followed you."}];
 
 /* Crisis events — each fires at most once per run (S.usedCrises). */
 export function crises(){

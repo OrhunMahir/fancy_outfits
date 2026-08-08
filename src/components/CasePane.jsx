@@ -1,6 +1,6 @@
 // Middle panel: the desk (tip text) or the open case file with its options.
 import { useGame } from "../game/useGame.js";
-import { displayChance, displayPct, choose, deferCase, delegateCase, hireDetective, hoursFor, optHours } from "../game/engine.js";
+import { displayChance, displayPct, choose, deferCase, delegateCase, hireDetective, hoursFor, optHours, judgeMemoryInfo } from "../game/engine.js";
 import { delegationChance } from "../game/npcs.js";
 import { PRICES, STAKE_REWARD, STAKE_PENALTY } from "../game/constants.js";
 
@@ -13,9 +13,10 @@ export default function CasePane(){
       <div className="kv">Pick a file from your inbox.<br/><br/>
         Tip: the safe option never fails — and never impresses. Boldness feeds your bluffs;
         failed bluffs eat your reputation. Reputation decays daily and low rep makes every
-        risky play harder. This firm has no memory and no mercy.</div>
+        risky play harder. The firm forgets fast. Judges don't.</div>
     </div>
   );
+  const memory=c.judge?judgeMemoryInfo(c):null;
   return (
     <div id="casepane" className="panel">
       <h2>CASE FILE</h2>
@@ -24,8 +25,14 @@ export default function CasePane(){
         <div>{c.body}</div>
         {c.judge && <div className="judge">
           JUDGE: {c.judge.name}<br/>
-          TEMPER {c.judge.temper} / BY-THE-BOOK {c.judge.book} / ETHICS: {c.judge.corrupt>=60?"'sociable'":c.judge.corrupt>=40?"flexible":"granite"}<br/>
-          {c.judge.desc}
+          TEMPER: {c.judge.temper} · BY-THE-BOOK: {c.judge.book} · ETHICS: {c.judge.corrupt>=60?"'SOCIABLE'":c.judge.corrupt>=40?"FLEXIBLE":"GRANITE"}<br/>
+          {c.judge.desc}<br/>
+          <span style={{color:memory&&!memory.first?"#8a3f2b":"#6b6254"}}>COURT HISTORY: {memory&&memory.history}</span><br/>
+          {memory&&!memory.first && <>
+            <span>THE COURT REMEMBERS: “{memory.quote}”</span><br/>
+            <span>{memory.record} · EFFECT TODAY: {memory.effects}</span>
+          </>}
+          {memory&&memory.first && <span>{memory.effects}</span>}
         </div>}
         <div style={{marginTop:8,fontSize:8}}>
           DEADLINE: DAY {c.dueDay} · BASE TIME: {hoursFor(c)}h (careful plays take longer)

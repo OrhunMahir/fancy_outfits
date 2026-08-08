@@ -8,6 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "test": "node scripts/run-v195-check.cjs",
+    "test:soak": "node scripts/run-soak-balance.cjs --seeds 8 --standard-days 30 --endless-days 30",
+    "soak": "node scripts/run-soak-balance.cjs",
     "preview": "vite preview",
     "start": "npm run build && electron ."
   },

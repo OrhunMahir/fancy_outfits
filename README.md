@@ -30,6 +30,29 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.9 — Deterministic career soak & integrity *(2026-08-08)*
+- **A real long-career laboratory:** the new headless soak runner drives public engine actions
+  across Standard and Endless careers with independent game/policy RNG streams, five player
+  policies, a dedicated post-partnership FIRM stress policy, provenance hashes and exact replay
+  traces. The audited matrix covered 3,520 careers; all 252 suspicious/extreme replays matched and
+  no engine invariant failed. See [`BALANCE_SOAK_REPORT.md`](BALANCE_SOAK_REPORT.md).
+- **Measured, not silently retuned:** the visible Technical route reached Name Partner in 315/320
+  Standard careers (median day 10), while pure Aggressive won 10/320 and exact max-chance play won
+  2/320. No balance constant changed in this pass; the report defines controlled progression,
+  judge-memory and FIRM-endgame A/B tests instead of mixing them with integrity fixes.
+- **Save-stable procedural identity:** save schema v4 persists a monotonic case sequence. Generated
+  cases, nested appeals, Client War stages and lawsuits keep unique IDs across save/reload, and
+  damaged or lagging sequence data is rejected rather than allowing identity collisions.
+- **Resolved integrity bugs:** late work can no longer save a negative clock; morning batches perform
+  one promotion transition; stale event choices cannot double-apply; expired delegated work cannot
+  be revived by Lazy/missing colleagues; Endless low-FIRM promotion and eventual career records have
+  correct ordering; two-hour overtime uses its compounded fatigue risk.
+- **Bounded long-run state:** inbox notifications keep the newest 80 messages without deleting live
+  filings, old saves are repaired on load, archives retain filing IDs, and stricter validation covers
+  live deadlines plus delegated and procedural metadata.
+- **Regression entry points:** `npm test` covers the confirmed edge cases, `npm run test:soak` runs a
+  small deterministic matrix, and `npm run soak` runs the full 64-seed Standard/Endless audit.
+
 ### v19.8 — Judges remember *(2026-08-08)*
 - **Per-career court history:** all seven judges now have stable IDs and remember your resolved
   appearances. Their case card shows first appearance vs. prior history, the last approach/result,

@@ -43,6 +43,7 @@ globalThis.clearInterval = () => {};
   const clients = await import("../src/game/clients.js");
   const npcs = await import("../src/game/npcs.js");
   const content = await import("../src/game/content.js");
+  const casegen = await import("../src/game/casegen.js");
   const { settings } = await import("../src/game/settings.js");
   settings.sfx = 0;
   settings.bgm = 0;
@@ -191,6 +192,7 @@ globalThis.clearInterval = () => {};
   engine.choose(instantCourt, instantAgg);
   const instantJudgeId = engine.judgeId(instantCourt.judge);
   assert.equal(state.S.judgeMemory[instantJudgeId].seen, 1);
+  assert.equal(state.S.archive[0].id, instantCourt.id, "archive rows preserve filing identity for replay telemetry");
   assert.match(state.S.archive[0].judgeMemory, /FIRST APPEARANCE/);
   const instantStats = JSON.stringify(state.S.judgeMemory[instantJudgeId]);
   const archiveSnapshot = state.S.archive[0].judgeMemory;
@@ -241,6 +243,42 @@ globalThis.clearInterval = () => {};
   };
   assert.deepEqual(dailyMemoryResumeTrace(false), dailyMemoryResumeTrace(true));
 
+  // Procedural IDs are part of the player's blurred-information key. Their
+  // persisted cursor must resume exactly like the DAILY RNG cursor.
+  fresh("daily");
+  state.S.inbox = [];
+  state.S.event = null;
+  utils.setSeed(2048);
+  casegen.genCase();
+  engine.saveGame();
+  const filingCursor = utils.getRngState();
+  const uninterruptedFiling = casegen.genCase();
+  const uninterruptedRange = engine.displayPct(63, uninterruptedFiling.id + "|TECH");
+  const uninterruptedCursor = utils.getRngState();
+  assert.equal(engine.loadGame(1), true);
+  assert.equal(utils.getRngState(), filingCursor);
+  const resumedFiling = casegen.genCase();
+  assert.deepEqual(
+    { id: resumedFiling.id, title: resumedFiling.title, body: resumedFiling.body, opts: resumedFiling.opts.map(o => o.text) },
+    { id: uninterruptedFiling.id, title: uninterruptedFiling.title, body: uninterruptedFiling.body, opts: uninterruptedFiling.opts.map(o => o.text) },
+  );
+  assert.equal(engine.displayPct(63, resumedFiling.id + "|TECH"), uninterruptedRange);
+  assert.equal(utils.getRngState(), uninterruptedCursor);
+
+  // Generated follow-up appeals need their own stable display key too; no
+  // procedural live filing may fall back to the shared "ev" odds key.
+  fresh("daily");
+  utils.setSeed(2051);
+  let generatedAppeal = null;
+  for (let i = 0; i < 500 && !generatedAppeal; i++) {
+    const filing = casegen.genCase();
+    generatedAppeal = filing.opts
+      .flatMap(option => [option.ok?.next?.case, option.fail?.next?.case])
+      .find(Boolean) || null;
+  }
+  assert.ok(generatedAppeal, "the seeded generator should expose at least one follow-up appeal");
+  assert.match(generatedAppeal.id, /^appeal\d+$/);
+
   // Delayed court outcomes remain secret until REPLY. A save/reload preserves
   // the rolled result and RNG cursor; reveal records memory exactly once.
   fresh("daily");
@@ -277,6 +315,7 @@ globalThis.clearInterval = () => {};
   assert.equal(state.S.judgeMemory[delayedJudgeId].seen, 2);
   assert.ok(state.S.judgeMemory[delayedJudgeId][hiddenResult ? "technicalW" : "technicalL"] >= 1);
   const delayedArchive = state.S.archive.find(entry => entry.via === "delayed reply");
+  assert.equal(delayedArchive.id, resumedDelayed.id);
   assert.match(delayedArchive.judgeMemory, /FIRST APPEARANCE/);
   engine.saveGame();
   engine.loadGame(1);
@@ -373,20 +412,63 @@ globalThis.clearInterval = () => {};
     otHours: 0,
     otToday: 0,
     fatigue: 0,
-    event: { id: "overtime" },
+    event: null,
     summary: null,
     leaving: false,
   });
-  engine.resolveCrisis({ ot: true });
+  const overtimePrompt = () => {
+    const option = { text: "Overtime", base: 100, safe: true, ot: true, ok: { fx: {}, txt: "" } };
+    state.S.event = { id: "overtime", title: "QUITTING TIME", body: "test", opts: [option] };
+    return option;
+  };
+  const firstOvertime = overtimePrompt();
+  engine.resolveCrisis(firstOvertime);
   assert.deepEqual([state.S.hours, state.S.otHours, state.S.otToday, state.S.fatigue], [2, 2, 1, 12]);
-  Object.assign(state.S, { hours: 0, event: { id: "overtime" } });
-  engine.resolveCrisis({ ot: true });
+  const afterFirstOvertime = [state.S.hours, state.S.otHours, state.S.otToday, state.S.fatigue, state.S.logEntries.length];
+  engine.resolveCrisis(firstOvertime);
+  assert.deepEqual([state.S.hours, state.S.otHours, state.S.otToday, state.S.fatigue, state.S.logEntries.length], afterFirstOvertime,
+    "a stale overtime double-click must do nothing");
+  state.S.hours = 0;
+  engine.resolveCrisis(overtimePrompt());
   assert.deepEqual([state.S.hours, state.S.otHours, state.S.otToday, state.S.fatigue], [2, 4, 2, 30]);
-  Object.assign(state.S, { hours: 0, event: { id: "overtime" } });
-  engine.resolveCrisis({ ot: true });
+  state.S.hours = 0;
+  engine.resolveCrisis(overtimePrompt());
   assert.deepEqual([state.S.hours, state.S.otHours, state.S.otToday, state.S.fatigue], [0, 4, 2, 30]);
   assert.equal(state.S.event.id, "overtime");
   assert.equal(state.S.event.opts.some(option => option.ot), false);
+
+  // Generic event choices are idempotent too: a stale second click cannot
+  // award the outcome or consume another deterministic roll.
+  fresh("daily");
+  const oneShot = { text: "One shot", base: 100, safe: true, ok: { fx: { money: 100 }, txt: "paid" } };
+  state.S.event = { id: "one_shot", title: "ONE SHOT", body: "test", opts: [oneShot] };
+  utils.setSeed(4141);
+  engine.resolveCrisis(oneShot);
+  const afterOneShot = {
+    money: state.S.money, cursor: utils.getRngState(), logs: state.S.logEntries.length,
+    resolved: state.S.today.resolved,
+  };
+  engine.resolveCrisis(oneShot);
+  assert.deepEqual({
+    money: state.S.money, cursor: utils.getRngState(), logs: state.S.logEntries.length,
+    resolved: state.S.today.resolved,
+  }, afterOneShot);
+
+  // At 80 FATIGUE the per-hour hazard is 30%: a two-hour overtime block must
+  // use the compounded 51% risk, not a single-hour 30% roll.
+  let compoundedSeed = null;
+  for (let seed = 1; seed < 1000 && compoundedSeed == null; seed++) {
+    utils.setSeed(seed);
+    const roll = utils.rand();
+    if (roll >= .30 && roll < .51) compoundedSeed = seed;
+  }
+  assert.notEqual(compoundedSeed, null);
+  fresh("daily");
+  Object.assign(state.S, { hours: 0, fatigue: 68, rep: 80, inbox: [], objective: null, debtDue: null, event: null });
+  const riskyOvertime = overtimePrompt();
+  utils.setSeed(compoundedSeed);
+  engine.resolveCrisis(riskyOvertime);
+  assert.equal(state.S.summary?.action, "nextDay", "two-hour compounded risk should send this seeded run home");
 
   // Reload derives the correct prompt from persisted clock state, including old saves.
   const promptFor = (today, hours) => {
@@ -445,6 +527,20 @@ globalThis.clearInterval = () => {};
   assert.equal(persisted.archive.length, constants.SAVE_ARCHIVE_LIMIT);
   assert.equal(persisted.archiveTotal, 5000);
 
+  // Endless notifications stay bounded without ever deleting a live filing;
+  // older oversized slots are repaired on inspection/load.
+  const liveBeforeMessageCap = state.S.inbox.filter(item => !item.msg);
+  const liveIdsBeforeMessageCap = liveBeforeMessageCap.map(item => item.id);
+  state.S.inbox = [
+    ...Array.from({ length: constants.INBOX_MESSAGE_LIMIT + 25 }, (_, i) => ({ msg: true, title: `notice ${i}`, body: "old news" })),
+    ...liveBeforeMessageCap,
+  ];
+  assert.equal(engine.saveGame(), true);
+  assert.equal(engine.loadGame(1), true);
+  assert.equal(state.S.inbox.filter(item => item.msg).length, constants.INBOX_MESSAGE_LIMIT);
+  assert.equal(state.S.inbox.filter(item => !item.msg).length, liveBeforeMessageCap.length);
+  assert.deepEqual(state.S.inbox.filter(item => !item.msg).map(item => item.id), liveIdsBeforeMessageCap);
+
   // A schema-less pre-Client-Book save migrates without losing future prospects.
   fresh();
   persisted = JSON.parse(storage.get(saveKey));
@@ -492,10 +588,32 @@ globalThis.clearInterval = () => {};
   const v1Info = engine.inspectSave(2);
   assert.equal(v1Info.status, "ready");
   assert.equal(v1Info.needsUpgrade, true);
-  assert.equal(v1Info.save.schemaVersion, 3);
+  assert.equal(v1Info.save.schemaVersion, constants.SAVE_SCHEMA_VERSION);
   assert.equal(v1Info.save.firmPlanDay, 0);
   assert.equal(v1Info.save.firmGateHintRank, null);
   assert.deepEqual(v1Info.save.judgeMemory, {});
+  const v3Raw = clone(readyBase);
+  v3Raw.schemaVersion = 3;
+  delete v3Raw.caseSeq;
+  v3Raw.archive = [{ id: "appeal47", day: 1, title: "old appeal", play: "filed", win: true }];
+  v3Raw.archiveTotal = 1;
+  v3Raw.inbox = [{ ...template(), id: "gen42", dueDay: 3 }];
+  const idlessLegacyAppeal = template();
+  delete idlessLegacyAppeal.id;
+  idlessLegacyAppeal.title = "APPEAL: legacy generated filing";
+  v3Raw.inbox[0].opts[0].ok.next = { after: 2, case: idlessLegacyAppeal };
+  storage.set(`${constants.SAVE_KEY}_s2`, JSON.stringify(v3Raw));
+  const v3Info = engine.inspectSave(2);
+  assert.equal(v3Info.status, "ready");
+  assert.equal(v3Info.needsUpgrade, true);
+  assert.equal(v3Info.save.caseSeq, 48);
+  assert.equal(v3Info.save.inbox[0].opts[0].ok.next.case.id, "appeal48");
+  assert.equal(engine.loadGame(2), true);
+  assert.equal(state.S.caseSeq, 48);
+  const filingAfterMigration = casegen.genCase();
+  assert.match(filingAfterMigration.id, /^gen\d+$/);
+  assert.ok(Number(filingAfterMigration.id.slice(3)) > 48, "nested follow-ups may reserve IDs before the root filing");
+  assert.equal(Number(filingAfterMigration.id.slice(3)), state.S.caseSeq);
   const legacyJudge = clone(content.JUDGES[0]);
   delete legacyJudge.id;
   delete legacyJudge.memoryGood;
@@ -510,7 +628,7 @@ globalThis.clearInterval = () => {};
   const v2Info = engine.inspectSave(2);
   assert.equal(v2Info.status, "ready");
   assert.equal(v2Info.needsUpgrade, true);
-  assert.equal(v2Info.save.schemaVersion, 3);
+  assert.equal(v2Info.save.schemaVersion, constants.SAVE_SCHEMA_VERSION);
   assert.deepEqual(v2Info.save.judgeMemory, {});
   assert.equal(engine.judgeId(v2Info.save.inbox[0].judge), "ironwood", "legacy judge names resolve to stable ids");
   assert.equal(v2Info.save.inbox[0].judge.book, content.JUDGES[0].book);
@@ -550,6 +668,7 @@ globalThis.clearInterval = () => {};
   sentinelCourt.judge = true;
   const badPendingSnapshot = { ...template(), tier: 2, judge: clone(content.JUDGES[0]), dueDay: 3 };
   badPendingSnapshot.pending = { day: 2, win: true, o: clone(badPendingSnapshot.opts[0]), judgeMemorySnapshot: 7 };
+  const missingDueDay = template();
   const invalidRaws = [
     { raw: "{", status: "corrupt" },
     { raw: "", status: "corrupt" },
@@ -564,6 +683,15 @@ globalThis.clearInterval = () => {};
     { raw: JSON.stringify({ ...clone(readyBase), archiveTotal: -1 }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), firmPlanDay: -1 }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), firmGateHintRank: 4 }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), caseSeq: -1 }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), caseSeq: Number.MAX_SAFE_INTEGER }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), caseSeq: Number.MAX_SAFE_INTEGER + 1 }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), caseSeq: 4,
+      inbox: [{ ...template(), id: "gen5", dueDay: 3 }] }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), caseSeq: 4,
+      archive: [{ id: "gen5", day: 1, title: "old", play: "filed", win: true }] }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), inbox: [{ ...template(), dueDay: 3,
+      delegated: { npc: "dana", day: 2, win: false, silent: "yes" } }] }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), judgeMemory: { stranger: validMemoryRecord } }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), judgeMemory: { ironwood: { ...validMemoryRecord, aggressiveW: -1 } } }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), judgeMemory: { ironwood: { ...validMemoryRecord, seen: 1.5 } } }), status: "invalid" },
@@ -575,6 +703,8 @@ globalThis.clearInterval = () => {};
     { raw: JSON.stringify({ ...clone(readyBase), money: {} }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), inbox: {} }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), inbox: [{ title: "BAD", body: "bad", opts: [null] }] }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), inbox: [{ ...template(), id: "", dueDay: 3 }] }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), inbox: [missingDueDay] }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), roster: [null] }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), bigCase: "damaged" }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), runStats: { ...clone(readyBase.runStats), safe: "many" } }), status: "invalid" },
@@ -768,7 +898,7 @@ globalThis.clearInterval = () => {};
 
   // Load reconciliation removes orphan A while preserving the valid active B carrier.
   fresh();
-  const bStage1 = engine.buildBigMatter("Guccy");
+  const bStage1 = engine.instantiateCase(engine.buildBigMatter("Guccy"));
   Object.assign(state.S, {
     clients: [{ name: "Guccy", fee: 250 }],
     bigCase: { client: "Guccy", stage: 1 },
@@ -906,6 +1036,29 @@ globalThis.clearInterval = () => {};
   certainTurnaroundIncident({ rank: 0, inf: 0 });
   certainTurnaroundIncident({ rank: 1, inf: 60 });
 
+  // A confirmed late filing can overshoot the remaining clock. If exhaustion
+  // sends the player home before checkClock(), the persisted checkpoint still
+  // clamps to 0h instead of storing an unloadable negative clock.
+  fresh();
+  Object.assign(state.S, {
+    hours: 1, fatigue: 94, rep: 80, inbox: [], objective: null,
+    debtDue: null, event: null, summary: null,
+  });
+  const lateExhaustion = engine.instantiateCase(template());
+  const lateSafe = lateExhaustion.opts.find(option => option.safe);
+  state.S.inbox = [lateExhaustion];
+  timeoutQueue = [];
+  engine.choose(lateExhaustion, lateSafe);
+  assert.equal(state.S.event?.id, "latework");
+  assert.equal(state.S.pendingChoice?.c, lateExhaustion);
+  engine.resolveCrisis(state.S.event.opts.find(option => option.lateGo));
+  assert.equal(state.S.hours, 0);
+  assert.equal(state.S.pendingChoice, null);
+  assert.equal(state.S.pendingSummary?.action, "nextDay");
+  assert.equal(engine.inspectSave(1).status, "ready");
+  while (timeoutQueue.length) timeoutQueue.shift()();
+  timeoutQueue = null;
+
   fresh();
   Object.assign(state.S, { hours: 1, fatigue: 99, money: 0, inbox: [], objective: null, debtDue: null });
   const exhaustingChore = {
@@ -935,6 +1088,137 @@ globalThis.clearInterval = () => {};
   assert.equal(delegatedFirmResult(true), 61);
   assert.equal(delegatedFirmResult(false), 59);
   assert.equal(delegatedFirmResult(false, true), 60);
+
+  // Delegated outcomes close a file on the morning they are revealed. A real
+  // win/fail advances the daily close objective exactly once; a Lazy silent
+  // return remains unresolved when its original deadline is still alive.
+  const delegatedResolvedCount = (win, silent = false, dueDay = 3) => {
+    fresh();
+    Object.assign(state.S, { inbox: [], objective: null, debtDue: null, event: null, hours: 8, nemesis: null });
+    const delegatedCase = engine.instantiateCase(template());
+    delegatedCase.dueDay = dueDay;
+    delegatedCase.delegated = { npc: state.S.npcs[0].id, day: 2, win, silent };
+    state.S.inbox = [delegatedCase];
+    engine.endDay();
+    engine.dismissSummary();
+    return {
+      resolved: state.S.today.resolved,
+      returned: state.S.inbox.includes(delegatedCase),
+      inbox: state.S.inbox,
+      archive: state.S.archive,
+    };
+  };
+  assert.equal(delegatedResolvedCount(true).resolved, 1);
+  assert.equal(delegatedResolvedCount(false).resolved, 1);
+  const returnedDelegation = delegatedResolvedCount(false, true);
+  assert.equal(returnedDelegation.resolved, 0);
+  assert.equal(returnedDelegation.returned, true, JSON.stringify(returnedDelegation.inbox.map(c => ({ title: c.title, due: c.dueDay, delegated: c.delegated }))));
+
+  fresh();
+  Object.assign(state.S, { rank: 1, inbox: [], hours: 8 });
+  const staleDelegateTarget = engine.instantiateCase(template());
+  state.S.inbox = [staleDelegateTarget];
+  const beforeStaleDelegate = JSON.stringify({
+    hours: state.S.hours, delegated: staleDelegateTarget.delegated,
+    today: state.S.today, logs: state.S.logEntries,
+  });
+  engine.delegateCase(staleDelegateTarget, "already-fired");
+  assert.equal(JSON.stringify({
+    hours: state.S.hours, delegated: staleDelegateTarget.delegated,
+    today: state.S.today, logs: state.S.logEntries,
+  }), beforeStaleDelegate, "a stale colleague id must be a strict no-op");
+
+  // Handing a file away on its due date cannot manufacture a free extra day:
+  // a Lazy silent failure burns it during the next-morning reveal.
+  fresh();
+  Object.assign(state.S, { inbox: [], objective: null, debtDue: null, event: null, hours: 8, rep: 60 });
+  const deadlineDelegation = engine.instantiateCase(template());
+  deadlineDelegation.dueDay = state.S.day;
+  deadlineDelegation.delegated = { npc: state.S.npcs[0].id, day: 2, win: false, silent: true };
+  state.S.inbox = [deadlineDelegation];
+  engine.endDay();
+  engine.dismissSummary();
+  assert.equal(state.S.inbox.includes(deadlineDelegation), false);
+  assert.equal(state.S.runStats.miss, 1);
+  assert.equal(state.S.weekMissed, 1);
+  assert.equal(state.S.archive[0].via, "deadline missed");
+
+  // Older repaired saves may still point at a colleague who no longer exists.
+  // That fallback follows the same deadline rule instead of reviving the file.
+  fresh();
+  Object.assign(state.S, { inbox: [], objective: null, debtDue: null, event: null, hours: 8, rep: 60 });
+  const orphanedDelegation = engine.instantiateCase(template());
+  orphanedDelegation.dueDay = state.S.day;
+  orphanedDelegation.delegated = { npc: "already-fired", day: 2, win: false, silent: true };
+  state.S.inbox = [orphanedDelegation];
+  engine.endDay();
+  engine.dismissSummary();
+  assert.equal(state.S.inbox.includes(orphanedDelegation), false);
+  assert.equal(state.S.runStats.miss, 1);
+  assert.equal(state.S.archive[0].via, "deadline missed");
+
+  // Two morning replies may jointly cross the ENDLESS finish line. Both must
+  // resolve before the one promotion check, while payroll/crises stay paused
+  // behind the Name Partner modal.
+  fresh("endless");
+  Object.assign(state.S, {
+    day: 5, rank: 3, inf: 88, firm: 50, inbox: [], objective: null, debtDue: null,
+    event: null, hours: 8, clients: [], weekStart: { inf: 88, rep: state.S.rep }, weekMissed: 0,
+  });
+  const morningReply = engine.instantiateCase(template());
+  const morningOption = {
+    text: "Morning reply", base: 100, safe: true,
+    ok: { fx: { inf: 6 }, txt: "landed" }, fail: { fx: {}, txt: "failed" },
+  };
+  morningReply.pending = { day: 6, win: true, o: morningOption, judgeMemorySnapshot: "" };
+  const morningDelegation = engine.instantiateCase(template());
+  morningDelegation.delegated = { npc: state.S.npcs[0].id, day: 6, win: true, silent: false };
+  state.S.inbox = [morningReply, morningDelegation];
+  engine.endDay();
+  engine.dismissSummary();
+  assert.equal(state.S.rank, 4);
+  assert.equal(state.S.endlessWon, true);
+  assert.match(state.S.summary.title, /YOU MADE NAME PARTNER/);
+  assert.equal(state.S.day, 6);
+  assert.equal(state.S.archive.filter(a => a.via === "delayed reply" || a.via === "delegated").length, 2);
+  assert.ok(Array.isArray(state.S.roster), "the Name Partner roster must exist before the modal opens");
+  assert.equal(state.S.event, null);
+
+  // A partnership already below the collapse floor cannot be recorded as an
+  // ENDLESS win one instruction before it fails.
+  const statsBeforeCollapsedPromotion = engine.getStats() || { runs: 0, wins: 0, causes: {} };
+  fresh("endless");
+  Object.assign(state.S, {
+    rank: 3, inf: 97, firm: constants.FIRM_COLLAPSE - 1, inbox: [],
+    objective: null, debtDue: null, event: null, hours: 8,
+  });
+  engine.endDay();
+  engine.dismissSummary();
+  const statsAfterCollapsedPromotion = engine.getStats();
+  assert.equal(state.S.over, true);
+  assert.equal(state.S.endlessWon, false);
+  assert.match(state.S.summary.title, /FIRM COLLAPSE/);
+  assert.equal(statsAfterCollapsedPromotion.wins, statsBeforeCollapsedPromotion.wins);
+  assert.equal(statsAfterCollapsedPromotion.runs, statsBeforeCollapsedPromotion.runs + 1);
+
+  // ENDLESS records the win once, then keeps extending longest-career stats
+  // when the eventual collapse happens days later.
+  fresh("endless");
+  Object.assign(state.S, { rank: 3, inf: 95, firm: 50, day: 7 });
+  drivePromotion();
+  const statsAtEndlessWin = engine.getStats();
+  assert.equal(state.S.endlessWon, true);
+  state.S.summary = null;
+  const finalEndlessDay = statsAtEndlessWin.bestDay + 7;
+  state.S.day = finalEndlessDay;
+  const causesAtEndlessWin = clone(statsAtEndlessWin.causes);
+  engine.apply({ firm: -100 });
+  const statsAtEndlessFall = engine.getStats();
+  assert.equal(state.S.over, true);
+  assert.equal(statsAtEndlessFall.runs, statsAtEndlessWin.runs);
+  assert.equal(statsAtEndlessFall.wins, statsAtEndlessWin.wins);
+  assert.equal(statsAtEndlessFall.bestDay, finalEndlessDay);
+  assert.deepEqual(statsAtEndlessFall.causes, causesAtEndlessWin);
 
   // A morning resolver that ends an ENDLESS run must short-circuit the rest of
   // advanceDay: no fresh files, favors, events or later resolver side effects.
@@ -1024,7 +1308,7 @@ globalThis.clearInterval = () => {};
     }
   }
 
-  console.log("v1.9.5–v1.9.8 checks passed: balance, strict saves, FIRM, judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
+  console.log("v1.9.5–v1.9.9 checks passed: balance, strict saves, procedural IDs, long-run integrity, FIRM, judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;

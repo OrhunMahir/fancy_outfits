@@ -7,7 +7,7 @@ import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DELEGATE_CAP, DAY_HOURS, TIER_HOU
          FATIGUE_REST, SAFE_HOURS_MULT, TECH_HOURS_MULT, TECH_INF_MULT, AGG_INF_MULT,
          COFFEE_RELIEF, COFFEE_FALLOFF, COFFEE_LIMIT, FATIGUE_DANGER, SENTHOME_REP, SENTHOME_INF,
          REP_FIRED, DEADLINE_PENALTY,
-         STAKE_REWARD, STAKE_PENALTY, PRICES, DECOR, SAVE_SCHEMA_VERSION, SAVE_LOG_LIMIT, SAVE_ARCHIVE_LIMIT, SAVE_KEY, STATS_KEY,
+         STAKE_REWARD, STAKE_PENALTY, PRICES, DECOR, SAVE_SCHEMA_VERSION, SAVE_LOG_LIMIT, SAVE_ARCHIVE_LIMIT, INBOX_MESSAGE_LIMIT, SAVE_KEY, STATS_KEY,
          WEEK_LEN, REVIEW_GOOD, REVIEW_BAD, BUYIN_COST, FIRM_COLLAPSE,
          FIRM_CRITICAL, FIRM_STABLE, FIRM_THRIVING, FIRM_RANK_REQ,
          FIRM_PLAN_GAIN, FIRM_PLAN_HOURS, FIRM_PLAN_FATIGUE, FIRM_PLAN_COOLDOWN,
@@ -269,7 +269,7 @@ export function objectiveInfo(){
 /* ---------- case archive: every resolved file, what you played, how it went ---------- */
 function archiveCase(c,play,win,note,via,judgeMemorySnapshot){
   S.archiveTotal=(S.archiveTotal||S.archive.length)+1;
-  S.archive.unshift({day:S.day, title:c.title, play, win, note:note||"", via:via||"",
+  S.archive.unshift({id:c.id||"", day:S.day, title:c.title, play, win, note:note||"", via:via||"",
     body:c.body||"", judge:c.judge?c.judge.name:"",
     judgeMemory:c.judge&&play!=="(deadline missed)"?
       (typeof judgeMemorySnapshot==="string"?judgeMemorySnapshot:judgeMemoryArchiveText(c)):""}); // snapshot at hearing; later appearances cannot rewrite history
@@ -331,7 +331,7 @@ export const optHours=(c,o)=>{
   return Math.max(0.5,Math.round((hoursFor(c)*m-dual)*4)/4);
 };
 function spendHours(h,f){
-  S.hours=Math.round((S.hours-h)*4)/4;
+  S.hours=Math.max(0,Math.round((S.hours-h)*4)/4); // late work may overshoot; persisted clock state never goes negative
   if(f) S.fatigue=clamp(S.fatigue+f,0,100);
 }
 /* exhaustion hazard: past FATIGUE_DANGER every worked hour risks a clumsy
@@ -716,9 +716,16 @@ function advanceDay(){
     resolveDelegated(c);
     if(S.over) return;
   }
+  // Morning replies land together; promote once after all of them so an
+  // ENDLESS Name Partner summary cannot be overwritten by a later resolver.
+  checkPromotion();
+  if(S.over) return;
   spawnFollowups();
   S.coffeeToday=0; // the espresso counter forgives overnight
   drawCases(3+(rand()<.4?1:0)+(S.rank>=2&&rand()<.4?1:0)); // v1.6: the inbox does not respect you
+  if(S.summary){ // promotion morning: leave a playable desk, skip payroll/events behind the modal
+    sitDown(); saveGame(); return;
+  }
   if(rand()<.35&&!S.inbox.some(c=>c.favor)) spawnFavor();
   if(rand()<.18) marvMoment();
   rosterTick();
@@ -781,36 +788,52 @@ function resolveDelayed(c){
     if((c.tier||0)>=1) apply({firm:-1},true);
     maybeLoseClientOnFail(); doShake(); nemesisGain(3,true); }
   if(out.next) queueFollowup(out.next);
-  checkPromotion();
 }
 
 /* a delegated case comes back the next morning — their traits + your
    relationship decided the outcome the moment you handed it over */
+function burnDelegatedDeadline(c,handler){
+  if(!(c.dueDay<S.day)) return false;
+  S.weekMissed++; S.runStats.miss++;
+  pushMsg("DEADLINE BURNED: "+c.title,handler+" The file returned after its deadline.");
+  log("DELEGATION ["+c.title+"]: "+handler.toLowerCase()+" — deadline missed.","bad");
+  archiveCase(c,"Delegated (file returned too late)",false,DEADLINE_PENALTY+" REP","deadline missed");
+  apply({rep:DEADLINE_PENALTY,firm:-2},true); nemesisGain(4,true);
+  return true;
+}
 function resolveDelegated(c){
   S.inbox=S.inbox.filter(x=>x!==c);
   const d=c.delegated, n=S.npcs.find(x=>x.id===d.npc);
-  if(!n){ c.delegated=null; S.inbox.push(c); log("A delegated file drifts back — its handler no longer works here.","sys"); return; }
+  if(!n){
+    c.delegated=null;
+    if(!burnDelegatedDeadline(c,"Its handler no longer works here.")){
+      S.inbox.push(c); log("A delegated file drifts back — its handler no longer works here.","sys");
+    }
+    return;
+  }
   n.known=true;
   if(d.win){
-    SFX.win(); relNpc(n,6); S.today.wins++;
+    SFX.win(); relNpc(n,6); S.today.resolved++; S.today.wins++;
     pushMsg("DELEGATED: "+c.title, n.name+" "+rnd(DELEGATE_WIN_TXT));
     log("DELEGATION ["+c.title+"]: "+n.name+" delivered.","good");
     archiveCase(c,"Delegated to "+n.name,true,"handled it","delegated");
     apply({rep:2,inf:Math.max(1,Math.round((3+(c.tier||0)*2)*INF_EARN)),money:(c.tier||0)*300,
       firm:(c.tier||0)>=1?1:0}); // delegated glory is damped like all INF; real matters also move FIRM
   } else if(d.silent){
-    relNpc(n,-3); c.delegated=null; S.inbox.push(c); // the file just... reappears
-    pushMsg("RETURNED: "+c.title, n.name+" 'never got around to it'. The file is back on YOUR desk, deadline intact.");
-    log("DELEGATION ["+c.title+"]: silently dropped by "+n.name+".","bad");
+    relNpc(n,-3); c.delegated=null;
+    if(!burnDelegatedDeadline(c,n.name+" 'never got around to it'.")){ // no free extension on the due date
+      S.inbox.push(c); // enough time remains; the file really does come back
+      pushMsg("RETURNED: "+c.title,n.name+" 'never got around to it'. The file is back on YOUR desk, deadline intact.");
+      log("DELEGATION ["+c.title+"]: silently dropped by "+n.name+".","bad");
+    }
   } else {
-    SFX.lose(); relNpc(n,-5);
+    SFX.lose(); relNpc(n,-5); S.today.resolved++;
     const traitorTax=n.trait==="Traitor"?4:0;
     pushMsg("DELEGATED: "+c.title, n.name+" "+rnd(DELEGATE_FAIL_TXT)+(traitorTax?" Somehow the whole floor knows it was YOUR case.":""));
     log("DELEGATION ["+c.title+"]: "+n.name+" failed it.","bad");
     archiveCase(c,"Delegated to "+n.name,false,"botched it","delegated");
     apply({rep:-4-traitorTax,firm:(c.tier||0)>=1?-1:0}); nemesisGain(3,true);
   }
-  checkPromotion();
 }
 
 /* Marv, the copy-room oracle. His generosity tracks your bribe history. */
@@ -831,7 +854,14 @@ function marvMoment(){
     "Marv 'loses' the copy-log page with your name on it. Officially, you owe him nothing."
   ]));
 }
-function pushMsg(title,txt){ S.inbox.unshift({msg:true,title,body:txt}); }
+function boundInboxMessages(inbox){
+  let messages=0;
+  return inbox.filter(item=>!item.msg||++messages<=INBOX_MESSAGE_LIMIT);
+}
+function pushMsg(title,txt){
+  S.inbox.unshift({msg:true,title,body:txt});
+  S.inbox=boundInboxMessages(S.inbox); // endless careers otherwise accumulate hundreds of permanent DOM/save rows
+}
 
 /* choose option on open case. NOTE: for delayed options the die is rolled NOW,
    the outcome is only revealed later by resolveDelayed (CLAUDE.md §5). */
@@ -1060,6 +1090,7 @@ export function delegateCase(c,npcId){
   if((S.rank<1&&S.scenario!=="boomerang")||c.judge||c.msg||c.pending||c.delegated||c.favor||c.big) return; // no delegating YOUR client's war
   if(S.today.delegated>=DELEGATE_CAP){ log("The floor has limits: nobody takes a third handoff from the same desk in one day.","sys"); notify(); return; }
   const n=S.npcs.find(x=>x.id===npcId);
+  if(!n) return; // stale UI/save references must never dereference a fired or forged colleague
   SFX.send();
   const win=rand()*100<delegationChance(n);
   c.delegated={npc:n.id, day:S.day+1, win, silent:n.trait==="Lazy"&&!win&&rand()<.65};
@@ -1076,6 +1107,7 @@ export function delegateCase(c,npcId){
 
 /* resolve a crisis option (event overlay button) */
 export function resolveCrisis(o){
+  if(!S||!S.event||!o||!Array.isArray(S.event.opts)||!S.event.opts.includes(o)) return; // stale/double clicks resolve nothing twice
   SFX.click();
   // the quitting-time prompt: go home or push into overtime
   // late-work confirmation: resume or abandon the pending play
@@ -1092,7 +1124,7 @@ export function resolveCrisis(o){
     S.hours+=OVERTIME_HOURS; S.otHours+=OVERTIME_HOURS; S.otToday++;
     S.fatigue=clamp(S.fatigue+fatigue,0,100);
     log("Overtime block "+S.otToday+"/"+OVERTIME_LIMIT+". The building empties around you. (+"+OVERTIME_HOURS+"h, +"+fatigue+" FATIGUE)","sys");
-    if(fatigueCheck(1)) return; // your body may veto the overtime you just chose
+    if(fatigueCheck(OVERTIME_HOURS)) return; // every hour in the block contributes to the exhaustion hazard
     saveGame(); notify(); return;
   }
   const ev=S.event, p=chance(o,ev);
@@ -1140,6 +1172,10 @@ function checkPromotion(){
       if(!S.buyinHinted){ S.buyinHinted=true; SFX.bell();
         log("The Senior Partnership is yours — once you buy in. ($"+BUYIN_COST+", see EXPENSES.)","sys"); }
       break;
+    }
+    if(S.rank===3&&S.mode==="endless"&&S.firm<FIRM_COLLAPSE){
+      gameOver("FIRM COLLAPSE","The partnership offers you the nameplate and the insolvency in the same envelope. There is no firm left to inherit.");
+      return;
     }
     S.rank++; S.firmGateHintRank=null;
     if(S.rank===4){ gameWin(); return; }
@@ -1346,7 +1382,7 @@ function validOption(o,depth){
   return !!o.safe||o.base>=100||validOutcome(o.fail,depth);
 }
 function validCase(c,depth=0){
-  return depth<=8&&plain(c)&&typeof c.title==="string"&&typeof c.body==="string"&&validJudge(c.judge)&&
+  return depth<=8&&plain(c)&&typeof c.id==="string"&&c.id.length>0&&typeof c.title==="string"&&typeof c.body==="string"&&validJudge(c.judge)&&
     Array.isArray(c.opts)&&c.opts.length>0&&validBig(c.big)&&c.opts.every(o=>validOption(o,depth))&&
     (!c.big||c.opts.every(o=>o.delay==null)); // delayed Client War resolution has no lifecycle bookkeeping
 }
@@ -1370,12 +1406,55 @@ function canonicalizeSaveJudges(d){
   if(plain(d.event)&&Array.isArray(d.event.opts)) for(const o of d.event.opts)
     for(const result of [o&&o.ok,o&&o.fail]) if(plain(result)&&plain(result.next)) canonicalizeCaseJudges(result.next.case,1);
 }
+function highestCaseSequence(d){
+  let highest=0;
+  const visit=(c,depth=0)=>{
+    if(!plain(c)||depth>8) return;
+    const match=typeof c.id==="string"&&c.id.match(/^(?:gen|appeal|big[123]_|suit)(\d+)$/);
+    if(match) highest=Math.max(highest,Number(match[1])||0);
+    const visitOption=o=>{
+      if(!plain(o)) return;
+      for(const result of [o.ok,o.fail]) if(plain(result)&&plain(result.next)) visit(result.next.case,depth+1);
+    };
+    if(Array.isArray(c.opts)) c.opts.forEach(visitOption);
+    if(plain(c.pending)) visitOption(c.pending.o);
+  };
+  for(const key of ["inbox","pool","archive"]) if(Array.isArray(d[key])) d[key].forEach(c=>visit(c));
+  if(Array.isArray(d.followups)) d.followups.forEach(f=>visit(f&&f.case));
+  if(plain(d.event)&&Array.isArray(d.event.opts)) for(const o of d.event.opts)
+    for(const result of [o&&o.ok,o&&o.fail]) if(plain(result)&&plain(result.next)) visit(result.next.case,1);
+  return highest;
+}
+const deriveCaseSequence=d=>Math.max(Number.isInteger(d.archiveTotal)?d.archiveTotal:0,highestCaseSequence(d));
+function backfillMissingCaseIds(d){
+  let seq=deriveCaseSequence(d);
+  const visit=(c,depth=0)=>{
+    if(!plain(c)||depth>8) return;
+    if(typeof c.id!=="string"||!c.id){
+      if(seq>=Number.MAX_SAFE_INTEGER) return; // validation below reports an exhausted cursor
+      const prefix=c.big&&Number.isInteger(c.big.stage)?"big"+c.big.stage+"_":
+        c.suit?"suit":/^APPEAL:/.test(c.title||"")?"appeal":"gen";
+      c.id=prefix+(++seq);
+    }
+    const visitOption=o=>{
+      if(!plain(o)) return;
+      for(const result of [o.ok,o.fail]) if(plain(result)&&plain(result.next)) visit(result.next.case,depth+1);
+    };
+    if(Array.isArray(c.opts)) c.opts.forEach(visitOption);
+    if(plain(c.pending)) visitOption(c.pending.o);
+  };
+  for(const key of ["inbox","pool"]) if(Array.isArray(d[key])) d[key].forEach(c=>{ if(!c.msg) visit(c); });
+  if(Array.isArray(d.followups)) d.followups.forEach(f=>visit(f&&f.case));
+  if(plain(d.event)&&Array.isArray(d.event.opts)) for(const o of d.event.opts)
+    for(const result of [o&&o.ok,o&&o.fail]) if(plain(result)&&plain(result.next)) visit(result.next.case,1);
+  d.caseSeq=seq;
+}
 
 class SaveDataError extends Error{ constructor(code,message){ super(message); this.code=code; } }
 const ensureArray=(d,key)=>{ if(d[key]==null) d[key]=[]; };
 const RUN_COUNTER_KEYS=["safe","bluffW","bluffL","techW","techL","bribeTry","bribeW","favorHelp","favorNo","miss","crises","fired"];
 const TODAY_COUNTER_KEYS=["resolved","wins","safeUsed","aggWin","delegated","moneyGained"];
-const nonNegativeInt=v=>Number.isInteger(v)&&v>=0;
+const nonNegativeInt=v=>Number.isSafeInteger(v)&&v>=0;
 const validCounters=(v,keys)=>plain(v)&&keys.every(k=>nonNegativeInt(v[k]));
 const backfillCounters=(v,keys)=>{
   if(v==null) v={};
@@ -1429,7 +1508,13 @@ const migrateV2ToV3=raw=>{
   d.schemaVersion=3;
   return d;
 };
-const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3};
+const migrateV3ToV4=raw=>{
+  const d={...raw};
+  backfillMissingCaseIds(d); // old generated appeals could already be queued without an id
+  d.schemaVersion=4;
+  return d;
+};
+const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4};
 
 const JUDGE_MEMORY_COUNTERS=["seen","aggressiveW","aggressiveL","technicalW","technicalL","bribeW","bribeL","safe","neutralW","neutralL"];
 function validJudgeMemory(memory,day){
@@ -1480,6 +1565,8 @@ function migrateSaveData(raw){
   if(d.firmGateHintRank!==null&&(!Number.isInteger(d.firmGateHintRank)||d.firmGateHintRank<0||d.firmGateHintRank>3))
     throw new SaveDataError("invalid","The saved FIRM promotion hint is invalid.");
   if(!validJudgeMemory(d.judgeMemory,d.day)) throw new SaveDataError("invalid","The saved court history is damaged.");
+  if(!nonNegativeInt(d.caseSeq)||d.caseSeq>=Number.MAX_SAFE_INTEGER||d.caseSeq<highestCaseSequence(d))
+    throw new SaveDataError("invalid","The saved filing sequence is invalid.");
   for(const key of ["suitCost","weekMissed","bigDoneDay","fireHeat","coffeeToday","marvBribes","rivalMoveDay","archiveTotal","seed"])
     if(d[key]!=null&&!Number.isFinite(d[key])) throw new SaveDataError("invalid","The saved "+key+" value is invalid.");
   for(const key of ["weekMissed","bigDoneDay","coffeeToday","marvBribes","rivalMoveDay","archiveTotal"])
@@ -1493,7 +1580,8 @@ function migrateSaveData(raw){
     throw new SaveDataError("invalid","The Daily random cursor is invalid.");
   for(const key of ["inbox","pool","usedCrises","npcs","followups","clients","clientPool","npcStories","firedNames","archive","logEntries"])
     if(!Array.isArray(d[key])) throw new SaveDataError("invalid","The saved "+key+" collection is damaged.");
-  if(d.inbox.some(c=>!plain(c)||typeof c.title!=="string"||(c.msg?typeof c.body!=="string":c.judge===true||!validCase(c))))
+  if(d.inbox.some(c=>!plain(c)||typeof c.title!=="string"||(c.msg?typeof c.body!=="string":
+    c.judge===true||!Number.isFinite(c.dueDay)||!validCase(c))))
     throw new SaveDataError("invalid","An inbox file is damaged.");
   if(d.pool.some(c=>!validCase(c))) throw new SaveDataError("invalid","The case pool is damaged.");
   if(d.followups.some(f=>!plain(f)||!Number.isFinite(f.day)||!validCase(f.case)))
@@ -1506,7 +1594,9 @@ function migrateSaveData(raw){
   if(d.inbox.some(c=>c.pending!=null&&(!plain(c.pending)||!Number.isFinite(c.pending.day)||typeof c.pending.win!=="boolean"||
     (c.pending.judgeMemorySnapshot!=null&&typeof c.pending.judgeMemorySnapshot!=="string")||!validOption(c.pending.o,0))))
     throw new SaveDataError("invalid","A delayed case result is damaged.");
-  if(d.inbox.some(c=>c.delegated!=null&&(!plain(c.delegated)||!Number.isFinite(c.delegated.day)||typeof c.delegated.npc!=="string"||typeof c.delegated.win!=="boolean")))
+  if(d.inbox.some(c=>c.delegated!=null&&(!plain(c.delegated)||!Number.isSafeInteger(c.delegated.day)||c.delegated.day<1||
+    typeof c.delegated.npc!=="string"||typeof c.delegated.win!=="boolean"||
+    (c.delegated.silent!=null&&typeof c.delegated.silent!=="boolean"))))
     throw new SaveDataError("invalid","A delegated case result is damaged.");
   if(d.clients.some(c=>!plain(c)||typeof c.name!=="string"||!Number.isFinite(c.fee)))
     throw new SaveDataError("invalid","The client book is damaged.");
@@ -1534,6 +1624,7 @@ function migrateSaveData(raw){
   if(d.pendingSummary!=null&&!validSummary(d.pendingSummary)) throw new SaveDataError("invalid","The pending day checkpoint is damaged.");
   d.logEntries=d.logEntries.slice(0,SAVE_LOG_LIMIT);
   d.archive=d.archive.slice(0,SAVE_ARCHIVE_LIMIT);
+  d.inbox=boundInboxMessages(d.inbox); // safely repair older endless slots with unbounded notifications
   d.archiveTotal=Math.max(Number(d.archiveTotal)||0,d.archive.length);
   canonicalizeSaveJudges(d);
   return d;
@@ -1682,9 +1773,13 @@ export function getStats(){
   try{ return JSON.parse(localStorage.getItem(STATS_KEY)); }catch(e){ return null; }
 }
 function recordRun(won,cause){
-  if(S.runRecorded) return; S.runRecorded=true; // endless: the win counts once, the eventual fall doesn't double-count
   try{
     const st=getStats()||{runs:0,wins:0,bestDay:0,bestRank:0,causes:{}};
+    if(S.runRecorded){ // ENDLESS already counted the win; still preserve the true final career length
+      st.bestDay=Math.max(st.bestDay,S.day); st.bestRank=Math.max(st.bestRank,S.rank);
+      localStorage.setItem(STATS_KEY,JSON.stringify(st)); return;
+    }
+    S.runRecorded=true; // endless: the win counts once, the eventual fall doesn't double-count
     st.runs++; if(won) st.wins++;
     st.bestDay=Math.max(st.bestDay,S.day); st.bestRank=Math.max(st.bestRank,S.rank);
     if(!won) st.causes[cause]=(st.causes[cause]||0)+1;

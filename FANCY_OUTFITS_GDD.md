@@ -75,3 +75,26 @@ OUT (later): NPC delegation, full relationship web, AI-generated cases, multipla
 
 ## 11. Later: AI-generated cases
 Case files are plain JSON (`title, body, deadline, judge?, options[{text, baseChance, boldnessWeight, effects}]`). An LLM can generate these at runtime from a prompt template; the engine doesn't care where JSON comes from. Multiplayer (shared firm, competing associates) only makes sense after the day-cycle is server-authoritative.
+
+## 12. Verified Balance Baseline (v19.9)
+
+The deterministic career soak is the reference baseline for future tuning. It executes the real
+engine through public player actions, separates policy RNG from game RNG, records source provenance
+and can replay any suspicious seed action-for-action.
+
+- **Coverage:** 3,520 careers across all five scenarios; Standard to 40 days and Endless to 50.
+- **Integrity:** 252/252 extreme or suspicious replays matched; zero invariant failures.
+- **Standard Technical route:** 315/320 wins, median Name Partner on day 10. This is the primary
+  progression problem, but judge memory is not its cause: the +6 Technical memory cap appeared in
+  only 2.5% of Standard Technical hearings.
+- **Endless judge memory:** after day 20, 58.2% of Technical hearings were already at the +6 cap,
+  versus 2.9% at −6. Court memory needs a rolling-window or decay A/B test for long careers.
+- **Endless FIRM:** normal Technical play produced no collapse in 11,039 post-partnership days.
+  Even the destructive FIRM stress policy ended 301/315 post-partnership careers by firing and only
+  six by FIRM collapse, so personal and business fail-state ordering needs an isolated experiment.
+- **Queue health:** no run exceeded backlog 22 and no unbounded-growth signature appeared. Message
+  state is capped at 80 while preserving live filings.
+
+No gameplay balance constant changed while establishing this baseline. Full methodology, policy
+limitations, suspicious seed replays and the proposed A/B roadmap are in
+[`BALANCE_SOAK_REPORT.md`](BALANCE_SOAK_REPORT.md).

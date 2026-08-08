@@ -221,11 +221,20 @@
 - **Save schema v3 + sert doğrulama:** 2→3 migration eksik `judgeMemory:{}` backfill eder; eski ID'siz açık hakim snapshot'ları kalıcı `LEGACY_JUDGE_IDS` isim→ID alias'ıyla çalışır. v3'te yalnız bilinen stabil ID güven kaynağıdır (çakışan isim ID'yi ezemez); isim/stat snapshot'ı güncel `JUDGES` kaydından yeniden kurulur. Memory sayaç/enums/son-stil-tutarlılığı/gün sınırı, option style enumu, canlı `judge:true`, pending/archive memory tipi ve delegated-court sahteciliği doğrulanır.
 - **DAILY/test:** replik, modifier, bilgi render ve memory update RNG cursor tüketmez. `npm test`; kimlik/quote, exact cap, same/other judge, safe, instant/delayed tek-yazım, delayed hearing snapshot'ı, non-empty memory save/reload, immutable archive, legacy ID fallback, malformed save ve aynı DAILY trace'i kapsar.
 
-**Dış denetim notu (Codex, 2026-08-08):** YAPILDI: v1.9.3 çökme/kilit+Windows, v1.9.4 bütünlük, v1.9.5 seçenek/stil/kahve/mesai dengesi, v1.9.6 Client War+save bütünlüğü ve bağımlılık/Electron/CSP güvenliği, v1.9.7 Standard FIRM anlamı + Defector/Boomerang finalleri, v1.9.8 hakim hafızası. KALAN: 30–50 günlük Standard/Endless soak denge testi; mobil geçiş; bağlamsal SFX; yayın/paketleme.
+**v1.9.9 eklendi (2026-08-08, deterministik kariyer soak + uzun-run bütünlüğü):**
+- **Headless kariyer laboratuvarı:** `scripts/soak-balance.mjs` gerçek public engine aksiyonlarını sürer; oyun RNG'si ile politika RNG'si ayrıdır. Beş temel politika + Endless `firm_stress`, provenance/source guard, canonical trace hash ve tek-seed replay modu vardır. `npm run test:soak` küçük, `npm run soak` varsayılan 64-seed matrisi çalıştırır.
+- **Doğrulanmış baseline:** 5 senaryo × Standard(40 gün) + Endless(50 gün), toplam 3.520 kariyer; 252/252 uç/şüpheli replay birebir aynı, 0 invariant ihlali. Technical Standard 315/320 win ve medyan gün 10 ile fazla baskın; pure Aggressive 10/320, exact max-chance 2/320. Normal Endless Technical 11.039 Name Partner sonrası günde 0 FIRM collapse. Detay ve A/B planı `BALANCE_SOAK_REPORT.md` içinde. Bu turda gameplay balance sabitleri DEĞİŞMEDİ.
+- **Save schema v4 / filing kimliği:** `S.caseSeq` prosedürel ID cursor'unu save/reload boyunca taşır; generated dava, nested appeal, Big Matter aşamaları ve lawsuit aynı persistent kaynaktan ID alır. 3→4 migration canlı/nested/archive ID'lerinden güvenli alt sınır türetir; unsafe veya mevcut ID'nin gerisindeki cursor, ID'siz canlı/generated yapı ve eksik `dueDay` reddedilir. Archive artık filing `id` saklar.
+- **Kritik bütünlük fixleri:** latework sonrası saat 0'da clamp (negatif saat save'i yok); sabah tüm delayed/delegated sonuçlarından sonra tek promotion check (Endless NP özet race'i yok); active event option kimliği strict guard (stale/double click yok); expired Lazy/missing-NPC işi yeniden canlanmak yerine deadline miss olur; stale NPC delegation no-op; 2h overtime hazard tam blok bileşiğini kullanır.
+- **Endless terminal/record sırası:** rank 3→4 sırasında FIRM collapse kazanım kaydından önce kontrol edilir. Endless'ın ilk NP kaydı run/win'i bir kez sayar; kariyer daha sonra uzadığında lifetime best day/rank güncellenmeye devam eder.
+- **Bounded inbox:** notification mesajları en yeni `INBOX_MESSAGE_LIMIT(80)` kayıtla sınırlı; canlı davalar ayrı korunur, eski save load sırasında onarılır. 3.520 koşuda maksimum tam 80, taşma 0.
+- **Regresyonlar:** gerçek latework zinciri, dual morning result, low-FIRM false win, lazy/missing deadline burn, procedural ID DAILY reload/migration, malformed schema4, stale event/overtime, message repair, Client War carrier ve Endless record idempotence kalıcı `npm test` kapsamındadır.
 
-**En son çalışılan konu (2026-08-08):** v1.9.8 hakim hafızası tamamlandı; tekrar karşılaşılan hakimler oyuncunun stil/sonuç geçmişini canlı oranlarda ve özel repliklerde hatırlıyor, arşiv duruşma bağlamını sabitliyor, schema v3 eski kayıtları güvenle taşıyor ve DAILY akışı RNG tüketmeden korunuyor. Sıradaki öneri: **30–50 günlük Standard/Endless soak denge testi**; ardından mobil sekmeli layout + Capacitor hazırlığı.
+**Dış denetim notu (Codex, 2026-08-08):** YAPILDI: v1.9.3 çökme/kilit+Windows, v1.9.4 bütünlük, v1.9.5 seçenek/stil/kahve/mesai dengesi, v1.9.6 Client War+save bütünlüğü ve bağımlılık/Electron/CSP güvenliği, v1.9.7 Standard FIRM anlamı + Defector/Boomerang finalleri, v1.9.8 hakim hafızası, v1.9.9 30–50 günlük Standard/Endless soak + şüpheli seed replay + uzun-run bütünlük fixleri. KALAN: kontrollü progression/FIRM/hakim-memory A/B turu; mobil geçiş; bağlamsal SFX; yayın/paketleme.
 
-**Aklında tut (kullanıcı onaylı bekleyenler):** mobil (layout+Capacitor), bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
+**En son çalışılan konu (2026-08-08):** v1.9.9 deterministik soak tamamlandı; 3.520 kariyer ve 252 replay, Technical progression'ın medyan gün 10 ile fazla hızlı olduğunu, Endless hakim hafızasının gün 20 sonrası çoğunlukla +6'da doyduğunu ve FIRM collapse'ın FIRED arkasında kaldığını doğruladı. Bu sırada bulunan save/prosedürel-ID/latework/morning-promotion/delegation/message-growth hataları regresyonlarıyla düzeltildi. Sıradaki öneri: **ölçümlü denge A/B turu** (sabah INF attribution ayrımı + Friday-only promotion / reward dağılımı karşılaştırması + gerçekçi karma aggressive bot); ardından mobil sekmeli layout + Capacitor hazırlığı.
+
+**Aklında tut (kullanıcı onaylı bekleyenler):** ölçümlü denge A/B turu (önce attribution + yeni politikalar, sonra sayı değişikliği), mobil (layout+Capacitor), bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
 
 ---
 
@@ -247,14 +256,19 @@
 fancy-outfits/
 ├── index.html                    ← Vite giriş HTML'i (sadece #root + main.jsx import)
 ├── vite.config.mjs               ← Vite ayarı (react plugin, dev-only CSP dönüşümü, base:'./')
-├── package.json                  ← scripts: dev / build / preview / start(=build+electron)
+├── package.json                  ← scripts: dev/build/test/test:soak/soak/preview/start
 ├── electron/main.js              ← Electron ana süreci: pencere açar, dist/index.html yükler
+├── scripts/
+│   ├── run-v195-check.cjs        ← browser-oriented modülleri Node regresyonu için bundle eder
+│   ├── v195-check.mjs            ← kalıcı engine/save/denge/bütünlük regresyonları
+│   ├── run-soak-balance.cjs      ← headless kariyer simülatörünü geçici bundle'da çalıştırır
+│   └── soak-balance.mjs          ← Standard/Endless matris, politika, metric, replay+provenance
 ├── src/
 │   ├── main.jsx                  ← React mount
 │   ├── App.jsx                   ← layout + overlay'lerin koşullu render'ı
 │   ├── styles.css                ← TÜM CSS (palet :root'ta, scanline, panel, paper, overlay)
 │   ├── game/                     ← OYUN MANTIĞI (React'ten bağımsız saf JS)
-│   │   ├── constants.js          ← RANKS, RANK_REQ, DAY_SECONDS, STAKE_*, PRICES, WEEK_*, SAVE/STATS_KEY
+│   │   ├── constants.js          ← RANKS, RANK_REQ, DAY_HOURS, STAKE_*, PRICES, save schema/limitleri
 │   │   ├── settings.js           ← global tercihler (dayLen/sfx/bgm/shake), run save'inden AYRI
 │   │   ├── state.js              ← S, newState(), store (subscribe/notify), nemesis/runStats
 │   │   ├── engine.js             ← apply(), chance(), akış + nemesis/terfi sahnesi/ledger/ayarlar
@@ -268,7 +282,7 @@ fancy-outfits/
 │   │   └── useGame.js            ← React köprüsü (useSyncExternalStore hook'u)
 │   └── components/               ← UI (her panel/overlay ayrı dosya)
 │       ├── StartScreen.jsx       ← senaryo + zorluk seçimi, CONTINUE, FIRM RECORD
-│       ├── Topbar.jsx            ← logo, rütbe, gün+FRI, saat+bar, SFX/BGM/i/SET/PAUSE/END DAY
+│       ├── Topbar.jsx            ← logo, rütbe, gün+FRI, mesai saati+bar, SFX/BGM/i/SET/GO HOME
 │       ├── OfficeScene.jsx       ← piksel ofis SVG'si + karakter (otur/yürü/terfi sahnesi sceneRank)
 │       ├── Inbox.jsx             ← sol panel (dava/pending/delegated/msg/favor/chain)
 │       ├── CasePane.jsx          ← orta panel (dava + seçenekler + DELEGATE + dedektif + bribe)
@@ -280,6 +294,7 @@ fancy-outfits/
 │       ├── EventOverlay.jsx      ← kriz ekranı (+ Traitor/Brave modifier satırı)
 │       └── SummaryOverlay.jsx    ← gün sonu / cuma review / game over / win + run ledger
 ├── FANCY_OUTFITS_GDD.md          ← Tasarım dokümanı (gelecek özelliklerin speci)
+├── BALANCE_SOAK_REPORT.md        ← v19.9 3.520 kariyer baseline'ı + replay/denge roadmap'i
 ├── README.md                     ← GitHub vitrini + CHANGELOG (her versiyonda güncellenir — §6 kuralı)
 ├── CLAUDE.md                     ← Bu dosya
 ├── .gitignore                    ← node_modules/, dist/
@@ -293,14 +308,14 @@ fancy-outfits/
 
 # 5. Architecture Explanation
 
-**State:** Tek mutable obje `S` (`src/game/state.js`, modül-scope, oyun başlayana dek `null`). `newState(scenario)` üretir. Alanlar:
-`scenario, day, secs, rank, rep, bold, inf, money, debtDue, inbox[], pool[], usedCrises[], openCase, dailyLog[], logEntries[], over` + UI alanları `infoOpen, event, summary, flash`.
-(Eski `timer` alanı engine'de modül değişkeni oldu; eski `paused` bayrağı KALDIRILDI — pause türetiliyor, aşağıda.)
+**State:** Tek mutable obje `S` (`src/game/state.js`, modül-scope, oyun başlayana dek `null`). `newState(scenario)` üretir. Başlıca alanlar:
+`scenario, mode, day, hours, fatigue, rank, rep, bold, inf, firm, money, debtDue, inbox[], pool[], followups[], clients[], npcs[], judgeMemory{}, caseSeq, archive[], logEntries[], over` + UI alanları `openCase, event, summary, pendingSummary, flash`.
+Save'e girmemesi gereken animasyon/overlay pointer'ları whitelist hydrate yaklaşımıyla soyulur; `caseSeq` ve DAILY `rngState` ise devamlılık için persist edilir.
 
 **Data flow (tek yön):**
 ```
 Kullanıcı tıklar → component, engine fonksiyonunu çağırır (choose/resolveCrisis/...)
-  → chance(o,c) ile % hesaplanır → Math.random() zarı
+  → chance(o,c) ile % hesaplanır → utils.rand() zarı
   → apply(fx) → S mutasyonu + log() + checkEndings()
   → checkPromotion() → notify() → useGame() abonesi tüm componentleri yeniden render eder
 ```
@@ -310,15 +325,16 @@ Kullanıcı tıklar → component, engine fonksiyonunu çağırır (choose/resol
 - Her S mutasyonundan sonra `notify()` çağrılır (eski `renderX()` çağrılarının karşılığı). Engine dışında S mutasyona uğratılmaz; componentler sadece okur.
 - XSS/escape: JSX zaten kaçış yapıyor, eski `esc()` kaldırıldı. `dangerouslySetInnerHTML` KULLANMA.
 
-**Pause (türetilmiş):** `isPaused()` = `S.infoOpen || S.event || S.summary`. Herhangi bir overlay açıkken sayaç durur; ayrı bir bayrak tutulmaz. (Eski "info paneli özet ekranının pause'unu bozuyor" bug'ı bu tasarımla ortadan kalktı.)
+**UI gating (türetilmiş):** `isPaused()` overlay/summary açıkken alttaki masa aksiyonlarını kapatır. Gerçek-zamanlı sayaç ve PAUSE butonu v1.5'te kaldırıldı; okuma bedava, yalnız iş yapmak `S.hours` tüketir.
 
-**Zaman/event sistemi:** `setInterval` (1 sn, engine'de) → `S.secs--` + `notify()`. Gün sonu `endDay()`:
-deadline kontrolü → özet (`S.summary`) → [devam butonuna basınca `dismissSummary()` → cb] gün +1, REP −1, delayed case'ler `resolveDelayed()`, `drawCases(1-2)`, %50 disrespect mesajı (REP<30 ise), %60 kriz (`S.event`).
+**Zaman/event sistemi:** gün 09:00→17:00 varsayılan 8 saatlik aksiyon bütçesidir. `optHours()` safe/technical/aggressive yaklaşım maliyetini hesaplar; `spendHours()` saati 0'da clamp eder ve fatigue ekler. Saat biterse `checkClock()` eve git/overtime event'i açar. `endDay()` deadline, objective, Friday review, debt, gece decay ve özeti checkpoint eder; `advanceDay()` ertesi sabah delayed/delegated sonuçlarını topluca çözer, tek promotion check yapar, follow-up ve yeni dosyaları doğurur, sonra roster/rival/event tick'lerini işletir.
 
-**Inbox item 3 tipte olabilir** (aynı dizide, flag'le ayrılır):
+**Inbox item tipleri** aynı dizide flag'lerle ayrılır:
 1. normal dava (tıklanır, `openCase` olur),
 2. `pending`'li dava (cevap bekliyor, tıklanamaz),
-3. `msg:true` (salt bilgi kartı, REPLY'lar ve disrespect mesajları).
+3. `delegated` dosya (sabah sonucu bekler),
+4. `favor`, `chain` veya `big` özel filing,
+5. `msg:true` salt bilgi kartı (en yeni 80 bildirim; canlı filing'ler bu sınırdan etkilenmez).
 
 **Delayed response tasarımı (önemli):** Zar SEÇİM ANINDA atılır (`c.pending={day, win, o}`), sonuç `resolveDelayed`'de sadece AÇIKLANIR. Bilinçli karar — state basit kalsın diye. Değiştirilecekse (ör. araya girme mekaniği) pending yapısı genişletilmeli.
 

@@ -31,6 +31,7 @@ export function newState(scenario,difficulty){
     rep:50, bold:40, inf:10, firm:FIRM_START,
     firmPlanDay:0, firmGateHintRank:null, // STANDARD: turnaround cooldown + one-shot promotion warning
     judgeMemory:{}, // per-run court history, keyed by stable judge id (never mutates JUDGES definitions)
+    caseSeq:0, // persisted procedural filing id cursor (replay/save-visible odds must not drift)
     buyinPaid:false, buyinHinted:false, // rank 2->3 needs the partnership buy-in
     // Name Partner endgame: the roster you manage, and the fired suing you back
     roster:null, fireHeat:0, everFired:false, firedNames:[],

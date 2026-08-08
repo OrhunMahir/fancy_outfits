@@ -4,12 +4,14 @@ const { mkdtempSync, rmSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 
-const workDir = mkdtempSync(join(tmpdir(), "fancy-outfits-v195-"));
-const outfile = join(workDir, "v195-check.mjs");
+// Bundle the browser-oriented game modules for a disposable Node process.
+// The simulation entry supplies the tiny localStorage/window shims it needs.
+const workDir = mkdtempSync(join(tmpdir(), "fancy-outfits-soak-"));
+const outfile = join(workDir, "soak-balance.mjs");
 
 try {
   buildSync({
-    entryPoints: [join(__dirname, "v195-check.mjs")],
+    entryPoints: [join(__dirname, "soak-balance.mjs")],
     outfile,
     bundle: true,
     platform: "node",
@@ -18,7 +20,9 @@ try {
     logLevel: "silent",
   });
 
-  const result = spawnSync(process.execPath, ["--enable-source-maps", outfile], { stdio: "inherit" });
+  const result = spawnSync(process.execPath, ["--enable-source-maps", outfile, ...process.argv.slice(2)], {
+    stdio: "inherit",
+  });
   if (result.error) throw result.error;
   process.exitCode = result.status ?? 1;
 } finally {

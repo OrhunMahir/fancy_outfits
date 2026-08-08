@@ -3,11 +3,20 @@
 // cases forever. Output matches the hand-written case schema exactly (CLAUDE.md §7);
 // the winning clue is always embedded in the body text among decoys.
 import { rnd, rand } from "./utils.js";
+import { S } from "./state.js";
 
 const CO=["Meridian","Halcyon","Aldergate","Novagene","Brightline","Pemberton","Vantage Corp","Ironclad Ltd","Bluepeak","Rockwell & Sons","Silvergate","Osprey Holdings"];
 const LAST=["Whitfield","Okafor","Delgado","Kessler","Yamada","Brandt","O'Leary","Novak","Reyes","Ashford","Lindqvist","Moreau"];
 const money=n=>"$"+n.toLocaleString("en-US");
-let seq=0;
+let fallbackSeq=0;
+const nextId=prefix=>{
+  if(S){
+    if(!Number.isSafeInteger(S.caseSeq)||S.caseSeq<0||S.caseSeq>=Number.MAX_SAFE_INTEGER)
+      throw new Error("The procedural filing sequence is exhausted or damaged.");
+    S.caseSeq++; return prefix+S.caseSeq;
+  }
+  return prefix+(++fallbackSeq);
+};
 
 /* Each template returns a full case object. Tier decides deadline + reward scale. */
 const TEMPLATES=[
@@ -37,7 +46,7 @@ const TEMPLATES=[
       {text:"Mock the excuse in open court.",base:37,boldW:3,style:"aggressive",ok:{fx:{bold:8,inf:7,money:1000},txt:"The gallery laughs. The judge doesn't, but rules your way anyway."},fail:{fx:{rep:-11},txt:"The judge finds the excuse 'sincere' and your tone 'sanctionable'."}}]};
   if(rand()<.5){ const yrs=rnd([2,3,4]); // half the time the loser appeals — a follow-up stage
     c.opts[1].ok.next={after:2,note:`${a}'s counsel promises an appeal. Loudly, near a camera.`,case:{
-      tier:2,title:`APPEAL: ${a} v. ${b}`,deadline:3,judge:true,
+      id:nextId("appeal"),tier:2,title:`APPEAL: ${a} v. ${b}`,deadline:3,judge:true,
       body:`${a} appeals the dismissal. The centerpiece citation of their brief was overturned ${yrs} years ago — some associate copied it from an old memo and nobody checked. Appellate panels notice that sort of thing. Usually.`,
       opts:[
         {text:"Rest on the record. Add nothing.",base:100,safe:true,ok:{fx:{inf:3,bold:-2,money:300},txt:"Affirmed without oral argument. The quiet win nobody toasts."}},
@@ -113,7 +122,7 @@ const TEMPLATES=[
 
 export function genCase(){
   const c=rnd(TEMPLATES)();
-  c.id="gen"+(++seq);
+  c.id=nextId("gen");
   return c;
 }
 
@@ -124,7 +133,7 @@ export function genCase(){
 export function buildBigMatter(client){
   const CU=client.toUpperCase();
   const rival=rnd(["their biggest competitor","a patent troll named Litigious Minds LLC","a former co-founder with a grudge and a war chest"]);
-  const s3={id:"big3_"+(++seq),tier:2,judge:true,deadline:4,big:{client,stage:3,final:true},
+  const s3={id:nextId("big3_"),tier:2,judge:true,deadline:4,big:{client,stage:3,final:true},
     title:"THE "+CU+" WAR — FINAL TRIAL",
     body:"Weeks of billing, condensed: everything "+client+" is rides on this verdict. "+rival.charAt(0).toUpperCase()+rival.slice(1)+" brought their A-team; Snidely Fitch brought extra chairs. Your trial binder has a cracked spine and a page 1 you could recite underwater. The jury looks the way juries look: unknowable.",
     opts:[
@@ -136,7 +145,7 @@ export function buildBigMatter(client){
         fail:{fx:{rep:-11,money:-800,firm:-5},txt:"The theater flopped on the only stage that matters."}},
       {text:"Take the eleventh-hour settlement.",base:100,safe:true,
         ok:{fx:{inf:5,money:900,bold:-4},txt:"Signed at the courthouse door. "+client+" survives. Nobody toasts."}}]};
-  const s2={id:"big2_"+(++seq),tier:2,judge:true,deadline:3,big:{client,stage:2},
+  const s2={id:nextId("big2_"),tier:2,judge:true,deadline:3,big:{client,stage:2},
     title:"THE "+CU+" WAR — THE INJUNCTION",
     body:"Stage two: "+rival+" wants a preliminary injunction freezing "+client+"'s operations. Their 'irreparable harm' affidavit is signed by an executive who posted 'WE ARE CRUSHING IT' the same week — the screenshot sits in exhibit 12, timestamped, glorious.",
     opts:[
@@ -150,7 +159,7 @@ export function buildBigMatter(client){
         ok:{fx:{bold:7,inf:9,money:900},txt:"Sanctions granted. Their affidavit is now a cautionary tale taught at CLEs.",
           next:{after:4,note:"Humiliated, "+rival+" goes all-in. THE "+CU+" WAR heads to trial.",case:s3}},
         fail:{fx:{rep:-9,firm:-2},txt:"'Bold theory, counsel.' The sanctions motion boomerangs into the record."}}]};
-  return {id:"big1_"+(++seq),tier:1,deadline:3,big:{client,stage:1},
+  return {id:nextId("big1_"),tier:1,deadline:3,big:{client,stage:1},
     title:"THE "+CU+" WAR — OPENING SHOTS",
     body:rival.charAt(0).toUpperCase()+rival.slice(1)+" just hit "+client+" — your client — with a 300-page complaint. Buried at paragraph 214: their core claim quotes a contract clause from a DRAFT that was never executed. The signed version, which you have, reads differently. Snidely Fitch's name is on the cover page, naturally.",
     opts:[
@@ -169,7 +178,7 @@ export function buildBigMatter(client){
 /* Fired employees sue the firm (Name Partner endgame). fx.firm hits your
    firm-health stat; the plaintiff's counsel is, of course, Snidely Fitch. */
 export function buildLawsuit(exName){
-  return {id:"suit"+(++seq), tier:2, judge:true, deadline:3, suit:true,
+  return {id:nextId("suit"), tier:2, judge:true, deadline:3, suit:true,
     title:`LAWSUIT: ${exName} v. Parson Henderson`,
     body:`${exName} — whom you personally fired — is suing the firm for wrongful termination. Their counsel is Snidely Fitch, working "at a compassionate discount". The complaint quotes your own security-escort policy back at you, and asks for damages with a number of zeroes that suggests a grudge.`,
     opts:[

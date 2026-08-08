@@ -162,7 +162,9 @@ function doShake(){ if(settings.shake) S.shakeSeq++; }
 function nemesisGain(v,fromFailure){
   const N=S.nemesis; if(!N||S.over||!v) return;
   if(fromFailure&&S.rivalPact) return; // a pact means he doesn't feed on your stumbles
+  const before=N.inf;
   N.inf=clamp(N.inf+v,0,100);
+  if(balanceProbe&&N.inf>before) balanceProbe({kind:"nemesis",source:fromFailure?"failure":"passive",amount:N.inf-before,day:S.day});
   if(fromFailure&&rand()<.25)
     pushMsg("FLOOR NEWS","Your lost file found a new desk. "+N.name+" sends 'sympathies'.");
   while(N.rank<4&&N.inf>=RANK_REQ[N.rank]){
@@ -311,7 +313,7 @@ export function apply(fx,quiet,source="other"){
     else S[k]=clamp(S[k]+v,0,100);
     parts.push((v>0?"+":"")+v+" "+map[k]);
   }
-  if(balanceProbe&&S.inf>beforeInf) balanceProbe({source,amount:S.inf-beforeInf,day:S.day});
+  if(balanceProbe&&S.inf>beforeInf) balanceProbe({kind:"inf",source,amount:S.inf-beforeInf,day:S.day});
   if(parts.length&&!quiet) log(parts.join(", "),(fx.rep||0)<0?"bad":"good");
   checkEndings(); notify();
 }
@@ -611,7 +613,9 @@ function scaleStakes(inst){
       if(!fx[k]) continue;
       if(fx[k]<0){ if(r) fx[k]=Math.round(fx[k]*STAKE_PENALTY[r]); continue; }
       if(k==="inf"){
-        const approach=won&&style==="technical"?TECH_INF_MULT:(won&&style==="aggressive"?AGG_INF_MULT:1);
+        const aggressiveMult=balanceExperiment&&Number.isFinite(balanceExperiment.aggressiveInfMult)?
+          Math.max(0,balanceExperiment.aggressiveInfMult):AGG_INF_MULT;
+        const approach=won&&style==="technical"?TECH_INF_MULT:(won&&style==="aggressive"?aggressiveMult:1);
         fx[k]=Math.max(1,Math.round(fx[k]*INF_EARN*approach));
       }
       else if((k==="money"||k==="bold")&&r) fx[k]=Math.round(fx[k]*STAKE_REWARD[r]);

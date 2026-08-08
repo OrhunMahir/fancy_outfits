@@ -238,11 +238,19 @@
 - **Save schema v5 + doğrulama:** 4→5 migration iki promotion alanını backfill eder; gün/rank sınırları validate edilir. Reload tüketilmiş cuma kararını yeniden oynatamaz. Regresyon testi cadence, tek-review/tek-rank, save/reload ve handoff limitini kapsar.
 - **Final doğrulama:** paired Standard 1.280 kariyer / 96 replay ve Endless 1.920 kariyer / 201 replay; tüm replay'ler aynı, invariant ihlali 0. Ayrıntı `BALANCE_SOAK_REPORT.md` v19.10 ekinde.
 
-**Dış denetim notu (Codex, 2026-08-08):** YAPILDI: v1.9.3 çökme/kilit+Windows, v1.9.4 bütünlük, v1.9.5 seçenek/stil/kahve/mesai dengesi, v1.9.6 Client War+save bütünlüğü ve bağımlılık/Electron/CSP güvenliği, v1.9.7 Standard FIRM anlamı + Defector/Boomerang finalleri, v1.9.8 hakim hafızası, v1.9.9 30–50 günlük soak+bütünlük, v1.9.10 exact attribution + progression A/B + Friday promotion/delege cap. KALAN: FIRM endgame ve hakim-memory A/B; Boomerang karma rota takibi; mobil geçiş; bağlamsal SFX; yayın/paketleme.
+**v1.9.11 eklendi (2026-08-08, controlled-risk + Boomerang kök neden):**
+- **`bold_mixed` politika:** yalnız görünür şans bilgisini kullanır; REP/Boldness tamponuyla ölçülü aggressive shot alır, tehlikede safe/technical'a döner, deadline baskısında delege eder ve rival truce kullanır. Final 320 Standard kariyerde %9 aggressive seçim, %63,4 win, %14,4 FIRED; Technical %69,4 win/%5,6 FIRED. Risk rota yaşayabilir ama gerçekten daha tehlikelidir.
+- **Nedensel telemetry:** test-only balance probe artık oyuncu pozitif INF'inden ayrı rival `passive/failure` INF kaynağını bildirir. Soak delegated W/L, deadline sonucu, rival hamlesi, final NPC rel, aggressive visible-chance bandı ve her rütbenin `promotionReadyDay` medyanını toplar. Canonical replay snapshot v1.9.10 promotion review/hint state'ini de kapsar.
+- **Boomerang false positive fix'i (SADECE test modeli):** eski Mixed bot başlangıç rel−25 → görünür ~%55 delegasyon tahminini kendi %60 eşiğiyle reddedip 64 seedde 0 delege yapıyordu. Deadline baskısında Boomerang için %55'i kabul edince aynı corpus %21,9→%71,9 win, 4,30→1,20 miss, 0→14,23 delege/run oldu. Oyun senaryosu/NPC/REP/deadline sabiti DEĞİŞMEDİ.
+- **Şüpheli seed ikinci test:** `2874639110` eski modelde 0 delege+9 miss ile OUTPACED; yeni modelde 16 delege+0 miss ile gün21 Name Partner. Yeni trace iki tekrar `7d8a6193...74ac`, birebir aynı.
+- **Reddedilen reward A/B:** `AGG_INF_MULT` 1.25/1.50/1.75, 480 paired kariyerde aynı %59,4 win/gün21 verdi. Hook'un draw-time fx'i gerçekten değiştirdiği regression ile kanıtlandı; ek INF cuma beklerken 100 cap'inde kırpıldığı için gameplay constant'a alınmadı.
+- **Ana doğrulama:** 64 seed × 5 senaryo × Technical/Mixed/Bold Mixed = 960 kariyer, 79/79 replay, 0 invariant. Ayrıntı `BALANCE_SOAK_REPORT.md` v19.11 bölümünde.
 
-**En son çalışılan konu (2026-08-08):** v1.9.10 progression turu tamamlandı. Anlık terfi+2 delege baseline'ı %98,4 / medyan gün 10'dan Friday review+1 delege ile %69,4 / medyan gün 21'e geldi; erken final %96,9→%0. Standard/Endless final paired matrisleri 3.200 kariyer, 297/297 replay ve 0 invariant ihlali verdi. Sıradaki öneri: izole **FIRM endgame A/B** (1.441 post-NP gününde 0 collapse), ardından hakim hafızası rolling/decay A/B; sonra mobil sekmeli layout + Capacitor.
+**Dış denetim notu (Codex, 2026-08-08):** YAPILDI: v1.9.3 çökme/kilit+Windows, v1.9.4 bütünlük, v1.9.5 seçenek/stil/kahve/mesai dengesi, v1.9.6 Client War+save bütünlüğü ve bağımlılık/Electron/CSP güvenliği, v1.9.7 Standard FIRM anlamı + Defector/Boomerang finalleri, v1.9.8 hakim hafızası, v1.9.9 30–50 günlük soak+bütünlük, v1.9.10 exact attribution + progression A/B + Friday promotion/delege cap, v1.9.11 controlled-risk + Boomerang false-positive audit. KALAN: FIRM endgame ve hakim-memory A/B; Friday/INF overflow tasarım kararı; mobil geçiş; bağlamsal SFX; yayın/paketleme.
 
-**Aklında tut (kullanıcı onaylı bekleyenler):** FIRM endgame A/B, hakim-memory decay/rolling A/B, Boomerang karma rota kontrolü, mobil (layout+Capacitor), bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
+**En son çalışılan konu (2026-08-08):** v1.9.11 risk rotası ve Boomerang kök-neden turu tamamlandı. Controlled bold rota %63,4 yaşayabilir ama %14,4 kovulma riski taşıyor. Boomerang Mixed %21,9 şüphesi oyun sabiti değil test botunun hiç delege etmemesiymiş; düzeltildikten sonra %71,9 oldu, canlı buff yapılmadı. Aggressive INF 1.50/1.75 etkisiz; Friday bekleyişindeki INF cap fazlayı siliyor. Sıradaki öneri: izole **FIRM endgame A/B**; ardından hakim hafızası rolling/decay. Friday overflow/exceptional review ancak ayrı ürün kararı olarak ele alınmalı.
+
+**Aklında tut (kullanıcı onaylı bekleyenler):** FIRM endgame A/B, hakim-memory decay/rolling A/B, Friday INF overflow/exceptional review kararı, mobil (layout+Capacitor), bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
 
 ---
 
@@ -302,7 +310,7 @@ fancy-outfits/
 │       ├── EventOverlay.jsx      ← kriz ekranı (+ Traitor/Brave modifier satırı)
 │       └── SummaryOverlay.jsx    ← gün sonu / cuma review / game over / win + run ledger
 ├── FANCY_OUTFITS_GDD.md          ← Tasarım dokümanı (gelecek özelliklerin speci)
-├── BALANCE_SOAK_REPORT.md        ← v19.9 baseline + v19.10 A/B kararı, replay ve kalan denge roadmap'i
+├── BALANCE_SOAK_REPORT.md        ← v19.9 baseline + v19.10 progression + v19.11 risk/Boomerang A/B raporu
 ├── README.md                     ← GitHub vitrini + CHANGELOG (her versiyonda güncellenir — §6 kuralı)
 ├── CLAUDE.md                     ← Bu dosya
 ├── .gitignore                    ← node_modules/, dist/

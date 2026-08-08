@@ -113,6 +113,13 @@ globalThis.clearInterval = () => {};
   }
   assert.equal(raw.opts[1].ok.fx.inf, 10);
 
+  // Soak-only reward variants use the real draw-time scaler. Prove the hook
+  // changes aggressive INF without leaking into the shipped 1.25 baseline.
+  engine.setBalanceExperiment({ weeklyPromotion: false, delegateCap: 2, aggressiveInfMult: 1.75 });
+  const aggressiveExperiment = engine.instantiateCase(template()).opts.find(o => o.style === "aggressive");
+  assert.equal(aggressiveExperiment.ok.fx.inf, 11);
+  engine.setBalanceExperiment({ weeklyPromotion: false, delegateCap: 2 });
+
   utils.setSeed(901);
   const case1 = engine.instantiateCase(template());
   utils.setSeed(901);
@@ -1366,7 +1373,7 @@ globalThis.clearInterval = () => {};
     }
   }
 
-  console.log("v1.9.5–v1.9.10 checks passed: balance, Friday promotions, delegation cap, strict saves, procedural IDs, long-run integrity, FIRM, judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
+  console.log("v1.9.5–v1.9.11 checks passed: balance experiments, Friday promotions, delegation cap, strict saves, procedural IDs, long-run integrity, FIRM, judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;

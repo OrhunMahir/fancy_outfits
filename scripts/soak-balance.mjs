@@ -49,14 +49,15 @@ const { settings } = await import("../src/game/settings.js");
 
 const SCENARIOS = ["fraud", "debtor", "legacy", "defector", "boomerang"];
 const MODES = ["standard", "endless"];
-const POLICIES = ["max_chance", "technical", "mixed", "aggressive", "oracle_ev", "chaos", "firm_stress", "firm_only_stress"];
+const POLICIES = ["max_chance", "technical", "mixed", "bold_mixed", "aggressive", "oracle_ev", "chaos", "firm_stress", "firm_only_stress"];
 const ENDLESS_ONLY_POLICIES = new Set(["firm_stress", "firm_only_stress"]);
-const POLICY_VERSION = "soak-v4";
+const POLICY_VERSION = "soak-v5";
 const RNG_NAMESPACE = "soak-v3"; // preserve the audited v19.9 seed corpus for paired comparisons
 const POLICY_NOTES = Object.freeze({
   max_chance: "Exact-odds safety ceiling; prioritizes success chance and does not delegate.",
   technical: "Human-readable exploit baseline; prioritizes the visible TECHNICAL label and delegates up to the daily cap.",
   mixed: "Visible-information career policy; protects low REP, delegates only under pressure and takes controlled aggressive shots.",
+  bold_mixed: "Visible-information risk route; spends a healthy REP/Boldness buffer on credible aggressive shots, then recovers technically.",
   aggressive: "Pure stress baseline; takes AGGRESSIVE plays whenever available.",
   oracle_ev: "Non-human hidden-information heuristic; reads exact chance and hidden outcome effects.",
   chaos: "Seeded random baseline.",
@@ -68,6 +69,8 @@ const VARIANTS = Object.freeze({
   legacy_v199: { note: "Pre-v19.10 career: immediate promotions and two handoffs per day.", engine: { weeklyPromotion:false,delegateCap:2 } },
   weekly_promotion: { note: "Friday promotion decisions with the former two-handoff limit.", engine: { weeklyPromotion:true,delegateCap:2 } },
   weekly_delegate_one: { note: "Weekly promotion cadence plus one delegated filing per day.", engine: { weeklyPromotion:true,delegateCap:1 } },
+  aggressive_150: {note:"Aggressive case wins use a 1.50 INF approach multiplier instead of 1.25.",engine:{aggressiveInfMult:1.50}},
+  aggressive_175: {note:"Aggressive case wins use a 1.75 INF approach multiplier instead of 1.25.",engine:{aggressiveInfMult:1.75}},
   delegation_half: { note: "Delegated positive INF is multiplied by 0.5.", engine: { infMultipliers: { delegated: .5 } } },
   distributed_rewards: { note: "Modest positive INF reductions across case and non-case progression sources.", engine: { infMultipliers: {
     case: .9, big_case: .9, delayed: .85, delegated: .65, favor: .9,
@@ -188,6 +191,14 @@ function availableOptions(c) {
   return c.opts.filter(option => !option.bribe || state.S.money >= option.bribe);
 }
 
+function registerAggressiveOffer(metrics,context){
+  const option=availableOptions(context).find(o=>o.style==="aggressive");
+  if(!option) return;
+  const shown=perceivedChance(option,context),a=metrics.aggressiveOffers;
+  a.count++; a.chanceSum+=shown;
+  for(const threshold of [20,25,30,35,40]) if(shown>=threshold) a["p"+threshold]++;
+}
+
 function chooseOption(policy, c, policyRng) {
   const options = availableOptions(c);
   if (!options.length) return null;
@@ -212,6 +223,18 @@ function chooseOption(policy, c, policyRng) {
     if (aggressive && state.S.bold >= 65 && perceivedChance(aggressive, c) >= 50) return aggressive;
     return safe || byVisible[0];
   }
+  if (policy === "bold_mixed") {
+    const S=state.S, safe=options.find(option=>option.safe), technical=options.find(option=>option.style==="technical");
+    const aggressive=options.find(option=>option.style==="aggressive");
+    if(S.rep<=32||S.fatigue>=82) return safe||technical||byVisible[0];
+    const aggChance=aggressive?perceivedChance(aggressive,c):0;
+    const riskReady=aggressive&&S.rep>=38&&S.bold>=38&&S.fatigue<74&&aggChance>=15;
+    const protectedShot=riskReady&&S.rep>=40&&(policyRng()<.55);
+    if(protectedShot) return aggressive;
+    if(technical&&perceivedChance(technical,c)>=48) return technical;
+    if(riskReady&&S.rep>=52) return aggressive;
+    return safe||byVisible[0];
+  }
   if (policy === "aggressive") return options.find(option => option.style === "aggressive") ||
     [...options].sort((a, b) => (b.boldW || 0) - (a.boldW || 0) || engine.chance(b, c) - engine.chance(a, c))[0];
   if (policy === "chaos") return options[Math.floor(policyRng() * options.length)];
@@ -233,6 +256,7 @@ function chooseEventOption(policy, event, policyRng, skipped) {
       (policy === "oracle_ev" && urgent && S.fatigue < 72) ||
       ((policy === "technical" || policy === "firm_stress") && urgent && S.fatigue < 62) ||
       ((policy === "mixed" || policy === "firm_only_stress") && urgent && S.fatigue < 56) ||
+      (policy === "bold_mixed" && urgent && S.fatigue < 62) ||
       (policy === "chaos" && policyRng() < .5);
     if (!push && pending) skipped.add(pending.c);
     return push ? go : no;
@@ -245,6 +269,7 @@ function chooseEventOption(policy, event, policyRng, skipped) {
     const stay = policy === "aggressive" ? urgent && S.fatigue < 88 :
       (policy === "technical" || policy === "firm_stress") ? urgent && S.otToday < 1 && S.fatigue < 68 :
       (policy === "mixed" || policy === "firm_only_stress") ? urgent && S.otToday < 1 && S.fatigue < 60 :
+      policy === "bold_mixed" ? urgent && S.otToday < 1 && S.fatigue < 64 :
       policy === "oracle_ev" ? urgent && S.fatigue < 62 :
       policy === "chaos" ? policyRng() < .45 : false;
     return stay ? overtime : home;
@@ -264,6 +289,14 @@ function chooseEventOption(policy, event, policyRng, skipped) {
     if(technical&&perceivedChance(technical,event)>=52) return technical;
     return safe||options[0];
   }
+  if(policy==="bold_mixed"){
+    const safe=options.find(option=>option.safe),technical=options.find(option=>option.style==="technical");
+    const aggressive=options.find(option=>option.style==="aggressive");
+    if(S.rep<=34||S.fatigue>=80) return safe||technical||options[0];
+    if(aggressive&&S.rep>=40&&S.bold>=38&&S.fatigue<72&&perceivedChance(aggressive,event)>=15&&policyRng()<.50) return aggressive;
+    if(technical&&perceivedChance(technical,event)>=50) return technical;
+    return safe||options[0];
+  }
   if (policy === "aggressive") return options.find(option => option.style === "aggressive") || options.at(-1);
   if (policy === "oracle_ev") return [...options].sort((a, b) => optionUtility(b, event) - optionUtility(a, event))[0];
   return [...options].sort((a, b) => engine.chance(b, event) - engine.chance(a, event))[0];
@@ -278,17 +311,24 @@ function delegationTarget(policy, skipped) {
   const S = state.S;
   if (!S.npcs.length || S.today.delegated >= engine.delegationDailyLimit() ||
       (S.rank < 1 && S.scenario !== "boomerang")) return null;
-  if (!["technical","mixed","oracle_ev","firm_stress","firm_only_stress"].includes(policy) ||
+  if (!["technical","mixed","bold_mixed","oracle_ev","firm_stress","firm_only_stress"].includes(policy) ||
       ((policy === "firm_stress" || policy === "firm_only_stress") && S.endlessWon)) return null;
   const eligible = actionables(S).filter(c => !skipped.has(c) && !c.judge && !c.favor && !c.big && (c.tier || 0) <= 1)
     .sort((a, b) => a.dueDay - b.dueDay || (a.tier || 0) - (b.tier || 0));
   if (!eligible.length) return null;
   const backlog = actionables(S).length;
   if (policy === "mixed" && S.today.delegated >= 1 && backlog < 7 && !eligible.some(c => c.dueDay <= S.day)) return null;
+  if (policy === "bold_mixed" && backlog < 4 && !eligible.some(c=>c.dueDay<=S.day)) return null;
   if (policy === "oracle_ev" && backlog < 4 && S.hours >= 3) return null;
   if (policy === "mixed" && backlog < 5 && !eligible.some(c => c.dueDay <= S.day)) return null;
   const npc = [...S.npcs].sort((a, b) => npcEstimate(b) - npcEstimate(a) || b.rel - a.rel)[0];
-  const threshold=policy==="mixed"?(backlog>=7||eligible.some(c=>c.dueDay<=S.day)?60:65):policy==="oracle_ev"?62:55;
+  const pressure=backlog>=7||eligible.some(c=>c.dueDay<=S.day);
+  // Boomerang's stated perk is day-one delegation into a hostile floor. A
+  // visible-information player can rationally risk the initial ~55% estimate
+  // once deadlines burn; refusing every handoff made the old mixed bot fake a
+  // scenario balance problem that the actual UI does not impose.
+  const threshold=policy==="mixed"?(pressure&&S.scenario==="boomerang"?55:pressure?60:65):
+    policy==="bold_mixed"?(backlog>=6||eligible.some(c=>c.dueDay<=S.day)?55:62):policy==="oracle_ev"?62:55;
   return npcEstimate(npc) >= threshold ? { c: eligible[0], npc } : null;
 }
 
@@ -320,7 +360,7 @@ function canonicalSnapshot(rngCalls) {
     bigCase: S.bigCase ? { ...S.bigCase } : null, judgeMemory: S.judgeMemory,
     runStats: S.runStats, today: S.today, objective: S.objective,
     usedCrises: [...S.usedCrises], npcStories: [...S.npcStories], firedNames: [...S.firedNames],
-    firmOps: [S.fireHeat, S.everFired, S.firmPlanDay, S.firmGateHintRank],
+    firmOps: [S.fireHeat, S.everFired, S.firmPlanDay, S.firmGateHintRank,S.promotionReviewDay,S.promotionHintRank],
     economy: [S.debtDue, S.suitCost, S.coffeeToday, S.marvBribes, S.bigDoneDay],
     week: [S.weekStart, S.weekMissed], decor: S.decor, golfEdge: S.golfEdge,
     roster: S.roster?.map(e => ({ id: e.id, won: e.won, lost: e.lost, impact: e.impact })) || null,
@@ -378,7 +418,8 @@ function newMetrics(tuple) {
     [key, { selected: 0, capped: 0, post20: 0, post20Capped: 0, firstCapAppearances: [] }]));
   return {
     ...tuple, actions: 0, outcome: "HORIZON", terminal: false, won: false, winDay: null, npDay: null,
-    promotions: [], styles: { safe: 0, technical: 0, aggressive: 0, bribe: 0, neutral: 0 },
+    promotions: [], promotionReadyDays:{1:null,2:null,3:null,4:null},
+    styles: { safe: 0, technical: 0, aggressive: 0, bribe: 0, neutral: 0 },
     styleRolls: { safe: 0, technical: 0, aggressive: 0, bribe: 0, neutral: 0 },
     styleWins: { safe: 0, technical: 0, aggressive: 0, bribe: 0, neutral: 0 }, rolls: 0,
     expectedChance: 0, workHours: 0, overtimeBlocks: 0, lateWork: 0, sentHome: 0,
@@ -389,6 +430,9 @@ function newMetrics(tuple) {
     judgePost20Cap: 0, judgeAdjusted: 0, judgeModifierSum: 0, judgeCaps,
     infGainBy: { case:0, big_case:0, delayed:0, delegated:0, favor:0, objective:0, review:0,
       crisis:0, client_event:0, demand:0, story:0, weekend:0, rival:0, decor:0, other:0 },
+    nemesisGainBy:{passive:0,failure:0}, delegatedResults:{won:0,lost:0}, deadlineResults:0,
+    rivalActions:{truce:0,ally:0,sabotage:0},
+    aggressiveOffers:{count:0,chanceSum:0,p20:0,p25:0,p30:0,p35:0,p40:0},
     integrity: [], flags: [], traceDigest: null,
   };
 }
@@ -452,6 +496,8 @@ function processArchives(run) {
   if (delta <= 0) return;
   const entries = S.archive.slice(0, Math.min(delta, S.archive.length)).reverse();
   for (const entry of entries) {
+    if(entry.via==="delegated") run.metrics.delegatedResults[entry.win?"won":"lost"]++;
+    if(entry.via==="deadline missed") run.metrics.deadlineResults++;
     const queue = run.pendingRolls.get((entry.id || entry.title) + "\u0000" + entry.play);
     const meta = queue?.shift();
     if (!meta) {
@@ -472,6 +518,8 @@ function observe(run) {
   processArchives(run);
   if (S.rank > run.lastRank) for (let rank = run.lastRank + 1; rank <= S.rank; rank++) m.promotions.push({ rank, day: S.day });
   run.lastRank = S.rank;
+  if(S.rank<4&&S.inf>=constants.RANK_REQ[S.rank]&&m.promotionReadyDays[S.rank+1]==null)
+    m.promotionReadyDays[S.rank+1]=S.day;
   if (S.endlessWon && m.npDay == null) m.npDay = S.day;
   if (S.rank === 4 && m.winDay == null) m.winDay = S.day;
   m.minRep = Math.min(m.minRep, S.rep); m.minFirm = Math.min(m.minFirm, S.firm);
@@ -511,6 +559,9 @@ function runAction(run, label, fn) {
     skipped: [...run.skipped].map(c => c.id || c.title).sort(), firedDay: run.firedDay,
   };
   run.hash.update("ACTION " + JSON.stringify(actionRecord) + "\n");
+  if(label==="rival truce") run.metrics.rivalActions.truce++;
+  else if(label==="rival ally") run.metrics.rivalActions.ally++;
+  else if(label==="rival sabotage") run.metrics.rivalActions.sabotage++;
   fn();
   drainTimers();
   const afterState = JSON.stringify(canonicalSnapshot(run.gameRng.calls));
@@ -546,7 +597,7 @@ function tryCareerAction(run) {
     runAction(run, "tailored suit", () => engine.buySuit()); return true;
   }
   const coffeeAt = policy === "aggressive" ? 48 :
-    policy === "oracle_ev" ? 55 : policy === "mixed" ? 60 :
+    policy === "oracle_ev" ? 55 : policy === "bold_mixed" ? 55 : policy === "mixed" ? 60 :
     (policy === "technical" || policy === "firm_stress" || policy === "firm_only_stress") ? 65 : 75;
   if (policy !== "max_chance" && engine.canBuyCoffee() && S.fatigue >= coffeeAt) {
     runAction(run, "coffee", () => engine.buyCoffee()); return true;
@@ -555,7 +606,7 @@ function tryCareerAction(run) {
     if (policy === "aggressive" && S.hours >= 1) {
       runAction(run, "rival sabotage", () => engine.rivalSabotage()); return true;
     }
-    if ((policy === "technical" || policy === "mixed" || policy === "firm_only_stress" ||
+    if ((policy === "technical" || policy === "mixed" || policy === "bold_mixed" || policy === "firm_only_stress" ||
         (policy === "firm_stress" && !S.endlessWon)) && S.hours >= .5) {
       runAction(run, "rival truce", () => engine.rivalTruce()); return true;
     }
@@ -603,9 +654,14 @@ function driveRun(tuple, horizon, { captureTrace = false } = {}) {
   Math.random = gameRng;
   const variant=tuple.variant||"baseline", metrics = newMetrics({ ...tuple, variant, horizon });
   engine.setBalanceExperiment(VARIANTS[variant].engine);
-  engine.setBalanceProbe(({source,amount})=>{
-    const key=Object.prototype.hasOwnProperty.call(metrics.infGainBy,source)?source:"other";
-    metrics.infGainBy[key]+=amount;
+  engine.setBalanceProbe(({kind="inf",source,amount})=>{
+    if(kind==="nemesis"){
+      const key=Object.prototype.hasOwnProperty.call(metrics.nemesisGainBy,source)?source:"passive";
+      metrics.nemesisGainBy[key]+=amount;
+    } else {
+      const key=Object.prototype.hasOwnProperty.call(metrics.infGainBy,source)?source:"other";
+      metrics.infGainBy[key]+=amount;
+    }
   });
   const run = {
     ...tuple, policy: tuple.policy, gameRng, policyRng, metrics, hash: createHash("sha256"),
@@ -628,6 +684,7 @@ function driveRun(tuple, horizon, { captureTrace = false } = {}) {
       }
       if (S.event) {
         const event = S.event;
+        if(event.id!=="latework"&&event.id!=="overtime") registerAggressiveOffer(metrics,event);
         const option = chooseEventOption(run.policy, event, run.policyRng, run.skipped);
         if (!option) throw new Error("event has no legal option: " + event.id);
         if (option.ot) metrics.overtimeBlocks++;
@@ -642,6 +699,7 @@ function driveRun(tuple, horizon, { captureTrace = false } = {}) {
         .sort((a, b) => a.dueDay - b.dueDay || Number(!!b.big) - Number(!!a.big) || (b.tier || 0) - (a.tier || 0));
       if (cases.length) {
         const c = cases[0], option = chooseOption(run.policy, c, run.policyRng);
+        registerAggressiveOffer(metrics,c);
         if (!option) { run.skipped.add(c); continue; }
         const needsConfirm = engine.optHours(c, option) > S.hours && S.hours > 0;
         if (!needsConfirm) registerChoice(run, c, option);
@@ -659,6 +717,8 @@ function driveRun(tuple, horizon, { captureTrace = false } = {}) {
     metrics.outcome = S.over ? (S.summary?.title || "TERMINAL").replace(/^GAME OVER: /, "") : "HORIZON";
     metrics.finalDay = S.day; metrics.finalRank = S.rank; metrics.finalRep = S.rep; metrics.finalBold = S.bold;
     metrics.finalInf = S.inf; metrics.finalFirm = S.firm; metrics.finalFatigue = S.fatigue; metrics.finalMoney = S.money;
+    metrics.finalNemesisInf=S.nemesis?.inf??null; metrics.finalNemesisRank=S.nemesis?.rank??null;
+    metrics.finalNpcRel=round(mean(S.npcs.map(n=>n.rel)));
     metrics.misses = S.runStats.miss; metrics.delegations = Object.values(S.runStats.deleg).reduce((a, b) => a + b, 0);
     metrics.archiveTotal = S.archiveTotal; metrics.finalBacklog = actionables(S).length;
     metrics.finalMessages = S.inbox.filter(c => c.msg).length; metrics.finalClients = S.clients.length;
@@ -708,6 +768,16 @@ function summarizeJudgeCaps(runs) {
   }));
 }
 
+function summarizeAggressiveOffers(runs){
+  const count=runs.reduce((sum,run)=>sum+run.aggressiveOffers.count,0);
+  return {count,meanShown:round(runs.reduce((sum,run)=>sum+run.aggressiveOffers.chanceSum,0)/Math.max(1,count),1),
+    p20:pct(runs.reduce((sum,run)=>sum+run.aggressiveOffers.p20,0)/Math.max(1,count)),
+    p25:pct(runs.reduce((sum,run)=>sum+run.aggressiveOffers.p25,0)/Math.max(1,count)),
+    p30:pct(runs.reduce((sum,run)=>sum+run.aggressiveOffers.p30,0)/Math.max(1,count)),
+    p35:pct(runs.reduce((sum,run)=>sum+run.aggressiveOffers.p35,0)/Math.max(1,count)),
+    p40:pct(runs.reduce((sum,run)=>sum+run.aggressiveOffers.p40,0)/Math.max(1,count))};
+}
+
 function summarizeCell(runs) {
   const wins = runs.filter(run => run.won);
   const terminals = {};
@@ -725,6 +795,8 @@ function summarizeCell(runs) {
   }));
   const promotionMedian = Object.fromEntries([1, 2, 3, 4].map(rank => [rank,
     round(quantile(runs.flatMap(run => run.promotions.filter(p => p.rank === rank).map(p => p.day)), .5), 1)]));
+  const promotionReadyMedian=Object.fromEntries([1,2,3,4].map(rank=>[rank,
+    round(quantile(runs.map(run=>run.promotionReadyDays[rank]).filter(day=>day!=null),.5),1)]));
   const meanInfGainBy = Object.fromEntries(Object.keys(runs[0].infGainBy).map(source =>
     [source, round(mean(runs.map(run => run.infGainBy[source]))) ]));
   return {
@@ -736,6 +808,13 @@ function summarizeCell(runs) {
     terminalRate: pct(runs.filter(run => run.terminal).length / runs.length),
     meanMisses: round(mean(runs.map(run => run.misses))), meanArchive: round(mean(runs.map(run => run.archiveTotal))),
     meanDelegations: round(mean(runs.map(run => run.delegations))), meanObjectivesMet: round(mean(runs.map(run => run.objectivesMet))),
+    delegatedWinRate:pct(runs.reduce((sum,run)=>sum+run.delegatedResults.won,0)/Math.max(1,runs.reduce((sum,run)=>sum+run.delegatedResults.won+run.delegatedResults.lost,0))),
+    meanDeadlineResults:round(mean(runs.map(run=>run.deadlineResults))),
+    meanNemesisPassive:round(mean(runs.map(run=>run.nemesisGainBy.passive))),
+    meanNemesisFailure:round(mean(runs.map(run=>run.nemesisGainBy.failure))),
+    meanFinalNemesisInf:round(mean(runs.map(run=>run.finalNemesisInf??0))),
+    meanFinalNpcRel:round(mean(runs.map(run=>run.finalNpcRel))),
+    meanRivalTruces:round(mean(runs.map(run=>run.rivalActions.truce))),
     sentHomeRate: pct(runs.filter(run => run.sentHome > 0).length / runs.length),
     meanFinalRank: round(mean(runs.map(run => run.finalRank))), meanFinalFirm: round(mean(runs.map(run => run.finalFirm))),
     meanMinFirm: round(mean(runs.map(run => run.minFirm))), meanMinRep: round(mean(runs.map(run => run.minRep))),
@@ -752,7 +831,8 @@ function summarizeCell(runs) {
       Math.max(1, runs.reduce((sum, run) => sum + run.judgeHearings, 0))),
     meanJudgeModifier: round(runs.reduce((sum, run) => sum + run.judgeModifierSum, 0) /
       Math.max(1, runs.reduce((sum, run) => sum + run.judgeHearings, 0)), 2),
-    judgeCaps: summarizeJudgeCaps(runs), promotionMedian, styleShares, styleWinRates, meanInfGainBy,
+    judgeCaps: summarizeJudgeCaps(runs), aggressiveOffers:summarizeAggressiveOffers(runs), promotionMedian,promotionReadyMedian,
+    styleShares, styleWinRates, meanInfGainBy,
     calibrationGap: rolls ? round((actual - expected) / rolls * 100, 2) : null,
     integrityFailures: runs.filter(run => run.integrity.length).length, outcomes: terminals,
   };
@@ -766,15 +846,27 @@ function summarizeCohort(runs){
   const totalChoices=runs.reduce((sum,run)=>sum+Object.values(run.styles).reduce((a,b)=>a+b,0),0);
   const styleShares=Object.fromEntries(Object.keys(runs[0].styles).map(style=>[style,
     pct(runs.reduce((sum,run)=>sum+run.styles[style],0)/Math.max(1,totalChoices))]));
+  const promotionReadyMedian=Object.fromEntries([1,2,3,4].map(rank=>[rank,
+    round(quantile(runs.map(run=>run.promotionReadyDays[rank]).filter(day=>day!=null),.5),1)]));
+  const delegatedWon=runs.reduce((sum,run)=>sum+run.delegatedResults.won,0);
+  const delegatedLost=runs.reduce((sum,run)=>sum+run.delegatedResults.lost,0);
   return {variant:runs[0].variant,mode:runs[0].mode,policy:runs[0].policy,n:runs.length,
     winRate:pct(wins.length/runs.length),medianWinDay:round(quantile(wins.map(run=>run.winDay),.5),1),
     earlyWinRate:pct(runs.filter(run=>run.won&&run.winDay<=12).length/runs.length),
     firedRate:pct((outcomes.FIRED||0)/runs.length),meanMisses:round(mean(runs.map(run=>run.misses))),
     meanDelegations:round(mean(runs.map(run=>run.delegations))),
+    delegatedWinRate:pct(delegatedWon/Math.max(1,delegatedWon+delegatedLost)),
+    meanDeadlineResults:round(mean(runs.map(run=>run.deadlineResults))),
+    meanNemesisPassive:round(mean(runs.map(run=>run.nemesisGainBy.passive))),
+    meanNemesisFailure:round(mean(runs.map(run=>run.nemesisGainBy.failure))),
+    meanFinalNemesisInf:round(mean(runs.map(run=>run.finalNemesisInf??0))),
+    meanFinalNpcRel:round(mean(runs.map(run=>run.finalNpcRel))),
+    meanRivalTruces:round(mean(runs.map(run=>run.rivalActions.truce))),
     sentHomeRate:pct(runs.filter(run=>run.sentHome>0).length/runs.length),
     meanFinalFirm:round(mean(runs.map(run=>run.finalFirm))),maxBacklog:Math.max(...runs.map(run=>run.maxBacklog)),
     meanGrossInf:round(mean(runs.map(run=>Object.values(run.infGainBy).reduce((a,b)=>a+b,0)))),
-    meanInfGainBy,styleShares,outcomes,integrityFailures:runs.filter(run=>run.integrity.length).length};
+    aggressiveOffers:summarizeAggressiveOffers(runs),promotionReadyMedian,meanInfGainBy,styleShares,outcomes,
+    integrityFailures:runs.filter(run=>run.integrity.length).length};
 }
 
 function buildWarnings(cells, runs) {
@@ -823,6 +915,13 @@ function buildWarnings(cells, runs) {
     if (cell.winRate < 10 && fired > 80)
       add(8, "AGGRESSION_DEATH_SPIRAL", cellKey(cell) + " pure aggression is almost never career-viable",
         `${cell.winRate}% wins; ${round(fired, 1)}% fired`, "A/B a controlled aggression payoff or recovery valve without making reckless spam optimal.");
+  }
+  for(const cell of cells.filter(cell=>cell.mode==="standard"&&cell.policy==="bold_mixed"&&cell.horizon>=30&&cell.n>=8)){
+    const share=cell.styleShares.aggressive||0;
+    if(share<3) add(6,"CONTROLLED_AGGRESSION_TOO_LOW",cellKey(cell)+" barely exercises the aggressive route",
+      `${share}% aggressive choices`,"Tune the visible-information policy before drawing gameplay conclusions.");
+    if(share>40) add(6,"CONTROLLED_AGGRESSION_TOO_HIGH",cellKey(cell)+" behaves more like reckless spam than controlled risk",
+      `${share}% aggressive choices`,"Raise the REP/chance buffer before using this as a player model.");
   }
   for (const cell of cells.filter(cell => cell.mode === "standard" && cell.policy === "chaos" && cell.winRate > 25))
     add(7, "CHAOS_TOO_STRONG", cellKey(cell) + " rewards random play too often", `${cell.winRate}% wins`, "Inspect safe/event rewards and failure penalties.");
@@ -929,7 +1028,8 @@ function printResult(result) {
   console.log("Cohort summary:");
   console.table(result.cohorts.map(cohort=>({variant:cohort.variant,mode:cohort.mode,bot:cohort.policy,
     n:cohort.n,wins:cohort.winRate+"%",medWin:cohort.medianWinDay??"-",early12:cohort.earlyWinRate+"%",
-    fired:cohort.firedRate+"%",misses:cohort.meanMisses,grossInf:cohort.meanGrossInf,integrity:cohort.integrityFailures})));
+    fired:cohort.firedRate+"%",misses:cohort.meanMisses,agg:cohort.styleShares.aggressive+"%",
+    nemFail:cohort.meanNemesisFailure,grossInf:cohort.meanGrossInf,integrity:cohort.integrityFailures})));
   console.log("Scenario cells:");
   console.table(result.cells.map(cell => ({
     variant:cell.variant,scenario: cell.scenario, mode: cell.mode, bot: cell.policy, wins: cell.winRate + "%",

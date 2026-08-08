@@ -30,6 +30,25 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.11 — Controlled-risk & Boomerang audit *(2026-08-08)*
+- **A real risk-route model:** the soak runner now includes `bold_mixed`, a visible-information
+  policy that spends a healthy REP/Boldness buffer on aggressive shots, recovers with careful work,
+  delegates under deadline pressure and uses rival truces. It chose AGGRESSIVE in 9% of 320
+  Standard careers, won 63.4% and was fired 14.4% of the time versus Technical's 69.4% / 5.6%.
+- **Boomerang false alarm resolved:** the former mixed model refused every colleague at the initial
+  hostile relationship score, so the scenario's day-one delegation perk was never used. Allowing a
+  deadline-pressured handoff at the visible ~55% estimate moved the same 64-seed cohort from 21.9%
+  to 71.9% wins without changing a single shipped Boomerang or NPC number.
+- **Causal rival telemetry:** deterministic runs now split rival INF into passive growth and growth
+  fed by player failures, record delegated W/L, deadline results, rival actions, NPC relationship,
+  aggressive opportunity bands and the day each promotion threshold became ready.
+- **Rejected reward inflation:** aggressive-INF multipliers 1.50 and 1.75 produced the same 59.4%
+  win rate and day-21 median as 1.25 across 480 paired careers. Extra INF is mostly clipped while
+  Friday review is pending, so no gameplay reward constant changed.
+- **Verification:** the main comparison covered 960 careers with 79/79 identical extreme replays
+  and zero invariant failures. Seed `2874639110` changed from an old no-delegation OUTPACED run with
+  nine misses to a day-21 win with 16 handoffs and zero misses; the new trace replayed identically.
+
 ### v19.10 — Measured career progression rebalance *(2026-08-08)*
 - **Promotions now belong to Partner Review:** crossing an Influence threshold marks the career
   promotion-ready, but the title changes only on the morning after Friday review and at most one

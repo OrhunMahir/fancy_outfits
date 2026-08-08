@@ -1,11 +1,68 @@
 # FANCY OUTFITS — Deterministik Kariyer Soak Raporu
 
-**Sürüm:** v19.10 (v19.9 baseline + ölçümlü A/B turu)
+**Sürüm:** v19.11 (v19.9 baseline + progression ve controlled-risk A/B turları)
 
 **Tarih:** 2026-08-08
 
 **Kapsam:** Standard 40 gün, Endless 50 gün; beş senaryo; denge, uzun-run
 bütünlüğü ve şüpheli seed tekrarları.
+
+## v19.11 kontrollü risk ve Boomerang kök-neden turu
+
+Bu tur canlı oyunu kolaylaştırmadan iki soruyu ayırdı: “ölçülü agresif oynayan gerçekçi rota
+yaşayabiliyor mu?” ve “Boomerang gerçekten aşırı zor mu?” Soak runner'a yalnız görünür bilgiyi
+kullanan `bold_mixed` politikası; rakip INF'ini `passive/failure` ayıran probe; delegated W/L,
+deadline, rival action, final NPC ilişkisi, aggressive fırsat bandı ve promotion-ready günü
+telemetry'si eklendi.
+
+### Kontrollü rota sonucu
+
+64 seed × 5 senaryo × 3 politika ile **960 Standard kariyer** çalıştı; **79/79 replay aynı**,
+invariant ihlali 0:
+
+| Politika | Win | Medyan final | FIRED | Miss/run | Aggressive payı | Hata kaynaklı rakip INF |
+|---|---:|---:|---:|---:|---:|---:|
+| Technical | %69,4 | 21 | %5,6 | 1,05 | %0 | 39,99 |
+| Mixed | %62,8 | 21 | %6,9 | 1,31 | %4,3 | 41,56 |
+| **Bold Mixed** | **%63,4** | **21** | **%14,4** | **0,82** | **%9,0** | **34,52** |
+
+Bold Mixed bu nedenle “pure aggressive spam” değildir: gerektiğinde safe/technical'a döner,
+ama yeterli tampon varken düşük görünen blöfü gerçekten dener. Kazanımı Technical'a yakın,
+kovulma ihtimali yaklaşık 2,6 kat; kısa çalışma süresi sayesinde deadline ve rakibe hata besleme
+daha düşük. Risk–ödül rotası oynanabilir ve belirgin biçimde daha tehlikelidir.
+
+### Boomerang şüphesinin gerçek nedeni
+
+Eski Mixed politika tüm Boomerang NPC'lerini başlangıçta yaklaşık %55 görüp kendi %60–65
+delegasyon eşiği yüzünden **hiç delege etmiyordu**. Bu, oyunun izin vermediği bir davranış değil,
+test botunun aşırı ihtiyatıydı:
+
+| Boomerang Mixed | Win | Delegasyon/run | Miss/run | Hata kaynaklı rakip INF |
+|---|---:|---:|---:|---:|
+| Eski model | %21,9 | 0 | 4,30 | ölçüm öncesi |
+| Düzeltilmiş model | **%71,9** | **14,23** | **1,20** | **41,77** |
+| Technical referans | %73,4 | 18,78 | 1,09 | 37,64 |
+| Bold Mixed | %64,1 | 14,45 | 0,58 | 35,77 |
+
+Aynı seed corpusunda `2874639110`, eski modelde 0 delegasyon + 9 miss ile OUTPACED iken yeni
+modelde 16 delegasyon + 0 miss ile 21. gün Name Partner oldu. Yeni koşu iki kez replay edildi;
+iki trace digest de `7d8a6193...74ac`, sonuçlar birebir aynı. Bu nedenle Boomerang başlangıç REP,
+ilişki, deadline, rival veya NPC oranlarına canlı buff uygulanmadı.
+
+### Reddedilen Aggressive ödül artışı
+
+`AGG_INF_MULT` için 1,25 / 1,50 / 1,75 A/B'si 32 seed × 5 senaryo × 3 varyant = 480 kariyerde
+aynı `%59,4` kazanım ve 21. gün medyan verdi. Test hook'unun gerçek draw-time INF'i değiştirdiği
+ayrı regresyonla doğrulandı; etkisizliğin nedeni implementasyon hatası değil, cuma beklerken INF'in
+100 tavanında kırpılmasıdır. Sayıyı büyütmek oyuncuya görünmeyen sahte ödül olacağı için reddedildi.
+
+Kalan tasarım notu (**5/10**): Technical, Mixed ve Bold Mixed promotion-ready medyanları kabaca
+4 / 7 / 11 / 16. günlerde, gerçek terfiler 6 / 11 / 16 / 21'de kümeleniyor. Friday cadence
+v19.10'un erken-final sorununu çözüyor fakat başarılı agresif oyuna final günü hız farkı bırakmıyor.
+Bunu bozmadan çözmek, sayı artışından çok ayrı bir “exceptional review/overflow” tasarımı ister;
+bu turda canlıya alınmadı.
+
+> Aşağıdaki v19.10 bölümü progression kararını, sonraki bölümler v19.9 baseline kanıtını korur.
 
 ## v19.10 A/B güncellemesi — uygulanan karar
 

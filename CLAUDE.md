@@ -246,11 +246,18 @@
 - **Reddedilen reward A/B:** `AGG_INF_MULT` 1.25/1.50/1.75, 480 paired kariyerde aynı %59,4 win/gün21 verdi. Hook'un draw-time fx'i gerçekten değiştirdiği regression ile kanıtlandı; ek INF cuma beklerken 100 cap'inde kırpıldığı için gameplay constant'a alınmadı.
 - **Ana doğrulama:** 64 seed × 5 senaryo × Technical/Mixed/Bold Mixed = 960 kariyer, 79/79 replay, 0 invariant. Ayrıntı `BALANCE_SOAK_REPORT.md` v19.11 bölümünde.
 
-**Dış denetim notu (Codex, 2026-08-08):** YAPILDI: v1.9.3 çökme/kilit+Windows, v1.9.4 bütünlük, v1.9.5 seçenek/stil/kahve/mesai dengesi, v1.9.6 Client War+save bütünlüğü ve bağımlılık/Electron/CSP güvenliği, v1.9.7 Standard FIRM anlamı + Defector/Boomerang finalleri, v1.9.8 hakim hafızası, v1.9.9 30–50 günlük soak+bütünlük, v1.9.10 exact attribution + progression A/B + Friday promotion/delege cap, v1.9.11 controlled-risk + Boomerang false-positive audit. KALAN: FIRM endgame ve hakim-memory A/B; Friday/INF overflow tasarım kararı; mobil geçiş; bağlamsal SFX; yayın/paketleme.
+**v1.9.12 eklendi (2026-08-08, FIRM endgame A/B):**
+- **Canlı Name Partner operasyonu:** roster her sabah `ceil(headcount/10)` FIRM payroll yakar (başlangıç ~13 kişi → −2). Her personel %30 ihtimalle iş yapar; PERFORMANCE ile şans `50+impact×8`, win `+1`, loss `−2` FIRM. Collapse eşiği 15 değişmedi.
+- **Gerçek yönetim tradeoff'u:** zayıf personeli çıkarmak roster drift'ini ve 11→10 headcount eşiğinde payroll'u iyileştirebilir; kovma morali −2, NPC delegation kaybı ve kalıcı lawsuit heat'i aynen korunur.
+- **UI tutarlılığı:** yanlış `IMPACT n/day` metni `PERFORMANCE n · p% WIN` oldu. FIRM overlay headcount, sabah operating load, %30 activity ve exact `+1/−2` sonucu gösterir; NP özeti ilk payroll'u açıklar.
+- **Nedensel telemetry:** post-NP FIRM akışı kaynaklara ayrılır; roster work, raw/capped drift, employee-days, firing impact, lawsuit, cap'te kırpılan FIRM ve delta/gün raporlanır. `firm_manager` ile aynı docket'i kötü yöneten `firm_bad_manager` eşli kontrol eklendi.
+- **Final A/B:** 64 seed × 5 senaryo × 2 politika × old/new = 1.280 Endless kariyer. Eski model 7.400 iyi + 6.390 kötü yönetim post-NP gününde 0 collapse; yeni model iyi %3,4, kötü %12,5. FIRM-cap günü %53,7/%37,2→%4/%2. 132/132 replay, 0 invariant. Save schema değişmedi.
 
-**En son çalışılan konu (2026-08-08):** v1.9.11 risk rotası ve Boomerang kök-neden turu tamamlandı. Controlled bold rota %63,4 yaşayabilir ama %14,4 kovulma riski taşıyor. Boomerang Mixed %21,9 şüphesi oyun sabiti değil test botunun hiç delege etmemesiymiş; düzeltildikten sonra %71,9 oldu, canlı buff yapılmadı. Aggressive INF 1.50/1.75 etkisiz; Friday bekleyişindeki INF cap fazlayı siliyor. Sıradaki öneri: izole **FIRM endgame A/B**; ardından hakim hafızası rolling/decay. Friday overflow/exceptional review ancak ayrı ürün kararı olarak ele alınmalı.
+**Dış denetim notu (Codex, 2026-08-08):** YAPILDI: v1.9.3 çökme/kilit+Windows, v1.9.4 bütünlük, v1.9.5 seçenek/stil/kahve/mesai dengesi, v1.9.6 Client War+save bütünlüğü ve bağımlılık/Electron/CSP güvenliği, v1.9.7 Standard FIRM anlamı + Defector/Boomerang finalleri, v1.9.8 hakim hafızası, v1.9.9 30–50 günlük soak+bütünlük, v1.9.10 exact attribution + progression A/B + Friday promotion/delege cap, v1.9.11 controlled-risk + Boomerang false-positive audit, v1.9.12 FIRM endgame A/B + live payroll. KALAN: hakim-memory A/B; Friday/INF overflow tasarım kararı; mobil geçiş; bağlamsal SFX; yayın/paketleme.
 
-**Aklında tut (kullanıcı onaylı bekleyenler):** FIRM endgame A/B, hakim-memory decay/rolling A/B, Friday INF overflow/exceptional review kararı, mobil (layout+Capacitor), bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
+**En son çalışılan konu (2026-08-08):** v1.9.12 FIRM endgame turu tamamlandı. Eski simetrik/no-payroll modelinin çöküşü ulaşılmaz kıldığı kaynak telemetry'siyle kanıtlandı; headcount payroll + asymmetric roster sonucu canlıya alındı. 1.280 final paired kariyerde iyi yönetim %3,4, kötü %12,5 collapse; eşik değişmedi. Sıradaki öneri: **hakim hafızası rolling/decay A/B**; gün 20 sonrası Technical +6 cap oranı hâlâ %55–62.
+
+**Aklında tut (kullanıcı onaylı bekleyenler):** hakim-memory decay/rolling A/B, Friday INF overflow/exceptional review kararı, mobil (layout+Capacitor), bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
 
 ---
 
@@ -310,7 +317,7 @@ fancy-outfits/
 │       ├── EventOverlay.jsx      ← kriz ekranı (+ Traitor/Brave modifier satırı)
 │       └── SummaryOverlay.jsx    ← gün sonu / cuma review / game over / win + run ledger
 ├── FANCY_OUTFITS_GDD.md          ← Tasarım dokümanı (gelecek özelliklerin speci)
-├── BALANCE_SOAK_REPORT.md        ← v19.9 baseline + v19.10 progression + v19.11 risk/Boomerang A/B raporu
+├── BALANCE_SOAK_REPORT.md        ← v19.9 baseline + v19.10–v19.12 progression/risk/FIRM A/B raporu
 ├── README.md                     ← GitHub vitrini + CHANGELOG (her versiyonda güncellenir — §6 kuralı)
 ├── CLAUDE.md                     ← Bu dosya
 ├── .gitignore                    ← node_modules/, dist/

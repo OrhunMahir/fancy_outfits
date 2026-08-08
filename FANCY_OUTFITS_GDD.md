@@ -100,3 +100,22 @@ and can replay any suspicious seed action-for-action.
 No gameplay balance constant changed while establishing this baseline. Full methodology, policy
 limitations, suspicious seed replays and the proposed A/B roadmap are in
 [`BALANCE_SOAK_REPORT.md`](BALANCE_SOAK_REPORT.md).
+
+## 13. Name Partner Operations (v19.12)
+
+The v19.9 baseline proved that the original Endless collapse rule was effectively dormant. The
+live operating model is now:
+
+- the roster begins at roughly 13 employees and costs `ceil(headcount / 10)` FIRM each morning;
+- each employee attempts work on 30% of mornings;
+- PERFORMANCE `-3..+4` produces a `50 + performance×8` percent win chance;
+- a roster win restores +1 FIRM; a roster loss costs −2 FIRM;
+- firing still costs −2 FIRM immediately, removes floor NPCs from delegation and creates lasting
+  wrongful-termination heat.
+
+This creates the intended management tradeoff: removing weak performers can improve future drift
+and cross a payroll headcount boundary, but firing too quickly damages morale and adds lawsuits.
+The collapse threshold remains 15. In the final 64-seed paired audit, competent management
+collapsed in 3.4% of Name Partner careers and deliberately bad management in 12.5%, versus zero
+for both under the old symmetric/no-overhead model. Save schema is unchanged because these are
+derived rules, not new persistent fields.

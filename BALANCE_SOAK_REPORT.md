@@ -1,11 +1,74 @@
 # FANCY OUTFITS — Deterministik Kariyer Soak Raporu
 
-**Sürüm:** v19.11 (v19.9 baseline + progression ve controlled-risk A/B turları)
+**Sürüm:** v19.12 (v19.9 baseline + progression, controlled-risk ve FIRM endgame A/B turları)
 
 **Tarih:** 2026-08-08
 
-**Kapsam:** Standard 40 gün, Endless 50 gün; beş senaryo; denge, uzun-run
+**Kapsam:** Standard 40 gün, Endless 50–80 gün; beş senaryo; denge, uzun-run
 bütünlüğü ve şüpheli seed tekrarları.
+
+## v19.12 FIRM endgame A/B — uygulanan karar
+
+v19.9–v19.11'de FIRM COLLAPSE teorik olarak vardı ama Name Partner sonrası FIRM çoğunlukla
+100'e yapışıyordu. Bu tur `apply()` üzerinden gerçek FIRM akışını `case`, `delayed`,
+`delegated`, `review`, `objective`, `client_event`, `deadline`, `retainer`, `roster`, `payroll`,
+`firing` ve diğer kaynaklara ayırdı. Ayrıca roster win/loss, ham/cap'li drift, çalışan-günü,
+kovma etkisi, lawsuit ve tavanda kırpılan pozitif FIRM kaydediliyor.
+
+### Kök neden
+
+- Name Partner'a ulaşan kariyerler FIRM'e ortalama **92,27** ile giriyordu; 15 eşiğine karşı
+  yaklaşık 77 puan tampon vardı.
+- Eski roster sonucu simetrik `+1/−1` idi ve ortalama kadro pozitif PERFORMANCE'a eğilimliydi.
+- İyi yönetim eski modelde post-NP günlerinin **%53,7**'sini 100 FIRM'de geçiriyor, kariyer
+  başına ortalama **52,81** pozitif FIRM tavanda kırpılıyordu.
+- UI'daki `IMPACT n/day` ifadesi de doğru değildi: değer günlük doğrudan artış değil,
+  %30 ihtimalle çalışan personelin başarı zarını `50+impact×8` değiştiriyordu.
+
+### İzole adaylar
+
+Sabit günlük −1/−2 gider, yalnız roster loss −2, düz −1+loss −2 ve kadro boyuna bağlı
+payroll+loss −2 aynı seed'lerde denendi. Yalnız loss veya yalnız hafif gider yeterli ayrım
+yaratmadı. Seçilen model:
+
+- sabah payroll = `ceil(roster.length / 10)` FIRM;
+- her personel sabah %30 ihtimalle iş yapar;
+- win `+1`, loss `−2` FIRM;
+- `FIRM_COLLAPSE(15)` **değişmedi**.
+
+Bu model kadro kalitesiyle headcount'u aynı karara bağlıyor: zayıf çalışanı kovmak drift'i
+düzeltip 11→10 personel sınırında payroll'u −2'den −1'e indirebilir; fakat kovmanın anında
+−2 morali, delegasyon kaybı ve kalıcı lawsuit heat'i korunuyor.
+
+### Final paired sonuç
+
+64 seed × 5 senaryo × 2 yönetim politikası × eski/yeni kural = **1.280 Endless kariyer**;
+her politika/varyantta 232 kariyer Name Partner'a ulaştı. **132/132 replay birebir aynı**,
+invariant ihlali 0:
+
+| Kural / politika | Collapse | Ortalama post-NP gün | FIRM delta | Delta/gün | 100 FIRM günü |
+|---|---:|---:|---:|---:|---:|
+| Eski · iyi yönetim | %0 | 31,90 | −0,56 | −0,261 | %53,7 |
+| Eski · kötü yönetim | %0 | 27,54 | −9,11 | −0,435 | %37,2 |
+| **Yeni · iyi yönetim** | **%3,4** | **31,35** | **−29,84** | **−1,503** | **%4,0** |
+| **Yeni · kötü yönetim** | **%12,5** | **26,75** | **−47,40** | **−2,129** | **%2,0** |
+
+Yeni iyi-yönetim collapse'larının medyanı Name Partner'dan 34 gün, kötü yönetimin
+37 gün sonrası. Kötü yönetimde roster neti `−10,38`, firing `−10,26`; iyi yönetimde
+roster neti `+2,95`, firing `−4,75`. Yani fark yalnız pasif vergi değil, görünür kadro
+kararlarından geliyor.
+
+### Şüpheli seed ikinci testi
+
+- `2874639184`, Fraud / iyi yönetim: nadir kuyruğun gerçek olduğu doğrulandı; gün 21 NP,
+  gün 72 FIRM 14 ile collapse. İki tekrar aynı digest: `3e3a94b5...47b13`.
+- `3731324953`, Fraud / kötü yönetim: en iyi çalışanları kovma, 3 firing + 2 lawsuit
+  sonrası gün 38'de FIRM 13. İki tekrar aynı digest: `2ffb98b0...242c5`.
+
+Kalan ana denge riski artık FIRM değil, Endless hakim hafızası doygunluğu: bu final matriste
+birçok Technical hücrede gün 20 sonrası `+6` cap oranı %55–62 bandında kaldı (**6/10**).
+
+> Aşağıdaki v19.11 bölümü controlled-risk kararını, sonraki bölümler tarihsel baseline'ı korur.
 
 ## v19.11 kontrollü risk ve Boomerang kök-neden turu
 

@@ -45,6 +45,11 @@ export const BUYIN_COST=5000;
 // firm health (4th stat). Collapse only threatens a sitting Name Partner.
 export const FIRM_START=62;
 export const FIRM_COLLAPSE=15;
+// Name Partner operations: each employee acts on 30% of mornings. PERFORMANCE
+// changes their win chance; a loss costs more than a routine win restores.
+// Payroll scales with headcount so trimming a weak roster can reduce overhead.
+export const ROSTER_ACTIVITY=.30, ROSTER_WIN_GAIN=1, ROSTER_LOSS_COST=2;
+export const FIRM_PAYROLL_DIVISOR=10; // ceil(headcount / 10) FIRM each morning
 // STANDARD career confidence: the firm affects client trust and partner gates.
 export const FIRM_CRITICAL=25, FIRM_STABLE=50, FIRM_THRIVING=75;
 export const FIRM_RANK_REQ=[0,40,45,50]; // current rank -> FIRM needed for the next promotion

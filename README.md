@@ -30,6 +30,21 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.12 — The payroll can finally sink you *(2026-08-08)*
+- **Headcount has a cost:** after Name Partner, morning operating load is now
+  `ceil(employee count / 10)` FIRM. The starting ~13-person roster therefore costs 2 FIRM;
+  trimming it below 11 reduces the load to 1, but every firing still costs morale and creates
+  wrongful-termination heat.
+- **Roster downside has teeth:** an employee acts on 30% of mornings. Their PERFORMANCE sets the
+  win chance (`50 + performance×8`); a routine win restores +1 FIRM while a loss costs −2.
+- **Honest management UI:** the misleading `IMPACT n/day` label is gone. The FIRM tab now shows
+  each employee's real win chance, current headcount cost and the exact win/loss stakes.
+- **Measured decision, not a threshold hack:** raising the collapse floor was rejected. Across
+  1,280 paired 80-day Endless careers, the old rules produced 0 collapses in 7,400 competent and
+  6,390 bad-management post-NP days. The shipped rules produced 3.4% collapse under competent
+  management and 12.5% under repeated bad firings; FIRM-cap occupancy fell from 53.7%/37.2% to
+  4.0%/2.0%. All 132 selected extreme replays were identical, with zero invariant failures.
+
 ### v19.11 — Controlled-risk & Boomerang audit *(2026-08-08)*
 - **A real risk-route model:** the soak runner now includes `bold_mixed`, a visible-information
   policy that spends a healthy REP/Boldness buffer on aggressive shots, recovers with careful work,
@@ -391,8 +406,9 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
   FIRM COLLAPSE, game over.** The name comes off the wall faster than it went up.
 - **The payroll (FIRM tab):** on making Name Partner you inherit a ~13-person roster — the four
   floor colleagues, your rival, Daniel Hardwick, Lou Bitt and generated employees. Each shows
-  their role, cases **won/lost** and a daily **IMPACT** on firm health; they keep working (and
-  winning/losing) every morning, so dead weight actively drags the firm down.
+  their role, cases **won/lost**, PERFORMANCE and real win chance. Every employee acts on 30% of
+  mornings: a win restores +1 FIRM, a loss costs −2. Operating load is
+  `ceil(headcount / 10)` FIRM each morning, so payroll size and staff quality both matter.
 - **Firing:** fire anyone from the FIRM tab — except **Senior Partners, who require a partner
   vote** (odds scale with your REP/INF; a failed vote costs you and they remember). Firing a
   floor colleague also removes them from delegation. You can fire your rival.

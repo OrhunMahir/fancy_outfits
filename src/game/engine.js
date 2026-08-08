@@ -9,6 +9,7 @@ import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DELEGATE_CAP, DAY_HOURS, TIER_HOU
          REP_FIRED, DEADLINE_PENALTY,
          STAKE_REWARD, STAKE_PENALTY, PRICES, DECOR, SAVE_SCHEMA_VERSION, SAVE_LOG_LIMIT, SAVE_ARCHIVE_LIMIT, INBOX_MESSAGE_LIMIT, SAVE_KEY, STATS_KEY,
          WEEK_LEN, REVIEW_GOOD, REVIEW_BAD, BUYIN_COST, FIRM_COLLAPSE,
+         ROSTER_ACTIVITY, ROSTER_WIN_GAIN, ROSTER_LOSS_COST, FIRM_PAYROLL_DIVISOR,
          FIRM_CRITICAL, FIRM_STABLE, FIRM_THRIVING, FIRM_RANK_REQ,
          FIRM_PLAN_GAIN, FIRM_PLAN_HOURS, FIRM_PLAN_FATIGUE, FIRM_PLAN_COOLDOWN,
          FIRE_HEAT, FIRE_HEAT_SENIOR, HEAT_DECAY, HEAT_MIN } from "./constants.js";
@@ -67,6 +68,8 @@ export function clientConfidenceOdds(rep=S&&S.rep,mode=S&&S.mode,firm=S&&S.firm)
   };
 }
 export const promotionFirmRequirement=(rank=S&&S.rank,mode=S&&S.mode)=>mode==="standard"?(FIRM_RANK_REQ[rank]||0):0;
+export const rosterWinChance=impact=>clamp(50+(Number.isFinite(impact)?impact:0)*8,0,100);
+export const firmPayrollCost=(headcount=S&&S.roster?S.roster.length:0)=>headcount>0?Math.ceil(headcount/FIRM_PAYROLL_DIVISOR):0;
 
 /* ---------- judge memory: per-run, deterministic, visible before the roll ---------- */
 const JUDGE_MEMORY_STYLES=["safe","aggressive","technical","bribe","neutral"];
@@ -295,7 +298,7 @@ function archiveCase(c,play,win,note,via,judgeMemorySnapshot){
 export function apply(fx,quiet,source="other"){
   if(!fx) return;
   const map={rep:"REP",bold:"BOLD",inf:"INFL",money:"$",firm:"FIRM"};
-  const beforeInf=S.inf;
+  const beforeInf=S.inf, beforeFirm=S.firm;
   let parts=[];
   for(const k of ["rep","bold","inf","money","firm"]){
     if(!fx[k]) continue;
@@ -314,6 +317,8 @@ export function apply(fx,quiet,source="other"){
     parts.push((v>0?"+":"")+v+" "+map[k]);
   }
   if(balanceProbe&&S.inf>beforeInf) balanceProbe({kind:"inf",source,amount:S.inf-beforeInf,day:S.day});
+  if(balanceProbe&&fx.firm) balanceProbe({kind:"firm",source,amount:S.firm-beforeFirm,requested:fx.firm,day:S.day,
+    postNamePartner:!!(S.endlessWon||S.rank===4)});
   if(parts.length&&!quiet) log(parts.join(", "),(fx.rep||0)<0?"bad":"good");
   checkEndings(); notify();
 }
@@ -649,7 +654,7 @@ export function endDay(){
     archiveCase(c,"(deadline missed)",false,DEADLINE_PENALTY+" REP");
     if(c.big){ endClientWar(c.big.client);
       log("THE "+c.big.client.toUpperCase()+" WAR dies on your desk, unanswered. "+c.big.client+" notices.","bad"); }
-    apply({rep:DEADLINE_PENALTY,firm:-2},true); nemesisGain(4,true);
+    apply({rep:DEADLINE_PENALTY,firm:-2},true,"deadline"); nemesisGain(4,true);
   });
   S.inbox=S.inbox.filter(c=>!missed.includes(c));
   if(S.over) return;
@@ -682,7 +687,7 @@ export function endDay(){
         "Your name comes up in the partners' meeting. Nobody laughs. Progress. (+4 REP, +4 INFL)",
         "A bottle appears on your desk. No card. Partners don't do cards. (+4 REP, +4 INFL)"]));
     } else if(score<=REVIEW_BAD){
-      apply({rep:-4,firm:-3},true);
+      apply({rep:-4,firm:-3},true,"review");
       lines.push(rnd([
         "Hardwick's door was open. It closed as you walked past. (-4 REP)",
         "'We measure weeks here,' says the memo. Yours, apparently, was measured. (-4 REP)",
@@ -696,7 +701,7 @@ export function endDay(){
     // retainers: the client book pays out on Fridays
     const ret=S.clients.reduce((a,c)=>a+c.fee,0);
     if(ret){ apply({money:ret},true); lines.push("Retainers collected: +$"+ret+" ("+S.clients.length+" client(s))."); }
-    else if(S.rank>=2){ apply({firm:-4},true); lines.push("A partner with zero clients. The firm bills the air. (-4 FIRM)"); }
+    else if(S.rank>=2){ apply({firm:-4},true,"retainer"); lines.push("A partner with zero clients. The firm bills the air. (-4 FIRM)"); }
     else lines.push("No retainers yet. The partners are watching your book.");
     if(S.decor&&S.decor.art){ apply({inf:1},true,"decor"); lines.push("A client lingered at your painting. Taste is billable. (+1 INFL)"); }
     lines.push("The weekend happens to other people. You reread depositions.");
@@ -806,10 +811,10 @@ function resolveDelayed(c){
   rememberJudgeOutcome(c,r.o,r.win); // reveal first: hidden delayed outcomes never leak through future odds
   if(r.win){ SFX.win(); S.today.wins++; if(r.o.style==="aggressive") S.today.aggWin++;
     log("RESPONSE ["+c.title+"]: SUCCESS","good"); pushMsg("REPLY: "+c.title,out.txt); apply(out.fx,false,"delayed");
-    if((c.tier||0)>=1) apply({firm:1},true); // same firm effect as an instant win (v1.9.4 symmetry)
+    if((c.tier||0)>=1) apply({firm:1},true,"delayed"); // same firm effect as an instant win (v1.9.4 symmetry)
     maybeImpressClient(c); if((out.fx.rep||0)+(out.fx.inf||0)>=10) flash("HENDERED!"); }
   else { SFX.lose(); log("RESPONSE ["+c.title+"]: FAILED","bad"); pushMsg("REPLY: "+c.title,out.txt); apply(out.fx,false,"delayed");
-    if((c.tier||0)>=1) apply({firm:-1},true);
+    if((c.tier||0)>=1) apply({firm:-1},true,"delayed");
     maybeLoseClientOnFail(); doShake(); nemesisGain(3,true); }
   if(out.next) queueFollowup(out.next);
 }
@@ -822,7 +827,7 @@ function burnDelegatedDeadline(c,handler){
   pushMsg("DEADLINE BURNED: "+c.title,handler+" The file returned after its deadline.");
   log("DELEGATION ["+c.title+"]: "+handler.toLowerCase()+" — deadline missed.","bad");
   archiveCase(c,"Delegated (file returned too late)",false,DEADLINE_PENALTY+" REP","deadline missed");
-  apply({rep:DEADLINE_PENALTY,firm:-2},true); nemesisGain(4,true);
+  apply({rep:DEADLINE_PENALTY,firm:-2},true,"deadline"); nemesisGain(4,true);
   return true;
 }
 function resolveDelegated(c){
@@ -856,7 +861,7 @@ function resolveDelegated(c){
     pushMsg("DELEGATED: "+c.title, n.name+" "+rnd(DELEGATE_FAIL_TXT)+(traitorTax?" Somehow the whole floor knows it was YOUR case.":""));
     log("DELEGATION ["+c.title+"]: "+n.name+" failed it.","bad");
     archiveCase(c,"Delegated to "+n.name,false,"botched it","delegated");
-    apply({rep:-4-traitorTax,firm:(c.tier||0)>=1?-1:0}); nemesisGain(3,true);
+    apply({rep:-4-traitorTax,firm:(c.tier||0)>=1?-1:0},false,"delegated"); nemesisGain(3,true);
   }
 }
 
@@ -937,12 +942,12 @@ export function choose(c,o,confirmedLate){
   if(win){
     SFX.win();
     log("["+c.title+"] "+out.txt,"good"); apply(out.fx,false,c.favor?"favor":c.big?"big_case":"case");
-    if((c.tier||0)>=1&&!c.favor){ apply({firm:1},true); maybeImpressClient(c); } // wins keep the lights on — and attract logos
+    if((c.tier||0)>=1&&!c.favor){ apply({firm:1},true,c.big?"big_case":"case"); maybeImpressClient(c); } // wins keep the lights on — and attract logos
     if(((out.fx&&out.fx.rep)||0)+((out.fx&&out.fx.inf)||0)>=10) flash("HENDERED!");
   } else {
     SFX.lose();
     log("["+c.title+"] "+out.txt,"bad"); apply(out.fx,false,c.favor?"favor":c.big?"big_case":"case");
-    if((c.tier||0)>=1&&!c.favor){ apply({firm:-1},true); maybeLoseClientOnFail(); }
+    if((c.tier||0)>=1&&!c.favor){ apply({firm:-1},true,c.big?"big_case":"case"); maybeLoseClientOnFail(); }
     doShake(); if(!c.favor) nemesisGain(3,true);
   }
   if(c.favor){ // reverse favors: the relationship is the real payout
@@ -1026,11 +1031,26 @@ export function clientAcquisition(){
 /* every morning some employees act; their quality moves FIRM health */
 function rosterTick(){
   if(!S.roster) return;
-  let drift=0;
+  let drift=0, wins=0, losses=0;
+  const winGain=balanceExperiment&&Number.isFinite(balanceExperiment.rosterWinGain)?
+    Math.max(0,balanceExperiment.rosterWinGain):ROSTER_WIN_GAIN;
+  const lossCost=balanceExperiment&&Number.isFinite(balanceExperiment.rosterLossCost)?
+    Math.max(0,balanceExperiment.rosterLossCost):ROSTER_LOSS_COST;
   S.roster.forEach(e=>{
-    if(rand()<.3){ const win=rand()*100<50+e.impact*8; win?(e.won++,drift++):(e.lost++,drift--); }
+    if(rand()<ROSTER_ACTIVITY){ const win=rand()*100<rosterWinChance(e.impact);
+      if(win){ e.won++; wins++; drift+=winGain; }
+      else { e.lost++; losses++; drift-=lossCost; }
+    }
   });
-  if(drift) apply({firm:clamp(drift,-3,3)},true);
+  const cappedDrift=clamp(drift,-3,3);
+  if(cappedDrift) apply({firm:cappedDrift},true,"roster");
+  const overhead=balanceExperiment&&Number.isFinite(balanceExperiment.firmDailyOverhead)?
+    Math.max(0,Math.round(balanceExperiment.firmDailyOverhead)):
+    balanceExperiment&&Number.isFinite(balanceExperiment.firmPayrollDivisor)&&balanceExperiment.firmPayrollDivisor>0?
+      Math.ceil(S.roster.length/balanceExperiment.firmPayrollDivisor):firmPayrollCost(S.roster.length);
+  if(overhead&&!S.over) apply({firm:-overhead},true,"payroll");
+  if(balanceProbe) balanceProbe({kind:"roster",day:S.day,wins,losses,rawDrift:drift,cappedDrift,
+    overhead,employees:S.roster.length,meanImpact:S.roster.length?S.roster.reduce((sum,e)=>sum+e.impact,0)/S.roster.length:0});
 }
 
 /* litigation heat: decays nightly but never reaches zero once you've fired
@@ -1041,6 +1061,7 @@ function litigationTick(){
   if(rand()*100<Math.min(30,S.fireHeat)){
     S.inbox.unshift(instantiateCase(buildLawsuit(rnd(S.firedNames))));
     S.fireHeat=Math.max(S.fireHeat*.5,HEAT_MIN);
+    if(balanceProbe) balanceProbe({kind:"lawsuit",day:S.day,heat:S.fireHeat});
     log("A process server is at reception. It's for the firm. It's about you.","bad");
   }
 }
@@ -1056,7 +1077,8 @@ function dismissEmployee(e,heat){
   if(e.src==="nemesis"){ S.nemesis=null; log(e.name+" — your rival — is escorted out. The floor is very quiet.","sys"); }
   S.fireHeat+=heat; S.everFired=true; S.firedNames.push(e.name);
   S.runStats.fired=(S.runStats.fired||0)+1;
-  apply({firm:-2},true); // morale: everyone updates their résumé a little
+  apply({firm:-2},true,"firing"); // morale: everyone updates their résumé a little
+  if(balanceProbe) balanceProbe({kind:"firing",day:S.day,senior:!!e.senior,impact:e.impact,employees:S.roster.length});
   log("FIRED: "+e.name+". Security walks them out. They walk slowly, memorizing faces.","sys");
 }
 export function fireEmployee(id){
@@ -1066,7 +1088,7 @@ export function fireEmployee(id){
   if(e.senior){ // senior partners need a partner vote
     const p=clamp(30+S.rep/2+S.inf/4,20,90);
     if(rand()*100<p){ log("The vote carries. "+e.name+" is out.","sys"); dismissEmployee(e,FIRE_HEAT_SENIOR); }
-    else { apply({rep:-6,firm:-3}); log("The vote FAILS. "+e.name+" stays — and remembers who called it.","bad"); doShake(); }
+    else { apply({rep:-6,firm:-3},false,"firing"); log("The vote FAILS. "+e.name+" stays — and remembers who called it.","bad"); doShake(); }
   } else dismissEmployee(e,FIRE_HEAT);
   saveGame(); notify();
 }
@@ -1093,7 +1115,7 @@ export function pitchTurnaround(){
   spendHours(FIRM_PLAN_HOURS,FIRM_PLAN_FATIGUE);
   S.firmPlanDay=S.day+FIRM_PLAN_COOLDOWN;
   log("TURNAROUND PLAN: clients, staffing, cash flow — ninety minutes of promises with footnotes. (+"+FIRM_PLAN_GAIN+" FIRM, "+FIRM_PLAN_HOURS+"h)","sys");
-  apply({firm:FIRM_PLAN_GAIN},true);
+  apply({firm:FIRM_PLAN_GAIN},true,"turnaround");
   if(fatigueCheck(FIRM_PLAN_HOURS)) return;
   checkPromotion();
   checkClock(); saveGame(); notify();
@@ -1169,7 +1191,7 @@ export function resolveCrisis(o){
   const infSource=ev&&ev.weekend?"weekend":ev&&ev.story?"story":ev&&ev.demand?"demand":
     ev&&/^g_/.test(ev.id||"")?"client_event":"crisis";
   if(win){ SFX.win(); log("[CRISIS] "+out.txt,"good"); apply(out.fx,false,infSource); if(((out.fx&&out.fx.inf)||0)>=10) flash("HENDERED!"); }
-  else { SFX.lose(); log("[CRISIS] "+out.txt,"bad"); apply(out.fx,false,infSource); apply({firm:-2},true); doShake(); nemesisGain(3,true); }
+  else { SFX.lose(); log("[CRISIS] "+out.txt,"bad"); apply(out.fx,false,infSource); apply({firm:-2},true,infSource); doShake(); nemesisGain(3,true); }
   if(out.expose){ gameOver("EXPOSED","There is no bar record. No law school. No you-with-a-JD. The audit found the empty space where your credentials should be, and the firm found it at the same time. Security is very polite about it. The Fraud is over."); return; }
   if(out.golf) S.golfEdge=true; // the next court judge arrives pre-read
   if(out.client){ // global events move the client book
@@ -1295,6 +1317,7 @@ function gameWin(){
     showSummary("YOU MADE NAME PARTNER — AND KEPT GOING",[
       "The sign painters add your name to the wall. The inbox does not attend the ceremony.",
       "ENDLESS: the firm is yours now — payroll included. Open the FIRM tab to meet it.",
+      "Current operating load: -"+firmPayrollCost(S.roster.length)+" FIRM each morning. Roster failures cost "+ROSTER_LOSS_COST+"; wins restore "+ROSTER_WIN_GAIN+".",
       "Keep FIRM health above "+FIRM_COLLAPSE+" or the name comes off the wall.",
       "Day "+S.day+". Reputation "+S.rep+". Boldness "+S.bold+". Firm "+S.firm+"."],
       "KEEP BILLING","dismiss");

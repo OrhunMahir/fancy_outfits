@@ -2,11 +2,13 @@
 // loses, who drags the firm down. Fire anyone except Senior Partners; those
 // need a partner vote. Every firing raises the odds an ex-employee sues.
 import { useGame } from "../game/useGame.js";
-import { closeRoster, fireEmployee, voteChance, displayPct } from "../game/engine.js";
+import { ROSTER_ACTIVITY, ROSTER_WIN_GAIN, ROSTER_LOSS_COST } from "../game/constants.js";
+import { closeRoster, fireEmployee, voteChance, displayPct, firmPayrollCost, rosterWinChance } from "../game/engine.js";
 
 export default function RosterOverlay(){
   const S=useGame();
   const heat=Math.min(30,Math.round(S.fireHeat));
+  const payroll=firmPayrollCost(S.roster?.length||0);
   return (
     <div className="overlay" style={{overflowY:"auto"}}>
       <div className="box panel" style={{maxWidth:640,margin:"auto"}}>
@@ -15,14 +17,15 @@ export default function RosterOverlay(){
           FIRM HEALTH: {S.firm}/100{S.everFired?" · LITIGATION RISK: ~"+heat+"%/morning (never zero — they remember)":""}
         </div>
         <div className="kv" style={{marginBottom:10}}>
-          IMPACT is what they do to the firm every day. Firing hurts morale (−2 FIRM) and invites lawsuits. Senior Partners require a partner vote.
+          OPERATING LOAD: −{payroll} FIRM each morning ({S.roster?.length||0} employees). Each employee handles work on {Math.round(ROSTER_ACTIVITY*100)}% of mornings:
+          a win restores +{ROSTER_WIN_GAIN}, a loss costs −{ROSTER_LOSS_COST}. Firing hurts morale (−2 FIRM) and invites lawsuits.
         </div>
         {S.roster&&S.roster.map(e=>(
           <div key={e.id} className="rosterrow">
             <div className="lblrow">
               <span>{e.name.toUpperCase()}</span>
               <span style={{color:e.impact>0?"var(--green)":(e.impact<0?"var(--red)":"var(--grey)")}}>
-                IMPACT {e.impact>0?"+":""}{e.impact}/day
+                PERFORMANCE {e.impact>0?"+":""}{e.impact} · {rosterWinChance(e.impact)}% WIN
               </span>
             </div>
             <div className="tagline">{e.role} · {e.won}W / {e.lost}L</div>

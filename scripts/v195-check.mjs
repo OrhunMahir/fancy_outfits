@@ -1264,6 +1264,34 @@ globalThis.clearInterval = () => {};
   assert.equal(state.S.inbox[0].msg, true);
   assert.equal(state.S.event, null);
 
+  // v1.9.12: Name Partner payroll is headcount-scaled and failed employee
+  // work costs twice what a routine win restores. The public helpers power
+  // the FIRM overlay, so UI copy and engine arithmetic cannot silently drift.
+  assert.deepEqual([engine.firmPayrollCost(0),engine.firmPayrollCost(1),engine.firmPayrollCost(10),engine.firmPayrollCost(11)], [0,1,1,2]);
+  assert.deepEqual([engine.rosterWinChance(-3),engine.rosterWinChance(0),engine.rosterWinChance(4)], [26,50,82]);
+  fresh("endless");
+  Object.assign(state.S, {
+    day: 5, rank: 4, inf: 50, endlessWon: true, firm: 90, inbox: [], objective: null,
+    debtDue: null, event: null, hours: 8, clients: [{ name: "Abibas", fee: 100 }],
+    weekStart: { inf: 45, rep: state.S.rep }, weekMissed: 0,
+    roster: Array.from({ length: 100 }, (_, i) => ({
+      id: "audit-" + i, name: "Audit " + i, impact: -100, won: 0, lost: 0,
+      senior: false, src: "generated",
+    })),
+  });
+  const firmProbe=[];
+  engine.setBalanceProbe(event=>firmProbe.push(event));
+  utils.setSeed(197);
+  engine.endDay();
+  engine.dismissSummary();
+  engine.setBalanceProbe(null);
+  const rosterProbe=firmProbe.find(event=>event.kind==="roster");
+  const payrollProbe=firmProbe.find(event=>event.kind==="firm"&&event.source==="payroll");
+  assert.ok(rosterProbe.losses>0);
+  assert.equal(rosterProbe.rawDrift,-2*rosterProbe.losses);
+  assert.equal(rosterProbe.overhead,10);
+  assert.deepEqual([payrollProbe.requested,payrollProbe.amount],[-10,-10]);
+
   // Payroll is the natural ENDLESS collapse path. Once roster drift ends the
   // run on Saturday morning, advanceDay must not install the weekend card,
   // sit the character down or generate any later event.
@@ -1373,7 +1401,7 @@ globalThis.clearInterval = () => {};
     }
   }
 
-  console.log("v1.9.5–v1.9.11 checks passed: balance experiments, Friday promotions, delegation cap, strict saves, procedural IDs, long-run integrity, FIRM, judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
+  console.log("v1.9.5–v1.9.12 checks passed: balance experiments, Friday promotions, delegation cap, strict saves, procedural IDs, long-run integrity, FIRM payroll, judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;

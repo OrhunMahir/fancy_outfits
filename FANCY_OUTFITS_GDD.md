@@ -31,7 +31,9 @@ You are a lawyer (maybe). Read case files, pick your line, bluff, grovel, or bac
 ## 4. Career Ladder
 Junior Associate → Senior Associate → Junior Partner → Senior Partner → **Name Partner** (win condition).
 
-- Promotion when Influence crosses a threshold **and** a promotion event fires.
+- Crossing an Influence threshold makes the player promotion-ready. Titles change only on the
+  morning after the five-day Friday Partner Review, at most one rank per review; reload cannot
+  replay a consumed review.
 - Early ranks get mostly errands and doc review; case quality rises with rank.
 - Higher rank = higher stakes: crises target you more, rivals notice you.
 
@@ -44,7 +46,7 @@ Every named NPC (partners, associates, paralegals) has:
   - **Lazy** — chance a delegated task silently doesn't happen.
   - **Traitor** — may sell you out when it benefits them (crisis events check this).
 
-Delegation unlocks at Senior Associate: hand a case to an NPC, their traits + relationship decide the outcome. You eat the consequences either way.
+Delegation unlocks at Senior Associate: hand one case per day to an NPC, their traits + relationship decide the outcome. You eat the consequences either way.
 
 ## 6. Crisis Events
 Random firm-level drama in the Suits mold — e.g. a Louis-type partner maneuvering behind a Harvey-type's back, a merger threat, a mole leaking files. Crises:

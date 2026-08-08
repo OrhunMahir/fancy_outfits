@@ -1,11 +1,58 @@
 # FANCY OUTFITS — Deterministik Kariyer Soak Raporu
 
-**Sürüm:** v19.9
+**Sürüm:** v19.10 (v19.9 baseline + ölçümlü A/B turu)
 
 **Tarih:** 2026-08-08
 
 **Kapsam:** Standard 40 gün, Endless 50 gün; beş senaryo; denge, uzun-run
 bütünlüğü ve şüpheli seed tekrarları.
+
+## v19.10 A/B güncellemesi — uygulanan karar
+
+v19.9'da doğrulanan hızlı kariyer sorunu dört ayrı adayla gerçek engine üzerinde ölçüldü.
+Pozitif INF artık `case`, `big_case`, `delayed`, `delegated`, `favor`, `objective`, `review`,
+`crisis`, `client_event`, `demand`, `story`, `weekend`, `rival`, `decor` ve `other` olarak exact
+kaynak etiketiyle toplanıyor; stat formülü kopyalanmıyor. Ek olarak görünür bilgi kullanan kontrollü
+`mixed` ve Name Partner sonrası yalnız işletmeyi zorlayan `firm_only_stress` politikaları eklendi.
+
+### Aday karşılaştırması
+
+| Aday | Technical win | Medyan final | Gün 12'ye kadar final | Karar |
+|---|---:|---:|---:|---|
+| v19.9: anlık terfi, 2 delege/gün | %98,4 | 10 | %96,9 | reddedildi |
+| Yalnız delegasyon INF ×0,5 | %100 | 11 | %85,6 | sorunu çözmedi |
+| Dağıtılmış INF kesintileri | %100 | 11 | %75,6 | sorunu çözmedi |
+| Yalnız Friday promotion, 2 delege/gün | %96,9 | 21 | %0 | süreyi çözdü, güvenliği çözmedi |
+| **Friday promotion + 1 delege/gün** | **%69,4** | **21** | **%0** | **uygulandı** |
+
+İlk üç deney 32 seed × 5 senaryoda 160 Technical kariyerle; final seçim 64 seed × 5
+senaryoda 320 Technical kariyerle ölçüldü. Uygulanan adayın senaryo sonuçları Fraud %65,6,
+Debtor %68,8, Legacy %65,6, Defector %73,4 ve Boomerang %73,4; kazananların tamamında medyan
+final 21. gün. Böylece önceden belirlenen %60–80 win, 18–24 gün medyan ve <%25 erken-final
+hedeflerinin üçü de karşılandı.
+
+Eski Technical kariyerde brüt pozitif INF'in en büyük exact kaynakları doğrudan dava 26,48,
+delegasyon 24,60, objective 11,98, kriz 8,32, demand 7,71 ve delayed reply 7,70 INF/run çıktı.
+Sorun tek bir ödül katsayısı olmadığı için ödülleri sessizce budamak yerine kariyer ritmi ve iş
+kapasitesi değiştirildi. Safe %100, zar matematiği, dava ödülleri ve NPC başarı oranları korunuyor.
+
+Final paired Standard doğrulaması **1.280 kariyer, 96/96 replay, 0 invariant ihlali**;
+Endless doğrulaması **1.920 kariyer, 201/201 replay, 0 invariant ihlali** verdi. Save schema v5,
+`promotionReviewDay` ve `promotionHintRank` alanlarını migrate/validate ederek reload ile aynı
+cuma kararının ikinci kez çalışmasını engelliyor.
+
+### Kalan gözlemler
+
+- `mixed` politika genelinde %52,8 kazandı; Boomerang özelinde %21,9 ve %29,7 sürdürülen backlog
+  baskısı görüldü (**5/10**). Aynı senaryonun görünür Technical rotası %73,4 olduğundan global
+  denge imkânsız değil; sonraki senaryo turunda Boomerang'ın düşmanca NPC başlangıcı ayrıca ölçülmeli.
+- Uygulanan Endless adayında Technical Name Partner oranı %75, medyan gün 21. Fakat izole
+  `firm_only_stress` içinde 176 Name Partner kariyeri / 1.441 post-NP günde **0 doğal FIRM
+  COLLAPSE** görüldü (**7/10**). Bu progression değişikliğinin yan etkisi değil, sıradaki endgame A/B'si.
+- Hakim teknik hafızasının +6 tavanına Endless gün 20 sonrası sık ulaşması tekrarlandı (**6/10**).
+  Ödül/terfi turuna karıştırılmadı; rolling-window veya cuma decay adayı ayrı ölçülmeli.
+
+> Aşağıdaki bölümler v19.9 baseline taramasını ve bu A/B turuna götüren kanıtı korur.
 
 ## 1. Sonuç
 

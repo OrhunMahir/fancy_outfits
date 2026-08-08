@@ -30,6 +30,24 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.10 — Measured career progression rebalance *(2026-08-08)*
+- **Promotions now belong to Partner Review:** crossing an Influence threshold marks the career
+  promotion-ready, but the title changes only on the morning after Friday review and at most one
+  rank per review. The sidebar, info panel and one-shot log message make the wait explicit.
+- **Delegation is relief, not a parallel career:** the daily handoff cap is now one. The case panel
+  shows `used/limit`, disables colleagues after the slot is spent and the engine keeps the same
+  strict guard. Existing delegated rewards and success odds were not nerfed.
+- **Measured selection:** exact positive-INF attribution and new mixed/FIRM-only policies compared
+  immediate progression, Friday cadence, delegated-INF reduction and distributed reward cuts.
+  Reward cuts alone still produced 100% Technical wins around day 11; Friday cadence plus one
+  handoff moved the 320-career Technical cohort to 69.4% wins, median day 21 and zero day-12 wins.
+- **Save schema v5:** consumed review day and the one-shot readiness hint persist across reloads, so
+  reopening a slot cannot replay a promotion decision. Old slots migrate both fields safely.
+- **Verification:** the final paired Standard run covered 1,280 careers with 96/96 identical
+  replays and zero invariant failures; the separate Endless A/B covered 1,920 careers with 201/201
+  identical replays and zero invariant failures. Full evidence is in
+  [`BALANCE_SOAK_REPORT.md`](BALANCE_SOAK_REPORT.md).
+
 ### v19.9 — Deterministic career soak & integrity *(2026-08-08)*
 - **A real long-career laboratory:** the new headless soak runner drives public engine actions
   across Standard and Endless careers with independent game/policy RNG streams, five player

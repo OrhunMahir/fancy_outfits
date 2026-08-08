@@ -26,7 +26,7 @@ export default function StatsPanel(){
         {bars.map(([n,v,col])=>{
           let extra="";
           if(n==="REPUTATION") extra=" (fired < "+REP_FIRED+")";
-          if(n==="INFLUENCE"&&S.rank<4) extra=" (next rank: "+RANK_REQ[S.rank]+" INF"+(nextFirm?", "+nextFirm+" FIRM":"")+(S.rank===2?" + buy-in":"")+")";
+          if(n==="INFLUENCE"&&S.rank<4) extra=" (next rank: "+RANK_REQ[S.rank]+" INF"+(nextFirm?", "+nextFirm+" FIRM":"")+(S.rank===2?" + buy-in":"")+" · decided after Friday review)";
           if(n==="FIRM") extra=(S.endlessWon||S.rank===4)?" (collapse < "+FIRM_COLLAPSE+")":S.mode==="standard"?" ("+firm.label+")":" (tracked; STANDARD rules off)";
           if(n==="FATIGUE") extra=hazardPerHour()>0
             ?" (⚠ "+hazardPerHour()+"%/h sent-home risk)"

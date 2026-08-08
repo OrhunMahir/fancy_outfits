@@ -230,11 +230,19 @@
 - **Bounded inbox:** notification mesajları en yeni `INBOX_MESSAGE_LIMIT(80)` kayıtla sınırlı; canlı davalar ayrı korunur, eski save load sırasında onarılır. 3.520 koşuda maksimum tam 80, taşma 0.
 - **Regresyonlar:** gerçek latework zinciri, dual morning result, low-FIRM false win, lazy/missing deadline burn, procedural ID DAILY reload/migration, malformed schema4, stale event/overtime, message repair, Client War carrier ve Endless record idempotence kalıcı `npm test` kapsamındadır.
 
-**Dış denetim notu (Codex, 2026-08-08):** YAPILDI: v1.9.3 çökme/kilit+Windows, v1.9.4 bütünlük, v1.9.5 seçenek/stil/kahve/mesai dengesi, v1.9.6 Client War+save bütünlüğü ve bağımlılık/Electron/CSP güvenliği, v1.9.7 Standard FIRM anlamı + Defector/Boomerang finalleri, v1.9.8 hakim hafızası, v1.9.9 30–50 günlük Standard/Endless soak + şüpheli seed replay + uzun-run bütünlük fixleri. KALAN: kontrollü progression/FIRM/hakim-memory A/B turu; mobil geçiş; bağlamsal SFX; yayın/paketleme.
+**v1.9.10 eklendi (2026-08-08, ölçümlü progression A/B):**
+- **Exact INF attribution + yeni politikalar:** test-only probe pozitif INF'i `case/big_case/delayed/delegated/favor/objective/review/crisis/client_event/demand/story/weekend/rival/decor/other` kaynaklarına ayırır. Soak runner `mixed` görünür-bilgi kariyer botu, izole `firm_only_stress`, scenario/mode/policy/variant filtreleri ve variant-bazlı cohort raporu aldı. Production, experiment/probe set etmez.
+- **A/B kararı:** delegated INF ×.5 ve dağıtılmış reward kesintileri Technical rotayı hâlâ %100 / medyan gün 11'de bıraktı. Friday-only promotion süreyi 21 güne taşıdı ama 2 delege/gün ile %96,9 win kaldı. Friday promotion + `DELEGATE_CAP(1)` final 64-seed Standard kohortunda %69,4 win / medyan gün 21 / gün≤12 %0 verdi; beş senaryo Technical sonucu %65,6–73,4. Bu aday canlıya alındı; reward/zar/NPC oranları değişmedi.
+- **Terfi ritmi:** Influence eşiği artık yalnız promotion-ready yapar. Cuma end-of-day partner review kararının ertesi sabahı en fazla bir rütbe verilir. UI barı/info/log bunu açıklar; review tüketimi `S.promotionReviewDay`, tek-seferlik mesaj `S.promotionHintRank` ile save-stable'dır.
+- **Delegasyon UX/guard:** günde tek filing devredilir. CasePane `used/1` gösterir ve slot dolunca butonları disable eder; engine sahte/stale ikinci çağrıyı strict no-op tutar.
+- **Save schema v5 + doğrulama:** 4→5 migration iki promotion alanını backfill eder; gün/rank sınırları validate edilir. Reload tüketilmiş cuma kararını yeniden oynatamaz. Regresyon testi cadence, tek-review/tek-rank, save/reload ve handoff limitini kapsar.
+- **Final doğrulama:** paired Standard 1.280 kariyer / 96 replay ve Endless 1.920 kariyer / 201 replay; tüm replay'ler aynı, invariant ihlali 0. Ayrıntı `BALANCE_SOAK_REPORT.md` v19.10 ekinde.
 
-**En son çalışılan konu (2026-08-08):** v1.9.9 deterministik soak tamamlandı; 3.520 kariyer ve 252 replay, Technical progression'ın medyan gün 10 ile fazla hızlı olduğunu, Endless hakim hafızasının gün 20 sonrası çoğunlukla +6'da doyduğunu ve FIRM collapse'ın FIRED arkasında kaldığını doğruladı. Bu sırada bulunan save/prosedürel-ID/latework/morning-promotion/delegation/message-growth hataları regresyonlarıyla düzeltildi. Sıradaki öneri: **ölçümlü denge A/B turu** (sabah INF attribution ayrımı + Friday-only promotion / reward dağılımı karşılaştırması + gerçekçi karma aggressive bot); ardından mobil sekmeli layout + Capacitor hazırlığı.
+**Dış denetim notu (Codex, 2026-08-08):** YAPILDI: v1.9.3 çökme/kilit+Windows, v1.9.4 bütünlük, v1.9.5 seçenek/stil/kahve/mesai dengesi, v1.9.6 Client War+save bütünlüğü ve bağımlılık/Electron/CSP güvenliği, v1.9.7 Standard FIRM anlamı + Defector/Boomerang finalleri, v1.9.8 hakim hafızası, v1.9.9 30–50 günlük soak+bütünlük, v1.9.10 exact attribution + progression A/B + Friday promotion/delege cap. KALAN: FIRM endgame ve hakim-memory A/B; Boomerang karma rota takibi; mobil geçiş; bağlamsal SFX; yayın/paketleme.
 
-**Aklında tut (kullanıcı onaylı bekleyenler):** ölçümlü denge A/B turu (önce attribution + yeni politikalar, sonra sayı değişikliği), mobil (layout+Capacitor), bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
+**En son çalışılan konu (2026-08-08):** v1.9.10 progression turu tamamlandı. Anlık terfi+2 delege baseline'ı %98,4 / medyan gün 10'dan Friday review+1 delege ile %69,4 / medyan gün 21'e geldi; erken final %96,9→%0. Standard/Endless final paired matrisleri 3.200 kariyer, 297/297 replay ve 0 invariant ihlali verdi. Sıradaki öneri: izole **FIRM endgame A/B** (1.441 post-NP gününde 0 collapse), ardından hakim hafızası rolling/decay A/B; sonra mobil sekmeli layout + Capacitor.
+
+**Aklında tut (kullanıcı onaylı bekleyenler):** FIRM endgame A/B, hakim-memory decay/rolling A/B, Boomerang karma rota kontrolü, mobil (layout+Capacitor), bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
 
 ---
 
@@ -294,7 +302,7 @@ fancy-outfits/
 │       ├── EventOverlay.jsx      ← kriz ekranı (+ Traitor/Brave modifier satırı)
 │       └── SummaryOverlay.jsx    ← gün sonu / cuma review / game over / win + run ledger
 ├── FANCY_OUTFITS_GDD.md          ← Tasarım dokümanı (gelecek özelliklerin speci)
-├── BALANCE_SOAK_REPORT.md        ← v19.9 3.520 kariyer baseline'ı + replay/denge roadmap'i
+├── BALANCE_SOAK_REPORT.md        ← v19.9 baseline + v19.10 A/B kararı, replay ve kalan denge roadmap'i
 ├── README.md                     ← GitHub vitrini + CHANGELOG (her versiyonda güncellenir — §6 kuralı)
 ├── CLAUDE.md                     ← Bu dosya
 ├── .gitignore                    ← node_modules/, dist/

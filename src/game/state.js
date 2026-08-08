@@ -29,7 +29,8 @@ export function newState(scenario,difficulty){
     endlessWon:false, runRecorded:false, // endless: win once, keep billing; stats recorded once per run
     seed:Math.floor(rand()*1e9), // per-run seed so odds ranges are stable but not centered
     rep:50, bold:40, inf:10, firm:FIRM_START,
-    firmPlanDay:0, firmGateHintRank:null, // STANDARD: turnaround cooldown + one-shot promotion warning
+    firmPlanDay:0, firmGateHintRank:null, // STANDARD: turnaround cooldown + one-shot FIRM warning
+    promotionReviewDay:0, promotionHintRank:null, // titles change only after Friday review; save-stable
     judgeMemory:{}, // per-run court history, keyed by stable judge id (never mutates JUDGES definitions)
     caseSeq:0, // persisted procedural filing id cursor (replay/save-visible odds must not drift)
     buyinPaid:false, buyinHinted:false, // rank 2->3 needs the partnership buy-in

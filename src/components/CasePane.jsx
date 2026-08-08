@@ -2,7 +2,7 @@
 import { useGame } from "../game/useGame.js";
 import { displayChance, displayPct, choose, deferCase, delegateCase, hireDetective, hoursFor, optHours, judgeMemoryInfo } from "../game/engine.js";
 import { delegationChance } from "../game/npcs.js";
-import { PRICES, STAKE_REWARD, STAKE_PENALTY } from "../game/constants.js";
+import { PRICES, STAKE_REWARD, STAKE_PENALTY, DELEGATE_CAP } from "../game/constants.js";
 
 export default function CasePane(){
   const S=useGame();
@@ -63,11 +63,11 @@ export default function CasePane(){
         )}
         {(S.rank>=1||S.scenario==="boomerang") && !c.judge && !c.favor && (
           <div className="delg">
-            <div className="kv">DELEGATE (0.5h) — they do the work, you own the fallout. Report tomorrow:</div>
+            <div className="kv">DELEGATE (0.5h · {S.today.delegated}/{DELEGATE_CAP} TODAY) — they do the work, you own the fallout. Report tomorrow:</div>
             {S.npcs.map(n=>{
               const pct=n.known?displayPct(delegationChance(n),"delg|"+n.id):null;
               return (
-                <button key={n.id} className="btn small" onClick={()=>delegateCase(c,n.id)}>
+                <button key={n.id} className="btn small" disabled={S.today.delegated>=DELEGATE_CAP} onClick={()=>delegateCase(c,n.id)}>
                   {n.name.split(" ")[0].toUpperCase()} · {n.known?n.trait+(pct?" · "+pct:""):"??"}
                 </button>
               );

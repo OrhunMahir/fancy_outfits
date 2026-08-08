@@ -47,6 +47,9 @@ globalThis.clearInterval = () => {};
   const { settings } = await import("../src/game/settings.js");
   settings.sfx = 0;
   settings.bgm = 0;
+  // Most historical regressions below assert their original immediate-promotion
+  // setup. Focused v1.9.10 checks switch back to shipped rules near the end.
+  engine.setBalanceExperiment({ weeklyPromotion: false, delegateCap: 2 });
 
   const template = () => ({
     id: "v195",
@@ -591,7 +594,20 @@ globalThis.clearInterval = () => {};
   assert.equal(v1Info.save.schemaVersion, constants.SAVE_SCHEMA_VERSION);
   assert.equal(v1Info.save.firmPlanDay, 0);
   assert.equal(v1Info.save.firmGateHintRank, null);
+  assert.equal(v1Info.save.promotionReviewDay, 0);
+  assert.equal(v1Info.save.promotionHintRank, null);
   assert.deepEqual(v1Info.save.judgeMemory, {});
+  const v4Raw = clone(readyBase);
+  v4Raw.schemaVersion = 4;
+  delete v4Raw.promotionReviewDay;
+  delete v4Raw.promotionHintRank;
+  storage.set(`${constants.SAVE_KEY}_s2`, JSON.stringify(v4Raw));
+  const v4Info = engine.inspectSave(2);
+  assert.equal(v4Info.status, "ready");
+  assert.equal(v4Info.needsUpgrade, true);
+  assert.equal(v4Info.save.schemaVersion, constants.SAVE_SCHEMA_VERSION);
+  assert.equal(v4Info.save.promotionReviewDay, 0);
+  assert.equal(v4Info.save.promotionHintRank, null);
   const v3Raw = clone(readyBase);
   v3Raw.schemaVersion = 3;
   delete v3Raw.caseSeq;
@@ -683,6 +699,9 @@ globalThis.clearInterval = () => {};
     { raw: JSON.stringify({ ...clone(readyBase), archiveTotal: -1 }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), firmPlanDay: -1 }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), firmGateHintRank: 4 }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), promotionReviewDay: -1 }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), promotionReviewDay: readyBase.day + 1 }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), promotionHintRank: 4 }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), caseSeq: -1 }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), caseSeq: Number.MAX_SAFE_INTEGER }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), caseSeq: Number.MAX_SAFE_INTEGER + 1 }), status: "invalid" },
@@ -1259,6 +1278,44 @@ globalThis.clearInterval = () => {};
   assert.equal(state.S.charAnim, "leaving", "terminal payroll drift must stop before sitDown");
   assert.equal(state.S.event, null);
 
+  // v1.9.10: promotions are decisions of the completed Friday review, never an
+  // instant reward cascade. The consumed review and readiness hint survive a
+  // reload; a single review grants at most one rung. Delegation is one filing/day.
+  engine.setBalanceExperiment(null);
+  fresh();
+  Object.assign(state.S, { day: 2, rank: 0, inf: 35, firm: 62, event: null, summary: null });
+  drivePromotion();
+  assert.deepEqual([state.S.rank, state.S.promotionReviewDay, state.S.promotionHintRank], [0, 0, 0]);
+  engine.saveGame();
+  engine.loadGame(1);
+  assert.deepEqual([state.S.rank, state.S.promotionReviewDay, state.S.promotionHintRank], [0, 0, 0]);
+  Object.assign(state.S, { day: 6, event: null, summary: null });
+  drivePromotion();
+  assert.deepEqual([state.S.rank, state.S.promotionReviewDay, state.S.promotionHintRank], [1, 6, null]);
+  Object.assign(state.S, { inf: 100, firm: 100, event: null, summary: null });
+  drivePromotion();
+  assert.equal(state.S.rank, 1, "one completed review cannot award two ranks");
+  engine.saveGame();
+  engine.loadGame(1);
+  drivePromotion();
+  assert.equal(state.S.rank, 1, "reloading cannot replay a consumed promotion review");
+  Object.assign(state.S, { day: 11, event: null, summary: null });
+  drivePromotion();
+  assert.deepEqual([state.S.rank, state.S.promotionReviewDay], [2, 11]);
+
+  fresh();
+  Object.assign(state.S, { rank: 1, hours: 8, event: null, summary: null });
+  const delegateA = engine.instantiateCase(template());
+  const delegateB = engine.instantiateCase(template());
+  engine.delegateCase(delegateA, state.S.npcs[0].id);
+  const afterFirstHandoff = state.S.hours;
+  engine.delegateCase(delegateB, state.S.npcs[0].id);
+  assert.equal(constants.DELEGATE_CAP, 1);
+  assert.equal(state.S.today.delegated, 1);
+  assert.equal(state.S.hours, afterFirstHandoff);
+  assert.equal(delegateB.delegated, undefined);
+  engine.setBalanceExperiment({ weeklyPromotion: false, delegateCap: 2 });
+
   // All scenarios produce defined terminal prose; Defector/Boomerang close both arcs.
   const endingMarkers = {
     fraud: /law school/,
@@ -1297,6 +1354,7 @@ globalThis.clearInterval = () => {};
   assert.match(viteConfig, /script-src 'self' 'unsafe-inline'/);
 
   // Smoke every supported scenario/mode combination.
+  engine.setBalanceExperiment(null);
   const scenarios = ["fraud", "debtor", "legacy", "defector", "boomerang"];
   const modes = ["standard", "ironman", "endless", "daily"];
   for (const scenario of scenarios) {
@@ -1308,7 +1366,7 @@ globalThis.clearInterval = () => {};
     }
   }
 
-  console.log("v1.9.5–v1.9.9 checks passed: balance, strict saves, procedural IDs, long-run integrity, FIRM, judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
+  console.log("v1.9.5–v1.9.10 checks passed: balance, Friday promotions, delegation cap, strict saves, procedural IDs, long-run integrity, FIRM, judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;

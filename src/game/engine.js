@@ -25,6 +25,19 @@ export { buildDemand, buildBigMatter }; // re-export: dev console + tests poke t
 
 let flashSeq=0;
 let terminalClearDone=false;
+// Local, test-only balance hooks. Production never sets these, so the shipped
+// rules remain the baseline while the soak runner can execute paired A/B runs
+// through the real engine instead of copying formulas.
+let balanceProbe=null;
+let balanceExperiment=null;
+export function setBalanceProbe(fn){ balanceProbe=typeof fn==="function"?fn:null; }
+export function setBalanceExperiment(config){
+  balanceExperiment=config&&typeof config==="object"?config:null;
+}
+export const delegationDailyLimit=()=>balanceExperiment&&Number.isSafeInteger(balanceExperiment.delegateCap)?
+  clamp(balanceExperiment.delegateCap,0,10):DELEGATE_CAP;
+const weeklyPromotionsEnabled=()=>balanceExperiment&&typeof balanceExperiment.weeklyPromotion==="boolean"?
+  balanceExperiment.weeklyPromotion:true;
 
 /* The clock stops whenever any overlay is up, the player hit PAUSE, or the
    character is walking out. Replaces the old S.paused flag. */
@@ -208,7 +221,7 @@ export function rivalTick(){
   const N=S.nemesis; if(!N||S.over) return;
   if(S.rivalPact){
     if(S.day>=S.rivalPact.until){ pushMsg("RIVAL","The "+S.rivalPact.type+" with "+N.name+" quietly expires. Business resumes."); S.rivalPact=null; }
-    else if(S.rivalPact.type==="ally"){ apply({inf:1},true); N.inf=clamp(N.inf+1,0,100); }
+    else if(S.rivalPact.type==="ally"){ apply({inf:1},true,"rival"); N.inf=clamp(N.inf+1,0,100); }
     return;
   }
   if(rand()>= .12+(N.grudge?.08:0)) return;
@@ -277,13 +290,19 @@ function archiveCase(c,play,win,note,via,judgeMemorySnapshot){
 }
 
 /* effects: {rep,bold,inf,money,firm} */
-export function apply(fx,quiet){
+export function apply(fx,quiet,source="other"){
   if(!fx) return;
   const map={rep:"REP",bold:"BOLD",inf:"INFL",money:"$",firm:"FIRM"};
+  const beforeInf=S.inf;
   let parts=[];
   for(const k of ["rep","bold","inf","money","firm"]){
     if(!fx[k]) continue;
     let v=fx[k];
+    if(k==="inf"&&v>0&&balanceExperiment&&balanceExperiment.infMultipliers){
+      const mult=balanceExperiment.infMultipliers[source];
+      if(Number.isFinite(mult)) v=Math.round(v*Math.max(0,mult));
+      if(!v) continue;
+    }
     if(S.scenario==="legacy"){ // nepotism: influence easier, reputation harsher
       if(k==="inf"&&v>0) v=Math.round(v*1.25);
       if(k==="rep"&&v<0) v=Math.round(v*1.25);
@@ -292,6 +311,7 @@ export function apply(fx,quiet){
     else S[k]=clamp(S[k]+v,0,100);
     parts.push((v>0?"+":"")+v+" "+map[k]);
   }
+  if(balanceProbe&&S.inf>beforeInf) balanceProbe({source,amount:S.inf-beforeInf,day:S.day});
   if(parts.length&&!quiet) log(parts.join(", "),(fx.rep||0)<0?"bad":"good");
   checkEndings(); notify();
 }
@@ -642,7 +662,7 @@ export function endDay(){
   // daily objective: bonus if met, a dry note if not (no penalty)
   if(S.objective){
     const info=objectiveInfo();
-    if(info.done){ apply(S.objective.reward,true); lines.push("DAILY GOAL MET: "+info.text+" — "+info.reward+"."); SFX.bell(); }
+    if(info.done){ apply(S.objective.reward,true,"objective"); lines.push("DAILY GOAL MET: "+info.text+" — "+info.reward+"."); SFX.bell(); }
     else lines.push("Daily goal missed: "+info.text+". No penalty. The firm merely notices.");
     S.objective=null;
   }
@@ -652,7 +672,7 @@ export function endDay(){
     const score=(S.inf-S.weekStart.inf)+Math.round((S.rep-S.weekStart.rep)/2)-S.weekMissed*3;
     lines.push("— PARTNER REVIEW, WEEK "+(S.day/WEEK_LEN)+" —");
     if(score>=REVIEW_GOOD){
-      apply({rep:4,inf:4,firm:3},true); ach("friday");
+      apply({rep:4,inf:4,firm:3},true,"review"); ach("friday");
       lines.push(rnd([
         "Hardwick, without looking up: 'Whoever you are — keep billing like that.' (+4 REP, +4 INFL)",
         "Your name comes up in the partners' meeting. Nobody laughs. Progress. (+4 REP, +4 INFL)",
@@ -674,7 +694,7 @@ export function endDay(){
     if(ret){ apply({money:ret},true); lines.push("Retainers collected: +$"+ret+" ("+S.clients.length+" client(s))."); }
     else if(S.rank>=2){ apply({firm:-4},true); lines.push("A partner with zero clients. The firm bills the air. (-4 FIRM)"); }
     else lines.push("No retainers yet. The partners are watching your book.");
-    if(S.decor&&S.decor.art){ apply({inf:1},true); lines.push("A client lingered at your painting. Taste is billable. (+1 INFL)"); }
+    if(S.decor&&S.decor.art){ apply({inf:1},true,"decor"); lines.push("A client lingered at your painting. Taste is billable. (+1 INFL)"); }
     lines.push("The weekend happens to other people. You reread depositions.");
     S.weekStart={inf:S.inf, rep:S.rep}; S.weekMissed=0;
   }
@@ -781,10 +801,10 @@ function resolveDelayed(c){
   archiveCase(c,r.o.text,r.win,out.txt,"delayed reply",r.judgeMemorySnapshot);
   rememberJudgeOutcome(c,r.o,r.win); // reveal first: hidden delayed outcomes never leak through future odds
   if(r.win){ SFX.win(); S.today.wins++; if(r.o.style==="aggressive") S.today.aggWin++;
-    log("RESPONSE ["+c.title+"]: SUCCESS","good"); pushMsg("REPLY: "+c.title,out.txt); apply(out.fx);
+    log("RESPONSE ["+c.title+"]: SUCCESS","good"); pushMsg("REPLY: "+c.title,out.txt); apply(out.fx,false,"delayed");
     if((c.tier||0)>=1) apply({firm:1},true); // same firm effect as an instant win (v1.9.4 symmetry)
     maybeImpressClient(c); if((out.fx.rep||0)+(out.fx.inf||0)>=10) flash("HENDERED!"); }
-  else { SFX.lose(); log("RESPONSE ["+c.title+"]: FAILED","bad"); pushMsg("REPLY: "+c.title,out.txt); apply(out.fx);
+  else { SFX.lose(); log("RESPONSE ["+c.title+"]: FAILED","bad"); pushMsg("REPLY: "+c.title,out.txt); apply(out.fx,false,"delayed");
     if((c.tier||0)>=1) apply({firm:-1},true);
     maybeLoseClientOnFail(); doShake(); nemesisGain(3,true); }
   if(out.next) queueFollowup(out.next);
@@ -818,7 +838,7 @@ function resolveDelegated(c){
     log("DELEGATION ["+c.title+"]: "+n.name+" delivered.","good");
     archiveCase(c,"Delegated to "+n.name,true,"handled it","delegated");
     apply({rep:2,inf:Math.max(1,Math.round((3+(c.tier||0)*2)*INF_EARN)),money:(c.tier||0)*300,
-      firm:(c.tier||0)>=1?1:0}); // delegated glory is damped like all INF; real matters also move FIRM
+      firm:(c.tier||0)>=1?1:0},false,"delegated"); // delegated glory is damped like all INF; real matters also move FIRM
   } else if(d.silent){
     relNpc(n,-3); c.delegated=null;
     if(!burnDelegatedDeadline(c,n.name+" 'never got around to it'.")){ // no free extension on the due date
@@ -912,12 +932,12 @@ export function choose(c,o,confirmedLate){
   if(o.bribe&&win&&S.runStats.bribeW>=3) ach("bribe3");
   if(win){
     SFX.win();
-    log("["+c.title+"] "+out.txt,"good"); apply(out.fx);
+    log("["+c.title+"] "+out.txt,"good"); apply(out.fx,false,c.favor?"favor":c.big?"big_case":"case");
     if((c.tier||0)>=1&&!c.favor){ apply({firm:1},true); maybeImpressClient(c); } // wins keep the lights on — and attract logos
     if(((out.fx&&out.fx.rep)||0)+((out.fx&&out.fx.inf)||0)>=10) flash("HENDERED!");
   } else {
     SFX.lose();
-    log("["+c.title+"] "+out.txt,"bad"); apply(out.fx);
+    log("["+c.title+"] "+out.txt,"bad"); apply(out.fx,false,c.favor?"favor":c.big?"big_case":"case");
     if((c.tier||0)>=1&&!c.favor){ apply({firm:-1},true); maybeLoseClientOnFail(); }
     doShake(); if(!c.favor) nemesisGain(3,true);
   }
@@ -1088,7 +1108,10 @@ export function spawnFavor(){
    you can't send a paralegal to argue a motion). Die is rolled now, revealed tomorrow. */
 export function delegateCase(c,npcId){
   if((S.rank<1&&S.scenario!=="boomerang")||c.judge||c.msg||c.pending||c.delegated||c.favor||c.big) return; // no delegating YOUR client's war
-  if(S.today.delegated>=DELEGATE_CAP){ log("The floor has limits: nobody takes a third handoff from the same desk in one day.","sys"); notify(); return; }
+  const dailyLimit=delegationDailyLimit();
+  if(S.today.delegated>=dailyLimit){
+    log("The floor has limits: today's handoff capacity is already spoken for.","sys"); notify(); return;
+  }
   const n=S.npcs.find(x=>x.id===npcId);
   if(!n) return; // stale UI/save references must never dereference a fired or forged colleague
   SFX.send();
@@ -1139,8 +1162,10 @@ export function resolveCrisis(o){
     const n=S.npcs.find(x=>x.id===ev.npc), d=win?(o.relOk||0):(o.relFail||0);
     if(n&&d){ relNpc(n,d); log(n.name+(d>0?" won't forget this. (+":" recalibrates. (")+d+" rel)",d>0?"good":"bad"); }
   }
-  if(win){ SFX.win(); log("[CRISIS] "+out.txt,"good"); apply(out.fx); if(((out.fx&&out.fx.inf)||0)>=10) flash("HENDERED!"); }
-  else { SFX.lose(); log("[CRISIS] "+out.txt,"bad"); apply(out.fx); apply({firm:-2},true); doShake(); nemesisGain(3,true); }
+  const infSource=ev&&ev.weekend?"weekend":ev&&ev.story?"story":ev&&ev.demand?"demand":
+    ev&&/^g_/.test(ev.id||"")?"client_event":"crisis";
+  if(win){ SFX.win(); log("[CRISIS] "+out.txt,"good"); apply(out.fx,false,infSource); if(((out.fx&&out.fx.inf)||0)>=10) flash("HENDERED!"); }
+  else { SFX.lose(); log("[CRISIS] "+out.txt,"bad"); apply(out.fx,false,infSource); apply({firm:-2},true); doShake(); nemesisGain(3,true); }
   if(out.expose){ gameOver("EXPOSED","There is no bar record. No law school. No you-with-a-JD. The audit found the empty space where your credentials should be, and the firm found it at the same time. Security is very polite about it. The Fraud is over."); return; }
   if(out.golf) S.golfEdge=true; // the next court judge arrives pre-read
   if(out.client){ // global events move the client book
@@ -1155,8 +1180,23 @@ export function resolveCrisis(o){
   checkPromotion(); checkClock(); saveGame(); notify();
 }
 
+function promotionWindowOpen(){
+  if(!weeklyPromotionsEnabled()) return true;
+  // The review is completed on Friday's end-of-day screen; its decision lands
+  // the following morning. One review can grant at most one rung of the ladder.
+  if(S.day<=1||(S.day-1)%WEEK_LEN!==0||S.promotionReviewDay===S.day) return false;
+  S.promotionReviewDay=S.day;
+  return true;
+}
 function checkPromotion(){
   if(S.over) return;
+  if(!promotionWindowOpen()){
+    if(S.rank<4&&S.inf>=RANK_REQ[S.rank]&&S.promotionHintRank!==S.rank){
+      S.promotionHintRank=S.rank; SFX.bell();
+      log("PROMOTION READY: your numbers qualify. Titles change after Friday's partner review.","sys");
+    }
+    return;
+  }
   const oldRank=S.rank;
   while(S.rank<4 && S.inf>=RANK_REQ[S.rank]){
     const firmReq=promotionFirmRequirement(S.rank);
@@ -1177,12 +1217,13 @@ function checkPromotion(){
       gameOver("FIRM COLLAPSE","The partnership offers you the nameplate and the insolvency in the same envelope. There is no firm left to inherit.");
       return;
     }
-    S.rank++; S.firmGateHintRank=null;
+    S.rank++; S.firmGateHintRank=null; S.promotionHintRank=null;
     if(S.rank===4){ gameWin(); return; }
     SFX.promo(); flash("PROMOTED!");
     log("PROMOTED to "+RANKS[S.rank]+"!","sys");
     if(S.rank===1) log("Senior Associate perk unlocked: DELEGATE cases from the file view.","sys");
     apply({rep:5},true); // (the book doesn't grow with the title — clients are earned)
+    if(weeklyPromotionsEnabled()) break;
     if(S.rank===3) break; // reaching Senior Partner (via buy-in) must NOT cascade straight to Name Partner
   }
   if(S.rank>oldRank&&!S.over) promoWalk(oldRank);
@@ -1514,7 +1555,14 @@ const migrateV3ToV4=raw=>{
   d.schemaVersion=4;
   return d;
 };
-const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4};
+const migrateV4ToV5=raw=>{
+  const d={...raw};
+  if(d.promotionReviewDay==null) d.promotionReviewDay=0;
+  if(!Object.prototype.hasOwnProperty.call(d,"promotionHintRank")) d.promotionHintRank=null;
+  d.schemaVersion=5;
+  return d;
+};
+const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5};
 
 const JUDGE_MEMORY_COUNTERS=["seen","aggressiveW","aggressiveL","technicalW","technicalL","bribeW","bribeL","safe","neutralW","neutralL"];
 function validJudgeMemory(memory,day){
@@ -1564,6 +1612,10 @@ function migrateSaveData(raw){
   if(!nonNegativeInt(d.firmPlanDay)) throw new SaveDataError("invalid","The saved turnaround cooldown is invalid.");
   if(d.firmGateHintRank!==null&&(!Number.isInteger(d.firmGateHintRank)||d.firmGateHintRank<0||d.firmGateHintRank>3))
     throw new SaveDataError("invalid","The saved FIRM promotion hint is invalid.");
+  if(!nonNegativeInt(d.promotionReviewDay)||d.promotionReviewDay>d.day)
+    throw new SaveDataError("invalid","The saved promotion review day is invalid.");
+  if(d.promotionHintRank!==null&&(!Number.isInteger(d.promotionHintRank)||d.promotionHintRank<0||d.promotionHintRank>3))
+    throw new SaveDataError("invalid","The saved promotion readiness hint is invalid.");
   if(!validJudgeMemory(d.judgeMemory,d.day)) throw new SaveDataError("invalid","The saved court history is damaged.");
   if(!nonNegativeInt(d.caseSeq)||d.caseSeq>=Number.MAX_SAFE_INTEGER||d.caseSeq<highestCaseSequence(d))
     throw new SaveDataError("invalid","The saved filing sequence is invalid.");

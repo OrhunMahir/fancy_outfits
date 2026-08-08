@@ -49,21 +49,39 @@ const { settings } = await import("../src/game/settings.js");
 
 const SCENARIOS = ["fraud", "debtor", "legacy", "defector", "boomerang"];
 const MODES = ["standard", "endless"];
-const POLICIES = ["max_chance", "technical", "aggressive", "oracle_ev", "chaos", "firm_stress"];
-const POLICY_VERSION = "soak-v3";
+const POLICIES = ["max_chance", "technical", "mixed", "aggressive", "oracle_ev", "chaos", "firm_stress", "firm_only_stress"];
+const ENDLESS_ONLY_POLICIES = new Set(["firm_stress", "firm_only_stress"]);
+const POLICY_VERSION = "soak-v4";
+const RNG_NAMESPACE = "soak-v3"; // preserve the audited v19.9 seed corpus for paired comparisons
 const POLICY_NOTES = Object.freeze({
   max_chance: "Exact-odds safety ceiling; prioritizes success chance and does not delegate.",
   technical: "Human-readable exploit baseline; prioritizes the visible TECHNICAL label and delegates up to the daily cap.",
+  mixed: "Visible-information career policy; protects low REP, delegates only under pressure and takes controlled aggressive shots.",
   aggressive: "Pure stress baseline; takes AGGRESSIVE plays whenever available.",
   oracle_ev: "Non-human hidden-information heuristic; reads exact chance and hidden outcome effects.",
   chaos: "Seeded random baseline.",
   firm_stress: "ENDLESS-only endgame stress: reaches Name Partner technically, then fires daily while preserving REP.",
+  firm_only_stress: "ENDLESS-only isolated management stress: safe personal docket, non-senior firing and no turnaround after Name Partner.",
+});
+const VARIANTS = Object.freeze({
+  baseline: { note: "Shipped v19.10 rules: Friday promotion decisions and one handoff per day.", engine: {} },
+  legacy_v199: { note: "Pre-v19.10 career: immediate promotions and two handoffs per day.", engine: { weeklyPromotion:false,delegateCap:2 } },
+  weekly_promotion: { note: "Friday promotion decisions with the former two-handoff limit.", engine: { weeklyPromotion:true,delegateCap:2 } },
+  weekly_delegate_one: { note: "Weekly promotion cadence plus one delegated filing per day.", engine: { weeklyPromotion:true,delegateCap:1 } },
+  delegation_half: { note: "Delegated positive INF is multiplied by 0.5.", engine: { infMultipliers: { delegated: .5 } } },
+  distributed_rewards: { note: "Modest positive INF reductions across case and non-case progression sources.", engine: { infMultipliers: {
+    case: .9, big_case: .9, delayed: .85, delegated: .65, favor: .9,
+    objective: .75, review: .75, crisis: .8, client_event: .8,
+    demand: .8, story: .8, weekend: .9, rival: .8,
+  } } },
 });
 const JUDGE_CAP_BUCKETS = ["technical_plus6", "technical_minus6", "aggressive_minus8", "bribe_minus8"];
 const KNOWN_JUDGES = new Set(content.JUDGES.map(judge => judge.id));
 
+function parseList(raw) { return String(raw || "").split(",").map(value => value.trim()).filter(Boolean); }
 function parseArgs(argv) {
-  const out = { seeds: 64, standardDays: 40, endlessDays: 50, json: null, replay: null };
+  const out = { seeds: 64, standardDays: 40, endlessDays: 50, json: null, replay: null,
+    scenarios: [...SCENARIOS], modes: [...MODES], policies: [...POLICIES], variants: ["baseline"] };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     const take = () => argv[++i];
@@ -72,11 +90,17 @@ function parseArgs(argv) {
     else if (arg === "--endless-days") out.endlessDays = Number(take());
     else if (arg === "--json") out.json = take();
     else if (arg === "--replay") out.replay = take();
+    else if (arg === "--scenarios") out.scenarios = parseList(take());
+    else if (arg === "--modes") out.modes = parseList(take());
+    else if (arg === "--policies") out.policies = parseList(take());
+    else if (arg === "--variants") out.variants = parseList(take());
     else if (arg === "--help") out.help = true;
     else throw new Error("Unknown argument: " + arg);
   }
   for (const key of ["seeds", "standardDays", "endlessDays"])
     if (!Number.isSafeInteger(out[key]) || out[key] < 1) throw new Error("Invalid --" + key + " value");
+  for (const [key, allowed] of [["scenarios",SCENARIOS],["modes",MODES],["policies",POLICIES],["variants",Object.keys(VARIANTS)]])
+    if (!out[key].length || out[key].some(value => !allowed.includes(value))) throw new Error("Invalid --" + key + " value");
   return out;
 }
 
@@ -169,11 +193,25 @@ function chooseOption(policy, c, policyRng) {
   if (!options.length) return null;
   const byChance = [...options].sort((a, b) => engine.chance(b, c) - engine.chance(a, c) ||
     engine.optHours(c, a) - engine.optHours(c, b) || c.opts.indexOf(a) - c.opts.indexOf(b));
+  const byVisible = [...options].sort((a, b) => perceivedChance(b, c) - perceivedChance(a, c) ||
+    engine.optHours(c, a) - engine.optHours(c, b) || c.opts.indexOf(a) - c.opts.indexOf(b));
   if (policy === "max_chance") return byChance[0];
   if (policy === "firm_stress" && state.S.endlessWon && state.S.rep < 50)
     return options.find(option => option.safe) || byChance[0];
-  if (policy === "technical" || policy === "firm_stress")
+  if (policy === "firm_only_stress" && state.S.endlessWon)
+    return options.find(option => option.safe) || byVisible[0];
+  if (policy === "technical" || policy === "firm_stress" || policy === "firm_only_stress")
     return options.find(option => option.style === "technical") || byChance[0];
+  if (policy === "mixed") {
+    const safe = options.find(option => option.safe), technical = options.find(option => option.style === "technical");
+    const aggressive = options.find(option => option.style === "aggressive");
+    if (state.S.rep <= 32 || state.S.fatigue >= 84) return safe || byVisible[0];
+    if (aggressive && state.S.rep >= 52 && state.S.fatigue < 75 && perceivedChance(aggressive, c) >= 20 && policyRng() < .25)
+      return aggressive;
+    if (technical && perceivedChance(technical, c) >= 50) return technical;
+    if (aggressive && state.S.bold >= 65 && perceivedChance(aggressive, c) >= 50) return aggressive;
+    return safe || byVisible[0];
+  }
   if (policy === "aggressive") return options.find(option => option.style === "aggressive") ||
     [...options].sort((a, b) => (b.boldW || 0) - (a.boldW || 0) || engine.chance(b, c) - engine.chance(a, c))[0];
   if (policy === "chaos") return options[Math.floor(policyRng() * options.length)];
@@ -194,6 +232,7 @@ function chooseEventOption(policy, event, policyRng, skipped) {
     const push = policy === "aggressive" ||
       (policy === "oracle_ev" && urgent && S.fatigue < 72) ||
       ((policy === "technical" || policy === "firm_stress") && urgent && S.fatigue < 62) ||
+      ((policy === "mixed" || policy === "firm_only_stress") && urgent && S.fatigue < 56) ||
       (policy === "chaos" && policyRng() < .5);
     if (!push && pending) skipped.add(pending.c);
     return push ? go : no;
@@ -205,6 +244,7 @@ function chooseEventOption(policy, event, policyRng, skipped) {
     const urgent = actionables(S).some(c => c.dueDay <= S.day);
     const stay = policy === "aggressive" ? urgent && S.fatigue < 88 :
       (policy === "technical" || policy === "firm_stress") ? urgent && S.otToday < 1 && S.fatigue < 68 :
+      (policy === "mixed" || policy === "firm_only_stress") ? urgent && S.otToday < 1 && S.fatigue < 60 :
       policy === "oracle_ev" ? urgent && S.fatigue < 62 :
       policy === "chaos" ? policyRng() < .45 : false;
     return stay ? overtime : home;
@@ -213,8 +253,17 @@ function chooseEventOption(policy, event, policyRng, skipped) {
   if (policy === "chaos") return options[Math.floor(policyRng() * options.length)];
   if (policy === "firm_stress" && S.endlessWon && S.rep < 50)
     return options.find(option => option.safe) || options[0];
-  if (policy === "technical" || policy === "firm_stress") return options.find(option => option.style === "technical") ||
+  if (policy === "firm_only_stress" && S.endlessWon) return options.find(option => option.safe) || options[0];
+  if (policy === "technical" || policy === "firm_stress" || policy === "firm_only_stress") return options.find(option => option.style === "technical") ||
     options.find(option => option.safe) || options[0];
+  if (policy === "mixed") {
+    const safe=options.find(option=>option.safe), technical=options.find(option=>option.style==="technical");
+    const aggressive=options.find(option=>option.style==="aggressive");
+    if(S.rep<=34||S.fatigue>=80) return safe||options[0];
+    if(aggressive&&S.rep>=52&&S.fatigue<72&&perceivedChance(aggressive,event)>=30&&policyRng()<.18) return aggressive;
+    if(technical&&perceivedChance(technical,event)>=52) return technical;
+    return safe||options[0];
+  }
   if (policy === "aggressive") return options.find(option => option.style === "aggressive") || options.at(-1);
   if (policy === "oracle_ev") return [...options].sort((a, b) => optionUtility(b, event) - optionUtility(a, event))[0];
   return [...options].sort((a, b) => engine.chance(b, event) - engine.chance(a, event))[0];
@@ -227,16 +276,20 @@ function npcEstimate(npc) {
 
 function delegationTarget(policy, skipped) {
   const S = state.S;
-  if (!S.npcs.length || S.today.delegated >= constants.DELEGATE_CAP ||
+  if (!S.npcs.length || S.today.delegated >= engine.delegationDailyLimit() ||
       (S.rank < 1 && S.scenario !== "boomerang")) return null;
-  if (!['technical', 'oracle_ev', 'firm_stress'].includes(policy) || (policy === "firm_stress" && S.endlessWon)) return null;
+  if (!["technical","mixed","oracle_ev","firm_stress","firm_only_stress"].includes(policy) ||
+      ((policy === "firm_stress" || policy === "firm_only_stress") && S.endlessWon)) return null;
   const eligible = actionables(S).filter(c => !skipped.has(c) && !c.judge && !c.favor && !c.big && (c.tier || 0) <= 1)
     .sort((a, b) => a.dueDay - b.dueDay || (a.tier || 0) - (b.tier || 0));
   if (!eligible.length) return null;
   const backlog = actionables(S).length;
+  if (policy === "mixed" && S.today.delegated >= 1 && backlog < 7 && !eligible.some(c => c.dueDay <= S.day)) return null;
   if (policy === "oracle_ev" && backlog < 4 && S.hours >= 3) return null;
+  if (policy === "mixed" && backlog < 5 && !eligible.some(c => c.dueDay <= S.day)) return null;
   const npc = [...S.npcs].sort((a, b) => npcEstimate(b) - npcEstimate(a) || b.rel - a.rel)[0];
-  return npcEstimate(npc) >= (policy === "oracle_ev" ? 62 : 55) ? { c: eligible[0], npc } : null;
+  const threshold=policy==="mixed"?(backlog>=7||eligible.some(c=>c.dueDay<=S.day)?60:65):policy==="oracle_ev"?62:55;
+  return npcEstimate(npc) >= threshold ? { c: eligible[0], npc } : null;
 }
 
 function canonicalSnapshot(rngCalls) {
@@ -334,7 +387,8 @@ function newMetrics(tuple) {
     minRep: 100, minFirm: 100, maxFatigue: 0,
     clientsGained: 0, clientsLost: 0, judgeHearings: 0, judgeCap: 0, judgePost20: 0,
     judgePost20Cap: 0, judgeAdjusted: 0, judgeModifierSum: 0, judgeCaps,
-    infGainBy: { case: 0, event: 0, morning: 0, endDay: 0, rival: 0, firm: 0, other: 0 },
+    infGainBy: { case:0, big_case:0, delayed:0, delegated:0, favor:0, objective:0, review:0,
+      crisis:0, client_event:0, demand:0, story:0, weekend:0, rival:0, decor:0, other:0 },
     integrity: [], flags: [], traceDigest: null,
   };
 }
@@ -448,16 +502,6 @@ function observe(run) {
   run.hash.update(JSON.stringify(snap) + "\n");
 }
 
-function actionCategory(label) {
-  if (label.startsWith("case ")) return "case";
-  if (label.startsWith("event ")) return "event";
-  if (label.startsWith("dismiss ")) return "morning";
-  if (label.startsWith("end day ")) return "endDay";
-  if (label.startsWith("rival ")) return "rival";
-  if (label === "turnaround" || label === "buy-in" || label === "fire employee") return "firm";
-  return "other";
-}
-
 function runAction(run, label, fn) {
   const beforeDay = state.S.day;
   const beforeInf = state.S.inf;
@@ -474,7 +518,6 @@ function runAction(run, label, fn) {
   else run.noProgressStreak = 0;
   if (run.noProgressStreak >= 3) throw new Error("three consecutive no-progress actions: " + label);
   const infGain = Math.max(0, state.S.inf - beforeInf);
-  run.metrics.infGainBy[actionCategory(label)] += infGain;
   if (run.actionTrace) run.actionTrace.push({ ...actionRecord, stateHash: sha(afterState), infGain });
   run.metrics.actions++;
   assertInvariants(run, label);
@@ -487,10 +530,11 @@ function runAction(run, label, fn) {
 function tryCareerAction(run) {
   const S = state.S, policy = run.policy;
   if (engine.canPitchTurnaround() && (S.inf >= constants.RANK_REQ[S.rank] || S.firm < 30) &&
-      (policy !== "aggressive" || S.firm < 25) && policy !== "chaos") {
+      (policy !== "aggressive" || S.firm < 25) && policy !== "chaos" &&
+      !(policy === "firm_only_stress" && S.endlessWon)) {
     runAction(run, "turnaround", () => engine.pitchTurnaround()); return true;
   }
-  if (S.rank === 2 && S.inf >= constants.RANK_REQ[2] && S.firm >= engine.promotionFirmRequirement(2) &&
+  if (S.rank === 2 && !S.buyinPaid && S.inf >= constants.RANK_REQ[2] && S.firm >= engine.promotionFirmRequirement(2) &&
       S.money >= constants.BUYIN_COST &&
       (S.scenario !== "debtor" || S.money >= constants.BUYIN_COST + 2000)) {
     runAction(run, "buy-in", () => engine.payBuyIn()); return true;
@@ -498,8 +542,12 @@ function tryCareerAction(run) {
   if (policy === "firm_stress" && S.endlessWon && S.rep < 50 && S.money >= S.suitCost) {
     runAction(run, "tailored suit", () => engine.buySuit()); return true;
   }
+  if (policy === "firm_only_stress" && S.endlessWon && S.rep < 55 && S.money >= S.suitCost) {
+    runAction(run, "tailored suit", () => engine.buySuit()); return true;
+  }
   const coffeeAt = policy === "aggressive" ? 48 :
-    policy === "oracle_ev" ? 55 : (policy === "technical" || policy === "firm_stress") ? 65 : 75;
+    policy === "oracle_ev" ? 55 : policy === "mixed" ? 60 :
+    (policy === "technical" || policy === "firm_stress" || policy === "firm_only_stress") ? 65 : 75;
   if (policy !== "max_chance" && engine.canBuyCoffee() && S.fatigue >= coffeeAt) {
     runAction(run, "coffee", () => engine.buyCoffee()); return true;
   }
@@ -507,7 +555,8 @@ function tryCareerAction(run) {
     if (policy === "aggressive" && S.hours >= 1) {
       runAction(run, "rival sabotage", () => engine.rivalSabotage()); return true;
     }
-    if ((policy === "technical" || (policy === "firm_stress" && !S.endlessWon)) && S.hours >= .5) {
+    if ((policy === "technical" || policy === "mixed" || policy === "firm_only_stress" ||
+        (policy === "firm_stress" && !S.endlessWon)) && S.hours >= .5) {
       runAction(run, "rival truce", () => engine.rivalTruce()); return true;
     }
     if (policy === "oracle_ev" && S.hours >= .5) {
@@ -526,6 +575,8 @@ function tryCareerAction(run) {
   if (S.roster && run.firedDay !== S.day) {
     let candidate = null;
     if (policy === "firm_stress") candidate = [...S.roster].sort((a, b) => Number(a.senior) - Number(b.senior) || b.impact - a.impact)[0];
+    else if (policy === "firm_only_stress") candidate = [...S.roster].filter(e => !e.senior)
+      .sort((a, b) => b.impact - a.impact || a.id.localeCompare(b.id))[0];
     else if (policy === "aggressive") candidate = S.roster.find(e => !e.senior && e.impact <= 0);
     else if (policy === "oracle_ev" && S.day % 5 === 0) candidate = S.roster.find(e => !e.senior && e.impact <= -2);
     else if (policy === "chaos" && run.policyRng() < .08) candidate = S.roster.find(e => !e.senior);
@@ -548,9 +599,14 @@ function driveRun(tuple, horizon, { captureTrace = false } = {}) {
   resetHarness();
   const originalRandom = Math.random;
   const gameRng = mulberry32(tuple.seed);
-  const policyRng = mulberry32(utils.hash(POLICY_VERSION + "|policy|" + tuple.seed + "|" + tuple.scenario + "|" + tuple.mode + "|" + tuple.policy));
+  const policyRng = mulberry32(utils.hash(RNG_NAMESPACE + "|policy|" + tuple.seed + "|" + tuple.scenario + "|" + tuple.mode + "|" + tuple.policy));
   Math.random = gameRng;
-  const metrics = newMetrics({ ...tuple, horizon });
+  const variant=tuple.variant||"baseline", metrics = newMetrics({ ...tuple, variant, horizon });
+  engine.setBalanceExperiment(VARIANTS[variant].engine);
+  engine.setBalanceProbe(({source,amount})=>{
+    const key=Object.prototype.hasOwnProperty.call(metrics.infGainBy,source)?source:"other";
+    metrics.infGainBy[key]+=amount;
+  });
   const run = {
     ...tuple, policy: tuple.policy, gameRng, policyRng, metrics, hash: createHash("sha256"),
     pendingRolls: new Map(), lastArchiveTotal: 0, lastRank: 0, lastClients: new Set(),
@@ -627,6 +683,8 @@ function driveRun(tuple, horizon, { captureTrace = false } = {}) {
     metrics.terminal = true;
   } finally {
     try { drainTimers(); } catch (error) { metrics.integrity.push(error.stack || String(error)); }
+    engine.setBalanceProbe(null);
+    engine.setBalanceExperiment(null);
     Math.random = originalRandom;
   }
   metrics.traceDigest = run.hash.digest("hex");
@@ -635,7 +693,7 @@ function driveRun(tuple, horizon, { captureTrace = false } = {}) {
   return metrics;
 }
 
-const cellKey = run => [run.scenario, run.mode, run.policy].join("/");
+const cellKey = run => [run.variant||"baseline",run.scenario,run.mode,run.policy].join("/");
 function summarizeJudgeCaps(runs) {
   return Object.fromEntries(JUDGE_CAP_BUCKETS.map(name => {
     const buckets = runs.map(run => run.judgeCaps[name]);
@@ -670,7 +728,7 @@ function summarizeCell(runs) {
   const meanInfGainBy = Object.fromEntries(Object.keys(runs[0].infGainBy).map(source =>
     [source, round(mean(runs.map(run => run.infGainBy[source]))) ]));
   return {
-    scenario: runs[0].scenario, mode: runs[0].mode, policy: runs[0].policy,
+    variant:runs[0].variant||"baseline", scenario: runs[0].scenario, mode: runs[0].mode, policy: runs[0].policy,
     n: runs.length, horizon: runs[0].horizon,
     winRate: pct(wins.length / runs.length), medianWinDay: round(quantile(wins.map(run => run.winDay), .5), 1),
     earlyWinRate: pct(runs.filter(run => run.won && run.winDay <= 12).length / runs.length),
@@ -698,6 +756,25 @@ function summarizeCell(runs) {
     calibrationGap: rolls ? round((actual - expected) / rolls * 100, 2) : null,
     integrityFailures: runs.filter(run => run.integrity.length).length, outcomes: terminals,
   };
+}
+
+function summarizeCohort(runs){
+  const wins=runs.filter(run=>run.won),outcomes={};
+  for(const run of runs) outcomes[run.outcome]=(outcomes[run.outcome]||0)+1;
+  const sources=Object.keys(runs[0].infGainBy);
+  const meanInfGainBy=Object.fromEntries(sources.map(source=>[source,round(mean(runs.map(run=>run.infGainBy[source]))) ]));
+  const totalChoices=runs.reduce((sum,run)=>sum+Object.values(run.styles).reduce((a,b)=>a+b,0),0);
+  const styleShares=Object.fromEntries(Object.keys(runs[0].styles).map(style=>[style,
+    pct(runs.reduce((sum,run)=>sum+run.styles[style],0)/Math.max(1,totalChoices))]));
+  return {variant:runs[0].variant,mode:runs[0].mode,policy:runs[0].policy,n:runs.length,
+    winRate:pct(wins.length/runs.length),medianWinDay:round(quantile(wins.map(run=>run.winDay),.5),1),
+    earlyWinRate:pct(runs.filter(run=>run.won&&run.winDay<=12).length/runs.length),
+    firedRate:pct((outcomes.FIRED||0)/runs.length),meanMisses:round(mean(runs.map(run=>run.misses))),
+    meanDelegations:round(mean(runs.map(run=>run.delegations))),
+    sentHomeRate:pct(runs.filter(run=>run.sentHome>0).length/runs.length),
+    meanFinalFirm:round(mean(runs.map(run=>run.finalFirm))),maxBacklog:Math.max(...runs.map(run=>run.maxBacklog)),
+    meanGrossInf:round(mean(runs.map(run=>Object.values(run.infGainBy).reduce((a,b)=>a+b,0)))),
+    meanInfGainBy,styleShares,outcomes,integrityFailures:runs.filter(run=>run.integrity.length).length};
 }
 
 function buildWarnings(cells, runs) {
@@ -732,36 +809,39 @@ function buildWarnings(cells, runs) {
   const oracleStandard = cells.filter(cell => cell.mode === "standard" && cell.policy === "oracle_ev");
   for (const cell of oracleStandard.filter(cell => cell.horizon >= 30)) {
     const low = cell.scenario === "debtor" ? 15 : 25, high = cell.scenario === "debtor" ? 70 : 80;
-    if (cell.winRate < low) add(7, "ORACLE_HEURISTIC_LOW", cell.scenario + " hidden-information heuristic wins rarely", `${cell.winRate}% by day ${runs.find(r => cellKey(r) === cellKey(cell))?.horizon}`, "Do not call this a ceiling; inspect failure causes and compare visible baselines.");
-    if (cell.winRate > high) add(7, "ORACLE_HEURISTIC_HIGH", cell.scenario + " hidden-information heuristic wins very often", `${cell.winRate}%`, "Do not tune from this alone; compare the visible technical baseline.");
-    if (cell.earlyWinRate >= 10) add(8, "EARLY_WINS", cell.scenario + " oracle can finish by day 12 too often", `${cell.earlyWinRate}%`, "Replay fastest seeds and inspect INF sources.");
+    if (cell.winRate < low) add(7, "ORACLE_HEURISTIC_LOW", cellKey(cell) + " hidden-information heuristic wins rarely", `${cell.winRate}% by day ${runs.find(r => cellKey(r) === cellKey(cell))?.horizon}`, "Do not call this a ceiling; inspect failure causes and compare visible baselines.");
+    if (cell.winRate > high) add(7, "ORACLE_HEURISTIC_HIGH", cellKey(cell) + " hidden-information heuristic wins very often", `${cell.winRate}%`, "Do not tune from this alone; compare the visible technical baseline.");
+    if (cell.earlyWinRate >= 10) add(8, "EARLY_WINS", cellKey(cell) + " oracle can finish by day 12 too often", `${cell.earlyWinRate}%`, "Replay fastest seeds and inspect INF sources.");
   }
   for (const cell of cells.filter(cell => cell.mode === "standard" && cell.policy === "technical" && cell.horizon >= 30 && cell.n >= 8)) {
     if (cell.winRate >= 80 && cell.earlyWinRate >= 50)
-      add(9, "TECHNICAL_PROGRESSION", cell.scenario + " visible technical route reaches Name Partner too reliably and early",
+      add(9, "TECHNICAL_PROGRESSION", cellKey(cell) + " visible technical route reaches Name Partner too reliably and early",
         `${cell.winRate}% wins; ${cell.earlyWinRate}% by day 12; median ${cell.medianWinDay}`, "A/B progression sources and technical rewards; keep safe reliability intact.");
   }
   for (const cell of cells.filter(cell => cell.mode === "standard" && cell.policy === "aggressive" && cell.horizon >= 30 && cell.n >= 8)) {
     const fired = (cell.outcomes.FIRED || 0) / cell.n * 100;
     if (cell.winRate < 10 && fired > 80)
-      add(8, "AGGRESSION_DEATH_SPIRAL", cell.scenario + " pure aggression is almost never career-viable",
+      add(8, "AGGRESSION_DEATH_SPIRAL", cellKey(cell) + " pure aggression is almost never career-viable",
         `${cell.winRate}% wins; ${round(fired, 1)}% fired`, "A/B a controlled aggression payoff or recovery valve without making reckless spam optimal.");
   }
   for (const cell of cells.filter(cell => cell.mode === "standard" && cell.policy === "chaos" && cell.winRate > 25))
-    add(7, "CHAOS_TOO_STRONG", cell.scenario + " rewards random play too often", `${cell.winRate}% wins`, "Inspect safe/event rewards and failure penalties.");
-  for (const scenario of SCENARIOS) {
-    const safe = cells.find(cell => cell.scenario === scenario && cell.mode === "standard" && cell.policy === "max_chance");
-    const oracle = cells.find(cell => cell.scenario === scenario && cell.mode === "standard" && cell.policy === "oracle_ev");
+    add(7, "CHAOS_TOO_STRONG", cellKey(cell) + " rewards random play too often", `${cell.winRate}% wins`, "Inspect safe/event rewards and failure penalties.");
+  for (const variant of new Set(cells.map(cell=>cell.variant))) for (const scenario of SCENARIOS) {
+    const safe = cells.find(cell => cell.variant===variant&&cell.scenario === scenario && cell.mode === "standard" && cell.policy === "max_chance");
+    const oracle = cells.find(cell => cell.variant===variant&&cell.scenario === scenario && cell.mode === "standard" && cell.policy === "oracle_ev");
     if (safe && oracle && (safe.winRate >= 35 || (safe.medianWinDay && oracle.medianWinDay && safe.medianWinDay <= oracle.medianWinDay)))
-      add(8, "MAX_CHANCE_DOMINANCE", scenario + " still rewards always taking the highest exact chance", `max=${safe.winRate}% @${safe.medianWinDay}d, oracle=${oracle.winRate}% @${oracle.medianWinDay}d`, "Reduce safe-path progression, not its 100% reliability.");
+      add(8, "MAX_CHANCE_DOMINANCE", variant+"/"+scenario+" still rewards always taking the highest exact chance", `max=${safe.winRate}% @${safe.medianWinDay}d, oracle=${oracle.winRate}% @${oracle.medianWinDay}d`, "Reduce safe-path progression, not its 100% reliability.");
   }
-  const stress = cells.filter(cell => cell.mode === "endless" && cell.policy === "firm_stress");
-  const stressNp = stress.reduce((sum, cell) => sum + Math.round(cell.n * cell.npRate / 100), 0);
-  const stressCollapse = stress.reduce((sum, cell) => sum + (cell.outcomes["FIRM COLLAPSE"] || 0), 0);
-  const stressExposure = stress.reduce((sum, cell) => sum + cell.totalNpExposureDays, 0);
-  if (stressNp >= 50 && stressExposure >= 500 && !stressCollapse)
-    add(7, "FIRM_COLLAPSE_UNREACHABLE", "Even the destructive FIRM stress policy never triggers FIRM COLLAPSE",
-      `0/${stressNp} Name Partner careers across ${stressExposure} post-NP days`, "A/B post-partnership operating costs or FIRM drift before changing the threshold.");
+  for(const variant of new Set(cells.map(cell=>cell.variant))) for(const policy of ENDLESS_ONLY_POLICIES){
+    const stress=cells.filter(cell=>cell.variant===variant&&cell.mode==="endless"&&cell.policy===policy);
+    const stressNp=stress.reduce((sum,cell)=>sum+Math.round(cell.n*cell.npRate/100),0);
+    const stressCollapse=stress.reduce((sum,cell)=>sum+(cell.outcomes["FIRM COLLAPSE"]||0),0);
+    const stressExposure=stress.reduce((sum,cell)=>sum+cell.totalNpExposureDays,0);
+    if(stressNp>=50&&stressExposure>=500&&!stressCollapse)
+      add(7,"FIRM_COLLAPSE_UNREACHABLE",variant+"/"+policy+" never triggers FIRM COLLAPSE",
+        `0/${stressNp} Name Partner careers across ${stressExposure} post-NP days`,
+        "A/B post-partnership operating costs or FIRM drift before changing the threshold.");
+  }
   return warnings.sort((a, b) => b.severity - a.severity || a.code.localeCompare(b.code));
 }
 
@@ -773,7 +853,7 @@ function replayCandidates(runs) {
     groups.get(key).push(run);
   }
   const picked = new Map();
-  const take = run => { if (run) picked.set([run.seed, run.scenario, run.mode, run.policy].join("/"), run); };
+  const take = run => { if (run) picked.set([run.variant,run.seed,run.scenario,run.mode,run.policy].join("/"), run); };
   for (const group of groups.values()) {
     take(group[0]);
     take([...group].filter(run => run.won).sort((a, b) => a.winDay - b.winDay)[0]);
@@ -789,13 +869,15 @@ function replayCandidates(runs) {
 function runMatrix(config) {
   const provenanceStart = provenance(); // snapshot the exact sources before the bundled simulation moves
   const runs = [];
-  const seeds = Array.from({ length: config.seeds }, (_, index) => utils.hash(POLICY_VERSION + ":" + index));
-  const policiesForMode = mode => POLICIES.filter(policy => policy !== "firm_stress" || mode === "endless");
-  const total = SCENARIOS.length * seeds.length * MODES.reduce((sum, mode) => sum + policiesForMode(mode).length, 0);
+  const seeds = Array.from({ length: config.seeds }, (_, index) => utils.hash(RNG_NAMESPACE + ":" + index));
+  const policiesForMode = mode => config.policies.filter(policy => mode==="endless"||!ENDLESS_ONLY_POLICIES.has(policy));
+  const total = config.variants.length*config.scenarios.length*seeds.length*
+    config.modes.reduce((sum, mode) => sum + policiesForMode(mode).length, 0);
   let completed = 0;
-  for (const scenario of SCENARIOS) for (const mode of MODES) for (const policy of policiesForMode(mode)) for (const seed of seeds) {
+  for (const variant of config.variants) for (const scenario of config.scenarios) for (const mode of config.modes)
+    for (const policy of policiesForMode(mode)) for (const seed of seeds) {
     const horizon = mode === "standard" ? config.standardDays : config.endlessDays;
-    runs.push(driveRun({ scenario, mode, policy, seed }, horizon));
+    runs.push(driveRun({ variant,scenario,mode,policy,seed },horizon));
     completed++;
     if (completed % Math.max(50, Math.floor(total / 20)) === 0) process.stderr.write(`soak ${completed}/${total}\n`);
   }
@@ -806,13 +888,21 @@ function runMatrix(config) {
     groups.get(key).push(run);
   }
   const cells = [...groups.values()].map(summarizeCell);
+  const cohortGroups=new Map();
+  for(const run of runs){
+    const key=[run.variant,run.mode,run.policy].join("/");
+    if(!cohortGroups.has(key)) cohortGroups.set(key,[]);
+    cohortGroups.get(key).push(run);
+  }
+  const cohorts=[...cohortGroups.values()].map(summarizeCohort);
   const replay = [];
   for (const original of replayCandidates(runs)) {
-    const again = driveRun({ scenario: original.scenario, mode: original.mode, policy: original.policy, seed: original.seed }, original.horizon);
+    const again = driveRun({ variant:original.variant,scenario:original.scenario,mode:original.mode,
+      policy:original.policy,seed:original.seed },original.horizon);
     const same = again.traceDigest === original.traceDigest && again.outcome === original.outcome &&
       again.finalDay === original.finalDay && again.archiveTotal === original.archiveTotal &&
       again.archiveDigest === original.archiveDigest;
-    replay.push({ scenario: original.scenario, mode: original.mode, policy: original.policy, seed: original.seed,
+    replay.push({ variant:original.variant,scenario:original.scenario,mode:original.mode,policy:original.policy,seed:original.seed,
       same, first: original.traceDigest, second: again.traceDigest });
   }
   const warnings = buildWarnings(cells, runs);
@@ -827,16 +917,22 @@ function runMatrix(config) {
       evidence: provenanceStart.simulatorHash + " -> " + provenanceEnd.simulatorHash,
       recommendation: "Discard this artifact and rerun from a stable tree." });
   }
-  return { config: { ...config, policyVersion: POLICY_VERSION, policyNotes: POLICY_NOTES, totalRuns: runs.length },
+  return { config: { ...config,policyVersion:POLICY_VERSION,policyNotes:POLICY_NOTES,
+      variantNotes:Object.fromEntries(Object.entries(VARIANTS).map(([key,value])=>[key,value.note])),totalRuns:runs.length },
     provenance: { ...provenanceStart, sourceUnchanged, endStatusHash: provenanceEnd.statusHash,
-      endDirtyDiffHash: provenanceEnd.dirtyDiffHash }, cells, warnings, replay,
+      endDirtyDiffHash: provenanceEnd.dirtyDiffHash }, cells,cohorts,warnings,replay,
     replayConfirmed: replay.filter(item => item.same).length, integrityFailures, runs };
 }
 
 function printResult(result) {
   console.log(`\nFANCY OUTFITS deterministic soak: ${result.config.totalRuns} careers, ${result.replay.length} replay checks`);
+  console.log("Cohort summary:");
+  console.table(result.cohorts.map(cohort=>({variant:cohort.variant,mode:cohort.mode,bot:cohort.policy,
+    n:cohort.n,wins:cohort.winRate+"%",medWin:cohort.medianWinDay??"-",early12:cohort.earlyWinRate+"%",
+    fired:cohort.firedRate+"%",misses:cohort.meanMisses,grossInf:cohort.meanGrossInf,integrity:cohort.integrityFailures})));
+  console.log("Scenario cells:");
   console.table(result.cells.map(cell => ({
-    scenario: cell.scenario, mode: cell.mode, bot: cell.policy, wins: cell.winRate + "%",
+    variant:cell.variant,scenario: cell.scenario, mode: cell.mode, bot: cell.policy, wins: cell.winRate + "%",
     medWin: cell.medianWinDay ?? "-", misses: cell.meanMisses, p95Backlog: cell.p95Backlog,
     sentHome: cell.sentHomeRate + "%", judgeCap20: cell.judgePost20CapRate + "%", integrity: cell.integrityFailures,
   })));
@@ -849,13 +945,14 @@ function printResult(result) {
 
 const config = parseArgs(process.argv.slice(2));
 if (config.help) {
-  console.log("Usage: npm run soak -- [--seeds N] [--standard-days N] [--endless-days N] [--json path] [--replay scenario,mode,policy,seed,days]");
+  console.log("Usage: npm run soak -- [--seeds N] [--standard-days N] [--endless-days N] [--scenarios csv] [--modes csv] [--policies csv] [--variants csv] [--json path] [--replay scenario,mode,policy,seed,days,variant]");
   process.exit(0);
 }
 if (config.replay) {
-  const [scenario, mode, policy, rawSeed, rawDays] = config.replay.split(",");
+  const [scenario,mode,policy,rawSeed,rawDays,rawVariant="baseline"] = config.replay.split(",");
   if (!SCENARIOS.includes(scenario) || !MODES.includes(mode) || !POLICIES.includes(policy)) throw new Error("Invalid replay tuple");
-  const tuple = { scenario, mode, policy, seed: Number(rawSeed) >>> 0 };
+  if(!Object.prototype.hasOwnProperty.call(VARIANTS,rawVariant)) throw new Error("Invalid replay variant");
+  const tuple = { scenario,mode,policy,seed:Number(rawSeed)>>>0,variant:rawVariant };
   const horizon = Number(rawDays) || (mode === "standard" ? config.standardDays : config.endlessDays);
   const first = driveRun(tuple, horizon, { captureTrace: true }), second = driveRun(tuple, horizon);
   console.log(JSON.stringify({ tuple, horizon, same: first.traceDigest === second.traceDigest, first, second }, null, 2));

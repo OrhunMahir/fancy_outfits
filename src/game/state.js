@@ -31,6 +31,8 @@ export function newState(scenario,difficulty){
     rep:50, bold:40, inf:10, firm:FIRM_START,
     firmPlanDay:0, firmGateHintRank:null, // STANDARD: turnaround cooldown + one-shot FIRM warning
     promotionReviewDay:0, promotionHintRank:null, // titles change only after Friday review; save-stable
+    reviewMomentum:0, seniorPartnerDay:0, exceptionalReviewDay:0, exceptionalReviewHinted:false,
+    // Senior Partner overflow can earn one early Name Partner review; all fields are save-stable
     judgeMemory:{}, // lifetime court totals + bounded recent events, keyed by stable judge id
     caseSeq:0, // persisted procedural filing id cursor (replay/save-visible odds must not drift)
     buyinPaid:false, buyinHinted:false, // rank 2->3 needs the partnership buy-in

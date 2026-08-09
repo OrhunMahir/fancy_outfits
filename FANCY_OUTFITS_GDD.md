@@ -31,9 +31,13 @@ You are a lawyer (maybe). Read case files, pick your line, bluff, grovel, or bac
 ## 4. Career Ladder
 Junior Associate → Senior Associate → Junior Partner → Senior Partner → **Name Partner** (win condition).
 
-- Crossing an Influence threshold makes the player promotion-ready. Titles change only on the
+- Crossing an Influence threshold makes the player promotion-ready. Titles normally change on the
   morning after the five-day Friday Partner Review, at most one rank per review; reload cannot
   replay a consumed review.
+- Senior Partner is the one measured exception: positive Influence genuinely clipped above 100
+  becomes **Exceptional Review momentum**. At 36 points, after two mornings in rank, REP 30+ and
+  the normal FIRM gate can bring the Name Partner vote forward. It never resolves in the earning
+  action, and a scheduled Friday decision always takes priority.
 - Early ranks get mostly errands and doc review; case quality rises with rank.
 - Higher rank = higher stakes: crises target you more, rivals notice you.
 

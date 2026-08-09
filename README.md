@@ -30,6 +30,22 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.14 — Influence above the ceiling matters *(2026-08-09)*
+- **Exceptional Review:** only while Senior Partner, genuinely clipped positive Influence above
+  100 becomes visible partner momentum instead of disappearing. At 36/36, after at least two
+  mornings in rank, a Name Partner vote can land on a non-Friday morning.
+- **Still earned, never automatic:** the early vote requires REP 30+ and the ordinary FIRM gate;
+  it cannot fire during the action that filled it. The completed Friday review has priority, so a
+  normal promotion never masquerades as an exceptional one.
+- **Honest UI and save schema v7:** the sidebar shows live momentum, earliest decision day and
+  gates. Momentum, Senior Partner date, consumed exceptional decision and one-shot hint persist;
+  old Senior Partner saves begin their wait on migration day rather than receiving a free vote.
+- **Measured threshold:** 3,840 paired Standard careers compared off/24/30/36-point models.
+  The selected 36-point rule kept Technical and Mixed at their day-21 median while controlled
+  Bold play moved to day 20; Exceptional Review appeared in 35.3% / 30.9% / 37.8% respectively.
+  Win-rate lift stayed to 3–5 points and day-12 wins remained zero. All 330 extreme replays matched
+  with zero integrity failures.
+
 ### v19.13 — Judges remember the recent record *(2026-08-09)*
 - **Recent-weighted recall:** judges still keep the full career W/L transcript, but today's odds
   use only the last three appearances at `×1 / ×0.35 / ×0.15`. A different approach can cool an

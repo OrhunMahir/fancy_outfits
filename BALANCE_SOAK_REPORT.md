@@ -1,11 +1,49 @@
 # FANCY OUTFITS — Deterministik Kariyer Soak Raporu
 
-**Sürüm:** v19.13 (v19.9 baseline + progression, controlled-risk, FIRM ve hakim-memory A/B turları)
+**Sürüm:** v19.14 (v19.9 baseline + progression, controlled-risk, FIRM, hakim-memory ve INF-overflow A/B turları)
 
 **Tarih:** 2026-08-09
 
 **Kapsam:** Standard 40 gün, Endless 50–80 gün; beş senaryo; denge, uzun-run
 bütünlüğü ve şüpheli seed tekrarları.
+
+## v19.14 INF overflow / Exceptional Review — uygulanan karar
+
+### Sorun
+
+Senior Partner normalde 16. gün civarında 95 INF ile terfiye hazır oluyor fakat Name Partner
+kararı 21. günün cuma değerlendirmesine kadar bekliyordu. Bu arada 100 üstündeki bütün pozitif
+INF kırpıldığı için başarılı ve özellikle agresif seçimlerin ödülü görünmez hâle geliyordu.
+Agresif ödülü `×1,50/×1,75` yapmak v19.11 testinde sonucu hiç değiştirmemişti; kök neden ödülün
+azlığı değil, tavan üzerinde saklanmamasıydı.
+
+### Denenen sistem ve korumalar
+
+Yalnız Senior Partner iken gerçekten kırpılan pozitif INF, görünür `reviewMomentum` sayacına
+yazılır. Sayaç aynı aksiyonda terfi vermez; değerlendirme yalnız sonraki sabah yapılır. Normal
+FIRM terfi kapısı, en az 30 REP ve Senior Partner olduktan sonra iki sabah bekleme korunur.
+Cuma kararı aynı sabaha denk gelirse normal Partner Review önceliklidir.
+
+Aynı seed'lerde kapalı kontrol ile 24/30/36 eşikleri karşılaştırıldı. 24 puanlık aday kariyerlerin
+%65–76'sında tetiklenerek özel olayı varsayılan final terfisine çevirdi. 30 puan daha ölçülüydü
+ama hâlâ kariyerlerin yaklaşık yarısında devreye girdi. Seçilen **36 puan** yalnız yaklaşık üçte
+bir kariyerde açıldı ve kontrollü risk rotasına küçük, gerçek bir hız üstünlüğü verdi:
+
+| 64 seed × 5 senaryo | Sistem kapalı win / medyan | 36 momentum win / medyan | Exceptional Review |
+|---|---:|---:|---:|
+| Technical | %69,1 / gün 21 | **%73,8 / gün 21** | %35,3 · medyan gün 20 |
+| Mixed | %62,2 / gün 21 | **%65,3 / gün 21** | %30,9 · medyan gün 20 |
+| Bold Mixed | %63,4 / gün 21 | **%68,1 / gün 20** | %37,8 · medyan gün 20 |
+
+Seçim matrisi **3.840 Standard kariyer**, **330/330 birebir replay** ve sıfır invariant ihlali
+üretti. Hiçbir adayda 12. gün veya öncesi kazanım olmadı. Save schema v7 momentum, Senior Partner
+günü, tüketilmiş exceptional karar ve tek seferlik UI hint'ini persist eder; v6 Senior Partner
+kayıtları ücretsiz terfi almamak için beklemeye migration gününde başlar.
+
+Sonuç: v19.11'de doğrulanan **clipped Influence (7/10)** sorunu çözüldü. Saf agresif rota hâlâ
+ayrı bir uç davranış olarak izlenmelidir; Exceptional Review onun erken ölüm spiralini gizlemez.
+
+> Aşağıdaki v19.13 bölümü hakim hafızası kararını, sonraki bölümler tarihsel baseline'ı korur.
 
 ## v19.13 hakim hafızası A/B — uygulanan karar
 

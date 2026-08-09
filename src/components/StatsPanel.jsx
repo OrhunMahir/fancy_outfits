@@ -5,7 +5,7 @@ import { CLIENT_CAP } from "../game/clients.js";
 import { SCENARIOS } from "../game/content.js";
 import { buySuit, bribeMarv, buyCoffee, buyDecor, coffeeRelief, coffeeCost, canBuyCoffee, payBuyIn, objectiveInfo, hazardPerHour,
          rivalSabotage, rivalTruce, rivalAlly, rivalMoveReady, rivalOdds, displayPct,
-         firmCondition, promotionFirmRequirement, canPitchTurnaround, pitchTurnaround } from "../game/engine.js";
+         firmCondition, promotionFirmRequirement, exceptionalReviewInfo, canPitchTurnaround, pitchTurnaround } from "../game/engine.js";
 
 const pp=v=>(v>0?"+":"")+Math.round(v*100)+"pp";
 
@@ -13,7 +13,7 @@ export default function StatsPanel(){
   const S=useGame();
   const bars=[["REPUTATION",S.rep,"#38b764"],["BOLDNESS",S.bold,"#b13e53"],["INFLUENCE",S.inf,"#ffcd75"],["FIRM",S.firm,"#4d73e8"],["FATIGUE",S.fatigue,"#b06ad9"]];
   const obj=objectiveInfo();
-  const firm=firmCondition(), nextFirm=promotionFirmRequirement();
+  const firm=firmCondition(), nextFirm=promotionFirmRequirement(), exceptional=exceptionalReviewInfo();
   return (
     <div id="stats" className="panel">
       <h2>ASSOCIATE FILE</h2>
@@ -26,7 +26,8 @@ export default function StatsPanel(){
         {bars.map(([n,v,col])=>{
           let extra="";
           if(n==="REPUTATION") extra=" (fired < "+REP_FIRED+")";
-          if(n==="INFLUENCE"&&S.rank<4) extra=" (next rank: "+RANK_REQ[S.rank]+" INF"+(nextFirm?", "+nextFirm+" FIRM":"")+(S.rank===2?" + buy-in":"")+" · decided after Friday review)";
+          if(n==="INFLUENCE"&&S.rank<4) extra=" (next rank: "+RANK_REQ[S.rank]+" INF"+(nextFirm?", "+nextFirm+" FIRM":"")+(S.rank===2?" + buy-in":"")+
+            (S.rank===3?" · Friday or Exceptional Review":" · decided after Friday review")+")";
           if(n==="FIRM") extra=(S.endlessWon||S.rank===4)?" (collapse < "+FIRM_COLLAPSE+")":S.mode==="standard"?" ("+firm.label+")":" (tracked; STANDARD rules off)";
           if(n==="FATIGUE") extra=hazardPerHour()>0
             ?" (⚠ "+hazardPerHour()+"%/h sent-home risk)"
@@ -38,6 +39,12 @@ export default function StatsPanel(){
             </div>);
         })}
       </div>
+      {exceptional && (
+        <div className="npcrow" style={{marginTop:8}}>
+          <div className="lblrow"><span style={{color:exceptional.ready?"var(--green)":"var(--gold)"}}>EXCEPTIONAL REVIEW</span><span>{exceptional.momentum}/{exceptional.threshold}</span></div>
+          <div className="tagline">Influence earned above 100 becomes partner momentum. Decision: next eligible morning{S.day<exceptional.earliest?" from day "+exceptional.earliest:""}; requires REP {exceptional.minRep} and the normal FIRM gate.</div>
+        </div>
+      )}
       {S.mode==="standard" && (
         <div className="npcrow" style={{marginTop:8}}>
           <div className="lblrow"><span style={{color:firm.id==="critical"?"var(--red)":firm.id==="thriving"?"var(--green)":"var(--gold)"}}>FIRM CONTROL · {firm.label}</span><span>{S.firm}/100</span></div>

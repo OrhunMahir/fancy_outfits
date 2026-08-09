@@ -10,6 +10,7 @@ import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DELEGATE_CAP, DAY_HOURS, TIER_HOU
          REP_FIRED, DEADLINE_PENALTY,
          STAKE_REWARD, STAKE_PENALTY, PRICES, DECOR, SAVE_SCHEMA_VERSION, SAVE_LOG_LIMIT, SAVE_ARCHIVE_LIMIT, INBOX_MESSAGE_LIMIT, SAVE_KEY, STATS_KEY,
          WEEK_LEN, REVIEW_GOOD, REVIEW_BAD, BUYIN_COST, FIRM_COLLAPSE,
+         EXCEPTIONAL_REVIEW_THRESHOLD, EXCEPTIONAL_REVIEW_WAIT, EXCEPTIONAL_REVIEW_MIN_REP,
          ROSTER_ACTIVITY, ROSTER_WIN_GAIN, ROSTER_LOSS_COST, FIRM_PAYROLL_DIVISOR,
          FIRM_CRITICAL, FIRM_STABLE, FIRM_THRIVING, FIRM_RANK_REQ,
          FIRM_PLAN_GAIN, FIRM_PLAN_HOURS, FIRM_PLAN_FATIGUE, FIRM_PLAN_COOLDOWN,
@@ -40,6 +41,15 @@ export const delegationDailyLimit=()=>balanceExperiment&&Number.isSafeInteger(ba
   clamp(balanceExperiment.delegateCap,0,10):DELEGATE_CAP;
 const weeklyPromotionsEnabled=()=>balanceExperiment&&typeof balanceExperiment.weeklyPromotion==="boolean"?
   balanceExperiment.weeklyPromotion:true;
+const exceptionalReviewConfig=()=>{
+  if(balanceExperiment&&balanceExperiment.exceptionalReview===false) return null;
+  const test=balanceExperiment&&balanceExperiment.exceptionalReview;
+  return {
+    threshold:test&&Number.isFinite(test.threshold)?Math.max(1,Math.round(test.threshold)):EXCEPTIONAL_REVIEW_THRESHOLD,
+    wait:test&&Number.isFinite(test.wait)?Math.max(1,Math.round(test.wait)):EXCEPTIONAL_REVIEW_WAIT,
+    minRep:test&&Number.isFinite(test.minRep)?clamp(Math.round(test.minRep),0,100):EXCEPTIONAL_REVIEW_MIN_REP,
+  };
+};
 
 /* The clock stops whenever any overlay is up, the player hit PAUSE, or the
    character is walking out. Replaces the old S.paused flag. */
@@ -71,6 +81,14 @@ export function clientConfidenceOdds(rep=S&&S.rep,mode=S&&S.mode,firm=S&&S.firm)
 export const promotionFirmRequirement=(rank=S&&S.rank,mode=S&&S.mode)=>mode==="standard"?(FIRM_RANK_REQ[rank]||0):0;
 export const rosterWinChance=impact=>clamp(50+(Number.isFinite(impact)?impact:0)*8,0,100);
 export const firmPayrollCost=(headcount=S&&S.roster?S.roster.length:0)=>headcount>0?Math.ceil(headcount/FIRM_PAYROLL_DIVISOR):0;
+export function exceptionalReviewInfo(){
+  const cfg=exceptionalReviewConfig();
+  if(!S||!cfg||S.rank!==3||S.exceptionalReviewDay) return null;
+  const earliest=(S.seniorPartnerDay||S.day)+cfg.wait;
+  return {momentum:S.reviewMomentum||0,threshold:cfg.threshold,minRep:cfg.minRep,earliest,
+    ready:(S.reviewMomentum||0)>=cfg.threshold&&S.rep>=cfg.minRep&&S.day>=earliest&&S.inf>=RANK_REQ[3]&&
+      S.firm>=promotionFirmRequirement(3)};
+}
 
 /* ---------- judge memory: per-run, deterministic, visible before the roll ---------- */
 const JUDGE_MEMORY_STYLES=["safe","aggressive","technical","bribe","neutral"];
@@ -348,7 +366,20 @@ export function apply(fx,quiet,source="other"){
       if(k==="rep"&&v<0) v=Math.round(v*1.25);
     }
     if(k==="money"){ S.money+=v; if(v>0&&S.today) S.today.moneyGained+=v; }
-    else S[k]=clamp(S[k]+v,0,100);
+    else {
+      if(k==="inf"&&v>0&&S.rank===3&&!S.exceptionalReviewDay){
+        const overflow=Math.max(0,S.inf+v-100), cfg=exceptionalReviewConfig();
+        if(overflow>0&&cfg){
+          S.reviewMomentum=Math.min(cfg.threshold,(S.reviewMomentum||0)+overflow);
+          if(balanceProbe) balanceProbe({kind:"inf_overflow",source,amount:overflow,momentum:S.reviewMomentum,day:S.day});
+          if(S.reviewMomentum>=cfg.threshold&&!S.exceptionalReviewHinted){
+            S.exceptionalReviewHinted=true; SFX.bell();
+            log("EXCEPTIONAL REVIEW READY: the work above your Influence ceiling has the partners' attention. The decision can land on a coming morning.","sys");
+          }
+        }
+      }
+      S[k]=clamp(S[k]+v,0,100);
+    }
     parts.push((v>0?"+":"")+v+" "+map[k]);
   }
   if(balanceProbe&&S.inf>beforeInf) balanceProbe({kind:"inf",source,amount:S.inf-beforeInf,day:S.day});
@@ -782,7 +813,7 @@ function advanceDay(){
   }
   // Morning replies land together; promote once after all of them so an
   // ENDLESS Name Partner summary cannot be overwritten by a later resolver.
-  checkPromotion();
+  checkPromotion(true);
   if(S.over) return;
   spawnFollowups();
   S.coffeeToday=0; // the espresso counter forgives overnight
@@ -1241,17 +1272,31 @@ export function resolveCrisis(o){
   checkPromotion(); checkClock(); saveGame(); notify();
 }
 
-function promotionWindowOpen(){
+function exceptionalPromotionOpen(morning){
+  const cfg=exceptionalReviewConfig();
+  if(!morning||!cfg||S.rank!==3||S.exceptionalReviewDay||S.inf<RANK_REQ[3]||
+    S.rep<cfg.minRep||S.firm<promotionFirmRequirement(3)) return false;
+  const seniorDay=S.seniorPartnerDay||S.day;
+  if(S.day<seniorDay+cfg.wait||(S.reviewMomentum||0)<cfg.threshold) return false;
+  S.exceptionalReviewDay=S.day;
+  if(balanceProbe) balanceProbe({kind:"exceptional_review",day:S.day,momentum:S.reviewMomentum});
+  log("EXCEPTIONAL REVIEW: sustained work above the Influence ceiling brought the Name Partner vote forward.","sys");
+  return true;
+}
+function promotionWindowOpen(morning){
   if(!weeklyPromotionsEnabled()) return true;
   // The review is completed on Friday's end-of-day screen; its decision lands
   // the following morning. One review can grant at most one rung of the ladder.
-  if(S.day<=1||(S.day-1)%WEEK_LEN!==0||S.promotionReviewDay===S.day) return false;
-  S.promotionReviewDay=S.day;
-  return true;
+  if(S.day>1&&(S.day-1)%WEEK_LEN===0){
+    if(S.promotionReviewDay===S.day) return false;
+    S.promotionReviewDay=S.day;
+    return true;
+  }
+  return exceptionalPromotionOpen(morning);
 }
-function checkPromotion(){
+function checkPromotion(morning=false){
   if(S.over) return;
-  if(!promotionWindowOpen()){
+  if(!promotionWindowOpen(morning)){
     if(S.rank<4&&S.inf>=RANK_REQ[S.rank]&&S.promotionHintRank!==S.rank){
       S.promotionHintRank=S.rank; SFX.bell();
       log("PROMOTION READY: your numbers qualify. Titles change after Friday's partner review.","sys");
@@ -1279,6 +1324,7 @@ function checkPromotion(){
       return;
     }
     S.rank++; S.firmGateHintRank=null; S.promotionHintRank=null;
+    if(S.rank===3){ S.seniorPartnerDay=S.day; S.reviewMomentum=0; S.exceptionalReviewHinted=false; }
     if(S.rank===4){ gameWin(); return; }
     SFX.promo(); flash("PROMOTED!");
     log("PROMOTED to "+RANKS[S.rank]+"!","sys");
@@ -1639,7 +1685,20 @@ const migrateV5ToV6=raw=>{
   d.schemaVersion=6;
   return d;
 };
-const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6};
+const migrateV6ToV7=raw=>{
+  const d={...raw};
+  // Existing Senior/Name Partner saves did not record when the rank was
+  // earned. Starting the wait today is conservative and cannot grant a free
+  // promotion immediately after migration. These fields did not exist in v6,
+  // so ignore same-named injected properties instead of trusting them.
+  d.reviewMomentum=0;
+  d.seniorPartnerDay=d.rank>=3?d.day:0;
+  d.exceptionalReviewDay=0;
+  d.exceptionalReviewHinted=false;
+  d.schemaVersion=7;
+  return d;
+};
+const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6,6:migrateV6ToV7};
 
 const JUDGE_MEMORY_COUNTERS=["seen","aggressiveW","aggressiveL","technicalW","technicalL","bribeW","bribeL","safe","neutralW","neutralL"];
 function validJudgeMemory(memory,day){
@@ -1707,6 +1766,18 @@ function migrateSaveData(raw){
     throw new SaveDataError("invalid","The saved promotion review day is invalid.");
   if(d.promotionHintRank!==null&&(!Number.isInteger(d.promotionHintRank)||d.promotionHintRank<0||d.promotionHintRank>3))
     throw new SaveDataError("invalid","The saved promotion readiness hint is invalid.");
+  // Keep the upper bound independent from today's tuning threshold so a
+  // future balance reduction does not invalidate an older honest slot.
+  if(!nonNegativeInt(d.reviewMomentum)||d.reviewMomentum>100||(d.rank<3&&d.reviewMomentum!==0))
+    throw new SaveDataError("invalid","The saved exceptional-review momentum is invalid.");
+  if(!nonNegativeInt(d.seniorPartnerDay)||d.seniorPartnerDay>d.day||
+    (d.rank<3&&d.seniorPartnerDay!==0)||(d.rank>=3&&d.seniorPartnerDay<1))
+    throw new SaveDataError("invalid","The saved Senior Partner date is invalid.");
+  if(!nonNegativeInt(d.exceptionalReviewDay)||d.exceptionalReviewDay>d.day||
+    (d.exceptionalReviewDay>0&&d.rank<4))
+    throw new SaveDataError("invalid","The saved exceptional review date is invalid.");
+  if(typeof d.exceptionalReviewHinted!=="boolean"||(d.rank<3&&d.exceptionalReviewHinted))
+    throw new SaveDataError("invalid","The saved exceptional review hint is invalid.");
   if(!validJudgeMemory(d.judgeMemory,d.day)) throw new SaveDataError("invalid","The saved court history is damaged.");
   if(!nonNegativeInt(d.caseSeq)||d.caseSeq>=Number.MAX_SAFE_INTEGER||d.caseSeq<highestCaseSequence(d))
     throw new SaveDataError("invalid","The saved filing sequence is invalid.");

@@ -52,7 +52,7 @@ const MODES = ["standard", "endless"];
 const POLICIES = ["max_chance", "technical", "mixed", "bold_mixed", "aggressive", "oracle_ev", "chaos",
   "firm_manager", "firm_bad_manager", "firm_stress", "firm_only_stress"];
 const ENDLESS_ONLY_POLICIES = new Set(["firm_manager", "firm_bad_manager", "firm_stress", "firm_only_stress"]);
-const POLICY_VERSION = "soak-v7";
+const POLICY_VERSION = "soak-v8";
 const RNG_NAMESPACE = "soak-v3"; // preserve the audited v19.9 seed corpus for paired comparisons
 const POLICY_NOTES = Object.freeze({
   max_chance: "Exact-odds safety ceiling; prioritizes success chance and does not delegate.",
@@ -83,6 +83,12 @@ const VARIANTS = Object.freeze({
   judge_legacy: {note:"Pre-v1.9.13 judge memory: full-career aggregate counters.",engine:{judgeMemoryModel:"legacy"}},
   judge_rolling3: {note:"Recent-weighted memory: last three hearings at x1/x.35/x.15.",engine:{judgeMemoryModel:"rolling"}},
   judge_friday: {note:"Friday half-life memory: prior firm-week impressions weigh x0.5.",engine:{judgeMemoryModel:"friday"}},
+  exceptional_off: {note:"Control: Senior Partner Influence above 100 is clipped and Name Partner waits for Friday.",engine:{exceptionalReview:false}},
+  exceptional_12: {note:"Exceptional Review after 12 clipped INF, two mornings as Senior Partner and REP 30.",engine:{exceptionalReview:{threshold:12,wait:2,minRep:30}}},
+  exceptional_18: {note:"Exceptional Review after 18 clipped INF, two mornings as Senior Partner and REP 30.",engine:{exceptionalReview:{threshold:18,wait:2,minRep:30}}},
+  exceptional_24: {note:"Exceptional Review after 24 clipped INF, two mornings as Senior Partner and REP 30.",engine:{exceptionalReview:{threshold:24,wait:2,minRep:30}}},
+  exceptional_30: {note:"Exceptional Review after 30 clipped INF, two mornings as Senior Partner and REP 30.",engine:{exceptionalReview:{threshold:30,wait:2,minRep:30}}},
+  exceptional_36: {note:"Exceptional Review after 36 clipped INF, two mornings as Senior Partner and REP 30.",engine:{exceptionalReview:{threshold:36,wait:2,minRep:30}}},
   delegation_half: { note: "Delegated positive INF is multiplied by 0.5.", engine: { infMultipliers: { delegated: .5 } } },
   distributed_rewards: { note: "Modest positive INF reductions across case and non-case progression sources.", engine: { infMultipliers: {
     case: .9, big_case: .9, delayed: .85, delegated: .65, favor: .9,
@@ -380,7 +386,8 @@ function canonicalSnapshot(rngCalls) {
     bigCase: S.bigCase ? { ...S.bigCase } : null, judgeMemory: S.judgeMemory,
     runStats: S.runStats, today: S.today, objective: S.objective,
     usedCrises: [...S.usedCrises], npcStories: [...S.npcStories], firedNames: [...S.firedNames],
-    firmOps: [S.fireHeat, S.everFired, S.firmPlanDay, S.firmGateHintRank,S.promotionReviewDay,S.promotionHintRank],
+    firmOps: [S.fireHeat, S.everFired, S.firmPlanDay, S.firmGateHintRank,S.promotionReviewDay,S.promotionHintRank,
+      S.reviewMomentum,S.seniorPartnerDay,S.exceptionalReviewDay,S.exceptionalReviewHinted],
     economy: [S.debtDue, S.suitCost, S.coffeeToday, S.marvBribes, S.bigDoneDay],
     week: [S.weekStart, S.weekMissed], decor: S.decor, golfEdge: S.golfEdge,
     roster: S.roster?.map(e => ({ id: e.id, won: e.won, lost: e.lost, impact: e.impact })) || null,
@@ -399,6 +406,9 @@ function assertInvariants(run, label) {
     if (!Number.isFinite(S[key]) || S[key] < min || S[key] > max) fail("invalid " + key + "=" + S[key]);
   if (!Number.isFinite(S.money) || !Number.isFinite(S.hours) || S.hours < 0 || S.hours > 48) fail("invalid economy/clock");
   if (!Number.isSafeInteger(S.caseSeq) || S.caseSeq < 0) fail("invalid case sequence");
+  if (!Number.isSafeInteger(S.reviewMomentum) || S.reviewMomentum < 0 || S.reviewMomentum > 100) fail("invalid review momentum");
+  if (!Number.isSafeInteger(S.seniorPartnerDay) || S.seniorPartnerDay < 0 || S.seniorPartnerDay > S.day) fail("invalid Senior Partner day");
+  if (!Number.isSafeInteger(S.exceptionalReviewDay) || S.exceptionalReviewDay < 0 || S.exceptionalReviewDay > S.day) fail("invalid exceptional review day");
   const clients = S.clients.map(c => c.name);
   if (new Set(clients).size !== clients.length) fail("duplicate clients");
   if (S.inbox.filter(c => c.msg).length > constants.INBOX_MESSAGE_LIMIT) fail("message history exceeded cap");
@@ -445,7 +455,7 @@ function newMetrics(tuple) {
     [key,{up:0,down:0,net:0,requestedUp:0,clippedUp:0}]));
   return {
     ...tuple, actions: 0, outcome: "HORIZON", terminal: false, won: false, winDay: null, npDay: null,
-    promotions: [], promotionReadyDays:{1:null,2:null,3:null,4:null},
+    promotions: [], promotionReadyDays:{1:null,2:null,3:null,4:null}, exceptionalReviewDay:null,
     styles: { safe: 0, technical: 0, aggressive: 0, bribe: 0, neutral: 0 },
     styleRolls: { safe: 0, technical: 0, aggressive: 0, bribe: 0, neutral: 0 },
     styleWins: { safe: 0, technical: 0, aggressive: 0, bribe: 0, neutral: 0 }, rolls: 0,
@@ -455,7 +465,7 @@ function newMetrics(tuple) {
     minRep: 100, minFirm: 100, maxFatigue: 0,
     clientsGained: 0, clientsLost: 0, judgeHearings: 0, judgeCap: 0, judgePost20: 0,
     judgePost20Cap: 0, judgeAdjusted: 0, judgeModifierSum: 0, judgeCaps,
-    infGainBy: { case:0, big_case:0, delayed:0, delegated:0, favor:0, objective:0, review:0,
+    overflowInf:0, infGainBy: { case:0, big_case:0, delayed:0, delegated:0, favor:0, objective:0, review:0,
       crisis:0, client_event:0, demand:0, story:0, weekend:0, rival:0, decor:0, other:0 },
     nemesisGainBy:{passive:0,failure:0}, delegatedResults:{won:0,lost:0}, deadlineResults:0,
     rivalActions:{truce:0,ally:0,sabotage:0},
@@ -552,6 +562,7 @@ function observe(run) {
     m.promotionReadyDays[S.rank+1]=S.day;
   if (S.endlessWon && m.npDay == null) m.npDay = S.day;
   if (S.rank === 4 && m.winDay == null) m.winDay = S.day;
+  if(S.exceptionalReviewDay&&m.exceptionalReviewDay==null) m.exceptionalReviewDay=S.exceptionalReviewDay;
   if(S.endlessWon||S.rank===4){
     if(m.npStartFirm==null) m.npStartFirm=S.firm;
     m.minPostNpFirm=m.minPostNpFirm==null?S.firm:Math.min(m.minPostNpFirm,S.firm);
@@ -604,7 +615,10 @@ function runAction(run, label, fn) {
   else run.noProgressStreak = 0;
   if (run.noProgressStreak >= 3) throw new Error("three consecutive no-progress actions: " + label);
   const infGain = Math.max(0, state.S.inf - beforeInf);
-  if (run.actionTrace) run.actionTrace.push({ ...actionRecord, stateHash: sha(afterState), infGain });
+  if (run.actionTrace) run.actionTrace.push({ ...actionRecord, stateHash: sha(afterState), infGain,
+    rank:state.S.rank,inf:state.S.inf,rep:state.S.rep,firm:state.S.firm,
+    reviewMomentum:state.S.reviewMomentum,seniorPartnerDay:state.S.seniorPartnerDay,
+    exceptionalReviewDay:state.S.exceptionalReviewDay });
   run.metrics.actions++;
   assertInvariants(run, label);
   observe(run);
@@ -702,7 +716,9 @@ function driveRun(tuple, horizon, { captureTrace = false } = {}) {
     if(kind==="nemesis"){
       const key=Object.prototype.hasOwnProperty.call(metrics.nemesisGainBy,source)?source:"passive";
       metrics.nemesisGainBy[key]+=amount;
-    } else if(kind==="firm"&&event.postNamePartner){
+    } else if(kind==="inf_overflow") metrics.overflowInf+=amount;
+    else if(kind==="exceptional_review") metrics.exceptionalReviewDay=event.day;
+    else if(kind==="firm"&&event.postNamePartner){
       const key=Object.prototype.hasOwnProperty.call(metrics.firmFlowBy,source)?source:"other", flow=metrics.firmFlowBy[key];
       flow.up+=Math.max(0,amount); flow.down+=Math.max(0,-amount); flow.net+=amount;
       flow.requestedUp+=Math.max(0,event.requested||0);
@@ -919,6 +935,9 @@ function summarizeCell(runs) {
       Math.max(1, runs.reduce((sum, run) => sum + run.judgeHearings, 0))),
     meanJudgeModifier: round(runs.reduce((sum, run) => sum + run.judgeModifierSum, 0) /
       Math.max(1, runs.reduce((sum, run) => sum + run.judgeHearings, 0)), 2),
+    exceptionalReviewRate:pct(runs.filter(run=>run.exceptionalReviewDay!=null).length/runs.length),
+    medianExceptionalReviewDay:round(quantile(runs.map(run=>run.exceptionalReviewDay).filter(day=>day!=null),.5),1),
+    meanOverflowInf:round(mean(runs.map(run=>run.overflowInf))),
     judgeCaps: summarizeJudgeCaps(runs), aggressiveOffers:summarizeAggressiveOffers(runs),firmEndgame:summarizeFirmEndgame(runs),promotionMedian,promotionReadyMedian,
     styleShares, styleWinRates, meanInfGainBy,
     calibrationGap: rolls ? round((actual - expected) / rolls * 100, 2) : null,
@@ -953,6 +972,9 @@ function summarizeCohort(runs){
     sentHomeRate:pct(runs.filter(run=>run.sentHome>0).length/runs.length),
     meanFinalFirm:round(mean(runs.map(run=>run.finalFirm))),maxBacklog:Math.max(...runs.map(run=>run.maxBacklog)),
     meanGrossInf:round(mean(runs.map(run=>Object.values(run.infGainBy).reduce((a,b)=>a+b,0)))),
+    exceptionalReviewRate:pct(runs.filter(run=>run.exceptionalReviewDay!=null).length/runs.length),
+    medianExceptionalReviewDay:round(quantile(runs.map(run=>run.exceptionalReviewDay).filter(day=>day!=null),.5),1),
+    meanOverflowInf:round(mean(runs.map(run=>run.overflowInf))),
     aggressiveOffers:summarizeAggressiveOffers(runs),firmEndgame:summarizeFirmEndgame(runs),promotionReadyMedian,meanInfGainBy,styleShares,outcomes,
     integrityFailures:runs.filter(run=>run.integrity.length).length};
 }
@@ -962,6 +984,13 @@ function buildWarnings(cells, runs) {
   const add = (severity, code, message, evidence, recommendation) => warnings.push({ severity, code, message, evidence, recommendation });
   for (const cell of cells) {
     if (cell.integrityFailures) add(10, "INTEGRITY", cellKey(cell) + " produced integrity failures", cell.integrityFailures + "/" + cell.n, "Treat results as invalid and fix before tuning.");
+    if(cell.earlyWinRate>0&&cell.exceptionalReviewRate>0)
+      add(8,"EXCEPTIONAL_REVIEW_TOO_EARLY",cellKey(cell)+" restores a pre-rebalance early finish",
+        `${cell.earlyWinRate}% of careers won by day 12`,"Raise the momentum threshold or the Senior Partner wait.");
+    else if(cell.n>=8&&cell.exceptionalReviewRate>=60)
+      add(6,"EXCEPTIONAL_REVIEW_TOO_COMMON",cellKey(cell)+" turns the special vote into the default final promotion",
+        `${cell.exceptionalReviewRate}% of careers used it; median day ${cell.medianExceptionalReviewDay}`,
+        "Raise the momentum threshold until the Friday route remains the norm.");
     if (cell.n >= 8 && cell.runawayBacklogRate >= 10)
       add(8, "BACKLOG_RUNAWAY", cellKey(cell) + " shows joint high-and-growing backlog careers",
         `${cell.runawayBacklogRate}% of careers; max=${cell.maxBacklog}`, "Inspect arrivals, deadlines and delegation before tuning.");
@@ -1061,6 +1090,7 @@ function replayCandidates(runs) {
     take([...group].sort((a, b) => a.minRep - b.minRep)[0]);
     take([...group].sort((a, b) => a.minFirm - b.minFirm)[0]);
     take([...group].filter(run=>run.npDay!=null).sort((a,b)=>(a.minPostNpFirm??101)-(b.minPostNpFirm??101))[0]);
+    take([...group].filter(run=>run.exceptionalReviewDay!=null).sort((a,b)=>a.exceptionalReviewDay-b.exceptionalReviewDay)[0]);
     take([...group].sort((a,b)=>b.lawsuits-a.lawsuits)[0]);
     take([...group].sort((a,b)=>b.firings-a.firings)[0]);
     take(group.find(run=>run.outcome==="FIRM COLLAPSE"));
@@ -1135,7 +1165,7 @@ function printResult(result) {
     fired:cohort.firedRate+"%",misses:cohort.meanMisses,agg:cohort.styleShares.aggressive+"%",
     nemFail:cohort.meanNemesisFailure,firmCollapse:cohort.firmEndgame.collapseRate+"%",
     firmDelta:cohort.firmEndgame.meanFirmDelta,firmCap:cohort.firmEndgame.capDayRate+"%",
-    grossInf:cohort.meanGrossInf,integrity:cohort.integrityFailures})));
+    grossInf:cohort.meanGrossInf,exReview:cohort.exceptionalReviewRate+"%",integrity:cohort.integrityFailures})));
   console.log("Scenario cells:");
   console.table(result.cells.map(cell => ({
     variant:cell.variant,scenario: cell.scenario, mode: cell.mode, bot: cell.policy, wins: cell.winRate + "%",

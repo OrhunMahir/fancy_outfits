@@ -285,6 +285,25 @@ globalThis.clearInterval = () => {};
   };
   assert.deepEqual(dailyMemoryResumeTrace(false), dailyMemoryResumeTrace(true));
 
+  // Exceptional Review accounting is arithmetic only: reaching the cap and
+  // inspecting its UI must not consume DAILY RNG, and save/load must resume
+  // both momentum and the next generated filing exactly.
+  const dailyExceptionalTrace=resume=>{
+    fresh("daily");
+    Object.assign(state.S,{day:17,rank:3,seniorPartnerDay:17,inf:98,rep:80,firm:80,
+      reviewMomentum:0,exceptionalReviewDay:0,exceptionalReviewHinted:false,event:null,summary:null,inbox:[]});
+    utils.setSeed(20260809);
+    const before=utils.getRngState();
+    engine.apply({inf:40},true,"case");
+    const info=engine.exceptionalReviewInfo();
+    assert.equal(utils.getRngState(),before);
+    engine.saveGame();
+    if(resume) assert.equal(engine.loadGame(1),true);
+    const next=engine.instantiateCase({...template(),tier:2,judge:true});
+    return {info,momentum:state.S.reviewMomentum,judge:engine.judgeId(next.judge),order:order(next),cursor:utils.getRngState()};
+  };
+  assert.deepEqual(dailyExceptionalTrace(false),dailyExceptionalTrace(true));
+
   // Procedural IDs are part of the player's blurred-information key. Their
   // persisted cursor must resume exactly like the DAILY RNG cursor.
   fresh("daily");
@@ -613,6 +632,10 @@ globalThis.clearInterval = () => {};
   assert.equal(migratedInfo.save.firmPlanDay, 0);
   assert.equal(migratedInfo.save.firmGateHintRank, null);
   assert.deepEqual(migratedInfo.save.judgeMemory, {});
+  assert.equal(migratedInfo.save.reviewMomentum, 0);
+  assert.equal(migratedInfo.save.seniorPartnerDay, 0);
+  assert.equal(migratedInfo.save.exceptionalReviewDay, 0);
+  assert.equal(migratedInfo.save.exceptionalReviewHinted, false);
   assert.equal(migratedInfo.save.logEntries.length, constants.SAVE_LOG_LIMIT);
   assert.equal(migratedInfo.save.archive.length, constants.SAVE_ARCHIVE_LIMIT);
   assert.equal(engine.loadGame(1), true);
@@ -638,6 +661,15 @@ globalThis.clearInterval = () => {};
   assert.equal(v5Info.needsUpgrade,true);
   assert.equal(v5Info.save.judgeMemory.ironwood.seen,2,"v5 lifetime totals survive migration");
   assert.deepEqual(v5Info.save.judgeMemory.ironwood.recent,[{style:"aggressive",win:true,day:4}],"v5 active recall starts from the last known hearing");
+  const v6SeniorRaw=clone(readyBase);
+  Object.assign(v6SeniorRaw,{schemaVersion:6,day:17,rank:3,inf:100,reviewMomentum:99,
+    seniorPartnerDay:1,exceptionalReviewDay:16,exceptionalReviewHinted:true});
+  storage.set(`${constants.SAVE_KEY}_s2`,JSON.stringify(v6SeniorRaw));
+  const v6SeniorInfo=engine.inspectSave(2);
+  assert.equal(v6SeniorInfo.status,"ready");
+  assert.equal(v6SeniorInfo.needsUpgrade,true);
+  assert.deepEqual([v6SeniorInfo.save.reviewMomentum,v6SeniorInfo.save.seniorPartnerDay,
+    v6SeniorInfo.save.exceptionalReviewDay,v6SeniorInfo.save.exceptionalReviewHinted],[0,17,0,false]);
   const v1Raw = clone(readyBase);
   v1Raw.schemaVersion = 1;
   delete v1Raw.firmPlanDay;
@@ -753,6 +785,13 @@ globalThis.clearInterval = () => {};
     { raw: JSON.stringify({ ...clone(readyBase), promotionReviewDay: -1 }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), promotionReviewDay: readyBase.day + 1 }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), promotionHintRank: 4 }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), reviewMomentum: -1 }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), reviewMomentum: 101 }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), reviewMomentum: 1 }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), seniorPartnerDay: 1 }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), exceptionalReviewDay: 1 }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), exceptionalReviewHinted: "yes" }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), exceptionalReviewHinted: true }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), caseSeq: -1 }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), caseSeq: Number.MAX_SAFE_INTEGER }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), caseSeq: Number.MAX_SAFE_INTEGER + 1 }), status: "invalid" },
@@ -1386,6 +1425,50 @@ globalThis.clearInterval = () => {};
   drivePromotion();
   assert.deepEqual([state.S.rank, state.S.promotionReviewDay], [2, 11]);
 
+  // v1.9.14: only Influence genuinely clipped above 100 while Senior Partner
+  // becomes Exceptional Review momentum. It cannot promote in the same action
+  // and it cannot bypass the two-morning wait, REP floor or ordinary FIRM gate.
+  assert.deepEqual([constants.EXCEPTIONAL_REVIEW_THRESHOLD,constants.EXCEPTIONAL_REVIEW_WAIT,
+    constants.EXCEPTIONAL_REVIEW_MIN_REP],[36,2,30]);
+  fresh();
+  Object.assign(state.S,{day:17,rank:3,seniorPartnerDay:17,inf:98,rep:80,firm:80,
+    reviewMomentum:0,exceptionalReviewDay:0,exceptionalReviewHinted:false,event:null,summary:null});
+  engine.apply({inf:40},true,"case");
+  assert.deepEqual([state.S.inf,state.S.reviewMomentum,state.S.exceptionalReviewHinted],[100,36,true]);
+  drivePromotion();
+  assert.equal(state.S.rank,3,"overflow cannot award Name Partner during the earning action");
+  assert.deepEqual(engine.exceptionalReviewInfo(),{momentum:36,threshold:36,minRep:30,earliest:19,ready:false});
+  engine.saveGame();
+  assert.equal(engine.loadGame(1),true);
+  assert.deepEqual([state.S.reviewMomentum,state.S.seniorPartnerDay,state.S.exceptionalReviewDay],[36,17,0]);
+  state.S.event=null;
+  state.S.summary={title:"TEST NIGHT",lines:[],btnTxt:"NEXT",action:"nextDay"};
+  engine.dismissSummary();
+  assert.deepEqual([state.S.day,state.S.rank,state.S.exceptionalReviewDay],[18,3,0]);
+  state.S.event=null;
+  state.S.summary={title:"TEST NIGHT",lines:[],btnTxt:"NEXT",action:"nextDay"};
+  engine.dismissSummary();
+  assert.deepEqual([state.S.day,state.S.rank,state.S.exceptionalReviewDay],[19,4,19]);
+  assert.match(state.S.summary.title,/YOU MADE NAME PARTNER/);
+
+  fresh();
+  Object.assign(state.S,{day:17,rank:3,seniorPartnerDay:17,inf:100,rep:30,firm:80,
+    reviewMomentum:36,exceptionalReviewDay:0,exceptionalReviewHinted:true,event:null,summary:null});
+  for(let i=0;i<2;i++){
+    state.S.event=null;
+    state.S.summary={title:"TEST NIGHT",lines:[],btnTxt:"NEXT",action:"nextDay"};
+    engine.dismissSummary();
+  }
+  assert.deepEqual([state.S.day,state.S.rank,state.S.exceptionalReviewDay],[19,3,0],"nightly REP decay must keep a disrespected Senior Partner out of the exceptional vote");
+
+  fresh();
+  Object.assign(state.S,{day:5,rank:3,seniorPartnerDay:4,inf:100,rep:80,firm:80,
+    reviewMomentum:36,exceptionalReviewDay:0,exceptionalReviewHinted:true,event:null,
+    summary:{title:"TEST FRIDAY",lines:[],btnTxt:"NEXT",action:"nextDay"}});
+  engine.dismissSummary();
+  assert.deepEqual([state.S.day,state.S.rank,state.S.promotionReviewDay,state.S.exceptionalReviewDay],[6,4,6,0],
+    "the normal Friday decision must take priority over Exceptional Review telemetry");
+
   fresh();
   Object.assign(state.S, { rank: 1, hours: 8, event: null, summary: null });
   const delegateA = engine.instantiateCase(template());
@@ -1449,7 +1532,7 @@ globalThis.clearInterval = () => {};
     }
   }
 
-  console.log("v1.9.5–v1.9.13 checks passed: balance experiments, Friday promotions, delegation cap, strict saves, procedural IDs, long-run integrity, FIRM payroll, rolling judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
+  console.log("v1.9.5–v1.9.14 checks passed: balance experiments, Friday/Exceptional Review promotions, delegation cap, strict saves, procedural IDs, long-run integrity, FIRM payroll, rolling judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;

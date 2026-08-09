@@ -59,12 +59,17 @@ export const FIRM_PAYROLL_DIVISOR=10; // ceil(headcount / 10) FIRM each morning
 export const FIRM_CRITICAL=25, FIRM_STABLE=50, FIRM_THRIVING=75;
 export const FIRM_RANK_REQ=[0,40,45,50]; // current rank -> FIRM needed for the next promotion
 export const FIRM_PLAN_GAIN=10, FIRM_PLAN_HOURS=1.5, FIRM_PLAN_FATIGUE=6, FIRM_PLAN_COOLDOWN=5;
+// Once a Senior Partner has filled the normal 100-point Influence bar, further
+// earned Influence becomes review momentum instead of disappearing. Enough
+// momentum can trigger one early Name Partner decision on a later morning;
+// the wait prevents a same-day rank cascade and preserves the weekly rhythm.
+export const EXCEPTIONAL_REVIEW_THRESHOLD=36, EXCEPTIONAL_REVIEW_WAIT=2, EXCEPTIONAL_REVIEW_MIN_REP=30;
 // firing employees builds litigation heat: +FIRE_HEAT per firing (more for a
 // voted-out senior), decays x HEAT_DECAY nightly, but never below HEAT_MIN
 // once you've fired anyone — ex-employees have long memories.
 export const FIRE_HEAT=9, FIRE_HEAT_SENIOR=16, HEAT_DECAY=0.93, HEAT_MIN=1;
 // The storage key stays stable; ordered migrations use the embedded schema.
-export const SAVE_SCHEMA_VERSION=6;
+export const SAVE_SCHEMA_VERSION=7;
 export const SAVE_LOG_LIMIT=200, SAVE_ARCHIVE_LIMIT=200;
 export const INBOX_MESSAGE_LIMIT=80; // notifications are history, not permanent case files
 export const SAVE_KEY="fo_save_v1";

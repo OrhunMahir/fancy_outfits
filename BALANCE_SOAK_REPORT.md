@@ -1,11 +1,60 @@
 # FANCY OUTFITS — Deterministik Kariyer Soak Raporu
 
-**Sürüm:** v19.12 (v19.9 baseline + progression, controlled-risk ve FIRM endgame A/B turları)
+**Sürüm:** v19.13 (v19.9 baseline + progression, controlled-risk, FIRM ve hakim-memory A/B turları)
 
-**Tarih:** 2026-08-08
+**Tarih:** 2026-08-09
 
 **Kapsam:** Standard 40 gün, Endless 50–80 gün; beş senaryo; denge, uzun-run
 bütünlüğü ve şüpheli seed tekrarları.
+
+## v19.13 hakim hafızası A/B — uygulanan karar
+
+### Sorun ve adaylar
+
+Eski sistem her hakimin tüm kariyer sayaçlarını doğrudan şansa çeviriyordu. Uzun Endless
+kariyerlerinde yeni duruşmalar bilgi taşımayı bırakıyor; Technical `+6` ve Aggressive `−8`
+etkileri kalıcı pasif statlara dönüşüyordu. Aynı seed'lerde üç model karşılaştırıldı:
+
+- `judge_legacy`: tüm kariyer toplamı;
+- `judge_friday`: önceki firma haftalarının etkisi her cuma `×0,5`;
+- `judge_rolling3`: son üç duruşma, sırasıyla `×1 / ×0,35 / ×0,15`.
+
+16-seed ön A/B toplam **960 kariyer ve 261/261 replay** üretti; invariant ihlali 0. Friday
+modeli cap'i yaklaşık %3–13 bandına kadar indirdi fakat oyuncunun duruşma davranışından bağımsız,
+takvim kaynaklı görünmez bir hafıza uçurumu yarattı. Rolling modelde aynı hâkim önündeki farklı
+bir yaklaşım eski örüntüyü doğal biçimde soğutuyor; lifetime W/L ve özel replikler silinmiyor.
+
+### Final paired sonuç
+
+32 seed × 5 senaryo × Technical/Bold Mixed × old/rolling = **640 Endless kariyer** ve
+**14.185 duruşma**. **88/88 replay birebir aynı**, integrity/invariant ihlali 0:
+
+| Ölçüm | Eski full-career | Rolling last-3 | Değişim |
+|---|---:|---:|---:|
+| Gün 20 sonrası tüm cap seçimleri | %53,3 | **%24,9** | −28,4 puan |
+| Technical `+6` cap | %54,4 | **%26,8** | −27,6 puan |
+| Aggressive `−8` cap | %53,1 | **%13,8** | −39,3 puan |
+| Hafızadan etkilenen duruşma | %67,8 | %67,3 | davranış korunuyor |
+| Ortalama memory modifier | +2,43 | **+1,95** | küçük, geçici etki |
+
+Technical Endless Name Partner oranı iki modelde de `%75,6`, medyan gün 21; Bold Mixed
+`%70,6 → %70,0`, yine medyan gün 21. Böylece Standard/ana progression ritmini sessizce
+değiştirmeden yalnız uzun-kariyer doygunluğu çözüldü.
+
+### Uygulama ve save bütünlüğü
+
+- Lifetime sayaçları UI/replik için aynen tutulur; yalnız son üç event canlı oranı etkiler.
+- En fazla 12 event persist edilir; bu sınır son üç pencereye güvenli pay bırakır.
+- CasePane `CAREER` ve `ACTIVE RECALL` satırlarını ayırır; exact etki seçimden önce görünür.
+- Delayed outcome hâlâ yalnız REPLY anında yazar; archive seçim anındaki bağlamı dondurur.
+- Save schema v6, v3–v5 aggregate kayıtların bütün sayaçlarını korur ve aktif pencereyi son
+  bilinen stil/sonuç/günle başlatır. Enum, gün sırası/sınırı, lifetime sayaç uyumu, tail uyumu
+  ve uzunluk validate edilir.
+
+Sonuç: önceki **6/10 hakim-memory saturation şüphesi çözüldü**. Kalan düşük önemdeki uzun-run
+gözlemi inbox message-cap baskısıdır; sınır aşılmıyor ve canlı dosyalar silinmiyor (**3/10**).
+
+> Aşağıdaki v19.12 bölümü FIRM endgame kararını, sonraki bölümler tarihsel baseline'ı korur.
 
 ## v19.12 FIRM endgame A/B — uygulanan karar
 
@@ -65,8 +114,8 @@ kararlarından geliyor.
 - `3731324953`, Fraud / kötü yönetim: en iyi çalışanları kovma, 3 firing + 2 lawsuit
   sonrası gün 38'de FIRM 13. İki tekrar aynı digest: `2ffb98b0...242c5`.
 
-Kalan ana denge riski artık FIRM değil, Endless hakim hafızası doygunluğu: bu final matriste
-birçok Technical hücrede gün 20 sonrası `+6` cap oranı %55–62 bandında kaldı (**6/10**).
+Bu turdan kalan Endless hakim hafızası doygunluğu v19.13 rolling-recall A/B'siyle çözüldü;
+gün 20 sonrası toplam cap oranı `%53,3 → %24,9` düştü.
 
 > Aşağıdaki v19.11 bölümü controlled-risk kararını, sonraki bölümler tarihsel baseline'ı korur.
 

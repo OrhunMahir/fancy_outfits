@@ -146,7 +146,7 @@ globalThis.clearInterval = () => {};
   }
   assert.ok(bribes > 0);
 
-  // v1.9.8: every judge has a stable identity and deterministic recall lines.
+  // v1.9.8/v1.9.13: stable identity plus bounded, recent-weighted recall.
   assert.equal(content.JUDGES.length, 7);
   assert.equal(new Set(content.JUDGES.map(judge => judge.id)).size, content.JUDGES.length);
   assert.ok(content.JUDGES.every(judge => judge.id && judge.memoryGood && judge.memoryBad));
@@ -173,23 +173,55 @@ globalThis.clearInterval = () => {};
   assert.equal(engine.judgeMemoryModifier(aggMemoryOption, marshCase), 0);
   assert.match(engine.judgeMemoryInfo(ironwoodCase).quote, /last bluff landed/i);
   engine.rememberJudgeOutcome(ironwoodCase, safeMemoryOption, true);
-  assert.equal(engine.judgeMemoryModifier(aggMemoryOption, ironwoodCase), -5, "safe play does not erase bluff memory");
+  assert.equal(engine.judgeMemoryModifier(aggMemoryOption, ironwoodCase), -2, "a safe hearing cools, but does not instantly erase, the bluff");
   assert.match(engine.judgeMemoryInfo(ironwoodCase).quote, /kept it conventional/i);
   engine.rememberJudgeOutcome(ironwoodCase, aggMemoryOption, false);
+  assert.equal(engine.judgeMemoryModifier(aggMemoryOption, ironwoodCase), -7);
+  engine.rememberJudgeOutcome(ironwoodCase, aggMemoryOption, false);
   assert.equal(engine.judgeMemoryModifier(aggMemoryOption, ironwoodCase), -8, "bluff memory is capped");
-  engine.rememberJudgeOutcome(ironwoodCase, techMemoryOption, true);
-  engine.rememberJudgeOutcome(ironwoodCase, techMemoryOption, true);
-  assert.equal(engine.judgeMemoryModifier(techMemoryOption, ironwoodCase), 6, "technical trust is capped");
-  engine.rememberJudgeOutcome(ironwoodCase, bribeMemoryOption, false);
-  engine.rememberJudgeOutcome(ironwoodCase, bribeMemoryOption, true);
-  assert.equal(engine.judgeMemoryModifier(bribeMemoryOption, ironwoodCase), -8, "repeat impropriety is capped");
+
+  fresh();
+  const rollingTechnicalCase = judgeCase(content.JUDGES[2]);
+  engine.rememberJudgeOutcome(rollingTechnicalCase, techMemoryOption, true);
+  engine.rememberJudgeOutcome(rollingTechnicalCase, techMemoryOption, true);
+  assert.equal(engine.judgeMemoryModifier(techMemoryOption, rollingTechnicalCase), 5);
+  engine.rememberJudgeOutcome(rollingTechnicalCase, techMemoryOption, true);
+  assert.equal(engine.judgeMemoryModifier(techMemoryOption, rollingTechnicalCase), 6, "three recent technical wins earn the credibility cap");
+  engine.rememberJudgeOutcome(rollingTechnicalCase, safeMemoryOption, true);
+  assert.equal(engine.judgeMemoryModifier(techMemoryOption, rollingTechnicalCase), 2, "a different recent style decays old technical credibility");
+  engine.rememberJudgeOutcome(rollingTechnicalCase, safeMemoryOption, true);
+  engine.rememberJudgeOutcome(rollingTechnicalCase, safeMemoryOption, true);
+  assert.equal(engine.judgeMemoryModifier(techMemoryOption, rollingTechnicalCase), 0, "three newer hearings fully retire the old style effect");
+
+  fresh();
+  const rollingBribeCase = judgeCase(content.JUDGES[3]);
+  engine.rememberJudgeOutcome(rollingBribeCase, bribeMemoryOption, false);
+  engine.rememberJudgeOutcome(rollingBribeCase, bribeMemoryOption, true);
+  assert.equal(engine.judgeMemoryModifier(bribeMemoryOption, rollingBribeCase), -8, "repeat impropriety is capped");
   assert.equal(engine.chance(safeMemoryOption, ironwoodCase), 100, "memory never breaks a safe option");
 
   fresh();
   const technicalLossCase = judgeCase(content.JUDGES[2]);
   engine.rememberJudgeOutcome(technicalLossCase, techMemoryOption, false);
   engine.rememberJudgeOutcome(technicalLossCase, techMemoryOption, false);
-  assert.equal(engine.judgeMemoryModifier(techMemoryOption, technicalLossCase), -6);
+  engine.rememberJudgeOutcome(technicalLossCase, techMemoryOption, false);
+  assert.equal(engine.judgeMemoryModifier(techMemoryOption, technicalLossCase), -5);
+  assert.equal(state.S.judgeMemory.pelt.recent.length, constants.JUDGE_MEMORY_WINDOW);
+  for(let i=0;i<20;i++) engine.rememberJudgeOutcome(technicalLossCase, safeMemoryOption, true);
+  assert.equal(state.S.judgeMemory.pelt.seen,23,"lifetime transcript remains complete");
+  assert.equal(state.S.judgeMemory.pelt.recent.length,constants.JUDGE_MEMORY_EVENT_LIMIT,"persisted recall is bounded");
+
+  // The rejected Friday A/B model really does halve last week's impression;
+  // shipped rolling recall is hearing-based and has no arbitrary Friday cliff.
+  fresh();
+  const weeklyCase=judgeCase(content.JUDGES[4]);
+  engine.rememberJudgeOutcome(weeklyCase,techMemoryOption,true);
+  state.S.day=6;
+  engine.setBalanceExperiment({weeklyPromotion:false,delegateCap:2,judgeMemoryModel:"friday"});
+  assert.equal(engine.judgeMemoryModifier(techMemoryOption,weeklyCase),2);
+  engine.setBalanceExperiment({weeklyPromotion:false,delegateCap:2,judgeMemoryModel:"rolling"});
+  assert.equal(engine.judgeMemoryModifier(techMemoryOption,weeklyCase),4);
+  engine.setBalanceExperiment({weeklyPromotion:false,delegateCap:2});
 
   // Instant court results record exactly once. The archive freezes the memory
   // that applied at the hearing; a stale second click cannot duplicate either.
@@ -589,6 +621,23 @@ globalThis.clearInterval = () => {};
   // Corrupt, malformed and future-version slots are diagnosed without deletion.
   const readyBase = JSON.parse(storage.get(saveKey));
   const clone = value => JSON.parse(JSON.stringify(value));
+  const validMemoryRecord = {
+    seen: 1, aggressiveW: 1, aggressiveL: 0, technicalW: 0, technicalL: 0,
+    bribeW: 0, bribeL: 0, safe: 0, neutralW: 0, neutralL: 0,
+    lastStyle: "aggressive", lastWin: true, lastDay: 1,
+    recent: [{style:"aggressive",win:true,day:1}],
+  };
+  const v5Raw=clone(readyBase);
+  v5Raw.schemaVersion=5;
+  v5Raw.day=8;
+  v5Raw.judgeMemory={ironwood:{...clone(validMemoryRecord),seen:2,aggressiveW:2,lastDay:4}};
+  delete v5Raw.judgeMemory.ironwood.recent;
+  storage.set(`${constants.SAVE_KEY}_s2`,JSON.stringify(v5Raw));
+  const v5Info=engine.inspectSave(2);
+  assert.equal(v5Info.status,"ready");
+  assert.equal(v5Info.needsUpgrade,true);
+  assert.equal(v5Info.save.judgeMemory.ironwood.seen,2,"v5 lifetime totals survive migration");
+  assert.deepEqual(v5Info.save.judgeMemory.ironwood.recent,[{style:"aggressive",win:true,day:4}],"v5 active recall starts from the last known hearing");
   const v1Raw = clone(readyBase);
   v1Raw.schemaVersion = 1;
   delete v1Raw.firmPlanDay;
@@ -666,11 +715,6 @@ globalThis.clearInterval = () => {};
   pendingWar.pending = { day: pendingWar.deadline, win: true, o: { ...clone(pendingWar.opts[0]), delay: 1 } };
   const delegatedWar = clone(engine.buildBigMatter("Abibas"));
   delegatedWar.delegated = { day: delegatedWar.deadline, npc: "dana", win: true };
-  const validMemoryRecord = {
-    seen: 1, aggressiveW: 1, aggressiveL: 0, technicalW: 0, technicalL: 0,
-    bribeW: 0, bribeL: 0, safe: 0, neutralW: 0, neutralL: 0,
-    lastStyle: "aggressive", lastWin: true, lastDay: 1,
-  };
   // Stable ids are the only persisted authority in v3: stale/tampered balance
   // fields are replaced by the current catalog before they can affect play.
   const forgedIdCourt = { ...template(), tier: 2,
@@ -726,6 +770,10 @@ globalThis.clearInterval = () => {};
     { raw: JSON.stringify({ ...clone(readyBase), judgeMemory: { ironwood: { ...validMemoryRecord, lastStyle: "bribe", lastWin: false } } }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), judgeMemory: { ironwood: { ...validMemoryRecord, aggressiveW: 0, safe: 1, lastStyle: "safe", lastWin: false } } }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), judgeMemory: { ironwood: { ...validMemoryRecord, lastDay: readyBase.day + 1 } } }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), judgeMemory: { ironwood: { ...validMemoryRecord, recent: [] } } }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), judgeMemory: { ironwood: { ...validMemoryRecord, recent: [{style:"showboat",win:true,day:1}] } } }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), judgeMemory: { ironwood: { ...validMemoryRecord, recent: [{style:"aggressive",win:true,day:readyBase.day+1}] } } }), status: "invalid" },
+    { raw: JSON.stringify({ ...clone(readyBase), judgeMemory: { ironwood: { ...validMemoryRecord, recent: [{style:"technical",win:true,day:1}] } } }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), money: {} }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), inbox: {} }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), inbox: [{ title: "BAD", body: "bad", opts: [null] }] }), status: "invalid" },
@@ -1401,7 +1449,7 @@ globalThis.clearInterval = () => {};
     }
   }
 
-  console.log("v1.9.5–v1.9.12 checks passed: balance experiments, Friday promotions, delegation cap, strict saves, procedural IDs, long-run integrity, FIRM payroll, judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
+  console.log("v1.9.5–v1.9.13 checks passed: balance experiments, Friday promotions, delegation cap, strict saves, procedural IDs, long-run integrity, FIRM payroll, rolling judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;

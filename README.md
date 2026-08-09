@@ -30,6 +30,23 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.13 — Judges remember the recent record *(2026-08-09)*
+- **Recent-weighted recall:** judges still keep the full career W/L transcript, but today's odds
+  use only the last three appearances at `×1 / ×0.35 / ×0.15`. A different approach can cool an
+  old pattern; three nearby technical wins can still earn the +6 credibility cap.
+- **No arbitrary Friday amnesia:** a weekly half-life model reduced saturation further but created
+  an invisible calendar cliff. The shipped rolling model makes forgetting depend on what the player
+  does in court, while preserving guaranteed safe plays and the existing −8/+6 caps.
+- **Honest court UI:** the file separates CAREER totals from ACTIVE RECALL and prints the exact
+  recent-weighted effect before the choice. Judge-specific lines and immutable archive snapshots
+  remain intact.
+- **Save schema v6:** active recall persists as a bounded 12-event transcript. v3–v5 aggregate-only
+  slots retain every lifetime counter and seed recall from the last known hearing; malformed,
+  future-dated, out-of-order or counter-inconsistent events are rejected.
+- **Measured result:** in the final 640-career Endless comparison, post-day-20 cap occupancy fell
+  from 53.3% to 24.9% overall (Technical +6: 54.4%→26.8%; Aggressive −8: 53.1%→13.8%).
+  Standard progression stayed stable; all 88 extreme replays matched and integrity failures were 0.
+
 ### v19.12 — The payroll can finally sink you *(2026-08-08)*
 - **Headcount has a cost:** after Name Partner, morning operating load is now
   `ceil(employee count / 10)` FIRM. The starting ~13-person roster therefore costs 2 FIRM;

@@ -253,11 +253,18 @@
 - **Nedensel telemetry:** post-NP FIRM akışı kaynaklara ayrılır; roster work, raw/capped drift, employee-days, firing impact, lawsuit, cap'te kırpılan FIRM ve delta/gün raporlanır. `firm_manager` ile aynı docket'i kötü yöneten `firm_bad_manager` eşli kontrol eklendi.
 - **Final A/B:** 64 seed × 5 senaryo × 2 politika × old/new = 1.280 Endless kariyer. Eski model 7.400 iyi + 6.390 kötü yönetim post-NP gününde 0 collapse; yeni model iyi %3,4, kötü %12,5. FIRM-cap günü %53,7/%37,2→%4/%2. 132/132 replay, 0 invariant. Save schema değişmedi.
 
-**Dış denetim notu (Codex, 2026-08-08):** YAPILDI: v1.9.3 çökme/kilit+Windows, v1.9.4 bütünlük, v1.9.5 seçenek/stil/kahve/mesai dengesi, v1.9.6 Client War+save bütünlüğü ve bağımlılık/Electron/CSP güvenliği, v1.9.7 Standard FIRM anlamı + Defector/Boomerang finalleri, v1.9.8 hakim hafızası, v1.9.9 30–50 günlük soak+bütünlük, v1.9.10 exact attribution + progression A/B + Friday promotion/delege cap, v1.9.11 controlled-risk + Boomerang false-positive audit, v1.9.12 FIRM endgame A/B + live payroll. KALAN: hakim-memory A/B; Friday/INF overflow tasarım kararı; mobil geçiş; bağlamsal SFX; yayın/paketleme.
+**v1.9.13 eklendi (2026-08-09, hakim hafızası rolling A/B):**
+- **Rolling active recall:** lifetime hakim W/L sayaçları ve özel replikler korunur; canlı şans yalnız son 3 duruşmayı `×1/×.35/×.15` ağırlıkla kullanır. Safe veya farklı stil yeni pencereye girerek eski örüntüyü yumuşatır; safe hâlâ %100. Technical üç yakın win ile +6 cap kurabilir, davranış silinmez.
+- **Friday adayı reddedildi:** eski full-career, Friday half-life ve rolling aynı seed'lerde çalıştı. Friday daha düşük cap verdi ama oyuncu aksiyonundan bağımsız takvim uçurumu yarattı. Rolling final 640 Endless kariyer/14.185 duruşmada post-day20 tüm cap `%53,3→%24,9`, Technical +6 `%54,4→%26,8`, Aggressive −8 `%53,1→%13,8`; Technical NP `%75,6` ve medyan gün21 değişmedi.
+- **UI:** CasePane lifetime `CAREER` toplamıyla `ACTIVE RECALL` kuralını ayırır; bugünkü exact modifier görünür. Info paneli son üç duruşma davranışını açıklar. Archive snapshot ve delayed-result gizliliği korunur.
+- **Save schema v6:** ID başına en fazla 12 recent event persist edilir. 5→6 migration v3–v5 lifetime toplamlarını kaybetmez, yalnız son bilinen duruşmayı active recall seed'i yapar. Recent enum/sıra/gün/counter/tail/limit doğrulanır; bozuk v6 kayıt sessizce onarılmaz.
+- **Deterministik test:** ön A/B 960 kariyer + 261 replay; final paired 640 kariyer + 88 replay; hepsi birebir, integrity 0. `npm test` rolling exact matematik, bounded transcript, Friday kontrolü, v5 migration, malformed recent ve DAILY save/reload cursor'u kapsar.
 
-**En son çalışılan konu (2026-08-08):** v1.9.12 FIRM endgame turu tamamlandı. Eski simetrik/no-payroll modelinin çöküşü ulaşılmaz kıldığı kaynak telemetry'siyle kanıtlandı; headcount payroll + asymmetric roster sonucu canlıya alındı. 1.280 final paired kariyerde iyi yönetim %3,4, kötü %12,5 collapse; eşik değişmedi. Sıradaki öneri: **hakim hafızası rolling/decay A/B**; gün 20 sonrası Technical +6 cap oranı hâlâ %55–62.
+**Dış denetim notu (Codex, 2026-08-09):** YAPILDI: v1.9.3 çökme/kilit+Windows, v1.9.4 bütünlük, v1.9.5 seçenek/stil/kahve/mesai dengesi, v1.9.6 Client War+save bütünlüğü ve bağımlılık/Electron/CSP güvenliği, v1.9.7 Standard FIRM anlamı + Defector/Boomerang finalleri, v1.9.8 hakim hafızası, v1.9.9 30–50 günlük soak+bütünlük, v1.9.10 exact attribution + progression A/B + Friday promotion/delege cap, v1.9.11 controlled-risk + Boomerang false-positive audit, v1.9.12 FIRM endgame A/B + live payroll, v1.9.13 hakim hafızası rolling A/B + schema v6. KALAN: Friday/INF overflow tasarım kararı; mobil geçiş; bağlamsal SFX; yayın/paketleme.
 
-**Aklında tut (kullanıcı onaylı bekleyenler):** hakim-memory decay/rolling A/B, Friday INF overflow/exceptional review kararı, mobil (layout+Capacitor), bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
+**En son çalışılan konu (2026-08-09):** v1.9.13 hakim hafızası turu tamamlandı. Full-career ve Friday decay adaylarına karşı rolling last-3 seçildi; saturation çözüldü, Standard/NP ritmi korunup save schema v6'ya taşındı. Sıradaki öneri: **mobil layout + dokunmatik UX hazırlığı**; ondan sonra Capacitor.
+
+**Aklında tut (kullanıcı onaylı bekleyenler):** mobil layout + dokunmatik UX, Capacitor paketleme, Friday INF overflow/exceptional review tasarım kararı, bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
 
 ---
 
@@ -317,7 +324,7 @@ fancy-outfits/
 │       ├── EventOverlay.jsx      ← kriz ekranı (+ Traitor/Brave modifier satırı)
 │       └── SummaryOverlay.jsx    ← gün sonu / cuma review / game over / win + run ledger
 ├── FANCY_OUTFITS_GDD.md          ← Tasarım dokümanı (gelecek özelliklerin speci)
-├── BALANCE_SOAK_REPORT.md        ← v19.9 baseline + v19.10–v19.12 progression/risk/FIRM A/B raporu
+├── BALANCE_SOAK_REPORT.md        ← v19.9 baseline + v19.10–v19.13 progression/risk/FIRM/memory A/B raporu
 ├── README.md                     ← GitHub vitrini + CHANGELOG (her versiyonda güncellenir — §6 kuralı)
 ├── CLAUDE.md                     ← Bu dosya
 ├── .gitignore                    ← node_modules/, dist/

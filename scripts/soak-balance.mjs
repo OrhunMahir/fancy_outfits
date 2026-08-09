@@ -52,7 +52,7 @@ const MODES = ["standard", "endless"];
 const POLICIES = ["max_chance", "technical", "mixed", "bold_mixed", "aggressive", "oracle_ev", "chaos",
   "firm_manager", "firm_bad_manager", "firm_stress", "firm_only_stress"];
 const ENDLESS_ONLY_POLICIES = new Set(["firm_manager", "firm_bad_manager", "firm_stress", "firm_only_stress"]);
-const POLICY_VERSION = "soak-v6";
+const POLICY_VERSION = "soak-v7";
 const RNG_NAMESPACE = "soak-v3"; // preserve the audited v19.9 seed corpus for paired comparisons
 const POLICY_NOTES = Object.freeze({
   max_chance: "Exact-odds safety ceiling; prioritizes success chance and does not delegate.",
@@ -80,6 +80,9 @@ const VARIANTS = Object.freeze({
   firm_loss_2: {note:"Roster failures cost 2 FIRM while roster wins still add 1.",engine:{rosterLossCost:2}},
   firm_overhead_1_loss2: {note:"Flat -1 daily payroll plus two-point roster failures.",engine:{firmDailyOverhead:1,rosterLossCost:2}},
   firm_payroll10_loss2: {note:"Payroll costs ceil(roster/10) FIRM per morning; roster failures cost 2.",engine:{firmPayrollDivisor:10,rosterLossCost:2}},
+  judge_legacy: {note:"Pre-v1.9.13 judge memory: full-career aggregate counters.",engine:{judgeMemoryModel:"legacy"}},
+  judge_rolling3: {note:"Recent-weighted memory: last three hearings at x1/x.35/x.15.",engine:{judgeMemoryModel:"rolling"}},
+  judge_friday: {note:"Friday half-life memory: prior firm-week impressions weigh x0.5.",engine:{judgeMemoryModel:"friday"}},
   delegation_half: { note: "Delegated positive INF is multiplied by 0.5.", engine: { infMultipliers: { delegated: .5 } } },
   distributed_rewards: { note: "Modest positive INF reductions across case and non-case progression sources.", engine: { infMultipliers: {
     case: .9, big_case: .9, delayed: .85, delegated: .65, favor: .9,
@@ -404,6 +407,11 @@ function assertInvariants(run, label) {
     const total = memory.aggressiveW + memory.aggressiveL + memory.technicalW + memory.technicalL +
       memory.bribeW + memory.bribeL + memory.safe + memory.neutralW + memory.neutralL;
     if (memory.seen !== total) fail("judge memory total mismatch " + id);
+    if (!Array.isArray(memory.recent) || !memory.recent.length || memory.recent.length > constants.JUDGE_MEMORY_EVENT_LIMIT)
+      fail("judge recent memory invalid " + id);
+    const last=memory.recent.at(-1);
+    if(last.style!==memory.lastStyle||last.win!==memory.lastWin||last.day!==memory.lastDay)
+      fail("judge recent memory tail mismatch " + id);
   }
   for (const c of S.inbox) {
     if (c.msg) continue;

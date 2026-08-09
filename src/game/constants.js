@@ -21,6 +21,11 @@ export const FATIGUE_REST=18;      // overnight recovery (+3 per unspent hour â€
 // careful play is SLOW play: hour cost multipliers by approach (v1.6)
 export const SAFE_HOURS_MULT=1.5, TECH_HOURS_MULT=1.25;
 export const TECH_INF_MULT=.70, AGG_INF_MULT=1.25; // technical builds trust; aggression climbs faster
+// Judges keep a bounded transcript. Live odds use the three most recent
+// appearances with sharply fading weight; lifetime W/L counters remain UI-only.
+export const JUDGE_MEMORY_WINDOW=3, JUDGE_MEMORY_EVENT_LIMIT=12;
+export const JUDGE_MEMORY_WEIGHTS=Object.freeze([1,.35,.15]);
+export const JUDGE_MEMORY_WEEKLY_DECAY=.5; // A/B control: halve older impressions each firm week
 export const COFFEE_RELIEF=14, COFFEE_FALLOFF=6, COFFEE_LIMIT=2; // cup 1: -14, cup 2: -8, then stop
 export const REP_FIRED=20;
 export const DEADLINE_PENALTY=-9;
@@ -59,7 +64,7 @@ export const FIRM_PLAN_GAIN=10, FIRM_PLAN_HOURS=1.5, FIRM_PLAN_FATIGUE=6, FIRM_P
 // once you've fired anyone â€” ex-employees have long memories.
 export const FIRE_HEAT=9, FIRE_HEAT_SENIOR=16, HEAT_DECAY=0.93, HEAT_MIN=1;
 // The storage key stays stable; ordered migrations use the embedded schema.
-export const SAVE_SCHEMA_VERSION=5;
+export const SAVE_SCHEMA_VERSION=6;
 export const SAVE_LOG_LIMIT=200, SAVE_ARCHIVE_LIMIT=200;
 export const INBOX_MESSAGE_LIMIT=80; // notifications are history, not permanent case files
 export const SAVE_KEY="fo_save_v1";

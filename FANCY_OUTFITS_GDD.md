@@ -59,8 +59,8 @@ Each courtroom case draws a judge with stats:
 - **Temper** — low tolerance for aggressive options (bluff penalty).
 - **By-the-book** — rewards technically correct interpretations. Temper handles theatrics.
 - **Corruptible** — opens a special (very risky) option.
-- **Memory (per run)** — every judge has a stable ID and remembers resolved appearances for that career. A repeated bluff is penalized (first prior win −5, loss −6; capped at −8); technical wins add credibility (+4) and technical losses remove it (−3; total capped −6..+6); repeated bribe attempts are penalized (−7, capped −8). Safe appearances are remembered as history but never lose their guaranteed result or erase prior patterns.
-Judge stats, prior appearance, deterministic style-aware quote and exact live memory modifier are visible on the case file before the choice. Delayed outcomes enter memory only when their REPLY is revealed, so hidden results never leak through later odds; their archive context is frozen when the filing is sent, not recomputed on reply day. Court history resets with a new run and persists through save/load.
+- **Memory (per run)** — every judge has a stable ID and a lifetime W/L transcript, while live odds use the three most recent appearances at weights `1 / .35 / .15`. A bluff contributes −5 after a win or −6 after a loss (capped −8); technical wins contribute +4 and losses −3 (−6..+6); bribery contributes −7 (capped −8). Safe and different-style appearances enter the recent window, cooling an old pattern without deleting the career record. Safe options remain guaranteed.
+Judge stats, prior appearance, deterministic style-aware quote, career record, active-recall rule and exact live modifier are visible before the choice. Delayed outcomes enter memory only when their REPLY is revealed, so hidden results never leak through later odds; their archive context is frozen when the filing is sent, not recomputed on reply day. Court history resets with a new run and persists through save/load.
 
 ## 8. Starting Scenarios (roguelike seeds)
 Each run starts with a different hook:
@@ -89,8 +89,8 @@ and can replay any suspicious seed action-for-action.
 - **Standard Technical route:** 315/320 wins, median Name Partner on day 10. This is the primary
   progression problem, but judge memory is not its cause: the +6 Technical memory cap appeared in
   only 2.5% of Standard Technical hearings.
-- **Endless judge memory:** after day 20, 58.2% of Technical hearings were already at the +6 cap,
-  versus 2.9% at −6. Court memory needs a rolling-window or decay A/B test for long careers.
+- **Endless judge memory:** the v19.9 baseline found 58.2% of post-day-20 Technical hearings at
+  the +6 cap. v19.13 resolves this with recent-weighted recall; see §14.
 - **Endless FIRM:** normal Technical play produced no collapse in 11,039 post-partnership days.
   Even the destructive FIRM stress policy ended 301/315 post-partnership careers by firing and only
   six by FIRM collapse, so personal and business fail-state ordering needs an isolated experiment.
@@ -119,3 +119,24 @@ The collapse threshold remains 15. In the final 64-seed paired audit, competent 
 collapsed in 3.4% of Name Partner careers and deliberately bad management in 12.5%, versus zero
 for both under the old symmetric/no-overhead model. Save schema is unchanged because these are
 derived rules, not new persistent fields.
+
+## 14. Recent-Weighted Court Memory (v19.13)
+
+Lifetime court history remains narrative truth, but it no longer acts as permanent probability
+mass. Each judge persists at most 12 recent hearing events for save integrity; only the newest
+three affect live odds:
+
+- newest appearance: `×1`;
+- previous appearance: `×0.35`;
+- third appearance: `×0.15`;
+- older appearances: career record and dialogue only, no live modifier.
+
+The full-career legacy model and a Friday half-life model were tested on identical seeds. Friday
+decay produced lower saturation but tied memory to an invisible calendar boundary. Rolling recall
+was selected because players can repair or reinforce an impression through courtroom behavior.
+In the final 640 Endless careers, total post-day-20 cap occupancy fell from 53.3% to 24.9%; the
+Technical +6 cap fell 54.4%→26.8% and Aggressive −8 fell 53.1%→13.8%. Win cadence remained stable.
+
+Save schema v6 migrates aggregate-only v3–v5 records by preserving all lifetime counters and using
+the last known style/result/day as the initial active-recall event. Event order, enum values, day
+bounds, counter consistency, tail consistency and the 12-event limit are validated on load.

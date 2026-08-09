@@ -30,7 +30,8 @@ export default function CasePane(){
           <span style={{color:memory&&!memory.first?"#8a3f2b":"#6b6254"}}>COURT HISTORY: {memory&&memory.history}</span><br/>
           {memory&&!memory.first && <>
             <span>THE COURT REMEMBERS: “{memory.quote}”</span><br/>
-            <span>{memory.record} · EFFECT TODAY: {memory.effects}</span>
+            <span>{memory.record}</span><br/>
+            <span>{memory.recall} · EFFECT TODAY: {memory.effects}</span>
           </>}
           {memory&&memory.first && <span>{memory.effects}</span>}
         </div>}

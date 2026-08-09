@@ -5,6 +5,7 @@ import { S, setS, notify, newState } from "./state.js";
 import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DELEGATE_CAP, DAY_HOURS, TIER_HOURS, DELEGATE_HOURS,
          OVERTIME_HOURS, OVERTIME_LIMIT, OVERTIME_FATIGUE, OVERTIME_FATIGUE_STEP, LATE_FATIGUE,
          FATIGUE_REST, SAFE_HOURS_MULT, TECH_HOURS_MULT, TECH_INF_MULT, AGG_INF_MULT,
+         JUDGE_MEMORY_WINDOW, JUDGE_MEMORY_EVENT_LIMIT, JUDGE_MEMORY_WEIGHTS, JUDGE_MEMORY_WEEKLY_DECAY,
          COFFEE_RELIEF, COFFEE_FALLOFF, COFFEE_LIMIT, FATIGUE_DANGER, SENTHOME_REP, SENTHOME_INF,
          REP_FIRED, DEADLINE_PENALTY,
          STAKE_REWARD, STAKE_PENALTY, PRICES, DECOR, SAVE_SCHEMA_VERSION, SAVE_LOG_LIMIT, SAVE_ARCHIVE_LIMIT, INBOX_MESSAGE_LIMIT, SAVE_KEY, STATS_KEY,
@@ -74,7 +75,7 @@ export const firmPayrollCost=(headcount=S&&S.roster?S.roster.length:0)=>headcoun
 /* ---------- judge memory: per-run, deterministic, visible before the roll ---------- */
 const JUDGE_MEMORY_STYLES=["safe","aggressive","technical","bribe","neutral"];
 const emptyJudgeMemory=()=>({seen:0,aggressiveW:0,aggressiveL:0,technicalW:0,technicalL:0,
-  bribeW:0,bribeL:0,safe:0,neutralW:0,neutralL:0,lastStyle:null,lastWin:null,lastDay:0});
+  bribeW:0,bribeL:0,safe:0,neutralW:0,neutralL:0,lastStyle:null,lastWin:null,lastDay:0,recent:[]});
 // Keep these pre-v3 display names forever: unopened legacy slots had no ids.
 const LEGACY_JUDGE_IDS={
   "Hon. R. Ironwood":"ironwood", "Hon. C. Marsh":"marsh", "Hon. B. Pelt":"pelt",
@@ -93,15 +94,44 @@ const memoryFor=c=>{
   const id=judgeId(c&&c.judge);
   return id&&S&&S.judgeMemory&&S.judgeMemory[id]||null;
 };
-/* Bluffs become familiar (-5 win / -6 loss, capped -8); technical credibility
-   grows +4 on a win and falls -3 on a loss (capped -6..+6). Repeated impropriety
-   is harder to sell (-7 each, capped -8). Pure arithmetic: DAILY RNG is untouched. */
+const judgeMemoryModel=()=>balanceExperiment&&["legacy","rolling","friday"].includes(balanceExperiment.judgeMemoryModel)?
+  balanceExperiment.judgeMemoryModel:"rolling";
+const recentJudgeEvents=m=>Array.isArray(m&&m.recent)?m.recent:[];
+const memoryEventValue=(style,event)=>{
+  if(event.style!==style) return 0;
+  if(style==="aggressive") return event.win?-5:-6;
+  if(style==="technical") return event.win?4:-3;
+  if(style==="bribe") return -7;
+  return 0;
+};
+const roundMemory=n=>n<0?-Math.round(-n):Math.round(n);
+function rollingJudgeMemory(style,m){
+  const recent=recentJudgeEvents(m).slice(-JUDGE_MEMORY_WINDOW).reverse();
+  return roundMemory(recent.reduce((sum,event,index)=>sum+memoryEventValue(style,event)*(JUDGE_MEMORY_WEIGHTS[index]||0),0));
+}
+function fridayJudgeMemory(style,m){
+  const week=Math.floor((((S&&S.day)||1)-1)/WEEK_LEN);
+  return roundMemory(recentJudgeEvents(m).reduce((sum,event)=>{
+    const eventWeek=Math.floor((event.day-1)/WEEK_LEN), age=Math.max(0,week-eventWeek);
+    return sum+memoryEventValue(style,event)*Math.pow(JUDGE_MEMORY_WEEKLY_DECAY,age);
+  },0));
+}
+/* Lifetime counters preserve the career transcript, but shipped odds use only
+   three recent appearances: newest x1, previous x.35, third x.15. A safe or
+   different style therefore cools an old pattern without deleting history.
+   Pure arithmetic: DAILY RNG is untouched. */
 export function judgeMemoryModifier(o,c){
   const m=memoryFor(c); if(!m) return 0;
   const style=judgeStyle(o);
-  if(style==="aggressive") return clamp(-(m.aggressiveW*5+m.aggressiveL*6),-8,0);
-  if(style==="technical") return clamp(m.technicalW*4-m.technicalL*3,-6,6);
-  if(style==="bribe") return clamp(-(m.bribeW+m.bribeL)*7,-8,0);
+  const model=judgeMemoryModel();
+  let raw=0;
+  if(model==="legacy"){
+    if(style==="aggressive") raw=-(m.aggressiveW*5+m.aggressiveL*6);
+    else if(style==="technical") raw=m.technicalW*4-m.technicalL*3;
+    else if(style==="bribe") raw=-(m.bribeW+m.bribeL)*7;
+  } else raw=model==="friday"?fridayJudgeMemory(style,m):rollingJudgeMemory(style,m);
+  if(style==="aggressive"||style==="bribe") return clamp(raw,-8,0);
+  if(style==="technical") return clamp(raw,-6,6);
   return 0;
 }
 const signedPct=n=>(n>0?"+":"")+n+"%";
@@ -125,7 +155,9 @@ export function judgeMemoryInfo(c){
   return {first:false,
     history:m.seen+" PRIOR · LAST: "+memoryStyleLabel(m.lastStyle)+" — "+(m.lastWin?"WON":"LOST"),
     quote:memoryStyleCue(m)+" "+(m.lastWin?def.memoryGood:def.memoryBad),
-    record:"BLUFF "+m.aggressiveW+"W/"+m.aggressiveL+"L · TECH "+m.technicalW+"W/"+m.technicalL+"L",
+    record:"CAREER: BLUFF "+m.aggressiveW+"W/"+m.aggressiveL+"L · TECH "+m.technicalW+"W/"+m.technicalL+"L",
+    recall:judgeMemoryModel()==="rolling"?"ACTIVE RECALL: LAST "+Math.min(JUDGE_MEMORY_WINDOW,m.seen)+" HEARING(S), NEWEST WEIGHS MOST":
+      judgeMemoryModel()==="friday"?"ACTIVE RECALL: OLDER IMPRESSIONS HALVE EACH FIRM WEEK":"ACTIVE RECALL: FULL CAREER (A/B LEGACY)",
     effects:effects.length?effects.join(" · "):"NO STYLE MODIFIER YET"};
 }
 const judgeMemoryArchiveText=c=>{
@@ -140,6 +172,9 @@ export function rememberJudgeOutcome(c,o,win){
   if(style==="safe") m.safe++;
   else m[style+suffix]++;
   m.lastStyle=style; m.lastWin=!!win; m.lastDay=S.day;
+  if(!Array.isArray(m.recent)) m.recent=[];
+  m.recent.push({style,win:!!win,day:S.day});
+  if(m.recent.length>JUDGE_MEMORY_EVENT_LIMIT) m.recent=m.recent.slice(-JUDGE_MEMORY_EVENT_LIMIT);
   S.judgeMemory[id]=m;
   return m;
 }
@@ -1589,7 +1624,22 @@ const migrateV4ToV5=raw=>{
   d.schemaVersion=5;
   return d;
 };
-const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5};
+const migrateV5ToV6=raw=>{
+  const d={...raw};
+  if(!plain(raw.judgeMemory)){ d.schemaVersion=6; return d; }
+  d.judgeMemory={};
+  for(const [id,old] of Object.entries(raw.judgeMemory)){
+    if(!plain(old)){ d.judgeMemory[id]=old; continue; }
+    const m={...old};
+    // Aggregate-only v3-v5 saves cannot reconstruct every hearing. Preserve
+    // the lifetime record and seed active recall from the last known outcome.
+    if(!Array.isArray(m.recent)) m.recent=m.seen?[{style:m.lastStyle,win:m.lastWin,day:m.lastDay}]:[];
+    d.judgeMemory[id]=m;
+  }
+  d.schemaVersion=6;
+  return d;
+};
+const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6};
 
 const JUDGE_MEMORY_COUNTERS=["seen","aggressiveW","aggressiveL","technicalW","technicalL","bribeW","bribeL","safe","neutralW","neutralL"];
 function validJudgeMemory(memory,day){
@@ -1602,6 +1652,20 @@ function validJudgeMemory(memory,day){
     const total=m.aggressiveW+m.aggressiveL+m.technicalW+m.technicalL+m.bribeW+m.bribeL+m.safe+m.neutralW+m.neutralL;
     if(m.seen!==total||m.seen<=0||!JUDGE_MEMORY_STYLES.includes(m.lastStyle)||typeof m.lastWin!=="boolean"||
       !Number.isInteger(m.lastDay)||m.lastDay<1||m.lastDay>day) return false;
+    if(!Array.isArray(m.recent)||m.recent.length<1||m.recent.length>JUDGE_MEMORY_EVENT_LIMIT||m.recent.length>m.seen) return false;
+    const recentCounts={aggressiveW:0,aggressiveL:0,technicalW:0,technicalL:0,bribeW:0,bribeL:0,safe:0,neutralW:0,neutralL:0};
+    let previousDay=0;
+    for(const event of m.recent){
+      if(!plain(event)||!JUDGE_MEMORY_STYLES.includes(event.style)||typeof event.win!=="boolean"||
+        !Number.isInteger(event.day)||event.day<1||event.day>day||event.day<previousDay||
+        (event.style==="safe"&&!event.win)) return false;
+      previousDay=event.day;
+      const key=event.style==="safe"?"safe":event.style+(event.win?"W":"L");
+      recentCounts[key]++;
+    }
+    if(Object.entries(recentCounts).some(([key,value])=>value>m[key])) return false;
+    const last=m.recent.at(-1);
+    if(last.style!==m.lastStyle||last.win!==m.lastWin||last.day!==m.lastDay) return false;
     if(m.lastStyle==="safe") return m.lastWin===true&&m.safe>0;
     const lastCounter=m.lastStyle+(m.lastWin?"W":"L");
     return Number.isSafeInteger(m[lastCounter])&&m[lastCounter]>0;

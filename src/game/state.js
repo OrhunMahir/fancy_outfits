@@ -33,6 +33,7 @@ export function newState(scenario,difficulty){
     promotionReviewDay:0, promotionHintRank:null, // titles change only after Friday review; save-stable
     reviewMomentum:0, seniorPartnerDay:0, exceptionalReviewDay:0, exceptionalReviewHinted:false,
     // Senior Partner overflow can earn one early Name Partner review; all fields are save-stable
+    finalWarningUsed:false, // earned aggression safety valve; once per run and persisted
     judgeMemory:{}, // lifetime court totals + bounded recent events, keyed by stable judge id
     caseSeq:0, // persisted procedural filing id cursor (replay/save-visible odds must not drift)
     buyinPaid:false, buyinHinted:false, // rank 2->3 needs the partnership buy-in

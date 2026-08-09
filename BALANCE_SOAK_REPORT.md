@@ -1,11 +1,38 @@
 # FANCY OUTFITS — Deterministik Kariyer Soak Raporu
 
-**Sürüm:** v19.14 (v19.9 baseline + progression, controlled-risk, FIRM, hakim-memory ve INF-overflow A/B turları)
+**Sürüm:** v19.15 (v19.9 baseline + progression, controlled-risk, FIRM, hakim-memory, INF-overflow ve Final Warning A/B turları)
 
 **Tarih:** 2026-08-09
 
 **Kapsam:** Standard 40 gün, Endless 50–80 gün; beş senaryo; denge, uzun-run
 bütünlüğü ve şüpheli seed tekrarları.
+
+## v19.15 Final Warning — uygulanan kural ve açık kalan hedef
+
+Saf agresif rota için global kovulma eşiğini düşürmek yerine hedefli, kazanılmış bir koruma
+eklendi. Ölümcül agresif aksiyon başlamadan önce BOLD en az 70, önceki başarılı blöf sayısı en
+az 3 ve `bluffW > bluffL` ise run başına bir kez kovulma durdurulur; REP 28'e çekilir ve 15 BOLD
+ödenir. Instant dava, delayed REPLY ve expose-dışı agresif krizler aynı context yolunu kullanır.
+Delayed seçim eligibility snapshot'ı save içinde taşınır; sonuç açıklanmadan sonraki stat
+değişimleri geçmiş şartı yeniden yazamaz.
+
+64 seed × 5 senaryo × 4 politika × açık/kapalı kontrol = **2.560 Standard kariyer**:
+
+| Politika | Kapalı win / fired | Final Warning win / fired | Warning kullanımı |
+|---|---:|---:|---:|
+| Aggressive | %0 / %99,7 | **%0 / %99,7** | %4,4 |
+| Technical | %73,8 / %5,6 | **%73,8 / %5,6** | %0 |
+| Mixed | %65,3 / %7,2 | **%65,3 / %7,2** | %0 |
+| Bold Mixed | %68,1 / %13,1 | **%68,4 / %12,8** | %0,3 |
+
+**205/205 replay birebir**, integrity ihlali 0. Koruma hedefli ve yan etkisiz çalışıyor ancak
+saf agresif için istenen `%5–12` bandını tek başına yaratmıyor. REP restorasyonu test-only
+varyantlarda 30/35/40 ve 50/60/80'e yükseltildi; REP 80 bile yalnız `%1,9` kazanım verdi. Kök
+neden tek kurtarmadan sonraki ilk birkaç yeni başarısızlığın aynı ölüm spiralini yeniden
+başlatmasıdır. Sonraki denge adayı, başarılı blöflerle kazanılan sınırlı REP recovery veya kısa,
+ölçülebilir bir probation penceresi olmalıdır; global eşik ya da agresif INF tekrar şişirilmemelidir.
+
+> Aşağıdaki v19.14 bölümü Exceptional Review kararını, sonraki bölümler tarihsel baseline'ı korur.
 
 ## v19.14 INF overflow / Exceptional Review — uygulanan karar
 

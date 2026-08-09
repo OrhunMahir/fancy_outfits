@@ -30,6 +30,22 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.15 — Earned Final Warning *(2026-08-09)*
+- **One earned exception:** a fatal aggressive loss can be stayed once per run, but only when the
+  play began at BOLD 70+, after at least three landed bluffs, with bluff wins still ahead of
+  losses. The intervention restores REP to 28 and costs 15 BOLD. Ordinary losses, reckless early
+  spam, deadlines and non-aggressive failures receive no protection.
+- **Instant, delayed and crisis-safe:** eligibility is snapshotted before the losing roll and
+  persists with delayed filings, so save/load and hidden replies cannot change the rule. The
+  sidebar shows the unused/spent state; the run ledger records consumption.
+- **Save schema v8:** old slots receive one unused warning. The consumed state and delayed-choice
+  snapshot persist; malformed snapshots or warning state are rejected.
+- **Measured limitation:** the 2,560-career paired Standard A/B produced 205/205 identical replays
+  and zero integrity failures. Technical and Mixed were exactly unchanged; Bold Mixed moved only
+  from 68.1% to 68.4%. The warning activated in 4.4% of pure-aggressive careers, but that route
+  still won 0%. Exploratory restoration values up to REP 80 reached only 1.9%, so the requested
+  5–12% band needs a separate post-success recovery/probation mechanic rather than a larger reset.
+
 ### v19.14 — Influence above the ceiling matters *(2026-08-09)*
 - **Exceptional Review:** only while Senior Partner, genuinely clipped positive Influence above
   100 becomes visible partner momentum instead of disappearing. At 36/36, after at least two

@@ -28,6 +28,11 @@ export const JUDGE_MEMORY_WEIGHTS=Object.freeze([1,.35,.15]);
 export const JUDGE_MEMORY_WEEKLY_DECAY=.5; // A/B control: halve older impressions each firm week
 export const COFFEE_RELIEF=14, COFFEE_FALLOFF=6, COFFEE_LIMIT=2; // cup 1: -14, cup 2: -8, then stop
 export const REP_FIRED=20;
+// A proven closer gets one last conversation instead of an immediate firing.
+// The protection is earned before the fatal aggressive play, consumed once,
+// and burns Boldness so it cannot become a free reckless-play loop.
+export const FINAL_WARNING_BOLD=70, FINAL_WARNING_BLUFF_WINS=3;
+export const FINAL_WARNING_REP=28, FINAL_WARNING_BOLD_COST=15;
 export const DEADLINE_PENALTY=-9;
 // rank-scaled stakes: rewards grow, failures grow FASTER (indexed by rank at draw time)
 export const STAKE_REWARD=[1,1.15,1.3,1.45,1.6];
@@ -69,7 +74,7 @@ export const EXCEPTIONAL_REVIEW_THRESHOLD=36, EXCEPTIONAL_REVIEW_WAIT=2, EXCEPTI
 // once you've fired anyone — ex-employees have long memories.
 export const FIRE_HEAT=9, FIRE_HEAT_SENIOR=16, HEAT_DECAY=0.93, HEAT_MIN=1;
 // The storage key stays stable; ordered migrations use the embedded schema.
-export const SAVE_SCHEMA_VERSION=7;
+export const SAVE_SCHEMA_VERSION=8;
 export const SAVE_LOG_LIMIT=200, SAVE_ARCHIVE_LIMIT=200;
 export const INBOX_MESSAGE_LIMIT=80; // notifications are history, not permanent case files
 export const SAVE_KEY="fo_save_v1";

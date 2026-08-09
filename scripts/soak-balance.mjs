@@ -89,6 +89,7 @@ const VARIANTS = Object.freeze({
   exceptional_24: {note:"Exceptional Review after 24 clipped INF, two mornings as Senior Partner and REP 30.",engine:{exceptionalReview:{threshold:24,wait:2,minRep:30}}},
   exceptional_30: {note:"Exceptional Review after 30 clipped INF, two mornings as Senior Partner and REP 30.",engine:{exceptionalReview:{threshold:30,wait:2,minRep:30}}},
   exceptional_36: {note:"Exceptional Review after 36 clipped INF, two mornings as Senior Partner and REP 30.",engine:{exceptionalReview:{threshold:36,wait:2,minRep:30}}},
+  final_warning_off: {note:"Control: fatal aggressive failures receive no earned one-time protection.",engine:{finalWarning:false}},
   delegation_half: { note: "Delegated positive INF is multiplied by 0.5.", engine: { infMultipliers: { delegated: .5 } } },
   distributed_rewards: { note: "Modest positive INF reductions across case and non-case progression sources.", engine: { infMultipliers: {
     case: .9, big_case: .9, delayed: .85, delegated: .65, favor: .9,
@@ -468,7 +469,7 @@ function newMetrics(tuple) {
     overflowInf:0, infGainBy: { case:0, big_case:0, delayed:0, delegated:0, favor:0, objective:0, review:0,
       crisis:0, client_event:0, demand:0, story:0, weekend:0, rival:0, decor:0, other:0 },
     nemesisGainBy:{passive:0,failure:0}, delegatedResults:{won:0,lost:0}, deadlineResults:0,
-    rivalActions:{truce:0,ally:0,sabotage:0},
+    rivalActions:{truce:0,ally:0,sabotage:0}, finalWarnings:0,
     aggressiveOffers:{count:0,chanceSum:0,p20:0,p25:0,p30:0,p35:0,p40:0},
     firmFlowBy,npStartFirm:null,minPostNpFirm:null,firmCapDays:0,
     rosterTicks:0,rosterWins:0,rosterLosses:0,rosterRawDrift:0,rosterCappedDrift:0,
@@ -718,6 +719,7 @@ function driveRun(tuple, horizon, { captureTrace = false } = {}) {
       metrics.nemesisGainBy[key]+=amount;
     } else if(kind==="inf_overflow") metrics.overflowInf+=amount;
     else if(kind==="exceptional_review") metrics.exceptionalReviewDay=event.day;
+    else if(kind==="final_warning") metrics.finalWarnings++;
     else if(kind==="firm"&&event.postNamePartner){
       const key=Object.prototype.hasOwnProperty.call(metrics.firmFlowBy,source)?source:"other", flow=metrics.firmFlowBy[key];
       flow.up+=Math.max(0,amount); flow.down+=Math.max(0,-amount); flow.net+=amount;
@@ -794,6 +796,7 @@ function driveRun(tuple, horizon, { captureTrace = false } = {}) {
     metrics.finalInf = S.inf; metrics.finalFirm = S.firm; metrics.finalFatigue = S.fatigue; metrics.finalMoney = S.money;
     metrics.finalNemesisInf=S.nemesis?.inf??null; metrics.finalNemesisRank=S.nemesis?.rank??null;
     metrics.finalNpcRel=round(mean(S.npcs.map(n=>n.rel)));
+    metrics.finalWarningUsed=!!S.finalWarningUsed;
     metrics.finalFired=S.runStats.fired||0; metrics.finalLawsuits=metrics.lawsuits;
     metrics.finalRosterSize=S.roster?.length??null;
     metrics.finalRosterImpact=S.roster?.length?round(mean(S.roster.map(e=>e.impact))):null;
@@ -936,6 +939,7 @@ function summarizeCell(runs) {
     meanJudgeModifier: round(runs.reduce((sum, run) => sum + run.judgeModifierSum, 0) /
       Math.max(1, runs.reduce((sum, run) => sum + run.judgeHearings, 0)), 2),
     exceptionalReviewRate:pct(runs.filter(run=>run.exceptionalReviewDay!=null).length/runs.length),
+    finalWarningRate:pct(runs.filter(run=>run.finalWarningUsed).length/runs.length),
     medianExceptionalReviewDay:round(quantile(runs.map(run=>run.exceptionalReviewDay).filter(day=>day!=null),.5),1),
     meanOverflowInf:round(mean(runs.map(run=>run.overflowInf))),
     judgeCaps: summarizeJudgeCaps(runs), aggressiveOffers:summarizeAggressiveOffers(runs),firmEndgame:summarizeFirmEndgame(runs),promotionMedian,promotionReadyMedian,
@@ -973,6 +977,7 @@ function summarizeCohort(runs){
     meanFinalFirm:round(mean(runs.map(run=>run.finalFirm))),maxBacklog:Math.max(...runs.map(run=>run.maxBacklog)),
     meanGrossInf:round(mean(runs.map(run=>Object.values(run.infGainBy).reduce((a,b)=>a+b,0)))),
     exceptionalReviewRate:pct(runs.filter(run=>run.exceptionalReviewDay!=null).length/runs.length),
+    finalWarningRate:pct(runs.filter(run=>run.finalWarningUsed).length/runs.length),
     medianExceptionalReviewDay:round(quantile(runs.map(run=>run.exceptionalReviewDay).filter(day=>day!=null),.5),1),
     meanOverflowInf:round(mean(runs.map(run=>run.overflowInf))),
     aggressiveOffers:summarizeAggressiveOffers(runs),firmEndgame:summarizeFirmEndgame(runs),promotionReadyMedian,meanInfGainBy,styleShares,outcomes,
@@ -1029,7 +1034,7 @@ function buildWarnings(cells, runs) {
   }
   for (const cell of cells.filter(cell => cell.mode === "standard" && cell.policy === "aggressive" && cell.horizon >= 30 && cell.n >= 8)) {
     const fired = (cell.outcomes.FIRED || 0) / cell.n * 100;
-    if (cell.winRate < 10 && fired > 80)
+    if (cell.winRate < 5 && fired > 80)
       add(8, "AGGRESSION_DEATH_SPIRAL", cellKey(cell) + " pure aggression is almost never career-viable",
         `${cell.winRate}% wins; ${round(fired, 1)}% fired`, "A/B a controlled aggression payoff or recovery valve without making reckless spam optimal.");
   }

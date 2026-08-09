@@ -7,7 +7,7 @@ import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DELEGATE_CAP, DAY_HOURS, TIER_HOU
          FATIGUE_REST, SAFE_HOURS_MULT, TECH_HOURS_MULT, TECH_INF_MULT, AGG_INF_MULT,
          JUDGE_MEMORY_WINDOW, JUDGE_MEMORY_EVENT_LIMIT, JUDGE_MEMORY_WEIGHTS, JUDGE_MEMORY_WEEKLY_DECAY,
          COFFEE_RELIEF, COFFEE_FALLOFF, COFFEE_LIMIT, FATIGUE_DANGER, SENTHOME_REP, SENTHOME_INF,
-         REP_FIRED, DEADLINE_PENALTY,
+         REP_FIRED, FINAL_WARNING_BOLD, FINAL_WARNING_BLUFF_WINS, FINAL_WARNING_REP, FINAL_WARNING_BOLD_COST, DEADLINE_PENALTY,
          STAKE_REWARD, STAKE_PENALTY, PRICES, DECOR, SAVE_SCHEMA_VERSION, SAVE_LOG_LIMIT, SAVE_ARCHIVE_LIMIT, INBOX_MESSAGE_LIMIT, SAVE_KEY, STATS_KEY,
          WEEK_LEN, REVIEW_GOOD, REVIEW_BAD, BUYIN_COST, FIRM_COLLAPSE,
          EXCEPTIONAL_REVIEW_THRESHOLD, EXCEPTIONAL_REVIEW_WAIT, EXCEPTIONAL_REVIEW_MIN_REP,
@@ -50,11 +50,26 @@ const exceptionalReviewConfig=()=>{
     minRep:test&&Number.isFinite(test.minRep)?clamp(Math.round(test.minRep),0,100):EXCEPTIONAL_REVIEW_MIN_REP,
   };
 };
+const finalWarningConfig=()=>{
+  if(balanceExperiment&&balanceExperiment.finalWarning===false) return null;
+  const test=balanceExperiment&&balanceExperiment.finalWarning;
+  return {
+    bold:test&&Number.isFinite(test.bold)?clamp(Math.round(test.bold),0,100):FINAL_WARNING_BOLD,
+    wins:test&&Number.isFinite(test.wins)?Math.max(1,Math.round(test.wins)):FINAL_WARNING_BLUFF_WINS,
+    rep:test&&Number.isFinite(test.rep)?clamp(Math.round(test.rep),REP_FIRED,100):FINAL_WARNING_REP,
+    boldCost:test&&Number.isFinite(test.boldCost)?clamp(Math.round(test.boldCost),0,100):FINAL_WARNING_BOLD_COST,
+  };
+};
 
 /* The clock stops whenever any overlay is up, the player hit PAUSE, or the
    character is walking out. Replaces the old S.paused flag. */
 export const isPaused=()=>!!(S.infoOpen||S.event||S.summary||S.userPaused||S.settingsOpen||S.rosterOpen||S.archiveOpen||S.leaving);
 export const disrespected=()=>S.rep<30;
+export function finalWarningInfo(){
+  if(!S) return null;
+  const cfg=finalWarningConfig();
+  return cfg&&{used:!!S.finalWarningUsed,bold:cfg.bold,wins:cfg.wins,rep:cfg.rep,boldCost:cfg.boldCost};
+}
 
 /* STANDARD mode business confidence. Other modes keep their established
    balance; ENDLESS already makes FIRM lethal through payroll and collapse. */
@@ -312,6 +327,9 @@ function trackChoice(c,o,win){
     if(win&&!o.delay){ t.wins++; if(o.style==="aggressive") t.aggWin++; }
   }
 }
+const finalWarningSnapshot=()=>({bold:S.bold,wins:S.runStats.bluffW,losses:S.runStats.bluffL});
+const aggressiveFailureContext=(o,snapshot)=>o&&o.style==="aggressive"?
+  {aggressiveFailure:true,finalWarning:snapshot||finalWarningSnapshot()}:null;
 
 /* ---------- daily objectives: "close 2 files today" → bonus INF/REP/FIRM ---------- */
 const OBJ_DEFS={
@@ -348,7 +366,7 @@ function archiveCase(c,play,win,note,via,judgeMemorySnapshot){
 }
 
 /* effects: {rep,bold,inf,money,firm} */
-export function apply(fx,quiet,source="other"){
+export function apply(fx,quiet,source="other",endingContext){
   if(!fx) return;
   const map={rep:"REP",bold:"BOLD",inf:"INFL",money:"$",firm:"FIRM"};
   const beforeInf=S.inf, beforeFirm=S.firm;
@@ -386,7 +404,7 @@ export function apply(fx,quiet,source="other"){
   if(balanceProbe&&fx.firm) balanceProbe({kind:"firm",source,amount:S.firm-beforeFirm,requested:fx.firm,day:S.day,
     postNamePartner:!!(S.endlessWon||S.rank===4)});
   if(parts.length&&!quiet) log(parts.join(", "),(fx.rep||0)<0?"bad":"good");
-  checkEndings(); notify();
+  checkEndings(endingContext); notify();
 }
 
 /* success chance for an option — the game's balance lives here, edit with care */
@@ -879,7 +897,8 @@ function resolveDelayed(c){
     log("RESPONSE ["+c.title+"]: SUCCESS","good"); pushMsg("REPLY: "+c.title,out.txt); apply(out.fx,false,"delayed");
     if((c.tier||0)>=1) apply({firm:1},true,"delayed"); // same firm effect as an instant win (v1.9.4 symmetry)
     maybeImpressClient(c); if((out.fx.rep||0)+(out.fx.inf||0)>=10) flash("HENDERED!"); }
-  else { SFX.lose(); log("RESPONSE ["+c.title+"]: FAILED","bad"); pushMsg("REPLY: "+c.title,out.txt); apply(out.fx,false,"delayed");
+  else { SFX.lose(); log("RESPONSE ["+c.title+"]: FAILED","bad"); pushMsg("REPLY: "+c.title,out.txt);
+    apply(out.fx,false,"delayed",aggressiveFailureContext(r.o,r.finalWarningSnapshot));
     if((c.tier||0)>=1) apply({firm:-1},true,"delayed");
     maybeLoseClientOnFail(); doShake(); nemesisGain(3,true); }
   if(out.next) queueFollowup(out.next);
@@ -983,6 +1002,7 @@ export function choose(c,o,confirmedLate){
     apply({money:-o.bribe},true);
   }
   logJudgeMemory(c,o);
+  const warningSnapshot=finalWarningSnapshot(); // earned record is measured before this roll
   const p=chance(o,c);
   const lateExtra=confirmedLate?Math.round(Math.max(0,cost0-S.hours)*LATE_FATIGUE):0;
   if(lateExtra) log("You work past the lights. The night collects its fee. (+"+lateExtra+" FATIGUE)","bad");
@@ -990,6 +1010,7 @@ export function choose(c,o,confirmedLate){
   if(o.delay){
     const win=rand()*100<p;
     c.pending={day:S.day+o.delay,win,o,
+      finalWarningSnapshot:o.style==="aggressive"?warningSnapshot:undefined,
       judgeMemorySnapshot:c.judge?judgeMemoryArchiveText(c):""};
     trackChoice(c,o,win); SFX.send();
     log("Sent: '"+o.text+"' — response in "+o.delay+" day(s). ("+cost+"h)","sys");
@@ -1012,7 +1033,8 @@ export function choose(c,o,confirmedLate){
     if(((out.fx&&out.fx.rep)||0)+((out.fx&&out.fx.inf)||0)>=10) flash("HENDERED!");
   } else {
     SFX.lose();
-    log("["+c.title+"] "+out.txt,"bad"); apply(out.fx,false,c.favor?"favor":c.big?"big_case":"case");
+    log("["+c.title+"] "+out.txt,"bad");
+    apply(out.fx,false,c.favor?"favor":c.big?"big_case":"case",aggressiveFailureContext(o,warningSnapshot));
     if((c.tier||0)>=1&&!c.favor){ apply({firm:-1},true,c.big?"big_case":"case"); maybeLoseClientOnFail(); }
     doShake(); if(!c.favor) nemesisGain(3,true);
   }
@@ -1242,7 +1264,7 @@ export function resolveCrisis(o){
     if(fatigueCheck(OVERTIME_HOURS)) return; // every hour in the block contributes to the exhaustion hazard
     saveGame(); notify(); return;
   }
-  const ev=S.event, p=chance(o,ev);
+  const ev=S.event, p=chance(o,ev), warningSnapshot=finalWarningSnapshot();
   S.event=null;
   const win=rand()*100<p, out=win?o.ok:o.fail;
   trackChoice(null,o,win);
@@ -1257,7 +1279,9 @@ export function resolveCrisis(o){
   const infSource=ev&&ev.weekend?"weekend":ev&&ev.story?"story":ev&&ev.demand?"demand":
     ev&&/^g_/.test(ev.id||"")?"client_event":"crisis";
   if(win){ SFX.win(); log("[CRISIS] "+out.txt,"good"); apply(out.fx,false,infSource); if(((out.fx&&out.fx.inf)||0)>=10) flash("HENDERED!"); }
-  else { SFX.lose(); log("[CRISIS] "+out.txt,"bad"); apply(out.fx,false,infSource); apply({firm:-2},true,infSource); doShake(); nemesisGain(3,true); }
+  else { SFX.lose(); log("[CRISIS] "+out.txt,"bad");
+    apply(out.fx,false,infSource,out.expose?null:aggressiveFailureContext(o,warningSnapshot));
+    apply({firm:-2},true,infSource); doShake(); nemesisGain(3,true); }
   if(out.expose){ gameOver("EXPOSED","There is no bar record. No law school. No you-with-a-JD. The audit found the empty space where your credentials should be, and the firm found it at the same time. Security is very polite about it. The Fraud is over."); return; }
   if(out.golf) S.golfEdge=true; // the next court judge arrives pre-read
   if(out.client){ // global events move the client book
@@ -1348,9 +1372,25 @@ function promoWalk(oldRank){
   },1500);
 }
 
-function checkEndings(){
+function tryFinalWarning(context){
+  const cfg=finalWarningConfig(), snap=context&&context.finalWarning;
+  if(!cfg||S.finalWarningUsed||!context?.aggressiveFailure||!snap||
+    snap.bold<cfg.bold||snap.wins<cfg.wins||snap.wins<=snap.losses) return false;
+  S.finalWarningUsed=true;
+  if(balanceProbe) balanceProbe({kind:"final_warning",day:S.day,bold:snap.bold,wins:snap.wins,losses:snap.losses});
+  SFX.bell(); flash("FINAL WARNING");
+  log("FINAL WARNING: your winning bluff record buys one last meeting instead of a cardboard box.","sys");
+  apply({rep:cfg.rep-S.rep,bold:-cfg.boldCost},false,"final_warning");
+  pushMsg("FINAL WARNING","Hardwick stops Security at the elevator. Your record bought one exception. Reputation restored to "+cfg.rep+"; the scare cost "+cfg.boldCost+" BOLD. There will not be another.");
+  return true;
+}
+
+function checkEndings(endingContext){
   if(S.over) return;
-  if(S.rep<REP_FIRED){ gameOver("FIRED","Your reputation fell below what Parson Henderson tolerates (which is very little). Security walks you out. They keep the fancy outfit."); return; }
+  if(S.rep<REP_FIRED){
+    if(tryFinalWarning(endingContext)) return;
+    gameOver("FIRED","Your reputation fell below what Parson Henderson tolerates (which is very little). Security walks you out. They keep the fancy outfit."); return;
+  }
   // once the name is yours, so is the sinking
   if((S.endlessWon||S.rank===4)&&S.firm<FIRM_COLLAPSE)
     gameOver("FIRM COLLAPSE","Clients gone, partners fled, the lease unpaid. The sign painters return — this time with solvent. Your name comes off the wall faster than it went up.");
@@ -1362,6 +1402,7 @@ function ledger(){
   const topName=top&&S.npcs.find(n=>n.id===top[0]);
   return ["— RUN LEDGER —",
     "Bluffs: "+r.bluffW+" landed / "+r.bluffL+" blew up · Technical: "+r.techW+"W/"+r.techL+"L · Safe plays: "+r.safe,
+    "Final Warning: "+(S.finalWarningUsed?"SPENT":"unused"),
     "Bribes offered: "+r.bribeTry+(r.bribeTry?" ("+r.bribeW+" taken)":""),
     "Favors: "+r.favorHelp+" helped · "+r.favorNo+" declined"+
       (topName?" · Most delegated: "+topName.name+" ("+top[1]+"×)":""),
@@ -1510,6 +1551,7 @@ const persistedSummary=sum=>validSummary(sum)?{title:sum.title,lines:sum.lines.m
 
 const validBig=b=>b==null||(plain(b)&&typeof b.client==="string"&&b.client.length>0&&Number.isInteger(b.stage)&&b.stage>=1&&b.stage<=3);
 const validFx=fx=>fx==null||(plain(fx)&&Object.values(fx).every(Number.isFinite));
+const validFinalWarningSnapshot=s=>s==null||(plain(s)&&Number.isFinite(s.bold)&&s.bold>=0&&s.bold<=100&&nonNegativeInt(s.wins)&&nonNegativeInt(s.losses));
 const validJudge=j=>{
   if(j==null||j===true) return true;
   if(!plain(j)) return false;
@@ -1698,7 +1740,13 @@ const migrateV6ToV7=raw=>{
   d.schemaVersion=7;
   return d;
 };
-const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6,6:migrateV6ToV7};
+const migrateV7ToV8=raw=>{
+  const d={...raw};
+  d.finalWarningUsed=false;
+  d.schemaVersion=8;
+  return d;
+};
+const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6,6:migrateV6ToV7,7:migrateV7ToV8};
 
 const JUDGE_MEMORY_COUNTERS=["seen","aggressiveW","aggressiveL","technicalW","technicalL","bribeW","bribeL","safe","neutralW","neutralL"];
 function validJudgeMemory(memory,day){
@@ -1778,6 +1826,7 @@ function migrateSaveData(raw){
     throw new SaveDataError("invalid","The saved exceptional review date is invalid.");
   if(typeof d.exceptionalReviewHinted!=="boolean"||(d.rank<3&&d.exceptionalReviewHinted))
     throw new SaveDataError("invalid","The saved exceptional review hint is invalid.");
+  if(typeof d.finalWarningUsed!=="boolean") throw new SaveDataError("invalid","The saved Final Warning state is invalid.");
   if(!validJudgeMemory(d.judgeMemory,d.day)) throw new SaveDataError("invalid","The saved court history is damaged.");
   if(!nonNegativeInt(d.caseSeq)||d.caseSeq>=Number.MAX_SAFE_INTEGER||d.caseSeq<highestCaseSequence(d))
     throw new SaveDataError("invalid","The saved filing sequence is invalid.");
@@ -1806,7 +1855,8 @@ function migrateSaveData(raw){
   if(d.inbox.some(c=>c.judge&&c.delegated!=null))
     throw new SaveDataError("invalid","A court appearance cannot be delegated.");
   if(d.inbox.some(c=>c.pending!=null&&(!plain(c.pending)||!Number.isFinite(c.pending.day)||typeof c.pending.win!=="boolean"||
-    (c.pending.judgeMemorySnapshot!=null&&typeof c.pending.judgeMemorySnapshot!=="string")||!validOption(c.pending.o,0))))
+    (c.pending.judgeMemorySnapshot!=null&&typeof c.pending.judgeMemorySnapshot!=="string")||
+    !validFinalWarningSnapshot(c.pending.finalWarningSnapshot)||!validOption(c.pending.o,0))))
     throw new SaveDataError("invalid","A delayed case result is damaged.");
   if(d.inbox.some(c=>c.delegated!=null&&(!plain(c.delegated)||!Number.isSafeInteger(c.delegated.day)||c.delegated.day<1||
     typeof c.delegated.npc!=="string"||typeof c.delegated.win!=="boolean"||

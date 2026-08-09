@@ -661,6 +661,14 @@ globalThis.clearInterval = () => {};
   assert.equal(v5Info.needsUpgrade,true);
   assert.equal(v5Info.save.judgeMemory.ironwood.seen,2,"v5 lifetime totals survive migration");
   assert.deepEqual(v5Info.save.judgeMemory.ironwood.recent,[{style:"aggressive",win:true,day:4}],"v5 active recall starts from the last known hearing");
+  const v7Raw=clone(readyBase);
+  v7Raw.schemaVersion=7;
+  delete v7Raw.finalWarningUsed;
+  storage.set(`${constants.SAVE_KEY}_s2`,JSON.stringify(v7Raw));
+  const v7Info=engine.inspectSave(2);
+  assert.equal(v7Info.status,"ready");
+  assert.equal(v7Info.needsUpgrade,true);
+  assert.equal(v7Info.save.finalWarningUsed,false,"older careers receive one unused Final Warning after migration");
   const v6SeniorRaw=clone(readyBase);
   Object.assign(v6SeniorRaw,{schemaVersion:6,day:17,rank:3,inf:100,reviewMomentum:99,
     seniorPartnerDay:1,exceptionalReviewDay:16,exceptionalReviewHinted:true});
@@ -1482,6 +1490,56 @@ globalThis.clearInterval = () => {};
   assert.equal(delegateB.delegated, undefined);
   engine.setBalanceExperiment({ weeklyPromotion: false, delegateCap: 2 });
 
+  // FINAL WARNING is an earned, automatic, once-per-run stay of a fatal
+  // aggressive loss. The eligibility snapshot is taken before the losing roll.
+  const fatalAggressive=(id,delay=0)=>{
+    const option={text:"Bet the career",base:0,style:"aggressive",delay:delay||undefined,
+      ok:{fx:{rep:2,bold:4,inf:2},txt:"landed"},fail:{fx:{rep:-20},txt:"collapsed"}};
+    const filing={id,tier:0,title:"FINAL WARNING TEST",body:"test",dueDay:state.S.day+2,opts:[option]};
+    state.S.inbox.push(filing);
+    return {filing,option};
+  };
+  engine.setBalanceExperiment(null);
+  fresh();
+  Object.assign(state.S,{rep:25,bold:75,finalWarningUsed:false,event:null,summary:null});
+  Object.assign(state.S.runStats,{bluffW:3,bluffL:0});
+  let fatal=fatalAggressive("final_warning_instant");
+  utils.setSeed(1);
+  engine.choose(fatal.filing,fatal.option);
+  assert.equal(state.S.over,false);
+  assert.deepEqual([state.S.rep,state.S.bold,state.S.finalWarningUsed],[28,60,true]);
+  assert.match(state.S.logEntries.map(entry=>entry.txt).join(" "),/FINAL WARNING/);
+  state.S.event=null; state.S.rep=25; state.S.bold=75;
+  fatal=fatalAggressive("final_warning_spent");
+  utils.setSeed(1);
+  engine.choose(fatal.filing,fatal.option);
+  assert.equal(state.S.over,true,"the protection cannot fire twice in one run");
+
+  fresh();
+  Object.assign(state.S,{rep:25,bold:75,finalWarningUsed:false,event:null,summary:null});
+  Object.assign(state.S.runStats,{bluffW:2,bluffL:0});
+  fatal=fatalAggressive("final_warning_unearned");
+  utils.setSeed(1);
+  engine.choose(fatal.filing,fatal.option);
+  assert.equal(state.S.over,true,"fewer than three landed bluffs must not earn protection");
+
+  fresh();
+  Object.assign(state.S,{rep:25,bold:75,finalWarningUsed:false,event:null,summary:null});
+  Object.assign(state.S.runStats,{bluffW:3,bluffL:0});
+  fatal=fatalAggressive("final_warning_delayed",1);
+  utils.setSeed(1);
+  engine.choose(fatal.filing,fatal.option);
+  assert.deepEqual(fatal.filing.pending.finalWarningSnapshot,{bold:75,wins:3,losses:0});
+  assert.equal(engine.saveGame(),true);
+  engine.endDay();
+  engine.dismissSummary();
+  assert.deepEqual([state.S.over,state.S.rep,state.S.bold,state.S.finalWarningUsed],[false,28,60,true],
+    "a saved delayed failure must use its pre-roll eligibility snapshot on reveal");
+  assert.equal(engine.saveGame(),true);
+  assert.equal(engine.loadGame(1),true);
+  assert.equal(state.S.finalWarningUsed,true,"a consumed Final Warning must survive save/load");
+  engine.setBalanceExperiment({ weeklyPromotion: false, delegateCap: 2 });
+
   // All scenarios produce defined terminal prose; Defector/Boomerang close both arcs.
   const endingMarkers = {
     fraud: /law school/,
@@ -1532,7 +1590,7 @@ globalThis.clearInterval = () => {};
     }
   }
 
-  console.log("v1.9.5–v1.9.14 checks passed: balance experiments, Friday/Exceptional Review promotions, delegation cap, strict saves, procedural IDs, long-run integrity, FIRM payroll, rolling judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
+  console.log("v1.9.5–v1.9.15 checks passed: balance experiments, Final Warning, Friday/Exceptional Review promotions, delegation cap, strict saves, procedural IDs, long-run integrity, FIRM payroll, rolling judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;

@@ -28,6 +28,8 @@ body::after{ /* scanlines */
 .btn.safe{background:#3a7d5a; box-shadow:0 4px 0 #1e4a33;} .btn.safe:hover{background:#48996f;}
 .btn.bold{background:#a03a4e; box-shadow:0 4px 0 #5e1f2c;} .btn.bold:hover{background:#c04a61;}
 .btn.bribe{background:#7a5a17; box-shadow:0 4px 0 #45320c;} .btn.bribe:hover{background:#96701f;}
+.btn.covert{background:#65459a; border-left:4px solid var(--gold); box-shadow:0 4px 0 #39265d;}
+.btn.covert:hover{background:#7c5bb2;}
 .btn.small{width:auto; padding:6px 10px; font-size:8px;}
 .btn:disabled{opacity:.35; cursor:default;}
 .btn:disabled:hover{background:var(--panel2);} .btn:disabled:active{transform:none; box-shadow:0 4px 0 #1b2a6b;}
@@ -135,3 +137,206 @@ h2{font-size:10px; color:var(--gold); margin-bottom:10px; border-bottom:2px soli
 #scene{border:4px solid var(--dark); box-shadow:0 0 0 2px var(--panel2); line-height:0;}
 #scene svg{width:100%; height:110px; display:block; image-rendering:pixelated;}
 #scenecap{font-size:8px; color:var(--grey); padding:6px 2px 0; text-align:center;}
+
+/* COVERT ACTION minigames */
+.action-overlay{
+  background:
+    radial-gradient(circle at 50% 42%,rgba(59,93,201,.2),transparent 42%),
+    rgba(8,9,18,.94);
+}
+.action-overlay .action-dialog{
+  position:relative; max-width:620px; padding:18px;
+  background:linear-gradient(180deg,#303f7a 0,#202a58 100%);
+  border-color:#080912; box-shadow:0 0 0 3px var(--panel2),10px 10px 0 rgba(0,0,0,.42);
+  animation:action-enter .18s steps(3,end);
+}
+.action-dialog::before,.action-dialog::after{
+  content:""; position:absolute; width:16px; height:16px; pointer-events:none;
+}
+.action-dialog::before{left:6px; top:6px; border-left:3px solid var(--gold); border-top:3px solid var(--gold);}
+.action-dialog::after{right:6px; bottom:6px; border-right:3px solid var(--gold); border-bottom:3px solid var(--gold);}
+.action-kicker{
+  display:inline-block; margin-bottom:8px; padding:3px 6px; color:var(--dark);
+  background:var(--gold); font-size:7px; letter-spacing:1px; box-shadow:3px 3px 0 #8e653b;
+}
+.action-dialog h2{font-size:12px; line-height:1.7; padding-right:20px;}
+.action-brief{font-size:8px; line-height:1.9; color:#dbe6ff;}
+.action-divider{height:3px; margin:13px 0; background:repeating-linear-gradient(90deg,var(--panel2) 0 10px,transparent 10px 16px);}
+.action-game{position:relative;}
+.action-primary{
+  min-height:48px; text-align:center; touch-action:manipulation;
+  border:2px solid rgba(255,255,255,.14);
+}
+.action-primary:focus-visible,.lock-range:focus-visible{
+  outline:3px solid var(--gold); outline-offset:3px;
+}
+.action-live{min-height:18px; margin-top:10px; color:var(--gold); font-size:8px; text-align:center;}
+
+/* Lockpick: the player sees their pick angle, never the hidden sweet spot. */
+.lock-instructions{margin-bottom:10px; color:var(--grey); font-size:8px; text-align:center;}
+.lock-stage{
+  display:flex; align-items:center; justify-content:center; min-height:184px; margin-bottom:8px;
+  overflow:hidden; background:
+    linear-gradient(90deg,transparent 49.5%,rgba(255,255,255,.035) 49.5% 50.5%,transparent 50.5%),
+    repeating-linear-gradient(0deg,#11162e 0 10px,#141a37 10px 20px);
+  border:3px solid var(--dark); box-shadow:inset 0 0 0 2px #263268;
+}
+.lock-door-plate{
+  position:relative; width:226px; height:146px; background:#5f7183; border:5px solid #263342;
+  box-shadow:inset 0 0 0 4px #8297a7,8px 8px 0 rgba(0,0,0,.34);
+}
+.lock-door-plate::before,.lock-door-plate::after{
+  content:"+"; position:absolute; color:#263342; font-size:14px; line-height:1;
+}
+.lock-door-plate::before{left:8px; top:7px;}
+.lock-door-plate::after{right:8px; bottom:7px;}
+.lock-cylinder{
+  position:absolute; left:50%; top:50%; width:92px; height:92px;
+  transform:translate(-50%,-50%); border:7px solid #222c39; border-radius:50%;
+  background:repeating-radial-gradient(circle,#9aadb7 0 8px,#778b99 9px 15px);
+  box-shadow:inset 0 0 0 5px #b7c7cf,0 0 0 4px #151c26;
+}
+.lock-keyway{
+  position:absolute; left:50%; top:50%; width:14px; height:36px;
+  transform:translate(-50%,-30%); background:#0a0d13; border:3px solid #313d48;
+  clip-path:polygon(22% 0,78% 0,78% 54%,100% 100%,0 100%,22% 54%);
+}
+.lock-pick{
+  position:absolute; z-index:2; left:50%; top:50%; width:76px; height:5px;
+  transform-origin:0 50%; background:#ffdf9b; border-top:1px solid #fff1c9;
+  box-shadow:0 3px 0 #8f6c45; transition:transform .08s linear;
+}
+.lock-pick::after{
+  content:""; position:absolute; right:-9px; top:-7px; width:24px; height:16px;
+  border:5px solid #d59a58; background:transparent; box-shadow:3px 3px 0 rgba(0,0,0,.28);
+}
+.lock-pick-tip{
+  position:absolute; left:-5px; top:-3px; width:9px; height:10px; background:#fff0bd;
+  clip-path:polygon(0 45%,100% 0,100% 100%);
+}
+.lock-control-label{display:block; margin:9px 0 2px; color:var(--gold); font-size:8px; text-align:center;}
+.lock-range{
+  appearance:none; -webkit-appearance:none; display:block; width:100%; height:48px;
+  margin:0; padding:0 3px; background:transparent; cursor:ew-resize; touch-action:pan-x;
+}
+.lock-range::-webkit-slider-runnable-track{
+  height:12px; background:var(--dark); border:3px solid var(--panel2); box-shadow:inset 0 0 0 2px #202a58;
+}
+.lock-range::-webkit-slider-thumb{
+  appearance:none; -webkit-appearance:none; width:26px; height:34px; margin-top:-14px;
+  background:var(--gold); border:4px solid #8e653b; border-radius:0; box-shadow:3px 3px 0 rgba(0,0,0,.4);
+}
+.lock-range::-moz-range-track{
+  height:8px; background:var(--dark); border:3px solid var(--panel2); box-shadow:inset 0 0 0 2px #202a58;
+}
+.lock-range::-moz-range-thumb{
+  width:20px; height:28px; background:var(--gold); border:4px solid #8e653b;
+  border-radius:0; box-shadow:3px 3px 0 rgba(0,0,0,.4);
+}
+.lock-range-hints{display:flex; justify-content:space-between; margin-top:-7px; color:var(--grey); font-size:6px;}
+.lock-attempts{
+  display:flex; align-items:center; justify-content:space-between; min-height:34px;
+  margin:10px 0; padding:7px 9px; color:#dbe6ff; background:var(--dark); border:2px solid var(--panel2); font-size:7px;
+}
+.lock-attempt-pips{display:flex; gap:5px; margin-left:8px;}
+.lock-pip{display:block; width:18px; height:8px; border:2px solid #17204b;}
+.lock-pip-live{background:var(--gold); box-shadow:2px 2px 0 #8e653b;}
+.lock-pip-spent{background:#3c4560;}
+.lock-test{margin-top:3px;}
+.lock-success{text-align:center; padding:16px 0 3px;}
+.lock-success-mark{
+  display:flex; align-items:center; justify-content:center; width:112px; height:58px; margin:0 auto 16px;
+  color:#d9ffe7; background:#205739; border:4px solid var(--green); box-shadow:6px 6px 0 #102d1e;
+  animation:lock-open .42s steps(5,end);
+}
+.lock-success-title{margin-bottom:9px; color:var(--green); font-size:11px;}
+.lock-success-copy{margin-bottom:16px; color:#dbe6ff; font-size:8px;}
+
+/* Last-chance coin call after a failed covert action. */
+.coin-warning{
+  margin-bottom:8px; padding:7px; color:#ffdce2; background:#5e1f2c;
+  border:2px solid var(--red); font-size:8px; text-align:center; animation:coin-alert .65s steps(2,end) infinite;
+}
+.coin-instructions{color:var(--grey); font-size:8px; text-align:center;}
+.coin-stage{
+  display:flex; align-items:center; justify-content:center; min-height:164px; margin:10px 0;
+  perspective:500px; overflow:hidden; background:radial-gradient(circle,#354b91 0,#151a39 48%,#0c1025 100%);
+  border:3px solid var(--dark); box-shadow:inset 0 0 0 2px var(--panel2);
+}
+.coin-token{
+  display:flex; align-items:center; justify-content:center; width:100px; height:100px;
+  color:#4d3519; background:var(--gold); border:8px solid #b47a37; border-radius:50%;
+  box-shadow:inset 0 0 0 5px #ffe7a3,8px 8px 0 rgba(0,0,0,.38); font-size:24px;
+}
+.coin-token-ready{animation:coin-idle 1.15s steps(5,end) infinite;}
+.coin-token-result{animation:coin-reveal .8s steps(8,end);}
+.coin-token-heads{background:#ffcd75;}
+.coin-token-tails{background:#cda75d;}
+.coin-choice{display:grid; grid-template-columns:1fr 1fr; gap:10px; border:0;}
+.coin-choice legend{width:100%; margin-bottom:7px; color:var(--gold); font-size:8px; text-align:center;}
+.coin-choice-button{min-height:56px;}
+.coin-result-card{
+  margin-bottom:12px; padding:11px; background:var(--dark); border:3px solid var(--panel2); text-align:center;
+}
+.coin-result-face{color:var(--gold); font-size:9px;}
+.coin-result-call{margin-top:4px; color:var(--grey); font-size:7px;}
+.coin-result-verdict{display:block; margin-top:10px; font-size:11px;}
+.coin-escaped .coin-result-verdict{color:var(--green);}
+.coin-caught .coin-result-verdict{color:#ff8da1;}
+.coin-escaped .coin-result-card{border-color:var(--green);}
+.coin-caught .coin-result-card{border-color:var(--red);}
+
+@keyframes action-enter{
+  from{opacity:0; transform:translateY(12px) scale(.98);}
+  to{opacity:1; transform:translateY(0) scale(1);}
+}
+@keyframes lock-open{
+  0%{opacity:0; transform:rotate(-4deg) scale(.6);}
+  65%{opacity:1; transform:rotate(2deg) scale(1.08);}
+  100%{transform:rotate(0) scale(1);}
+}
+@keyframes coin-idle{
+  0%,100%{transform:translateY(3px) rotateY(0);}
+  50%{transform:translateY(-8px) rotateY(180deg);}
+}
+@keyframes coin-reveal{
+  0%{opacity:.2; transform:translateY(-80px) rotateY(0) scale(.7);}
+  65%{opacity:1; transform:translateY(8px) rotateY(900deg) scale(1.08);}
+  100%{transform:translateY(0) rotateY(1080deg) scale(1);}
+}
+@keyframes coin-alert{0%,49%{filter:brightness(1);} 50%,100%{filter:brightness(1.35);}}
+
+@media (max-width:600px){
+  .action-overlay{
+    padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right))
+      max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));
+  }
+  .action-overlay .action-dialog{
+    max-height:calc(100dvh - max(16px,env(safe-area-inset-top)) - max(16px,env(safe-area-inset-bottom)));
+    padding:13px; border-width:3px;
+  }
+  .action-dialog h2{font-size:10px;}
+  .action-brief,.lock-instructions,.coin-instructions{font-size:8px; line-height:2;}
+  .lock-stage{min-height:150px;}
+  .lock-door-plate{width:190px; height:124px;}
+  .lock-cylinder{width:78px; height:78px;}
+  .lock-pick{width:66px;}
+  .lock-range{height:52px;}
+  .lock-attempts{align-items:flex-start; flex-direction:column; gap:7px;}
+  .lock-attempt-pips{margin-left:0;}
+  .coin-stage{min-height:132px;}
+  .coin-token{width:82px; height:82px; border-width:6px; font-size:20px;}
+  .coin-choice{gap:7px;}
+  .coin-choice-button{min-height:52px; padding:8px 5px; text-align:center;}
+}
+
+@media (max-width:360px){
+  .coin-choice{grid-template-columns:1fr;}
+  .action-kicker{font-size:6px;}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .shaking,.action-dialog,.lock-pick,.lock-success-mark,.coin-warning,.coin-token-ready,.coin-token-result{
+    animation:none!important; transition:none!important;
+  }
+}

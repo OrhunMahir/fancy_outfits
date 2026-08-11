@@ -15,6 +15,9 @@ You are a lawyer (maybe). Read case files, pick your line, bluff, grovel, or bac
 4. **Choose a response** — 2–4 dialogue/action options, each with:
    - a **success chance** (modified by your traits and the situation),
    - a **cost/reward profile** (stats up/down, relationship changes, money).
+   - Rare **COVERT ACTIONS** replace the percentage roll with a short player-executed minigame.
+     They create evidence or consequences, then return the player to the legal decision; they do
+     not automatically win the underlying case.
 5. **Resolve or defer** — some cases resolve instantly; others go out and the opposing party answers days later. Every case has a **deadline**; miss it and it auto-fails.
 6. **Clock runs out** — day ends, summary screen, consequences tick (rivals scheme, deadlines approach).
 
@@ -65,6 +68,18 @@ Each courtroom case draws a judge with stats:
 - **Corruptible** — opens a special (very risky) option.
 - **Memory (per run)** — every judge has a stable ID and a lifetime W/L transcript, while live odds use the three most recent appearances at weights `1 / .35 / .15`. A bluff contributes −5 after a win or −6 after a loss (capped −8); technical wins contribute +4 and losses −3 (−6..+6); bribery contributes −7 (capped −8). Safe and different-style appearances enter the recent window, cooling an old pattern without deleting the career record. Safe options remain guaranteed.
 Judge stats, prior appearance, deterministic style-aware quote, career record, active-recall rule and exact live modifier are visible before the choice. Delayed outcomes enter memory only when their REPLY is revealed, so hidden results never leak through later odds; their archive context is frozen when the filing is sent, not recomputed on reply day. Court history resets with a new run and persists through save/load.
+
+### 7.1 Interactive Covert Actions
+The first vertical slice lives in the Redvale document-hold file. A three-attempt paperclip lock
+challenge uses qualitative feedback without exposing the hidden target. Opening it grants +12% to
+that file's later risky legal options; a broken pick moves to an explicit heads-or-tails escape call.
+Escape preserves the case but consumes the route, while capture poisons and archives the case.
+
+Challenge target and coin face derive from `runSeed | caseId | actionId`, never the shared gameplay
+RNG. The complete phase, attempt count and identity persist in save schema v9 so reload cannot reroll
+or refund an attempt. Only one action may be active and its case carries a matching persisted marker.
+Future minigames must keep this same engine contract: deterministic identity, one-shot completion,
+blocking modal, no hidden result in UI, honest time/fatigue cost and strict save cross-validation.
 
 ## 8. Starting Scenarios (roguelike seeds)
 Each run starts with a different hook:

@@ -30,6 +30,22 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.16 — Interactive covert action vertical slice *(2026-08-11)*
+- **The first playable minigame:** Redvale's document-hold file now offers a purple COVERT ACTION.
+  The player gets three paperclip tests against a hidden lock position; breaking the pick opens a
+  visible heads-or-tails escape call instead of silently rolling another case percentage.
+- **Evidence, not an automatic win:** opening the cabinet recovers the archive index and adds +12%
+  to this file's later risky legal plays. Escaping loses the route but preserves the case; getting
+  caught poisons and archives it with severe REP/FIRM/BOLD fallout. Every branch spends 1.5 hours
+  and 7 FATIGUE, and the action can only be attempted once.
+- **DAILY/save integrity:** lock and coin outcomes derive from run/case/action identity without
+  consuming the shared RNG. Save schema v9 resumes the exact phase and attempts, migrates v8
+  safely, and rejects forged targets, phases, counters, briefings, case markers and impossible
+  success positions.
+- **Modal and mobile-ready UI:** the target never appears in the DOM; keyboard focus is trapped and
+  restored, background controls become inert, touch targets are 48–52px, safe areas and reduced
+  motion are respected, and the dialog fits a 390×844 viewport without horizontal clipping.
+
 ### v19.15 — Earned Final Warning *(2026-08-09)*
 - **One earned exception:** a fatal aggressive loss can be stayed once per run, but only when the
   play began at BOLD 70+, after at least three landed bluffs, with bluff wins still ahead of

@@ -211,7 +211,10 @@ function perceivedChance(option, c) {
 }
 
 function availableOptions(c) {
-  return c.opts.filter(option => !option.bribe || state.S.money >= option.bribe);
+  // Career policies audit the legal decision economy. Interactive COVERT
+  // ACTIONS need player execution and are covered by their own deterministic
+  // regression tests, so headless bots leave them on the table.
+  return c.opts.filter(option => !option.action&&(!option.bribe || state.S.money >= option.bribe));
 }
 
 function registerAggressiveOffer(metrics,context){
@@ -432,6 +435,11 @@ function assertInvariants(run, label) {
     for (const option of c.opts) {
       const before = run.gameRng.calls;
       const chance = engine.chance(option, c);
+      if(option.action){
+        if(chance!==null) fail("interactive action exposed a fake chance: " + c.title);
+        if(run.gameRng.calls!==before) fail("interactive action chance consumed RNG: "+c.title);
+        continue;
+      }
       if (!Number.isFinite(chance) || chance < 5 || chance > 100) fail("invalid chance: " + c.title);
       if (run.gameRng.calls !== before) fail("chance consumed RNG: " + c.title);
     }

@@ -34,6 +34,7 @@ export function newState(scenario,difficulty){
     reviewMomentum:0, seniorPartnerDay:0, exceptionalReviewDay:0, exceptionalReviewHinted:false,
     // Senior Partner overflow can earn one early Name Partner review; all fields are save-stable
     finalWarningUsed:false, // earned aggression safety valve; once per run and persisted
+    actionChallenge:null, // persisted COVERT ACTION minigame; reload cannot reroll or erase a failed attempt
     judgeMemory:{}, // lifetime court totals + bounded recent events, keyed by stable judge id
     caseSeq:0, // persisted procedural filing id cursor (replay/save-visible odds must not drift)
     buyinPaid:false, buyinHinted:false, // rank 2->3 needs the partnership buy-in
@@ -56,7 +57,8 @@ export function newState(scenario,difficulty){
     golfEdge:false,   // weekend golf: the next court case comes pre-read (dossier)
     marvBribes:0, // Marv remembers who pays — his lines and gifts depend on it
     // per-run ledger for the end-of-run breakdown
-    runStats:{safe:0,bluffW:0,bluffL:0,techW:0,techL:0,deleg:{},bribeTry:0,bribeW:0,favorHelp:0,favorNo:0,miss:0,crises:0,fired:0},
+    runStats:{safe:0,bluffW:0,bluffL:0,techW:0,techL:0,covertTry:0,covertW:0,covertEscape:0,covertCaught:0,
+      deleg:{},bribeTry:0,bribeW:0,favorHelp:0,favorNo:0,miss:0,crises:0,fired:0},
     // daily objective ("close 2 files today") + per-day counters feeding it
     objective:null, today:{resolved:0,wins:0,safeUsed:0,aggWin:0,delegated:0,moneyGained:0},
     archive:[], archiveTotal:0, // recent resolved cases + all-time count for bounded saves

@@ -40,16 +40,17 @@ export default function CasePane(){
           {c.stakes>0 && <> · STAKES ×{STAKE_REWARD[c.stakes]} fees / ×{STAKE_PENALTY[c.stakes]} fallout</>}
           {c.big && <span style={{color:"#8a6a1f"}}> · RETAINER MATTER — STAGE {c.big.stage}/3 ({c.big.client})</span>}
           {c.dossier && <> · DOSSIER ATTACHED (+12%)</>}
+          {c.covertEdge>0 && <span style={{color:"#8a3f2b"}}> · {c.covertNote||`COVERT EVIDENCE (+${c.covertEdge}%)`}</span>}
           {c.tampered && <span style={{color:"var(--red)"}}> · PAGES REORDERED — someone touched this file (−6%)</span>}
         </div>
       </div>
       <div className="opts">
         {c.opts.map((o,i)=>{
           const pct=displayChance(o,c);
-          const label=[pct&&pct+" success", optHours(c,o)+"h", o.delay&&`reply in ${o.delay}d`, o.style].filter(Boolean).join(" · ");
+          const label=[o.action&&"INTERACTIVE",pct&&pct+" success", optHours(c,o)+"h", o.delay&&`reply in ${o.delay}d`, o.style].filter(Boolean).join(" · ");
           return (
             <button key={i}
-                    className={"btn"+(o.safe?" safe":o.style==="aggressive"?" bold":o.style==="bribe"?" bribe":"")}
+                    className={"btn"+(o.safe?" safe":o.style==="aggressive"?" bold":o.style==="bribe"?" bribe":o.style==="covert"?" covert":"")}
                     disabled={!!(o.bribe&&S.money<o.bribe)}
                     onClick={()=>choose(c,o)}>
               {(i+1)+". "+o.text}

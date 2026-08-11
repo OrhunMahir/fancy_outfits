@@ -34,7 +34,7 @@
 **Tamamlanan (v0.2, çalışıyor):**
 - 3 başlangıç senaryosu: The Fraud (diploma yok, özel expose kriz eventi), The Debtor (3 günde bir $2000 taksit, kaçırırsan game over), The Legacy (Influence kazançları ×1.25, Reputation kayıpları ×1.25).
 - Gün döngüsü: 75 sn timer, END DAY butonu, gün sonu özeti, deadline kontrolü.
-- 9 el yazması dava (3 tier: 0=ayak işi, 1=gerçek dava, 2=mahkeme), her biri 3 seçenekli.
+- 10 el yazması dava (3 tier: 0=ayak işi, 1=gerçek dava, 2=mahkeme); Redvale dosyasında 4. seçenek olarak ilk interaktif COVERT ACTION bulunur.
 - Başarı şansı motoru (`chance()`): base + Boldness ölçeklemesi + hakim modifierleri + saygı modifieri + rütbe baskısı.
 - Delayed response: seçim anında zar atılır, sonuç N gün sonra REPLY olarak açıklanır.
 - 4 hakim (temper / by-the-book statlı), mahkeme davalarında dosya üzerinde görünür.
@@ -59,7 +59,7 @@
 - **NPC ilişki sistemi** (GDD §5): 4 NPC (Dana Paulsen, Raquel Lane, Harold Gustavson, Katrina Bergman), her run'da Reliable/Brave/Lazy/Traitor traitleri rastgele dağıtılır (her birinden tam bir tane). Traitler GİZLİ başlar; ilk delege ediş veya kriz açığa çıkarır. İlişki −100..+100, "THE FLOOR" panelinde görünür.
 - **Delege etme** (rank≥1'de açılır): mahkeme dışı davalar bir NPC'ye verilir, zar ANINDA atılır, sonuç ertesi sabah gelir. Şans = 60 + rel/5 + trait modu (Reliable +25, Brave +10, Lazy −20, Traitor −5). Lazy fail'lerin %65'i "sessiz bırakma" (dosya deadline'ı yanmış halde masana döner); Traitor fail'i ekstra −4 REP.
 - **Krizlerde NPC etkisi:** rel<25 Traitor %40 ihtimalle pozisyonunu sızdırır (tüm seçenekler −8%), yoksa rel≥40 Brave arkanda durur (+8%). Overlay'de görünür, trait'i açığa çıkarır.
-- **Prosedürel dava üreticisi** (`casegen.js`): API YOK, ağ YOK — kullanıcının açık isteği ("Claude API key oyuna entegre olmasın"). 7 şablon × isim/rakam/ipucu havuzları; el yazması 9 dava tükenince veya 3. günden sonra %40 ihtimalle devreye girer. Eski bug #3 (havuz tekrarı) böylece çözüldü.
+- **Prosedürel dava üreticisi** (`casegen.js`): API YOK, ağ YOK — kullanıcının açık isteği ("Claude API key oyuna entegre olmasın"). 7 şablon × isim/rakam/ipucu havuzları; el yazması dava havuzu tükenince veya 3. günden sonra %40 ihtimalle devreye girer. Eski bug #3 (havuz tekrarı) böylece çözüldü.
 - **PAUSE butonu:** ekranı KAPATAN overlay — bilinçli: açık dosyayı bedava okuma süresi vermesin (çekirdek gerilim korunur).
 - **Ofis sahnesi v2 + karakter:** sol kapı, duvar saati, dosya dolabı, kitaplık, halı, çöp kutusu, jaluzi, masada kahve+dosyalar; masada OTURAN oyuncu karakteri (takım elbise rütbeyle güzelleşir — oyunun adı bu), gün bitince kalkıp kapıdan çıkar (`S.charAnim`, özet yürüyüşten sonra açılır), yeni günde içeri yürüyüp oturur.
 
@@ -260,11 +260,17 @@
 - **Save schema v6:** ID başına en fazla 12 recent event persist edilir. 5→6 migration v3–v5 lifetime toplamlarını kaybetmez, yalnız son bilinen duruşmayı active recall seed'i yapar. Recent enum/sıra/gün/counter/tail/limit doğrulanır; bozuk v6 kayıt sessizce onarılmaz.
 - **Deterministik test:** ön A/B 960 kariyer + 261 replay; final paired 640 kariyer + 88 replay; hepsi birebir, integrity 0. `npm test` rolling exact matematik, bounded transcript, Friday kontrolü, v5 migration, malformed recent ve DAILY save/reload cursor'u kapsar.
 
-**Dış denetim notu (Codex, 2026-08-09):** YAPILDI: v1.9.3 çökme/kilit+Windows, v1.9.4 bütünlük, v1.9.5 seçenek/stil/kahve/mesai dengesi, v1.9.6 Client War+save bütünlüğü ve bağımlılık/Electron/CSP güvenliği, v1.9.7 Standard FIRM anlamı + Defector/Boomerang finalleri, v1.9.8 hakim hafızası, v1.9.9 30–50 günlük soak+bütünlük, v1.9.10 exact attribution + progression A/B + Friday promotion/delege cap, v1.9.11 controlled-risk + Boomerang false-positive audit, v1.9.12 FIRM endgame A/B + live payroll, v1.9.13 hakim hafızası rolling A/B + schema v6. KALAN: Friday/INF overflow tasarım kararı; mobil geçiş; bağlamsal SFX; yayın/paketleme.
+**v1.9.14 eklendi (2026-08-09, INF overflow / Exceptional Review):** Senior Partner'da 100 üstünde kırpılan pozitif INF, 36 puanlık görünür review momentum'una dönüşür. En az iki sabah, REP 30+, FIRM kapısı ve ordinary Friday önceliği korunur; save schema v7.
 
-**En son çalışılan konu (2026-08-09):** v1.9.13 hakim hafızası turu tamamlandı. Full-career ve Friday decay adaylarına karşı rolling last-3 seçildi; saturation çözüldü, Standard/NP ritmi korunup save schema v6'ya taşındı. Sıradaki öneri: **mobil layout + dokunmatik UX hazırlığı**; ondan sonra Capacitor.
+**v1.9.15 eklendi (2026-08-09, Earned Final Warning):** Fatal agresif fail yalnız BOLD≥70, 3+ başarılı blöf ve `bluffW>bluffL` snapshot'ıyla run başına bir kez durdurulur; REP 28'e gelir, −15 BOLD ödenir. Instant/delayed/crisis tek semantik kullanır; save schema v8.
 
-**Aklında tut (kullanıcı onaylı bekleyenler):** mobil layout + dokunmatik UX, Capacitor paketleme, Friday INF overflow/exceptional review tasarım kararı, bağlamsal SFX cilası, Steam paketleme (electron-builder + steamworks.js).
+**v1.9.16 eklendi (2026-08-11, interaktif aksiyon vertical slice):** Redvale dosyasına tek kullanımlık COVERT ACTION eklendi. Üç denemeli kilit açma başarıda aynı dosyanın risky legal seçeneklerine +12 kanıt avantajı verir; üç miss sonrası deterministik yazı-tura çağrısı kaçış/yakalanma sonucunu belirler. Aksiyon davayı otomatik kazandırmaz. Tüm dallar 1.5h +7 FATIGUE öder; caught dosyayı kayıp olarak arşivler. `minigames.js` shared RNG tüketmez; challenge save/load'da aynı faz/deneme/sonuçla sürer. Save schema v9 target/coin/phase/position/case marker/briefing ilişkisini yeniden türetip doğrular. Modal focus trap + inert background, 48–52px touch hedefi, safe-area ve reduced-motion desteği içerir.
+
+**Dış denetim notu (Codex, 2026-08-11):** Denge/bütünlük turundaki v1.9.3–v1.9.15 maddeleri ve ilk minigame vertical slice tamamlandı. Saf agresif rotanın tek tuş stratejisi olarak kazanması hedeflenmiyor; COVERT başarı yalnız bağlamsal bir sonraki kararı güçlendiriyor.
+
+**En son çalışılan konu (2026-08-11):** v1.9.16 COVERT ACTION vertical slice tamamlandı; masaüstü + 390×844 tarayıcı akışı, DAILY cursor/save migration/tamper, 720 kariyer ve 334 replay ile doğrulandı. Sıradaki öneri: önce kısa oyuncu hissiyat testi; ardından ikinci elektrik sabotajı minigame'i.
+
+**Aklında tut (kullanıcı onaylı bekleyenler):** dönen halkalı elektrik sabotajı minigame'i; vertical slice doğrulanınca seviye/skill sistemi ve senaryo başlangıç farkları; Fraud yorgunluk slip-up + kimlik açığa çıkma sahneleri; mobil layout + Capacitor; bağlamsal SFX; Steam paketleme (electron-builder + steamworks.js).
 
 ---
 
@@ -302,12 +308,13 @@ fancy-outfits/
 │   │   ├── settings.js           ← global tercihler (dayLen/sfx/bgm/shake), run save'inden AYRI
 │   │   ├── state.js              ← S, newState(), store (subscribe/notify), nemesis/runStats
 │   │   ├── engine.js             ← apply(), chance(), akış + nemesis/terfi sahnesi/ledger/ayarlar
-│   │   ├── content.js            ← buildPool() 9 el yazması dava, JUDGES(7), crises(), SCENARIOS
+│   │   ├── content.js            ← buildPool() 10 el yazması dava + COVERT action, JUDGES(7), crises(), SCENARIOS
 │   │   ├── casegen.js            ← PROSEDÜREL dava üreticisi (12 şablon, API'siz, offline)
 │   │   ├── clients.js            ← client book: 20 parodi marka, CLIENT_CAP, global event üretici
 │   │   ├── achievements.js       ← 11 başarım, localStorage (fo_ach_v1), unlock()
 │   │   ├── npcs.js               ← NPC roster, trait dağıtımı, delegationChance(), buildFavor()
 │   │   ├── sound.js              ← WebAudio sentez SFX + prosedürel ambiyans (settings'ten ses)
+│   │   ├── minigames.js          ← deterministik/saf lockpick + coin challenge modeli
 │   │   ├── utils.js              ← clamp, rnd, hash, rand/setSeed (deterministik RNG — daily mod)
 │   │   └── useGame.js            ← React köprüsü (useSyncExternalStore hook'u)
 │   └── components/               ← UI (her panel/overlay ayrı dosya)
@@ -322,6 +329,8 @@ fancy-outfits/
 │       ├── RosterOverlay.jsx     ← FIRM sekmesi: payroll, W/L, impact, FIRE/CALL A VOTE (NP endgame)
 │       ├── ArchiveOverlay.jsx    ← LOG sekmesi: dava arşivi (gün, seçim, sonuç, via etiketi)
 │       ├── EventOverlay.jsx      ← kriz ekranı (+ Traitor/Brave modifier satırı)
+│       ├── ActionMinigameOverlay.jsx ← blocking COVERT ACTION modalı + focus/inert yönetimi
+│       ├── minigames/            ← LockpickMinigame + CoinFlipMinigame sunum bileşenleri
 │       └── SummaryOverlay.jsx    ← gün sonu / cuma review / game over / win + run ledger
 ├── FANCY_OUTFITS_GDD.md          ← Tasarım dokümanı (gelecek özelliklerin speci)
 ├── BALANCE_SOAK_REPORT.md        ← v19.9 baseline + v19.10–v19.13 progression/risk/FIRM/memory A/B raporu
@@ -496,9 +505,10 @@ if(S.scenario==="legacy"){
 **Backlog (kullanıcının onayladığı sıradaki işler + bekleyenler; başlamadan sor):**
 - ~~Global eventler + Client list~~ — v1.3'te EKLENDİ (parodi isim kuralı korunuyor: yeni marka eklerken Abibas/Mike tarzında kal).
 - ~~Dava arşivi~~ — v1.4'te EKLENDİ (LOG butonu + günlük hedeflerle birlikte).
-- **NPC hikâyeleri** — rel eşiklerinde tetiklenen mini-sahneler (Dana'nın sırrı, Katrina'nın teklifi). (ONAYLANDI)
-- **Rakiple etkileşim** — nemesis'e sabotaj/ittifak seçenekleri. (ONAYLANDI)
+- ~~**NPC hikâyeleri** — rel eşiklerinde tetiklenen mini-sahneler.~~ — v1.6'da EKLENDİ.
+- ~~**Rakiple etkileşim** — nemesis'e sabotaj/ittifak seçenekleri.~~ — v1.7'de EKLENDİ.
 - ~~**Hakim hafızası** — aynı hakime ikinci çıkışta geçmişi hatırlama ("geçen sefer blöf yaptın, −5").~~ — v1.9.8'de EKLENDİ.
+- **Interaktif aksiyonlar:** v1.9.16'da Redvale lockpick + coin vertical slice EKLENDİ. Sırada dönen halkalı elektrik sabotajı; daha sonra skill/level katmanı ve senaryo skill başlangıçları. (ONAYLANDI)
 - **Mobil yayın** — önce mobil layout geçişi (3 sütun → sekmeli görünüm, 44px dokunma hedefleri, safe-area, visibilitychange pause), sonra **Capacitor** sarmalama (Electron'un mobil karşılığı; oyun mantığına dokunulmaz). iOS'ta localStorage yerine Capacitor Preferences. (ONAYLANDI, yukarıdakilerden sonra)
 - ~~4. senaryo, başarımlar, oyun modları, klavye kısayolları~~ — v1.1'de EKLENDİ.
 - **GitHub Pages demo yayını** — `dist/`i yayınlayan tek workflow; oyun linkle paylaşılabilir olur.

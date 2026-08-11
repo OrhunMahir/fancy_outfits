@@ -1,7 +1,8 @@
 // All hand-written game content: cases, judges, crises, scenarios.
 // Case/option schema (AI-generated cases must match it too — CLAUDE.md §7):
 // { id, tier, title, deadline, judge?, body, opts:[
-//   { text, base, boldW?, style?, safe?, delay?, ok:{fx,txt}, fail:{fx,txt} } ] }
+//   { text, base, boldW?, style?, safe?, delay?, ok:{fx,txt}, fail:{fx,txt} }
+//   or a rare { text, style:"covert", action:{...} } interactive action. ] }
 import { S } from "./state.js";
 import { rnd } from "./utils.js";
 
@@ -25,6 +26,25 @@ export function buildPool(){
       {text:"Leave it. See nothing. Go home.",base:100,safe:true,ok:{fx:{bold:-2,inf:1},txt:"Delivered. Whatever was on that whiteboard stays there."}},
       {text:"Memorize the witness list first.",base:55,boldW:2,ok:{fx:{bold:4,inf:5},txt:"You recite it to Hardwick from memory. 'Huh,' he says. High praise."},fail:{fx:{rep:-8},txt:"They catch you staring and file a complaint about 'the lurking associate'."}},
       {text:"'Nice whiteboard. Shame if someone photographed it.'",base:20,boldW:3,style:"aggressive",ok:{fx:{bold:6,inf:6},txt:"Their associate panics and reveals more than the board did."},fail:{fx:{rep:-12},txt:"Their name partner calls YOUR name partner. Bad day."}}]});
+  P.push({id:"redvale",tier:1,title:"CASE: Redvale document hold",deadline:3,
+    body:"Redvale's missing safety reports should have been preserved before the lawsuit. Snidely Fitch swears the originals were destroyed in a server failure. But a courier receipt in exhibit F lists six paper archive boxes delivered to Fitch last Tuesday. Their building memo adds one useful detail: the night cleaners change shifts at 10:15, and the records room still uses an old brass cabinet lock.",
+    opts:[
+      {text:"Negotiate without the reports. Keep the client out of headlines.",base:100,safe:true,
+        ok:{fx:{bold:-4,inf:2,money:350},txt:"Redvale pays for silence. The six boxes remain exactly where Fitch said they weren't."}},
+      {text:"Move for sanctions using the courier receipt.",base:72,style:"technical",
+        ok:{fx:{rep:8,inf:7,money:1100},txt:"Six boxes beat one confident affidavit. The court orders production and Fitch stops smiling."},
+        fail:{fx:{rep:-6},txt:"Fitch calls them unrelated billing archives. Without the index, the judge will not infer the rest."}},
+      {text:"Bluff: claim a whistleblower already copied the archive index.",base:36,boldW:3,style:"aggressive",
+        ok:{fx:{bold:7,inf:7,money:850},txt:"Fitch produces the reports before your imaginary witness can be deposed."},
+        fail:{fx:{rep:-11,bold:-2},txt:"They demand the witness's name. Your silence enters the room before your answer does."}},
+      {text:"COVERT ACTION: enter Fitch after hours and photograph the archive index.",style:"covert",
+        action:{id:"redvale_archive_lock",type:"lockpick",title:"THE FITCH RECORDS ROOM",
+          body:"The cleaning carts turn the far corner. An old cabinet, one paperclip, three quiet attempts. Find the cylinder's weak point before security finishes its round.",
+          hours:1.5,fatigue:4,edge:12,
+          edgeText:"ARCHIVE INDEX RECOVERED (+12% on this file's risky legal plays)",
+          success:{fx:{bold:3},txt:"The cabinet opens. Six box numbers, six dates, one silent photograph. You still need a legal move — now you have the missing index."},
+          escape:{fx:{bold:-2},txt:"The paperclip snaps, but your coin call buys enough silence to leave unseen. The archive stays shut and this route is gone."},
+          caught:{fx:{rep:-18,firm:-6,bold:-5},txt:"Security finds you beside Fitch's open cabinet. Redvale's case is poisoned, the partners get a midnight call, and your badge photo becomes an exhibit."}}}]});
   P.push({id:"nda",tier:1,title:"CASE: Kessler NDA breach",deadline:3,
     body:"Client Kessler Corp is being sued for breaching an NDA. Reading the file: the NDA was signed by a Vice President of the counterparty who — per exhibit C — had NO signing authority under their own bylaws. Opposing counsel hasn't noticed.",
     opts:[

@@ -37,6 +37,7 @@ globalThis.clearInterval = () => {};
 
 (async () => {
   const utils = await import("../src/game/utils.js");
+  const minigames = await import("../src/game/minigames.js");
   const state = await import("../src/game/state.js");
   const engine = await import("../src/game/engine.js");
   const constants = await import("../src/game/constants.js");
@@ -68,6 +69,22 @@ globalThis.clearInterval = () => {};
     engine.startGame(mode === "daily" ? null : "fraud", "easy", mode);
     return state.S;
   };
+  const liveRedvale = () => {
+    const raw = content.buildPool().find(c => c.id === "redvale");
+    const c = engine.instantiateCase(raw);
+    const o = c.opts.find(option => option.action?.id === "redvale_archive_lock");
+    Object.assign(state.S, { inbox: [c], openCase: c, event: null, summary: null, pendingSummary: null,
+      hours: 2, fatigue: 0, clients: [], nemesis: null, objective: null });
+    return { c, o };
+  };
+  const missAngle = challenge => challenge.target <= 0 ? minigames.LOCK_MAX : minigames.LOCK_MIN;
+  const oppositeFace = face => face === "heads" ? "tails" : "heads";
+  const exhaustLock = () => {
+    for (let i = 0; i < 3; i++) {
+      engine.setLockpickPosition(missAngle(state.S.actionChallenge));
+      engine.attemptLockpick();
+    }
+  };
 
   // Fisher-Yates stays immutable and deterministic under a seeded run.
   const source = ["A", "B", "C", "D"];
@@ -94,6 +111,27 @@ globalThis.clearInterval = () => {};
   const traits2 = npcs.buildNpcs().map(npc => npc.trait);
   assert.deepEqual(clients1, clients2);
   assert.deepEqual(traits1, traits2);
+
+  // Interactive action puzzles derive from stable identities without touching
+  // the shared DAILY cursor. Skill lives in the player's input, not a hidden die.
+  utils.setSeed(0x12345678);
+  const puzzleCursor = utils.getRngState();
+  const puzzleArgs = { runSeed: 123, caseId: "covert1", actionId: "breakin", cost: 1.5, toil: 7, lateExtra: 0 };
+  const puzzle1 = minigames.createLockpickChallenge(puzzleArgs);
+  const puzzle2 = minigames.createLockpickChallenge(puzzleArgs);
+  assert.deepEqual(puzzle1, puzzle2);
+  assert.equal(puzzle1.target, 41);
+  assert.equal(puzzle1.coinFace, "heads");
+  assert.equal(utils.getRngState(), puzzleCursor);
+  const solvedPuzzle = minigames.tryLockpick(puzzle1, puzzle1.target);
+  assert.deepEqual([solvedPuzzle.phase, solvedPuzzle.turn, solvedPuzzle.attemptsLeft, solvedPuzzle.position],
+    ["lock_success", 1, 3, puzzle1.target]);
+  let failedPuzzle = puzzle1;
+  for (let i = 0; i < 3; i++) failedPuzzle = minigames.tryLockpick(failedPuzzle, missAngle(failedPuzzle));
+  assert.deepEqual([failedPuzzle.phase, failedPuzzle.turn, failedPuzzle.attemptsLeft], ["coin_call", 3, 0]);
+  assert.equal(minigames.callCoin(failedPuzzle, failedPuzzle.coinFace).escaped, true);
+  assert.equal(minigames.callCoin(failedPuzzle, oppositeFace(failedPuzzle.coinFace)).escaped, false);
+  assert.equal(utils.getRngState(), puzzleCursor);
 
   // Base options shuffle without mutating source content; INF scales once by style.
   fresh();
@@ -515,6 +553,100 @@ globalThis.clearInterval = () => {};
     resolved: state.S.today.resolved,
   }, afterOneShot);
 
+  // COVERT ACTION success survives reload without rerolling, grants evidence
+  // rather than an automatic case win, and consumes its option exactly once.
+  fresh("daily");
+  let redvale = liveRedvale();
+  utils.setSeed(0x2468ace0);
+  const actionCursor = utils.getRngState();
+  const legalOption = redvale.c.opts.find(option => !option.action);
+  engine.choose(redvale.c, redvale.o);
+  assert.equal(utils.getRngState(), actionCursor);
+  assert.equal(state.S.runStats.covertTry, 1);
+  assert.equal(engine.isPaused(), true);
+  const blockedSnapshot = JSON.stringify({ challenge: state.S.actionChallenge, stats: state.S.runStats, hours: state.S.hours });
+  engine.choose(redvale.c, legalOption);
+  assert.equal(JSON.stringify({ challenge: state.S.actionChallenge, stats: state.S.runStats, hours: state.S.hours }), blockedSnapshot);
+  engine.setLockpickPosition(missAngle(state.S.actionChallenge));
+  engine.attemptLockpick();
+  const savedChallenge = JSON.parse(JSON.stringify(state.S.actionChallenge));
+  const cursorAfterMiss = utils.getRngState();
+  assert.deepEqual([savedChallenge.phase, savedChallenge.attemptsLeft, savedChallenge.turn], ["lockpick", 2, 1]);
+  assert.equal(engine.loadGame(1), true);
+  assert.deepEqual(state.S.actionChallenge, savedChallenge);
+  assert.equal(utils.getRngState(), cursorAfterMiss);
+  assert.equal(state.S.runStats.covertTry, 1);
+  const loadedRedvale = state.S.inbox.find(c => c.id === "redvale");
+  assert.equal(loadedRedvale.actionInProgress, "redvale_archive_lock");
+  assert.equal(loadedRedvale.opts[state.S.actionChallenge.optionIndex].action.id, "redvale_archive_lock");
+  engine.setLockpickPosition(state.S.actionChallenge.target);
+  engine.attemptLockpick();
+  assert.equal(state.S.actionChallenge.phase, "lock_success");
+  engine.completeActionChallenge();
+  assert.equal(utils.getRngState(), cursorAfterMiss);
+  assert.equal(state.S.actionChallenge, null);
+  assert.equal(loadedRedvale.covertEdge, 12);
+  assert.match(loadedRedvale.covertNote, /ARCHIVE INDEX/);
+  assert.equal(loadedRedvale.opts.some(option => option.action), false);
+  assert.equal(loadedRedvale.actionInProgress, undefined);
+  assert.deepEqual([state.S.hours, state.S.fatigue, state.S.bold], [.5, 7, 43]);
+  assert.deepEqual([state.S.runStats.covertTry, state.S.runStats.covertW,
+    state.S.runStats.covertEscape, state.S.runStats.covertCaught], [1, 1, 0, 0]);
+  assert.deepEqual([state.S.today.resolved, state.S.archiveTotal], [0, 0]);
+  const successOnce = JSON.stringify({ hours: state.S.hours, fatigue: state.S.fatigue, bold: state.S.bold,
+    stats: state.S.runStats, opts: loadedRedvale.opts, edge: loadedRedvale.covertEdge });
+  engine.completeActionChallenge();
+  engine.choose(redvale.c, redvale.o); // stale pre-reload references
+  assert.equal(JSON.stringify({ hours: state.S.hours, fatigue: state.S.fatigue, bold: state.S.bold,
+    stats: state.S.runStats, opts: loadedRedvale.opts, edge: loadedRedvale.covertEdge }), successOnce);
+  engine.saveGame();
+  assert.equal(engine.loadGame(1), true);
+  assert.equal(state.S.inbox.find(c => c.id === "redvale").opts.some(option => option.action), false);
+
+  // A broken pick gets one deterministic coin call. Calling it correctly
+  // escapes but loses the route; a wrong call poisons and archives the case.
+  fresh();
+  redvale = liveRedvale();
+  engine.choose(redvale.c, redvale.o);
+  exhaustLock();
+  assert.equal(state.S.actionChallenge.phase, "coin_call");
+  engine.callActionCoin(state.S.actionChallenge.coinFace);
+  assert.deepEqual([state.S.actionChallenge.phase, state.S.actionChallenge.escaped], ["coin_result", true]);
+  engine.completeActionChallenge();
+  assert.equal(state.S.inbox.includes(redvale.c), true);
+  assert.equal(state.S.openCase, redvale.c);
+  assert.equal(redvale.c.opts.some(option => option.action), false);
+  assert.equal(redvale.c.covertEdge, undefined);
+  assert.deepEqual([state.S.hours, state.S.fatigue, state.S.bold], [.5, 7, 38]);
+  assert.deepEqual([state.S.runStats.covertTry, state.S.runStats.covertW,
+    state.S.runStats.covertEscape, state.S.runStats.covertCaught], [1, 0, 1, 0]);
+  assert.deepEqual([state.S.today.resolved, state.S.archiveTotal], [0, 0]);
+
+  fresh();
+  redvale = liveRedvale();
+  engine.choose(redvale.c, redvale.o);
+  exhaustLock();
+  const wrongCall = oppositeFace(state.S.actionChallenge.coinFace);
+  engine.callActionCoin(wrongCall);
+  assert.deepEqual([state.S.actionChallenge.phase, state.S.actionChallenge.escaped], ["coin_result", false]);
+  engine.completeActionChallenge();
+  assert.equal(state.S.inbox.includes(redvale.c), false);
+  assert.equal(state.S.openCase, null);
+  assert.deepEqual([state.S.rep, state.S.bold, state.S.firm, state.S.hours, state.S.fatigue], [32, 35, 56, .5, 7]);
+  assert.deepEqual([state.S.runStats.covertTry, state.S.runStats.covertW,
+    state.S.runStats.covertEscape, state.S.runStats.covertCaught], [1, 0, 0, 1]);
+  assert.equal(state.S.today.resolved, 1);
+  assert.equal(state.S.archiveTotal, 1);
+  assert.deepEqual({ id: state.S.archive[0].id, win: state.S.archive[0].win, via: state.S.archive[0].via },
+    { id: "redvale", win: false, via: "covert action — caught" });
+  const caughtOnce = JSON.stringify({ rep: state.S.rep, bold: state.S.bold, firm: state.S.firm,
+    hours: state.S.hours, fatigue: state.S.fatigue, stats: state.S.runStats, archive: state.S.archive });
+  engine.completeActionChallenge();
+  engine.callActionCoin(wrongCall);
+  engine.attemptLockpick();
+  assert.equal(JSON.stringify({ rep: state.S.rep, bold: state.S.bold, firm: state.S.firm,
+    hours: state.S.hours, fatigue: state.S.fatigue, stats: state.S.runStats, archive: state.S.archive }), caughtOnce);
+
   // At 80 FATIGUE the per-hour hazard is 30%: a two-hour overtime block must
   // use the compounded 51% risk, not a single-hour 30% roll.
   let compoundedSeed = null;
@@ -669,6 +801,20 @@ globalThis.clearInterval = () => {};
   assert.equal(v7Info.status,"ready");
   assert.equal(v7Info.needsUpgrade,true);
   assert.equal(v7Info.save.finalWarningUsed,false,"older careers receive one unused Final Warning after migration");
+  const v8Raw=clone(readyBase);
+  v8Raw.schemaVersion=8;
+  v8Raw.actionChallenge={fake:true}; // v8 could not legitimately own an interactive action
+  for(const key of ["covertTry","covertW","covertEscape","covertCaught"]) delete v8Raw.runStats[key];
+  const v8Marked=v8Raw.inbox.find(c=>!c.msg);
+  if(v8Marked) v8Marked.actionInProgress="forged_pre_feature_marker";
+  storage.set(`${constants.SAVE_KEY}_s2`,JSON.stringify(v8Raw));
+  const v8Info=engine.inspectSave(2);
+  assert.equal(v8Info.status,"ready");
+  assert.equal(v8Info.needsUpgrade,true);
+  assert.equal(v8Info.save.actionChallenge,null);
+  assert.deepEqual([v8Info.save.runStats.covertTry,v8Info.save.runStats.covertW,
+    v8Info.save.runStats.covertEscape,v8Info.save.runStats.covertCaught],[0,0,0,0]);
+  assert.equal(v8Info.save.inbox.some(c=>c.actionInProgress!=null),false);
   const v6SeniorRaw=clone(readyBase);
   Object.assign(v6SeniorRaw,{schemaVersion:6,day:17,rank:3,inf:100,reviewMomentum:99,
     seniorPartnerDay:1,exceptionalReviewDay:16,exceptionalReviewHinted:true});
@@ -776,6 +922,35 @@ globalThis.clearInterval = () => {};
   const badPendingSnapshot = { ...template(), tier: 2, judge: clone(content.JUDGES[0]), dueDay: 3 };
   badPendingSnapshot.pending = { day: 2, win: true, o: clone(badPendingSnapshot.opts[0]), judgeMemorySnapshot: 7 };
   const missingDueDay = template();
+  fresh("daily");
+  redvale=liveRedvale();
+  engine.choose(redvale.c,redvale.o);
+  engine.setLockpickPosition(missAngle(state.S.actionChallenge));
+  engine.attemptLockpick();
+  const validActionRaw=JSON.parse(storage.get(saveKey));
+  assert.equal(engine.inspectSave(1).status,"ready");
+  const alteredAction=mutate=>{
+    const raw=clone(validActionRaw); mutate(raw,raw.actionChallenge,raw.inbox.find(c=>c.id==="redvale"));
+    return {raw:JSON.stringify(raw),status:"invalid"};
+  };
+  const actionInvalidRaws=[
+    alteredAction((raw,ch)=>{ ch.phase="retry"; }),
+    alteredAction((raw,ch)=>{ ch.target=ch.target===minigames.LOCK_MAX?ch.target-1:ch.target+1; }),
+    alteredAction((raw,ch)=>{ ch.coinFace=oppositeFace(ch.coinFace); }),
+    alteredAction((raw,ch)=>{ ch.attemptsLeft=ch.maxAttempts; }),
+    alteredAction((raw,ch)=>{ ch.runSeed=(ch.runSeed+1)>>>0; }),
+    alteredAction((raw,ch)=>{ ch.optionIndex=(ch.optionIndex+1)%raw.inbox.find(c=>c.id==="redvale").opts.length; }),
+    alteredAction((raw,ch)=>{ raw.inbox=raw.inbox.filter(c=>c.id!==ch.caseId); }),
+    alteredAction((raw,ch,c)=>{ c.actionInProgress="wrong_action"; }),
+    alteredAction((raw,ch,c)=>{ raw.actionChallenge=null; c.actionInProgress=ch.actionId; }),
+    alteredAction((raw,ch)=>{ ch.phase="lock_success"; ch.attemptsLeft=ch.maxAttempts;
+      ch.turn=1; ch.position=missAngle(ch); }),
+    alteredAction((raw,ch)=>{ ch.phase="coin_call"; ch.attemptsLeft=0;
+      ch.turn=ch.maxAttempts; ch.position=ch.target; }),
+    alteredAction((raw,ch)=>{ ch.phase="coin_result"; ch.attemptsLeft=0; ch.turn=ch.maxAttempts;
+      ch.coinCall=ch.coinFace; ch.escaped=false; }),
+    alteredAction((raw,ch)=>{ ch.actionTitle="A FORGED BRIEFING"; }),
+  ];
   const invalidRaws = [
     { raw: "{", status: "corrupt" },
     { raw: "", status: "corrupt" },
@@ -840,6 +1015,7 @@ globalThis.clearInterval = () => {};
     { raw: JSON.stringify({ ...clone(readyBase), inbox: [sentinelCourt] }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), inbox: [badPendingSnapshot] }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), archive: [{ day: 1, title: "BAD MEMORY", judgeMemory: 7 }] }), status: "invalid" },
+    ...actionInvalidRaws,
   ];
   for (const { raw, status } of invalidRaws) {
     storage.set(`${constants.SAVE_KEY}_s2`, raw);
@@ -1572,10 +1748,14 @@ globalThis.clearInterval = () => {};
   // Production CSP has no loopback WebSocket escape hatch; Vite adds it only in dev.
   const indexHtml = readFileSync("index.html", "utf8");
   const viteConfig = readFileSync("vite.config.mjs", "utf8");
+  const appSource = readFileSync("src/App.jsx", "utf8");
   assert.match(indexHtml, /connect-src 'self';/);
   assert.doesNotMatch(indexHtml, /ws:\/\/(?:localhost|127\.0\.0\.1|\[::1\])/);
   assert.match(viteConfig, /ws:\/\/localhost:\*/);
   assert.match(viteConfig, /script-src 'self' 'unsafe-inline'/);
+  assert.ok(appSource.indexOf("if(S.actionChallenge) return")>=0&&
+    appSource.indexOf("if(S.actionChallenge) return")<appSource.indexOf("if(S.summary)"),
+    "the minigame must own keyboard input before case/event shortcuts run");
 
   // Smoke every supported scenario/mode combination.
   engine.setBalanceExperiment(null);
@@ -1590,7 +1770,7 @@ globalThis.clearInterval = () => {};
     }
   }
 
-  console.log("v1.9.5–v1.9.15 checks passed: balance experiments, Final Warning, Friday/Exceptional Review promotions, delegation cap, strict saves, procedural IDs, long-run integrity, FIRM payroll, rolling judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
+  console.log("v1.9.5–v1.9.16 checks passed: minigames, balance experiments, Final Warning, Friday/Exceptional Review promotions, delegation cap, strict saves, procedural IDs, long-run integrity, FIRM payroll, rolling judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;

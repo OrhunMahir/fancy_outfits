@@ -74,7 +74,7 @@ export const EXCEPTIONAL_REVIEW_THRESHOLD=36, EXCEPTIONAL_REVIEW_WAIT=2, EXCEPTI
 // once you've fired anyone — ex-employees have long memories.
 export const FIRE_HEAT=9, FIRE_HEAT_SENIOR=16, HEAT_DECAY=0.93, HEAT_MIN=1;
 // The storage key stays stable; ordered migrations use the embedded schema.
-export const SAVE_SCHEMA_VERSION=8;
+export const SAVE_SCHEMA_VERSION=9;
 export const SAVE_LOG_LIMIT=200, SAVE_ARCHIVE_LIMIT=200;
 export const INBOX_MESSAGE_LIMIT=80; // notifications are history, not permanent case files
 export const SAVE_KEY="fo_save_v1";

@@ -124,6 +124,11 @@ h2{font-size:10px; color:var(--gold); margin-bottom:10px; border-bottom:2px soli
 .npcrow{margin-bottom:8px;}
 .npcrow .lblrow{display:flex; justify-content:space-between; font-size:8px;}
 .npcrow .tagline{font-size:8px; color:var(--grey);}
+.skill-ready{margin:8px 0; color:var(--gold); font-size:7px; line-height:1.8;}
+.skill-row{padding:7px; background:var(--dark); border:2px solid var(--panel2);}
+.skill-row .tagline{margin-top:4px; line-height:1.8;}
+.skill-upgrade{min-height:44px; margin-top:7px;}
+.skill-upgrade:focus-visible{outline:3px solid var(--gold); outline-offset:2px;}
 .delg{margin:10px 0 4px; border-top:2px dashed var(--panel2); padding-top:8px;}
 .delg .btn{margin:0 6px 6px 0;}
 /* office scene */
@@ -252,6 +257,64 @@ h2{font-size:10px; color:var(--gold); margin-bottom:10px; border-bottom:2px soli
 .lock-success-title{margin-bottom:9px; color:var(--green); font-size:11px;}
 .lock-success-copy{margin-bottom:16px; color:#dbe6ff; font-size:8px;}
 
+/* Power cut: three deterministic timing rings. Only the active marker moves;
+   locked circuits remain visible so a reload cannot hide prior progress. */
+.power-cut-warning{
+  margin-bottom:8px; padding:7px; color:#fff2c7; background:#654619;
+  border:2px solid var(--gold); font-size:8px; text-align:center; animation:power-live .8s steps(2,end) infinite;
+}
+.power-cut-instructions{margin:0 0 10px; color:#dbe6ff; font-size:8px; line-height:1.8; text-align:center;}
+.power-ring-stage{
+  display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; padding:12px;
+  background:repeating-linear-gradient(135deg,#0c1025 0 12px,#111733 12px 24px);
+  border:3px solid var(--dark); box-shadow:inset 0 0 0 2px #263268;
+}
+.power-ring{min-width:0; padding:8px 5px; background:#11162e; border:2px solid #29366f; transition:opacity .1s linear;}
+.power-ring-track{
+  position:relative; width:min(100%,118px); aspect-ratio:1; margin:0 auto 8px; overflow:hidden;
+  border:7px solid #34415a; border-radius:50%; background:
+    radial-gradient(circle,#202b46 0 31%,#10162a 32% 53%,#26314b 54% 58%,#0b0f1d 59% 100%);
+  box-shadow:inset 0 0 0 3px #101524,0 0 0 3px #0a0d18;
+}
+.power-ring-target{
+  position:absolute; inset:-2px; border-radius:50%;
+  transform:rotate(calc(var(--power-target-angle) - (var(--power-target-width) / 2)));
+  background:conic-gradient(var(--gold) 0 var(--power-target-width),transparent var(--power-target-width) 360deg);
+  -webkit-mask:radial-gradient(circle,transparent 0 64%,#000 65% 75%,transparent 76%);
+  mask:radial-gradient(circle,transparent 0 64%,#000 65% 75%,transparent 76%);
+  filter:drop-shadow(0 0 4px rgba(255,205,117,.8));
+}
+.power-ring-marker{
+  position:absolute; inset:0; z-index:2; transform:rotate(var(--power-ring-angle)); transform-origin:50% 50%;
+}
+.power-ring-marker::before{
+  content:""; position:absolute; left:50%; top:4px; width:6px; height:24px; transform:translateX(-50%);
+  background:#f5fbff; border:2px solid #6d83a6; box-shadow:0 0 6px #fff;
+}
+.power-ring-core{
+  position:absolute; left:50%; top:50%; width:22px; height:22px; transform:translate(-50%,-50%);
+  background:#8ba0b5; border:4px solid #27354a; border-radius:50%; box-shadow:inset 0 0 0 3px #c7d5df;
+}
+.power-ring-caption{display:flex; flex-direction:column; gap:4px; color:var(--grey); font-size:6px; text-align:center;}
+.power-ring-caption strong{color:#dbe6ff; font-size:7px;}
+.power-ring-queued{opacity:.45;}
+.power-ring-locked{border-color:var(--green);}
+.power-ring-locked .power-ring-caption strong{color:var(--green);}
+.power-ring-locked .power-ring-marker::before{background:var(--green); border-color:#183d29; box-shadow:0 0 7px var(--green);}
+.power-ring-missed{border-color:var(--red);}
+.power-ring-missed .power-ring-caption strong{color:#ff8da1;}
+.power-ring-missed .power-ring-marker::before{background:var(--red); border-color:#481923; box-shadow:0 0 7px var(--red);}
+.power-cut-progress{display:flex; justify-content:center; gap:7px; margin:10px 0 8px;}
+.power-cut-pip{display:block; width:28px; height:8px; background:#3c4560; border:2px solid #17204b;}
+.power-cut-pip-active{background:#f5fbff;}
+.power-cut-pip-locked{background:var(--green);}
+.power-cut-pip-missed{background:var(--red);}
+.power-cut-status{min-height:30px; padding:8px; color:var(--gold); background:var(--dark); border:2px solid var(--panel2); font-size:7px; line-height:1.8; text-align:center;}
+.power-cut-stop{margin-top:9px; background:#6a2634;}
+.power-cut-key-hint{margin-top:6px; color:var(--grey); font-size:6px; text-align:center;}
+.power-success .lock-success-mark{background:#172950; border-color:#87a9ff; box-shadow:6px 6px 0 #0a1025;}
+.power-success .lock-success-title{color:#9fe6ff;}
+
 /* Last-chance coin call after a failed covert action. */
 .coin-warning{
   margin-bottom:8px; padding:7px; color:#ffdce2; background:#5e1f2c;
@@ -305,6 +368,7 @@ h2{font-size:10px; color:var(--gold); margin-bottom:10px; border-bottom:2px soli
   100%{transform:translateY(0) rotateY(1080deg) scale(1);}
 }
 @keyframes coin-alert{0%,49%{filter:brightness(1);} 50%,100%{filter:brightness(1.35);}}
+@keyframes power-live{0%,49%{box-shadow:inset 0 0 0 0 rgba(255,205,117,0);} 50%,100%{box-shadow:inset 0 0 0 3px rgba(255,205,117,.25);}}
 
 @media (max-width:600px){
   .action-overlay{
@@ -316,7 +380,7 @@ h2{font-size:10px; color:var(--gold); margin-bottom:10px; border-bottom:2px soli
     padding:13px; border-width:3px;
   }
   .action-dialog h2{font-size:10px;}
-  .action-brief,.lock-instructions,.coin-instructions{font-size:8px; line-height:2;}
+  .action-brief,.lock-instructions,.coin-instructions,.power-cut-instructions{font-size:8px; line-height:2;}
   .lock-stage{min-height:150px;}
   .lock-door-plate{width:190px; height:124px;}
   .lock-cylinder{width:78px; height:78px;}
@@ -328,6 +392,13 @@ h2{font-size:10px; color:var(--gold); margin-bottom:10px; border-bottom:2px soli
   .coin-token{width:82px; height:82px; border-width:6px; font-size:20px;}
   .coin-choice{gap:7px;}
   .coin-choice-button{min-height:52px; padding:8px 5px; text-align:center;}
+  .power-ring-stage{gap:5px; padding:7px;}
+  .power-ring{padding:6px 2px;}
+  .power-ring-track{width:min(100%,88px); border-width:5px;}
+  .power-ring-marker::before{top:2px; width:5px; height:18px;}
+  .power-ring-caption{font-size:5px;}
+  .power-ring-caption strong{font-size:6px;}
+  .skill-upgrade{min-height:48px;}
 }
 
 @media (max-width:360px){
@@ -336,7 +407,7 @@ h2{font-size:10px; color:var(--gold); margin-bottom:10px; border-bottom:2px soli
 }
 
 @media (prefers-reduced-motion:reduce){
-  .shaking,.action-dialog,.lock-pick,.lock-success-mark,.coin-warning,.coin-token-ready,.coin-token-result{
+  .shaking,.action-dialog,.lock-pick,.lock-success-mark,.coin-warning,.coin-token-ready,.coin-token-result,.power-cut-warning{
     animation:none!important; transition:none!important;
   }
 }

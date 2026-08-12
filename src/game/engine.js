@@ -16,7 +16,8 @@ import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DELEGATE_CAP, DAY_HOURS, TIER_HOU
          FIRM_PLAN_GAIN, FIRM_PLAN_HOURS, FIRM_PLAN_FATIGUE, FIRM_PLAN_COOLDOWN,
          FIRE_HEAT, FIRE_HEAT_SENIOR, HEAT_DECAY, HEAT_MIN } from "./constants.js";
 import { clamp, rnd, rand, shuffle, hash, setSeed, clearSeed, getRngState, setRngState } from "./utils.js";
-import { LOCK_MIN, LOCK_MAX, createLockpickChallenge, clampLockPosition, tryLockpick, callCoin } from "./minigames.js";
+import { LOCK_MIN, LOCK_MAX, POWER_RING_COUNT, createLockpickChallenge, clampLockPosition, tryLockpick, callCoin,
+         createPowerCutChallenge, advancePowerCut, stopPowerCut, powerAngleAt, powerAngleDistance } from "./minigames.js";
 import { SFX, startAmbience, stopAmbience, applyBgmVolume } from "./sound.js";
 import { settings, setSetting } from "./settings.js";
 import { buildPool, JUDGES, crises, SCENARIOS, buildWeekend } from "./content.js";
@@ -25,6 +26,13 @@ import { buildNpcs, buildRoster, buildDemand, buildStory, bossAbove, delegationC
 import { buildLawsuit, buildBigMatter } from "./casegen.js";
 import { CLIENT_CAP, CLIENT_NAMES, makeClient, buildGlobalEvent, buildDinnerEvent, PARTNERS } from "./clients.js";
 import { ACHIEVEMENTS, unlock } from "./achievements.js";
+import { CASE_XP, COVERT_XP, CRISIS_XP, DELEGATED_XP, MAX_SKILL, SKILL_IDS, SKILLS,
+         addXp, allocateSkill, applyEnduranceToWorkFatigue, createProgression,
+         enduranceFatigueMultiplier, getSkillRank, progressionInfo as getProgressionInfo,
+         progressionValidationError, sneakyModifiers, startingSkillsFor } from "./progression.js";
+import { FRAUD_RISK_VERSION, buildFraudAuditEvent, buildFraudInquiryEvent, buildFraudSlipEvent,
+         createFraudRisk, createFraudRiskV1, fraudEventValidationError, fraudRiskInfo as getFraudRiskInfo,
+         fraudRiskV1ValidationError, fraudRiskValidationError, fraudSlipChance } from "./fraud.js";
 export { buildDemand, buildBigMatter }; // re-export: dev console + tests poke these directly
 
 let flashSeq=0;
@@ -356,6 +364,62 @@ export function objectiveInfo(){
     target:S.objective.target, reward:rewardTxt(S.objective.reward), done:cur>=S.objective.target};
 }
 
+/* ---------- independent character progression ---------- */
+function awardXp(amount,reason){
+  if(!S||S.over||!S.progression) return 0;
+  const result=addXp(S.progression,amount);
+  S.progression=result.progression;
+  if(result.xpGained>0) log("+"+result.xpGained+" XP · "+reason,"sys");
+  if(result.levelsGained>0){
+    SFX.bell();
+    log("LEVEL "+S.progression.level+" — "+result.pointsGained+" SKILL POINT"+(result.pointsGained===1?"":"S")+" READY.","sys");
+  }
+  return result.xpGained;
+}
+const caseXpFor=(c,o,win)=>{
+  if(!c||c.favor) return 0;
+  const tier=clamp(Math.trunc(c.tier||0),0,2);
+  return CASE_XP[o&&o.safe?"safe":win?"win":"loss"][tier];
+};
+const delegatedXpFor=(c,win)=>DELEGATED_XP[win?"win":"loss"][clamp(Math.trunc(c&&c.tier||0),0,2)];
+
+export function playerProgressionInfo(){
+  if(!S||!S.progression) return null;
+  const base=getProgressionInfo(S.progression), innate=startingSkillsFor(S.scenario), sneaky=sneakyModifiers(S.progression);
+  const enduranceRank=getSkillRank(S.progression,"endurance");
+  const multiplier=enduranceFatigueMultiplier(S.progression,S.scenario);
+  const skills=SKILL_IDS.map(id=>{
+    const rank=getSkillRank(S.progression,id), nextRank=Math.min(MAX_SKILL,rank+1);
+    if(id==="sneaky"){
+      const attempts=3+sneaky.lockAttemptBonus;
+      const nextSneaky=sneakyModifiers({...S.progression,skills:{...S.progression.skills,sneaky:nextRank}});
+      return {id,name:SKILLS[id].name,rank,innate:innate[id],canUpgrade:!S.actionChallenge&&S.progression.skillPoints>0&&rank<MAX_SKILL,
+        currentText:`LOCK +${sneaky.lockToleranceBonus}° · ${attempts} ATTEMPTS · POWER −${rank*7}% SPEED / +${Math.round(sneaky.powerScore*.08)}° WINDOW`,
+        nextText:`NEXT: LOCK +${nextSneaky.lockToleranceBonus}° · ${3+nextSneaky.lockAttemptBonus} ATTEMPTS · POWER −${nextRank*7}% SPEED / +${Math.round(nextSneaky.powerScore*.08)}° WINDOW`};
+    }
+    const scenarioBase=enduranceFatigueMultiplier({...S.progression,skills:{...S.progression.skills,endurance:0}},S.scenario);
+    const nextMultiplier=enduranceFatigueMultiplier({...S.progression,skills:{...S.progression.skills,endurance:nextRank}},S.scenario);
+    return {id,name:SKILLS[id].name,rank,innate:innate[id],canUpgrade:!S.actionChallenge&&S.progression.skillPoints>0&&rank<MAX_SKILL,
+      currentText:`SCENARIO ×${scenarioBase.toFixed(2)} · SKILL −${enduranceRank*6}% · WORK FATIGUE ×${multiplier.toFixed(3)}`,
+      nextText:`NEXT: SKILL −${nextRank*6}% · WORK FATIGUE ×${nextMultiplier.toFixed(3)}`};
+  });
+  return {...base,skillPoints:S.progression.skillPoints,skills};
+}
+
+export function playerFraudRiskInfo(){
+  return S&&S.scenario==="fraud"?getFraudRiskInfo(S.fraudRisk,S.fatigue,S.day):null;
+}
+
+export function spendSkillPoint(skillId){
+  if(!S||S.over||S.actionChallenge||!SKILL_IDS.includes(skillId)) return false;
+  const result=allocateSkill(S.progression,skillId);
+  if(!result.spent) return false;
+  S.progression=result.progression;
+  SFX.bell();
+  log("TRAINING: "+SKILLS[skillId].name+" reaches rank "+getSkillRank(S.progression,skillId)+"/"+MAX_SKILL+".","sys");
+  saveGame(); notify(); return true;
+}
+
 /* ---------- case archive: every resolved file, what you played, how it went ---------- */
 function archiveCase(c,play,win,note,via,judgeMemorySnapshot){
   S.archiveTotal=(S.archiveTotal||S.archive.length)+1;
@@ -445,9 +509,35 @@ export const optHours=(c,o)=>{
   const dual=S.decor&&S.decor.monitor?0.25:0; // second monitor: fewer alt-tabs
   return Math.max(0.5,Math.round((hoursFor(c)*m-dual)*4)/4);
 };
-function spendHours(h,f){
+const workFatigue=(amount,progression=S&&S.progression,scenario=S&&S.scenario)=>
+  applyEnduranceToWorkFatigue(amount,progression,scenario);
+function spendHours(h,f,preparedFatigue=false){
   S.hours=Math.max(0,Math.round((S.hours-h)*4)/4); // late work may overshoot; persisted clock state never goes negative
-  if(f) S.fatigue=clamp(S.fatigue+f,0,100);
+  const fatigue=preparedFatigue?f:(f>0&&h>0?workFatigue(f):f);
+  if(fatigue) S.fatigue=clamp(S.fatigue+fatigue,0,100);
+}
+function recordFraudFatiguePeak(hoursWorked){
+  const risk=S&&S.fraudRisk;
+  if(!risk||S.scenario!=="fraud"||!(hoursWorked>0)) return;
+  risk.dailyPeak=Math.max(risk.dailyPeak||0,Math.round(S.fatigue));
+}
+function rollFraudSlipAtDayEnd(){
+  const risk=S&&S.fraudRisk;
+  if(!risk||S.scenario!=="fraud"||risk.pendingKind||risk.lastCheckDay===S.day) return false;
+  const p=fraudSlipChance(risk.dailyPeak);
+  if(!p) return false;
+  // Persist the checkpoint before the roll: the open day-summary save cannot
+  // reroll identity pressure by being reloaded.
+  risk.lastCheckDay=S.day;
+  const hit=rand()<p;
+  if(balanceProbe) balanceProbe({kind:"fraud_slip_check",day:S.day,peak:risk.dailyPeak,probability:p,hit,
+    sentHomeSameDay:!!S.sentHomeNote,enduranceRank:getSkillRank(S.progression,"endurance")});
+  if(!hit) return false;
+  risk.slipCount++;
+  risk.pendingKind="slip";
+  risk.pendingDay=S.day+1;
+  log("THE SECRET: exhaustion opened your mouth before judgment did. A question is waiting for the morning.","bad");
+  return true;
 }
 /* exhaustion hazard: past FATIGUE_DANGER every worked hour risks a clumsy
    incident. Per-hour odds (fatigue-75)*4+10 — 30% at 80, certain at 100. */
@@ -462,6 +552,7 @@ const INCIDENTS=[
 ];
 function fatigueCheck(hoursWorked){
   if(!S||S.over||S.summary||S.leaving) return false;
+  recordFraudFatiguePeak(hoursWorked);
   const ph=hazardPerHour(); if(!ph) return false;
   const p=S.fatigue>=100?1:1-Math.pow(1-ph/100,Math.max(1,hoursWorked||1));
   if(rand()>=p) return false;
@@ -808,6 +899,10 @@ export function endDay(){
     if(S.money>=2000){S.money-=2000; S.debtDue+=3; lines.push("Loan payment made: -$2000. Next due day "+S.debtDue+".");}
     else { gameOver("STUDENT DEBT DEFAULT","You missed a loan payment. The collectors know where you bill hours. Career over."); return; }
   }
+  // Roll only after every lethal end-of-day rule has cleared. A terminal
+  // career never records a ghost slip the player could not possibly answer.
+  const fraudSlip=rollFraudSlipAtDayEnd();
+  if(fraudSlip) lines.push("THE SECRET: something you said under exhaustion drew a second look. A question is waiting tomorrow.");
   // walk out first, then the summary
   S.pendingSummary={title:"END OF DAY "+S.day+(friday?" — FRIDAY":""),lines,btnTxt:"START DAY "+(S.day+1),action:"nextDay"};
   saveGame(); // checkpoint BEFORE the walk animation so reload cannot undo the night
@@ -824,8 +919,23 @@ export function endDay(){
 
 /* Serializable continuation for the end-of-day summary. A reload while the
    summary is open can now resume here exactly once instead of rolling back. */
-function advanceDay(){
-  S.day++; S.hours=settings.dayLen||DAY_HOURS; S.otHours=0; S.otToday=0;
+function ensureMorningArrival(){
+  if(S.charAnim!=="arriving"&&S.charAnim!=="working") sitDown();
+}
+function openDueFraudEvent(resumeMorning=false){
+  const risk=S&&S.fraudRisk;
+  if(!S||S.over||S.event||!risk||!risk.pendingKind||risk.pendingDay>S.day) return false;
+  const kind=risk.pendingKind;
+  risk.pendingKind=null; risk.pendingDay=0;
+  risk.morningPhase=resumeMorning?"resume":"complete";
+  if(kind==="inquiry") risk.inquiryCount++;
+  S.event=kind==="inquiry"?buildFraudInquiryEvent(risk):buildFraudSlipEvent(risk);
+  SFX.crisis();
+  log("IDENTITY PRESSURE: a question you postponed has reached the morning calendar.","bad");
+  return true;
+}
+function continueMorning(){
+  if(S.fraudRisk&&S.fraudRisk.morningPhase==="resume") S.fraudRisk.morningPhase="idle";
   if(S.day>=15) ach("day15");
   nemesisGain(rnd([0,1,1,2,2,3])); // he grinds nights too
   if(S.over) return;
@@ -848,7 +958,7 @@ function advanceDay(){
   S.coffeeToday=0; // the espresso counter forgives overnight
   drawCases(3+(rand()<.4?1:0)+(S.rank>=2&&rand()<.4?1:0)); // v1.6: the inbox does not respect you
   if(S.summary){ // promotion morning: leave a playable desk, skip payroll/events behind the modal
-    sitDown(); saveGame(); return;
+    ensureMorningArrival(); saveGame(); return;
   }
   if(rand()<.35&&!S.inbox.some(c=>c.favor)) spawnFavor();
   if(rand()<.18) marvMoment();
@@ -859,7 +969,7 @@ function advanceDay(){
   rivalTick();
   if(S.over) return;
   // Saturday interlude: the morning after every Friday, the weekend asks what you did with it
-  if((S.day-1)%WEEK_LEN===0&&S.day>1){ SFX.bell(); S.event=buildWeekend(); }
+  if(!S.event&&(S.day-1)%WEEK_LEN===0&&S.day>1){ SFX.bell(); S.event=buildWeekend(); }
   // low rep = casual disrespect
   if(disrespected()&&rand()<.5) pushMsg("FYI",rnd([
     "The partners' meeting you weren't told about went great, apparently.",
@@ -873,8 +983,8 @@ function advanceDay(){
     const c=rnd(cs); S.usedCrises.push(c.id); SFX.crisis();
     const traitor=S.npcs.find(n=>n.trait==="Traitor"&&n.rel<25);
     const brave=S.npcs.find(n=>n.trait==="Brave"&&n.rel>=40);
-    if(traitor&&rand()<.4){ traitor.known=true; c.crisisMod={v:-8,txt:traitor.name+" leaked your position before you entered the room. (-8% on every play)"}; }
-    else if(brave){ brave.known=true; c.crisisMod={v:8,txt:brave.name+" is standing at your shoulder. (+8% on every play)"}; }
+    if(!c.fraudKind&&traitor&&rand()<.4){ traitor.known=true; c.crisisMod={v:-8,txt:traitor.name+" leaked your position before you entered the room. (-8% on every play)"}; }
+    else if(!c.fraudKind&&brave){ brave.known=true; c.crisisMod={v:8,txt:brave.name+" is standing at your shoulder. (+8% on every play)"}; }
     S.event=c; S.runStats.crises++;
   }
   // no firm crisis today? the outside world may still bite (rare, repeatable)
@@ -896,7 +1006,21 @@ function advanceDay(){
     SFX.crisis();
     log("RETAINER MATTER: "+cl.name+" is under siege. This one is measured in weeks, not hours.","sys");
   }
-  sitDown();
+  ensureMorningArrival();
+}
+function advanceDay(){
+  S.day++; S.hours=settings.dayLen||DAY_HOURS; S.otHours=0; S.otToday=0;
+  if(S.fraudRisk) S.fraudRisk.dailyPeak=0;
+  // A queued identity confrontation is the first playable checkpoint of the
+  // morning. Ordinary decay, rival progress and delayed results cannot kill
+  // the career before the player has seen the guaranteed cover choice. The
+  // persisted marker resumes this exact morning pipeline after the event,
+  // including after a reload, and is cleared before any passive runs.
+  if(openDueFraudEvent(true)){
+    ensureMorningArrival();
+    saveGame(); notify(); return;
+  }
+  continueMorning();
 }
 
 function resolveDelayed(c){
@@ -905,10 +1029,12 @@ function resolveDelayed(c){
   archiveCase(c,r.o.text,r.win,out.txt,"delayed reply",r.judgeMemorySnapshot);
   rememberJudgeOutcome(c,r.o,r.win); // reveal first: hidden delayed outcomes never leak through future odds
   if(r.win){ SFX.win(); S.today.wins++; if(r.o.style==="aggressive") S.today.aggWin++;
-    log("RESPONSE ["+c.title+"]: SUCCESS","good"); pushMsg("REPLY: "+c.title,out.txt); apply(out.fx,false,"delayed");
+    log("RESPONSE ["+c.title+"]: SUCCESS","good"); pushMsg("REPLY: "+c.title,out.txt);
+    awardXp(caseXpFor(c,r.o,true),"CASE REPLY · "+c.title); apply(out.fx,false,"delayed");
     if((c.tier||0)>=1) apply({firm:1},true,"delayed"); // same firm effect as an instant win (v1.9.4 symmetry)
     maybeImpressClient(c); if((out.fx.rep||0)+(out.fx.inf||0)>=10) flash("HENDERED!"); }
   else { SFX.lose(); log("RESPONSE ["+c.title+"]: FAILED","bad"); pushMsg("REPLY: "+c.title,out.txt);
+    awardXp(caseXpFor(c,r.o,false),"CASE REPLY · "+c.title);
     apply(out.fx,false,"delayed",aggressiveFailureContext(r.o,r.finalWarningSnapshot));
     if((c.tier||0)>=1) apply({firm:-1},true,"delayed");
     maybeLoseClientOnFail(); doShake(); nemesisGain(3,true); }
@@ -941,6 +1067,7 @@ function resolveDelegated(c){
     SFX.win(); relNpc(n,6); S.today.resolved++; S.today.wins++;
     pushMsg("DELEGATED: "+c.title, n.name+" "+rnd(DELEGATE_WIN_TXT));
     log("DELEGATION ["+c.title+"]: "+n.name+" delivered.","good");
+    awardXp(delegatedXpFor(c,true),"DELEGATED FILE · "+c.title);
     archiveCase(c,"Delegated to "+n.name,true,"handled it","delegated");
     apply({rep:2,inf:Math.max(1,Math.round((3+(c.tier||0)*2)*INF_EARN)),money:(c.tier||0)*300,
       firm:(c.tier||0)>=1?1:0},false,"delegated"); // delegated glory is damped like all INF; real matters also move FIRM
@@ -956,6 +1083,7 @@ function resolveDelegated(c){
     const traitorTax=n.trait==="Traitor"?4:0;
     pushMsg("DELEGATED: "+c.title, n.name+" "+rnd(DELEGATE_FAIL_TXT)+(traitorTax?" Somehow the whole floor knows it was YOUR case.":""));
     log("DELEGATION ["+c.title+"]: "+n.name+" failed it.","bad");
+    awardXp(delegatedXpFor(c,false),"DELEGATED FILE · "+c.title);
     archiveCase(c,"Delegated to "+n.name,false,"botched it","delegated");
     apply({rep:-4-traitorTax,firm:(c.tier||0)>=1?-1:0},false,"delegated"); nemesisGain(3,true);
   }
@@ -997,6 +1125,20 @@ function actionRefs(ch=S&&S.actionChallenge){
   return c&&o&&o.action&&o.action.id===ch.actionId?{c,o,action:o.action}:null;
 }
 
+const legacySkillSnapshot=()=>({rulesVersion:0,sneaky:0,endurance:0});
+const currentSkillSnapshot=()=>({rulesVersion:1,
+  sneaky:getSkillRank(S.progression,"sneaky"),endurance:getSkillRank(S.progression,"endurance")});
+const snapshotProgression=snapshot=>({skills:{sneaky:snapshot.sneaky,endurance:snapshot.endurance}});
+function createActionChallenge(action,args,skillSnapshot=legacySkillSnapshot()){
+  const snapshot={...skillSnapshot};
+  const rank=snapshot.rulesVersion===1?clamp(Math.trunc(Number(snapshot.sneaky)||0),0,MAX_SKILL):0;
+  const skill=sneakyModifiers({skills:{sneaky:rank}});
+  const challenge=action.type==="power_cut"
+    ?createPowerCutChallenge({...args,sneaky:skill.powerScore})
+    :createLockpickChallenge({...args,toleranceBonus:skill.lockToleranceBonus,attemptBonus:skill.lockAttemptBonus});
+  return {...challenge,skillSnapshot:snapshot};
+}
+
 function beginActionChallenge(c,o,cost){
   const optionIndex=c.opts.indexOf(o), action=o.action;
   if(optionIndex<0||!action||c.actionInProgress) return;
@@ -1004,10 +1146,13 @@ function beginActionChallenge(c,o,cost){
   const hoursBefore=S.hours;
   const lateExtra=Math.round(Math.max(0,cost-hoursBefore)*LATE_FATIGUE);
   if(lateExtra) log("You work past the lights. The night collects its fee. (+"+lateExtra+" FATIGUE)","bad");
-  const toil=Math.round(cost*2)+(action.fatigue||0)+lateExtra;
+  const rawWorkToil=Math.round(cost*2)+(action.fatigue||0);
+  const skillSnapshot=currentSkillSnapshot();
+  // ENDURANCE softens the work itself, never the explicit late-night penalty.
+  const toil=workFatigue(rawWorkToil,snapshotProgression(skillSnapshot),S.scenario)+lateExtra;
   c.actionInProgress=action.id; // persisted: reload cannot reopen or duplicate the attempt
   S.actionChallenge={
-    ...createLockpickChallenge({runSeed:S.seed,caseId:c.id,actionId:action.id,cost,toil,lateExtra}),
+    ...createActionChallenge(action,{runSeed:S.seed,caseId:c.id,actionId:action.id,cost,toil,lateExtra},skillSnapshot),
     optionIndex, startedDay:S.day, hoursBefore, caseTitle:c.title,
     actionTitle:action.title, body:action.body,
   };
@@ -1036,6 +1181,32 @@ export function attemptLockpick(){
   saveGame(); notify();
 }
 
+export function advancePowerCutFrame(deltaMs){
+  const ch=S&&S.actionChallenge;
+  if(!ch||ch.phase!=="power_cut"||!actionRefs(ch)) return null;
+  S.actionChallenge=advancePowerCut(ch,deltaMs);
+  // The Power Cut component paints this returned snapshot locally. Avoid a
+  // global store notification on every animation frame: that would rebuild
+  // the whole office scene and sidebar at ~60fps on slower devices.
+  return S.actionChallenge;
+}
+
+export function checkpointActionChallenge(){
+  if(!S||!S.actionChallenge) return false;
+  return saveGame();
+}
+
+export function stopPowerRing(){
+  const ch=S&&S.actionChallenge;
+  if(!ch||ch.phase!=="power_cut"||!actionRefs(ch)) return;
+  const next=stopPowerCut(ch);
+  S.actionChallenge=next;
+  if(next.phase==="power_success") SFX.open();
+  else if(next.phase==="coin_call") SFX.lose();
+  else SFX.click();
+  saveGame(); notify();
+}
+
 export function callActionCoin(side){
   const ch=S&&S.actionChallenge;
   if(!ch||ch.phase!=="coin_call"||!actionRefs(ch)||!["heads","tails"].includes(side)) return;
@@ -1046,7 +1217,7 @@ export function callActionCoin(side){
 
 export function completeActionChallenge(){
   const ch=S&&S.actionChallenge;
-  if(!ch||!["lock_success","coin_result"].includes(ch.phase)) return;
+  if(!ch||!["lock_success","power_success","coin_result"].includes(ch.phase)) return;
   const refs=actionRefs(ch);
   S.actionChallenge=null;
   if(!refs){
@@ -1056,11 +1227,12 @@ export function completeActionChallenge(){
   const {c,o,action}=refs;
   delete c.actionInProgress;
   c.opts=c.opts.filter(option=>option!==o); // one attempt, regardless of its outcome
-  const success=ch.phase==="lock_success", escaped=!success&&!!ch.escaped;
+  const success=ch.phase==="lock_success"||ch.phase==="power_success", escaped=!success&&!!ch.escaped;
   const out=success?action.success:(escaped?action.escape:action.caught);
 
   if(success){
     S.runStats.covertW++;
+    awardXp(COVERT_XP.success,"COVERT ACTION · CLEAN");
     c.covertEdge=Math.max(c.covertEdge||0,action.edge||0);
     c.covertNote=action.edgeText||"Recovered evidence strengthens every risky legal play.";
     SFX.win();
@@ -1069,12 +1241,14 @@ export function completeActionChallenge(){
     if(!S.over) S.openCase=c;
   } else if(escaped){
     S.runStats.covertEscape++;
+    awardXp(COVERT_XP.escape,"COVERT ACTION · ESCAPED");
     SFX.click();
     log("["+c.title+"] "+out.txt,"sys");
     apply(out.fx,false,"covert");
     if(!S.over) S.openCase=c;
   } else {
     S.runStats.covertCaught++;
+    awardXp(COVERT_XP.caught,"COVERT ACTION · CAUGHT");
     S.today.resolved++;
     S.inbox=S.inbox.filter(item=>item!==c);
     archiveCase(c,o.text,false,out.txt,"covert action — caught");
@@ -1084,7 +1258,7 @@ export function completeActionChallenge(){
     if(!S.over){ maybeLoseClientOnFail(); nemesisGain(4,true); }
   }
 
-  spendHours(ch.cost,ch.toil);
+  spendHours(ch.cost,ch.toil,true);
   if(!S.over&&fatigueCheck(ch.cost)) return;
   if(!S.over){ checkPromotion(); maybeDemand(); checkClock(); }
   saveGame(); notify();
@@ -1118,7 +1292,8 @@ export function choose(c,o,confirmedLate){
   const p=chance(o,c);
   const lateExtra=confirmedLate?Math.round(Math.max(0,cost0-S.hours)*LATE_FATIGUE):0;
   if(lateExtra) log("You work past the lights. The night collects its fee. (+"+lateExtra+" FATIGUE)","bad");
-  const cost=cost0, toil=Math.round(cost*2+(o.safe?2:0))+lateExtra; // careful play grinds you down too
+  const cost=cost0, workToil=Math.round(cost*2+(o.safe?2:0)); // careful play grinds you down too
+  const toil=workFatigue(workToil)+lateExtra; // the night collects its full fee regardless of ENDURANCE
   if(o.delay){
     const win=rand()*100<p;
     c.pending={day:S.day+o.delay,win,o,
@@ -1127,7 +1302,7 @@ export function choose(c,o,confirmedLate){
     trackChoice(c,o,win); SFX.send();
     log("Sent: '"+o.text+"' — response in "+o.delay+" day(s). ("+cost+"h)","sys");
     S.openCase=null;
-    spendHours(cost,toil);
+    spendHours(cost,toil,true);
     if(fatigueCheck(cost)) return;
     maybeDemand(); checkClock();
     saveGame(); notify(); return;
@@ -1140,12 +1315,14 @@ export function choose(c,o,confirmedLate){
   if(o.bribe&&win&&S.runStats.bribeW>=3) ach("bribe3");
   if(win){
     SFX.win();
-    log("["+c.title+"] "+out.txt,"good"); apply(out.fx,false,c.favor?"favor":c.big?"big_case":"case");
+    log("["+c.title+"] "+out.txt,"good");
+    awardXp(caseXpFor(c,o,true),"CASE · "+c.title); apply(out.fx,false,c.favor?"favor":c.big?"big_case":"case");
     if((c.tier||0)>=1&&!c.favor){ apply({firm:1},true,c.big?"big_case":"case"); maybeImpressClient(c); } // wins keep the lights on — and attract logos
     if(((out.fx&&out.fx.rep)||0)+((out.fx&&out.fx.inf)||0)>=10) flash("HENDERED!");
   } else {
     SFX.lose();
     log("["+c.title+"] "+out.txt,"bad");
+    awardXp(caseXpFor(c,o,false),"CASE · "+c.title);
     apply(out.fx,false,c.favor?"favor":c.big?"big_case":"case",aggressiveFailureContext(o,warningSnapshot));
     if((c.tier||0)>=1&&!c.favor){ apply({firm:-1},true,c.big?"big_case":"case"); maybeLoseClientOnFail(); }
     doShake(); if(!c.favor) nemesisGain(3,true);
@@ -1164,7 +1341,7 @@ export function choose(c,o,confirmedLate){
       if(!c.big.final&&win&&o.safe) log("THE "+c.big.client.toUpperCase()+" WAR ends early, by choice. Wars you skip don't pay like wars you win.","sys"); }
   }
   if(out.next) queueFollowup(out.next);
-  spendHours(cost,toil);
+  spendHours(cost,toil,true);
   if(fatigueCheck(cost)) return;
   checkPromotion();
   maybeDemand(); checkClock();
@@ -1376,7 +1553,8 @@ export function resolveCrisis(o){
     if(fatigueCheck(OVERTIME_HOURS)) return; // every hour in the block contributes to the exhaustion hazard
     saveGame(); notify(); return;
   }
-  const ev=S.event, p=chance(o,ev), warningSnapshot=finalWarningSnapshot();
+  const ev=S.event, resumeMorning=!!(ev.fraudKind&&S.fraudRisk&&S.fraudRisk.morningPhase==="resume"),
+    p=chance(o,ev), warningSnapshot=finalWarningSnapshot();
   S.event=null;
   const win=rand()*100<p, out=win?o.ok:o.fail;
   trackChoice(null,o,win);
@@ -1388,13 +1566,39 @@ export function resolveCrisis(o){
     const n=S.npcs.find(x=>x.id===ev.npc), d=win?(o.relOk||0):(o.relFail||0);
     if(n&&d){ relNpc(n,d); log(n.name+(d>0?" won't forget this. (+":" recalibrates. (")+d+" rel)",d>0?"good":"bad"); }
   }
-  const infSource=ev&&ev.weekend?"weekend":ev&&ev.story?"story":ev&&ev.demand?"demand":
+  const infSource=ev&&ev.fraudKind?"fraud":ev&&ev.weekend?"weekend":ev&&ev.story?"story":ev&&ev.demand?"demand":
     ev&&/^g_/.test(ev.id||"")?"client_event":"crisis";
-  if(win){ SFX.win(); log("[CRISIS] "+out.txt,"good"); apply(out.fx,false,infSource); if(((out.fx&&out.fx.inf)||0)>=10) flash("HENDERED!"); }
+  const grantsCrisisXp=infSource==="crisis";
+  const resolveFraudState=()=>{
+    const effect=out&&out.fraud, risk=S.fraudRisk;
+    if(!effect||!risk||S.scenario!=="fraud"||!ev.fraudKind) return;
+    const before=risk.suspicion;
+    risk.morningPhase="idle";
+    risk.suspicion=clamp(effect.set,0,3);
+    if(effect.contained) risk.contained++;
+    risk.pendingKind=effect.schedule&&risk.suspicion>0?"inquiry":null;
+    risk.pendingDay=risk.pendingKind?S.day+1:0;
+    if(effect.schedule)
+      log("IDENTITY PRESSURE: "+before+" → "+risk.suspicion+". A follow-up lands day "+risk.pendingDay+".","bad");
+    else if(effect.contained)
+      log("IDENTITY PRESSURE CONTAINED: suspicion settles at "+risk.suspicion+"/3.","good");
+    if(balanceProbe) balanceProbe({kind:"fraud_stage",day:S.day,eventKind:ev.fraudKind,stage:ev.fraudStage,
+      style:o.safe?"safe":o.style||"neutral",win,scheduled:!!risk.pendingKind,contained:!!effect.contained,
+      exposed:!!(!win&&out.expose),suspicion:risk.suspicion});
+  };
+  if(!win&&out.expose){
+    SFX.lose(); log("[CRISIS] "+out.txt,"bad"); resolveFraudState();
+    gameOver("EXPOSED","There is no bar record. No law school. No you-with-a-JD. The audit found the empty space where your credentials should be, and the firm found it at the same time. Security is very polite about it. The Fraud is over."); return;
+  }
+  if(win){ SFX.win(); log("[CRISIS] "+out.txt,"good");
+    if(grantsCrisisXp) awardXp(CRISIS_XP[o.safe?"safe":"win"],"CRISIS · "+ev.title);
+    resolveFraudState();
+    apply(out.fx,false,infSource); if(((out.fx&&out.fx.inf)||0)>=10) flash("HENDERED!"); }
   else { SFX.lose(); log("[CRISIS] "+out.txt,"bad");
+    if(grantsCrisisXp) awardXp(CRISIS_XP.loss,"CRISIS · "+ev.title);
+    resolveFraudState();
     apply(out.fx,false,infSource,out.expose?null:aggressiveFailureContext(o,warningSnapshot));
     apply({firm:-2},true,infSource); doShake(); nemesisGain(3,true); }
-  if(out.expose){ gameOver("EXPOSED","There is no bar record. No law school. No you-with-a-JD. The audit found the empty space where your credentials should be, and the firm found it at the same time. Security is very polite about it. The Fraud is over."); return; }
   if(out.golf) S.golfEdge=true; // the next court judge arrives pre-read
   if(out.client){ // global events move the client book
     if(out.client.lose) loseClient(out.client.lose);
@@ -1405,6 +1609,13 @@ export function resolveCrisis(o){
     }
   }
   if(out.next) queueFollowup(out.next); // crises may chain into case files too
+  if(resumeMorning){
+    if(!S.over){
+      continueMorning();
+      if(!S.over){ saveGame(); notify(); }
+    }
+    return;
+  }
   checkPromotion(); checkClock(); saveGame(); notify();
 }
 
@@ -1674,10 +1885,18 @@ const validJudge=j=>{
 };
 function validOutcome(out,depth){
   if(!plain(out)||!validFx(out.fx)||typeof out.txt!=="string") return false;
+  if(out.expose!=null&&typeof out.expose!=="boolean") return false;
+  if(out.fraud!=null){
+    if(!plain(out.fraud)||!Number.isInteger(out.fraud.set)||out.fraud.set<0||out.fraud.set>3) return false;
+    const keys=Object.keys(out.fraud);
+    if(keys.some(key=>!["set","schedule","contained"].includes(key))||
+      (out.fraud.schedule!=null&&typeof out.fraud.schedule!=="boolean")||
+      (out.fraud.contained!=null&&typeof out.fraud.contained!=="boolean")) return false;
+  }
   if(out.next==null) return true;
   return plain(out.next)&&(out.next.after==null||Number.isFinite(out.next.after))&&validCase(out.next.case,(depth||0)+1);
 }
-const validAction=a=>plain(a)&&typeof a.id==="string"&&a.id.length>0&&a.type==="lockpick"&&
+const validAction=a=>plain(a)&&typeof a.id==="string"&&a.id.length>0&&["lockpick","power_cut"].includes(a.type)&&
   typeof a.title==="string"&&typeof a.body==="string"&&Number.isFinite(a.hours)&&a.hours>=.5&&a.hours<=12&&Number.isInteger(a.hours*4)&&
   Number.isFinite(a.fatigue)&&a.fatigue>=0&&a.fatigue<=100&&Number.isFinite(a.edge)&&a.edge>=0&&a.edge<=30&&
   typeof a.edgeText==="string"&&[a.success,a.escape,a.caught].every(out=>validOutcome(out,0)&&out.next==null);
@@ -1880,7 +2099,58 @@ const migrateV8ToV9=raw=>{
   d.schemaVersion=9;
   return d;
 };
-const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6,6:migrateV6ToV7,7:migrateV7ToV8,8:migrateV8ToV9};
+const migrateV9ToV10=raw=>{
+  if(raw.actionChallenge!=null&&(!plain(raw.actionChallenge)||raw.actionChallenge.type!=="lockpick"))
+    throw new SaveDataError("invalid","A schema-9 slot cannot contain this COVERT ACTION type.");
+  return {...raw,schemaVersion:10};
+};
+const migrateV10ToV11=raw=>{
+  if(!Object.prototype.hasOwnProperty.call(SCENARIOS,raw.scenario))
+    throw new SaveDataError("invalid","The scenario in this slot is unknown.");
+  const d={...raw,progression:createProgression(raw.scenario),schemaVersion:11};
+  if(plain(raw.actionChallenge)) d.actionChallenge={...raw.actionChallenge,skillSnapshot:legacySkillSnapshot()};
+  return d;
+};
+const migrateV11ToV12=raw=>{
+  const d={...raw,schemaVersion:12}, ch=raw.actionChallenge;
+  if(!plain(ch)||ch.skillSnapshot?.rulesVersion!==1||!Array.isArray(raw.inbox)) return d;
+  const c=raw.inbox.find(item=>plain(item)&&item.id===ch.caseId);
+  const o=c&&Array.isArray(c.opts)?c.opts[ch.optionIndex]:null;
+  if(!o?.action) return d;
+  const expectedCost=Math.max(.5,Math.round(o.action.hours*4)/4);
+  const lateExtra=Math.round(Math.max(0,expectedCost-ch.hoursBefore)*LATE_FATIGUE);
+  if(lateExtra<=0) return d;
+  const rawWorkToil=Math.round(expectedCost*2)+(o.action.fatigue||0);
+  const oldToil=workFatigue(rawWorkToil+lateExtra,snapshotProgression(ch.skillSnapshot),raw.scenario);
+  const newToil=workFatigue(rawWorkToil,snapshotProgression(ch.skillSnapshot),raw.scenario)+lateExtra;
+  // A short-lived schema-11 build discounted the explicit late-work penalty.
+  // Upgrade only its exact derived value; any other tampering still fails v12.
+  if(ch.toil===oldToil) d.actionChallenge={...ch,toil:newToil};
+  return d;
+};
+const migrateV12ToV13=raw=>{
+  if(!Object.prototype.hasOwnProperty.call(SCENARIOS,raw.scenario))
+    throw new SaveDataError("invalid","The scenario in this slot is unknown.");
+  const fraudRisk=createFraudRiskV1(raw.scenario);
+  const d={...raw,fraudRisk,schemaVersion:13};
+  // Schema 12 could be saved with the original one-off credentials audit
+  // open. Rebuild that unopened prompt from trusted current content; neither
+  // its old serialized options nor an attached NPC modifier are authority.
+  if(raw.scenario==="fraud"&&plain(raw.event)&&raw.event.id==="audit")
+    d.event=buildFraudAuditEvent(fraudRisk);
+  return d;
+};
+const migrateV13ToV14=raw=>{
+  if(!Object.prototype.hasOwnProperty.call(SCENARIOS,raw.scenario))
+    throw new SaveDataError("invalid","The scenario in this slot is unknown.");
+  const legacyError=fraudRiskV1ValidationError(raw.fraudRisk,raw.scenario,raw.day);
+  if(legacyError)
+    throw new SaveDataError("invalid","The saved identity-pressure record is damaged ("+legacyError+").");
+  const fraudRisk=raw.fraudRisk?{...raw.fraudRisk,version:FRAUD_RISK_VERSION,
+    morningPhase:plain(raw.event)&&["slip","inquiry"].includes(raw.event.fraudKind)?"complete":"idle"}:null;
+  return {...raw,fraudRisk,schemaVersion:14};
+};
+const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6,6:migrateV6ToV7,7:migrateV7ToV8,8:migrateV8ToV9,9:migrateV9ToV10,10:migrateV10ToV11,11:migrateV11ToV12,12:migrateV12ToV13,13:migrateV13ToV14};
 
 const JUDGE_MEMORY_COUNTERS=["seen","aggressiveW","aggressiveL","technicalW","technicalL","bribeW","bribeL","safe","neutralW","neutralL"];
 function validJudgeMemory(memory,day){
@@ -1913,18 +2183,32 @@ function validJudgeMemory(memory,day){
   });
 }
 
-const ACTION_PHASES=new Set(["lockpick","lock_success","coin_call","coin_result"]);
-function validActionChallenge(ch,day){
-  if(!plain(ch)||ch.type!=="lockpick"||!ACTION_PHASES.has(ch.phase)||typeof ch.caseId!=="string"||!ch.caseId||
+const LOCK_ACTION_PHASES=new Set(["lockpick","lock_success","coin_call","coin_result"]);
+const POWER_ACTION_PHASES=new Set(["power_cut","power_success","coin_call","coin_result"]);
+function validSkillSnapshot(snapshot){
+  if(!plain(snapshot)) return false;
+  const keys=Object.keys(snapshot), expected=["rulesVersion","sneaky","endurance"];
+  if(keys.length!==expected.length||keys.some(key=>!expected.includes(key))||![0,1].includes(snapshot.rulesVersion)||
+    !Number.isInteger(snapshot.sneaky)||snapshot.sneaky<0||snapshot.sneaky>MAX_SKILL||
+    !Number.isInteger(snapshot.endurance)||snapshot.endurance<0||snapshot.endurance>MAX_SKILL) return false;
+  return snapshot.rulesVersion!==0||(snapshot.sneaky===0&&snapshot.endurance===0);
+}
+function validActionChallengeBase(ch,day,phases){
+  if(!plain(ch)||!phases.has(ch.phase)||typeof ch.caseId!=="string"||!ch.caseId||
     typeof ch.actionId!=="string"||!ch.actionId||!nonNegativeInt(ch.optionIndex)||!nonNegativeInt(ch.startedDay)||ch.startedDay<1||ch.startedDay>day||
     typeof ch.caseTitle!=="string"||typeof ch.actionTitle!=="string"||typeof ch.body!=="string"||typeof ch.feedback!=="string"||
     !Number.isInteger(ch.runSeed)||ch.runSeed<0||ch.runSeed>0xffffffff||!Number.isFinite(ch.hoursBefore)||ch.hoursBefore<=0||ch.hoursBefore>48||
     !Number.isFinite(ch.cost)||ch.cost<.5||ch.cost>12||
-    !Number.isFinite(ch.toil)||ch.toil<0||ch.toil>200||!Number.isFinite(ch.lateExtra)||ch.lateExtra<0||ch.lateExtra>200||
+    !Number.isSafeInteger(ch.toil)||ch.toil<0||ch.toil>200||!Number.isSafeInteger(ch.lateExtra)||ch.lateExtra<0||ch.lateExtra>200||
+    !validSkillSnapshot(ch.skillSnapshot)||
+    !["heads","tails"].includes(ch.coinFace)) return false;
+  return true;
+}
+function validLockChallenge(ch,day){
+  if(!validActionChallengeBase(ch,day,LOCK_ACTION_PHASES)||ch.type!=="lockpick"||
     !Number.isInteger(ch.target)||ch.target<LOCK_MIN||ch.target>LOCK_MAX||!Number.isInteger(ch.position)||ch.position<LOCK_MIN||ch.position>LOCK_MAX||
     !Number.isFinite(ch.tolerance)||ch.tolerance<1||ch.tolerance>30||!nonNegativeInt(ch.maxAttempts)||ch.maxAttempts<1||ch.maxAttempts>10||
-    !nonNegativeInt(ch.attemptsLeft)||ch.attemptsLeft>ch.maxAttempts||!nonNegativeInt(ch.turn)||ch.turn>ch.maxAttempts||
-    !["heads","tails"].includes(ch.coinFace)) return false;
+    !nonNegativeInt(ch.attemptsLeft)||ch.attemptsLeft>ch.maxAttempts||!nonNegativeInt(ch.turn)||ch.turn>ch.maxAttempts) return false;
   if(ch.phase==="lockpick"&&ch.attemptsLeft<1) return false;
   if((ch.phase==="coin_call"||ch.phase==="coin_result")&&ch.attemptsLeft!==0) return false;
   const spent=ch.maxAttempts-ch.attemptsLeft;
@@ -1935,6 +2219,54 @@ function validActionChallenge(ch,day){
   if((ch.phase==="coin_call"||ch.phase==="coin_result")&&(ch.turn!==ch.maxAttempts||inside)) return false;
   if(ch.phase==="coin_result") return ["heads","tails"].includes(ch.coinCall)&&typeof ch.escaped==="boolean"&&ch.escaped===(ch.coinCall===ch.coinFace);
   return ch.coinCall==null&&ch.escaped==null;
+}
+
+const POWER_RING_PHASES=new Set(["active","queued","locked","missed"]);
+const closeNumber=(a,b,tolerance=1e-6)=>Number.isFinite(a)&&Number.isFinite(b)&&Math.abs(a-b)<=tolerance;
+function validPowerChallenge(ch,day){
+  if(!validActionChallengeBase(ch,day,POWER_ACTION_PHASES)||ch.type!=="power_cut"||
+    !Number.isInteger(ch.sneaky)||ch.sneaky<0||ch.sneaky>100||!Array.isArray(ch.rings)||ch.rings.length!==POWER_RING_COUNT||
+    !Number.isInteger(ch.activeRing)||ch.activeRing<0||ch.activeRing>=POWER_RING_COUNT||
+    !nonNegativeInt(ch.maxMisses)||ch.maxMisses!==1||!nonNegativeInt(ch.missesLeft)||ch.missesLeft>ch.maxMisses||
+    !nonNegativeInt(ch.turn)||ch.turn>POWER_RING_COUNT||!Number.isFinite(ch.elapsedMs)||ch.elapsedMs<0||ch.elapsedMs>86400000) return false;
+
+  let totalElapsed=0;
+  for(let i=0;i<ch.rings.length;i++){
+    const ring=ch.rings[i];
+    if(!plain(ring)||ring.id!=="power_ring_"+(i+1)||!POWER_RING_PHASES.has(ring.phase)||
+      !Number.isFinite(ring.startAngle)||ring.startAngle<0||ring.startAngle>=360||
+      !Number.isFinite(ring.angle)||ring.angle<0||ring.angle>=360||
+      !Number.isFinite(ring.elapsedMs)||ring.elapsedMs<0||ring.elapsedMs>86400000||
+      !Number.isFinite(ring.speed)||ring.speed<=0||ring.speed>200||![1,-1].includes(ring.direction)||
+      !Number.isInteger(ring.target)||ring.target<0||ring.target>=360||
+      !Number.isInteger(ring.tolerance)||ring.tolerance<1||ring.tolerance>60||
+      powerAngleDistance(ring.angle,powerAngleAt(ring))>1e-5) return false;
+    totalElapsed+=ring.elapsedMs;
+    if(ring.phase==="queued"&&ring.elapsedMs!==0) return false;
+    if(ring.phase==="locked"&&powerAngleDistance(ring.angle,ring.target)>ring.tolerance) return false;
+    if(ring.phase==="missed"&&powerAngleDistance(ring.angle,ring.target)<=ring.tolerance) return false;
+  }
+  if(!closeNumber(ch.elapsedMs,totalElapsed,.01)) return false;
+
+  if(ch.phase==="power_cut"){
+    if(ch.turn!==ch.activeRing||ch.missesLeft!==ch.maxMisses) return false;
+    if(ch.rings.some((ring,index)=>ring.phase!==(index<ch.activeRing?"locked":index===ch.activeRing?"active":"queued"))) return false;
+  }else if(ch.phase==="power_success"){
+    if(ch.activeRing!==POWER_RING_COUNT-1||ch.turn!==POWER_RING_COUNT||ch.missesLeft!==ch.maxMisses||
+      ch.rings.some(ring=>ring.phase!=="locked")) return false;
+  }else{
+    if(ch.turn!==ch.activeRing+1||ch.missesLeft!==0||
+      ch.rings.some((ring,index)=>ring.phase!==(index<ch.activeRing?"locked":index===ch.activeRing?"missed":"queued"))) return false;
+  }
+  if(ch.phase==="coin_result") return ["heads","tails"].includes(ch.coinCall)&&typeof ch.escaped==="boolean"&&ch.escaped===(ch.coinCall===ch.coinFace);
+  return ch.coinCall==null&&ch.escaped==null;
+}
+function validActionChallenge(ch,day,progression){
+  const valid=ch&&ch.type==="lockpick"?validLockChallenge(ch,day):ch&&ch.type==="power_cut"?validPowerChallenge(ch,day):false;
+  if(!valid) return false;
+  if(ch.skillSnapshot.rulesVersion===1) return ch.skillSnapshot.sneaky===getSkillRank(progression,"sneaky")&&
+    ch.skillSnapshot.endurance===getSkillRank(progression,"endurance");
+  return true;
 }
 
 function migrateSaveData(raw){
@@ -1950,7 +2282,11 @@ function migrateSaveData(raw){
     d.schemaVersion=version;
   }
   if(!Object.prototype.hasOwnProperty.call(SCENARIOS,d.scenario)) throw new SaveDataError("invalid","The scenario in this slot is unknown.");
+  const progressionError=progressionValidationError(d.progression,d.scenario);
+  if(progressionError) throw new SaveDataError("invalid","The saved training record is damaged ("+progressionError+").");
   if(!Number.isInteger(d.day)||d.day<1) throw new SaveDataError("invalid","The saved day is invalid.");
+  const fraudError=fraudRiskValidationError(d.fraudRisk,d.scenario,d.day);
+  if(fraudError) throw new SaveDataError("invalid","The saved identity-pressure record is damaged ("+fraudError+").");
   if(!Number.isInteger(d.rank)||d.rank<0||d.rank>=RANKS.length) throw new SaveDataError("invalid","The saved rank is invalid.");
   if(!["standard","ironman","endless","daily"].includes(d.mode)) throw new SaveDataError("invalid","The saved mode is invalid.");
   if(!["easy","medium","hard","realistic"].includes(d.difficulty)) throw new SaveDataError("invalid","The saved difficulty is invalid.");
@@ -1985,7 +2321,7 @@ function migrateSaveData(raw){
   if(typeof d.exceptionalReviewHinted!=="boolean"||(d.rank<3&&d.exceptionalReviewHinted))
     throw new SaveDataError("invalid","The saved exceptional review hint is invalid.");
   if(typeof d.finalWarningUsed!=="boolean") throw new SaveDataError("invalid","The saved Final Warning state is invalid.");
-  if(d.actionChallenge!==null&&!validActionChallenge(d.actionChallenge,d.day))
+  if(d.actionChallenge!==null&&!validActionChallenge(d.actionChallenge,d.day,d.progression))
     throw new SaveDataError("invalid","The saved COVERT ACTION is damaged.");
   if(!validJudgeMemory(d.judgeMemory,d.day)) throw new SaveDataError("invalid","The saved court history is damaged.");
   if(!nonNegativeInt(d.caseSeq)||d.caseSeq>=Number.MAX_SAFE_INTEGER||d.caseSeq<highestCaseSequence(d))
@@ -2006,6 +2342,9 @@ function migrateSaveData(raw){
   if(d.inbox.some(c=>!plain(c)||typeof c.title!=="string"||(c.msg?typeof c.body!=="string":
     c.judge===true||!Number.isFinite(c.dueDay)||!validCase(c))))
     throw new SaveDataError("invalid","An inbox file is damaged.");
+  const liveInboxIds=d.inbox.filter(c=>!c.msg).map(c=>c.id);
+  if(liveInboxIds.some(id=>typeof id!=="string"||!id)||new Set(liveInboxIds).size!==liveInboxIds.length)
+    throw new SaveDataError("invalid","The saved inbox contains a duplicate filing.");
   const actionMarked=d.inbox.filter(c=>!c.msg&&c.actionInProgress!=null);
   if(d.actionChallenge){
     const c=d.inbox.find(item=>!item.msg&&item.id===d.actionChallenge.caseId);
@@ -2014,11 +2353,22 @@ function migrateSaveData(raw){
       throw new SaveDataError("invalid","The saved COVERT ACTION no longer matches its case file.");
     const ch=d.actionChallenge, expectedCost=Math.max(.5,Math.round(o.action.hours*4)/4);
     const lateExtra=Math.round(Math.max(0,expectedCost-ch.hoursBefore)*LATE_FATIGUE);
-    const expected=createLockpickChallenge({runSeed:d.seed,caseId:c.id,actionId:o.action.id,cost:expectedCost,
-      toil:Math.round(expectedCost*2)+(o.action.fatigue||0)+lateExtra,lateExtra});
+    const rawWorkToil=Math.round(expectedCost*2)+(o.action.fatigue||0);
+    const expectedToil=ch.skillSnapshot.rulesVersion===0?rawWorkToil+lateExtra:
+      workFatigue(rawWorkToil,snapshotProgression(ch.skillSnapshot),d.scenario)+lateExtra;
+    const expected=createActionChallenge(o.action,{runSeed:d.seed,caseId:c.id,actionId:o.action.id,cost:expectedCost,
+      toil:expectedToil,lateExtra},ch.skillSnapshot);
     if(ch.runSeed!==d.seed||ch.startedDay!==d.day||d.hours!==ch.hoursBefore||ch.cost!==expectedCost||ch.toil!==expected.toil||ch.lateExtra!==lateExtra||
-      ch.target!==expected.target||ch.tolerance!==expected.tolerance||ch.maxAttempts!==expected.maxAttempts||ch.coinFace!==expected.coinFace)
+      ch.type!==expected.type||ch.coinFace!==expected.coinFace)
       throw new SaveDataError("invalid","The saved COVERT ACTION outcome was altered.");
+    if(ch.type==="lockpick"&&(ch.target!==expected.target||ch.tolerance!==expected.tolerance||ch.maxAttempts!==expected.maxAttempts))
+      throw new SaveDataError("invalid","The saved lock position was altered.");
+    if(ch.type==="power_cut"&&(ch.sneaky!==expected.sneaky||ch.maxMisses!==expected.maxMisses||ch.rings.length!==expected.rings.length||
+      ch.rings.some((ring,index)=>{
+        const fixed=expected.rings[index];
+        return !fixed||ring.id!==fixed.id||ring.startAngle!==fixed.startAngle||ring.target!==fixed.target||
+          ring.tolerance!==fixed.tolerance||ring.speed!==fixed.speed||ring.direction!==fixed.direction;
+      }))) throw new SaveDataError("invalid","The saved circuit board was altered.");
     if(ch.caseTitle!==c.title||ch.actionTitle!==o.action.title||ch.body!==o.action.body)
       throw new SaveDataError("invalid","The saved COVERT ACTION briefing was altered.");
   } else if(actionMarked.length){
@@ -2027,6 +2377,9 @@ function migrateSaveData(raw){
   if(d.pool.some(c=>!validCase(c))) throw new SaveDataError("invalid","The case pool is damaged.");
   if(d.followups.some(f=>!plain(f)||!Number.isFinite(f.day)||!validCase(f.case)))
     throw new SaveDataError("invalid","A queued filing is damaged.");
+  const queuedIds=d.followups.map(f=>f.case.id), reservedIds=new Set(liveInboxIds);
+  if(new Set(queuedIds).size!==queuedIds.length||queuedIds.some(id=>reservedIds.has(id)))
+    throw new SaveDataError("invalid","The saved docket contains a duplicate queued filing.");
   if(!validBig(d.bigCase)) throw new SaveDataError("invalid","The Client War mandate is damaged.");
   if(d.inbox.some(c=>c.big&&(c.pending!=null||c.delegated!=null)))
     throw new SaveDataError("invalid","A Client War stage cannot be delayed or delegated.");
@@ -2050,6 +2403,21 @@ function migrateSaveData(raw){
     throw new SaveDataError("invalid","The case archive is damaged.");
   if(d.event!=null&&(!plain(d.event)||typeof d.event.title!=="string"||typeof d.event.body!=="string"||!Array.isArray(d.event.opts)||!d.event.opts.length||!d.event.opts.every(o=>validOption(o,0))))
     throw new SaveDataError("invalid","The pending event is damaged.");
+  const fraudEventError=fraudEventValidationError(d.event,d.fraudRisk,d.scenario);
+  if(fraudEventError) throw new SaveDataError("invalid","The pending identity-pressure event is damaged ("+fraudEventError+").");
+  const activeFraudEvent=!!(d.event&&d.event.fraudKind);
+  if(activeFraudEvent&&(d.fraudRisk.pendingKind!==null||d.fraudRisk.pendingDay!==0))
+    throw new SaveDataError("invalid","An identity confrontation cannot also be pending.");
+  if(d.fraudRisk&&d.fraudRisk.morningPhase!=="idle"&&(!activeFraudEvent||
+    !["slip","inquiry"].includes(d.event.fraudKind)))
+    throw new SaveDataError("invalid","The saved morning identity checkpoint is inconsistent.");
+  if(activeFraudEvent&&["slip","inquiry"].includes(d.event.fraudKind)&&d.fraudRisk.morningPhase==="idle")
+    throw new SaveDataError("invalid","The saved identity confrontation is missing its morning phase.");
+  if(d.fraudRisk&&d.fraudRisk.morningPhase==="resume"&&
+    (d.summary||d.pendingSummary||d.objective!==null||d.fraudRisk.dailyPeak!==0))
+    throw new SaveDataError("invalid","The saved morning identity checkpoint is inconsistent.");
+  if(!activeFraudEvent&&d.fraudRisk&&d.fraudRisk.pendingKind&&d.fraudRisk.pendingDay<=d.day&&!d.summary&&!d.pendingSummary)
+    throw new SaveDataError("invalid","An overdue identity confrontation is missing.");
   if(d.roster!=null&&(!Array.isArray(d.roster)||d.roster.some(e=>!plain(e)||typeof e.id!=="string"||typeof e.name!=="string"||typeof e.role!=="string"||
     !Number.isFinite(e.impact)||!Number.isFinite(e.won)||!Number.isFinite(e.lost))))
     throw new SaveDataError("invalid","The firm roster is damaged.");
@@ -2086,6 +2454,8 @@ function hydrateSaveData(d,slot){
   base.weekStart=merge(defaults.weekStart,d.weekStart);
   base.decor=merge({},d.decor);
   base.judgeMemory=merge({},d.judgeMemory);
+  base.progression={...d.progression,skills:{...d.progression.skills}};
+  base.fraudRisk=d.fraudRisk?{...d.fraudRisk}:null;
   if(d.nemesis===null) base.nemesis=null;
   else base.nemesis=merge(defaults.nemesis,d.nemesis);
   base.hours=Number.isFinite(d.hours)?d.hours:(settings.dayLen||DAY_HOURS);

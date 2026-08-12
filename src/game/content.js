@@ -87,7 +87,7 @@ export function buildPool(){
       {text:"Fire off a retaliation counterclaim.",base:72,style:"technical",delay:2,ok:{fx:{rep:5,inf:6,bold:3},txt:"Landlord folds instantly. Marv now tells you things. Useful things."},fail:{fx:{rep:-4},txt:"Paperwork bounced on a technicality. Marv is polite about it. Too polite."}},
       {text:"Call the landlord and improvise menacingly.",base:45,boldW:2,style:"aggressive",ok:{fx:{bold:5,inf:4},txt:"You cite three statutes that don't exist. It works. Marv applauds."},fail:{fx:{rep:-6},txt:"The landlord is also a lawyer. Of course he is."}}]});
   P.push({id:"breach",tier:1,title:"CASE: Aldergate data breach",deadline:3,
-    body:"Client Aldergate leaked 40,000 customer records and the customers noticed. Their cloud vendor, NimbusHost, blames 'shared responsibility'. But NimbusHost's own SLA — exhibit D — promises critical patches within 72 hours, and the breach log shows the hole sat open for nine days. Their lawyers write very confident letters.",
+    body:"Client Aldergate leaked 40,000 customer records and the customers noticed. Their cloud vendor, NimbusHost, blames 'shared responsibility'. But NimbusHost's own SLA — exhibit D — promises critical patches within 72 hours, and the breach log shows the hole sat open for nine days. A facilities photo shows their local audit printer behind a three-circuit service bypass: kill the circuits in sequence and the uneditable patch ledger prints before remote admin can purge it. Their lawyers write very confident letters.",
     opts:[
       {text:"Settle with the customers quietly.",base:100,safe:true,ok:{fx:{bold:-4,inf:2},txt:"Checks mailed, mouths closed. Aldergate grumbles about the invoice."}},
       {text:"Turn it on NimbusHost — the 72-hour SLA.",base:74,style:"technical",
@@ -109,7 +109,15 @@ export function buildPool(){
             opts:[
               {text:"Apologize. Fully. Painfully.",base:100,safe:true,ok:{fx:{bold:-6,inf:1},txt:"The judge accepts, with a lecture that ages you. Motion denied. Barely."}},
               {text:"Argue the statements were 'aspirational'.",base:55,style:"technical",ok:{fx:{rep:4,bold:3},txt:"'Aspirational.' The judge almost smiles. Motion denied; the word enters firm legend."},fail:{fx:{rep:-8,money:-800},txt:"Sanctioned. The fine has your name on it, not Aldergate's."}},
-              {text:"Accuse THEM of bad faith for filming it.",base:25,boldW:3,style:"aggressive",ok:{fx:{bold:9,rep:5,inf:6},txt:"Astonishingly, it lands — their 'PR monitoring' looks worse than your mouth. Case closed."},fail:{fx:{rep:-13,money:-1200},txt:"The judge sanctions you mid-sentence. Opposing counsel frames the transcript."}}]}}}}]});
+              {text:"Accuse THEM of bad faith for filming it.",base:25,boldW:3,style:"aggressive",ok:{fx:{bold:9,rep:5,inf:6},txt:"Astonishingly, it lands — their 'PR monitoring' looks worse than your mouth. Case closed."},fail:{fx:{rep:-13,money:-1200},txt:"The judge sanctions you mid-sentence. Opposing counsel frames the transcript."}}]}}}},
+      {text:"COVERT ACTION: cut NimbusHost's service power and recover the patch ledger.",style:"covert",
+        action:{id:"breach_service_power",type:"power_cut",title:"THE NIMBUSHOST SERVICE FLOOR",
+          body:"Three live bypass contacts feed the audit room. Drop each marker inside its amber isolation window. One bad cut arcs loudly enough to wake the security desk.",
+          hours:1.5,fatigue:5,edge:12,
+          edgeText:"PATCH LEDGER RECOVERED (+12% on this file's risky legal plays)",
+          success:{fx:{bold:4},txt:"The last contact lands. Emergency lights swallow the corridor while the audit printer coughs out nine days of ignored patch alerts. You still need a legal move — now you have their clock in ink."},
+          escape:{fx:{bold:-2},txt:"A contact arcs, but your coin call gets you through the stairwell before the guard turns the corner. The ledger stays inside and this route is burned."},
+          caught:{fx:{rep:-19,firm:-6,bold:-4},txt:"The service panel flashes your mistake to Security. NimbusHost finds you under the emergency lights with insulated cutters in hand. Aldergate's defense becomes Exhibit A in a criminal conversation."}}}]});
   P.push({id:"poach",tier:1,title:"MEMO: Snidely Fitch is poaching you",deadline:2,
     body:"A Snidely Fitch recruiter 'bumps into you' at lunch. Offer: +40% salary, real cases, an office with a door. All you'd have to do is bring one — just one — client file with you.",
     opts:[
@@ -162,12 +170,6 @@ export function crises(){
       {text:"Let it burn out. Old news ages fast.",base:100,safe:true,ok:{fx:{rep:-4,bold:-2},txt:"It fades. Mostly. 'Mostly' has a long tail in this building."}},
       {text:"Pin the original firing on bad process — with receipts.",base:60,style:"technical",ok:{fx:{rep:9,inf:6},txt:"Your receipts beat their gossip. The narrative flips: you were RIGHT, and Hardwick knew it."},fail:{fx:{rep:-8},txt:"Read aloud at podium distance, your receipts sound like excuses."}},
       {text:"Own it. Stand on a chair. Tell the WHOLE story.",base:40,boldW:3,style:"aggressive",ok:{fx:{bold:9,inf:8,rep:4},txt:"The floor expected shame; they got a keynote. Legend status: pending."},fail:{fx:{rep:-11},txt:"Halfway up the chair you remember the whole story isn't flattering."}}]});
-  C.push({id:"audit",title:"CRISIS: Bar credentials audit",cond:()=>S.scenario==="fraud"&&S.day>=3,
-    body:"The firm is running a routine bar-credentials audit. Yours would come back... creative. The auditor, coincidentally, is drowning in her own caseload and mentions she'd kill for help on a filing.",
-    opts:[
-      {text:"Help with her filing. All night. Every night.",base:80,ok:{fx:{inf:4,bold:2},txt:"Your file mysteriously moves to the bottom of the pile. Forever, hopefully."},fail:{fx:{rep:-8},txt:"She helps you back — by escalating your file 'as a courtesy'. Sweat."}},
-      {text:"Pay a 'database consultant'. ($1500)",base:65,ok:{fx:{money:-1500},txt:"Your record now exists. It even has a GPA. A modest one, for realism."},fail:{fx:{money:-1500,rep:-12},txt:"The consultant vanishes with the money and leaves a typo in your fake bar number."}},
-      {text:"Do nothing. You've survived worse.",base:35,boldW:3,ok:{fx:{bold:6},txt:"The audit skips associates below Senior. Breathe."},fail:{expose:true,fx:{},txt:"'Quick question about your law school,' says the email. Then HR. Then a man with a clipboard and your fake transcript."}}]});
   C.push({id:"poisonfile",title:"CRISIS: The poison file",cond:()=>S.scenario==="defector"&&S.day>=2,
     body:"A memo surfaces suggesting you left Snidely Fitch with a briefcase full of client files. The memo is doctored — you left with a plant and a grudge — but it carries your (forged) initials, and Hardwick's undivided attention.",
     opts:[
@@ -208,7 +210,7 @@ export function buildWeekend(){
 }
 
 export const SCENARIOS={
-  fraud:{label:"THE FRAUD — you never went to law school",desc:"Photographic memory, zero diploma. Special exposure crises. Get caught: game over."},
+  fraud:{label:"THE FRAUD — you never went to law school",desc:"Photographic memory, zero diploma. At 80+ fatigue, rare slips can start a three-stage identity inquiry. A slip never exposes you by itself; failed cover-ups can."},
   debtor:{label:"THE DEBTOR — $180k student loans",desc:"Pay $2,000 every 3 days. Miss a payment: game over. Chase the money options."},
   legacy:{label:"THE LEGACY — your parent's name is on the wall",desc:"Influence gains +25%, reputation losses +25%. Everyone assumes nepotism."},
   defector:{label:"THE DEFECTOR — you jumped ship from Snidely Fitch",desc:"You know their playbook (+8% vs Fitch). They know where you live. Sabotage crises."},

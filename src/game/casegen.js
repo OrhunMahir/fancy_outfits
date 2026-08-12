@@ -118,6 +118,32 @@ const TEMPLATES=[
       {text:"Write a polite letter citing section 12.",base:100,safe:true,ok:{fx:{inf:2,rep:2},txt:`The fines vanish. ${who} sends a fruit basket. It's a nice basket.`}},
       {text:"Demand every past fine refunded, with interest.",base:66,style:"technical",ok:{fx:{rep:5,inf:5},txt:"Section 12 was a landmine. The board president resigns by email."},fail:{fx:{rep:-4},txt:"The board lawyers up with someone who HAS read section 12. Standoff."}},
       {text:"Threaten to depose the entire board.",base:38,boldW:2,style:"aggressive",ok:{fx:{bold:6,inf:4},txt:"Nobody on a volunteer board wants a deposition. Total surrender."},fail:{fx:{rep:-6},txt:"Turns out the treasurer is also a litigator. Of course she is."}}]};},
+  // 12 — repeatable late-career COVERT work keeps earned SNEAKY ranks useful
+  ()=>{const a=rnd(CO),host=rnd(CO.filter(x=>x!==a)),type=rand()<.5?"lockpick":"power_cut";
+  const action=type==="lockpick"?{
+    id:"generated_archive_lock",type,title:"THE OFFSITE EVIDENCE CAGE",
+    body:"The night clerk leaves the evidence cage for one cigarette. The backup manifest sits behind a tired brass lock. One paperclip, three quiet attempts, no heroic speeches.",
+    hours:1.5,fatigue:4,edge:12,
+    edgeText:"BACKUP MANIFEST RECOVERED (+12% on this file's risky legal plays)",
+    success:{fx:{bold:3},txt:"The lock yields. You photograph a manifest proving the backup survived. The filing still needs a legal answer — now it has teeth."},
+    escape:{fx:{bold:-2},txt:"The pick folds, but your coin call gets you past the returning clerk. The manifest stays caged and this route is gone."},
+    caught:{fx:{rep:-18,firm:-6,bold:-5},txt:"The clerk returns early. By sunrise, your badge photo and paperclip have exhibit stickers."}
+  }:{
+    id:"generated_backup_power",type,title:"THE BACKUP SWITCHROOM",
+    body:"Three live bypass contacts feed the cold-storage rack. Land every marker inside its amber window before the transfer alarm reaches the security desk.",
+    hours:1.5,fatigue:5,edge:12,
+    edgeText:"BACKUP MANIFEST RECOVERED (+12% on this file's risky legal plays)",
+    success:{fx:{bold:4},txt:"The rack goes dark without a sound. Its service printer gives you a manifest proving the backup survived. The filing still needs a legal answer."},
+    escape:{fx:{bold:-2},txt:"A contact spits blue light, but your coin call buys the stairwell. The manifest stays inside and this route is burned."},
+    caught:{fx:{rep:-19,firm:-6,bold:-4},txt:"The transfer alarm names the rack, the door and, moments later, you. Security bags your cutters before you can invent a lawful explanation."}
+  };
+  return {tier:1,title:`CASE: ${a} backup preservation`,deadline:rnd([2,3]),
+    body:`${a} says a failed storage migration erased the only backup relevant to discovery. ${host}, the offsite vendor, says the same thing. But exhibit G is a service invoice generated the next morning — one checksum, one sealed archive slot, and a storage fee both sides somehow forgot to redact. The backup existed after the alleged failure.`,
+    opts:[
+      {text:"Negotiate around the missing backup.",base:100,safe:true,ok:{fx:{bold:-3,inf:2,money:250},txt:"A narrow stipulation, a quiet invoice and no questions about the sealed archive slot."}},
+      {text:"Use exhibit G — the next-day checksum proves survival.",base:72,style:"technical",ok:{fx:{rep:8,inf:7,money:1100},txt:"A checksum cannot forget on command. The court orders the backup produced."},fail:{fx:{rep:-6},txt:"They call the invoice an automated placeholder. Without the manifest, the judge wants more."}},
+      {text:"Bluff: claim the vendor already gave you the manifest.",base:35,boldW:3,style:"aggressive",ok:{fx:{bold:7,inf:7,money:850},txt:"Both sides race to produce a document you never had. Now you do."},fail:{fx:{rep:-11,bold:-2},txt:"They ask for the manifest number. Your imaginary source goes very quiet."}},
+      {text:"COVERT ACTION: recover the offsite backup manifest.",style:"covert",action}]};},
 ];
 
 export function genCase(){

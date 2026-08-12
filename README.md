@@ -30,6 +30,73 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.19.1 — The question comes first *(2026-08-12)*
+- **First playable morning checkpoint:** a queued Fraud confrontation now opens before REP/INFL
+  decay, rival progress, delayed results and roster drift. The guaranteed cover decision can never
+  be skipped by a passive morning loss; resolving it resumes the remaining morning exactly once.
+- **Crash-safe continuation:** save schema v14 persists and strictly validates that pre-morning
+  continuation. Reloading the active confrontation cannot replay or skip the morning pipeline, and
+  schema-v13 identity records migrate without changing their suspicion or pending scene.
+
+### v19.19 — The secret gets tired *(2026-08-12)*
+- **Fraud identity pressure:** THE FRAUD now records the highest work-fatigue reached each day. At
+  80–89 / 90–94 / 95–99 / 100 FATIGUE, one end-of-day slip check uses 0.5% / 1.5% / 3% / 5%.
+  Coffee cannot erase an already reached peak, only one roll can occur per day, and a terminal day
+  never records a confrontation the player could not answer.
+- **No random instant loss:** a hit schedules a visible cover-story decision for the next morning.
+  Failed technical or aggressive answers raise SUSPICION through an alumni question, conflicting bar
+  records and a malpractice-insurer proof request. Only a deliberately chosen risky failure at the
+  final inquiry can expose the secret; every stage keeps a 100% nonlethal survival route with a real
+  BOLD/INFL cost.
+- **Strict, resumable chain:** pending event kind/day, suspicion, daily peak and counters persist in
+  save schema v14. Active scenes are rebuilt/validated against canonical content, cannot be edited
+  into ordinary XP-paying crises, survive reload without a reroll, take priority over weekend/crisis
+  content and open before ordinary morning passives; the remaining morning resumes after the answer.
+  Schema-v12 careers start
+  from a clean identity-pressure baseline; an already-open legacy credentials audit is grandfathered.
+- **Visible and measurable:** THE SECRET panel shows suspicion, today's peak/band, spent check and due
+  follow-up. The info panel documents the exact bands. Regression coverage includes boundaries,
+  reload idempotence, migration/tamper rejection, safe routes at terminal stat floors, exact EXPOSED
+  cause and promotion-summary interruption; deterministic soak output now reports Fraud checks,
+  hits, stages and exposure.
+
+### v19.18 — Earn the edge *(2026-08-12)*
+- **Independent career progression:** resolved work now earns deterministic XP across eight levels.
+  Every level gained grants one spendable point; scenario-native ranks are separate and never consume
+  those points. XP has no RNG calls, cannot go negative and is capped at 780.
+- **Two real skills:** SNEAKY widens lockpick tolerance, adds attempts at ranks 2/5, slows Power Cut
+  rings by 7% per rank and widens their windows. ENDURANCE cuts positive work fatigue by 6% per rank
+  after the scenario's own fatigue profile; rest, coffee, overtime and narrative penalties are not
+  discounted. A twelfth procedural filing can surface either COVERT board in later careers, so
+  SNEAKY points earned after the two hand-written actions still have work to do.
+- **No XP leaks or farms:** immediate cases award at resolution; delayed filings only at REPLY;
+  delegated results award a smaller amount only on final handback; COVERT and genuine crisis results
+  award once. Starts, clicks, hidden rolls, favors, deadlines, chores and shopping award nothing.
+- **Training UI and strict resume:** the sidebar exposes LEVEL/XP, available points, innate ranks and
+  exact current/next effects with accessible controls. Save schema v12 strictly validates XP, level,
+  point conservation and skill ranks. New COVERT challenges snapshot their skills; active v9/v10
+  lockpick/Power Cut saves migrate under legacy rules without changing the board, fatigue or timing
+  checkpoint. Schema-11 late-work checkpoints also migrate without losing the active puzzle.
+- **Measured pace:** the final 720-career soak ended with 342/342 deterministic replays and zero
+  integrity failures. Standard technical/mixed winners reached median level 5; 30-day Endless
+  careers reached median level 7, leaving level 8 as the long-career target.
+
+### v19.17 — Cut the current *(2026-08-12)*
+- **Second playable COVERT ACTION:** Aldergate's NimbusHost file exposes a three-circuit service
+  bypass. Stop each rotating marker inside its visible amber window; all three contacts must align
+  before the local patch ledger prints. The recovered ledger adds +12% to that file's later risky
+  legal plays instead of resolving the lawsuit for free.
+- **Failure stays legible:** one missed circuit visibly arcs and moves to the same explicit coin-call
+  escape rule as the lockpick. Escape preserves the lawsuit but burns the route; capture archives
+  the file and applies the full REP/FIRM/BOLD fallout. Every branch commits 1.5 hours and 8 FATIGUE.
+- **Deterministic timing without DAILY drift:** board targets, starting angles, speeds, directions and
+  the escape coin derive from run/case/action identity. Animation never consumes gameplay RNG, and
+  frame deltas are capped so a hidden/background tab cannot jump a marker across the board.
+- **Strict resume contract:** introduced in save schema v10; current schema v14 still persists each locked/missed circuit, elapsed timing and
+  active marker. Static board values are re-derived on load; inconsistent angles/elapsed time, phase,
+  circuit order, target, speed or action identity are rejected. Desktop and compact layouts use the
+  same keyboard/touch control and blocking focus-safe modal.
+
 ### v19.16 — Interactive covert action vertical slice *(2026-08-11)*
 - **The first playable minigame:** Redvale's document-hold file now offers a purple COVERT ACTION.
   The player gets three paperclip tests against a hidden lock position; breaking the pick opens a

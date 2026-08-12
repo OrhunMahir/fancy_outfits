@@ -7,6 +7,7 @@ export default function CoinFlipMinigame({challenge}){
   const firstChoiceRef=useRef(null);
   const continueRef=useRef(null);
   const isResult=challenge.phase==="coin_result";
+  const power=challenge.type==="power_cut";
   const face=faceLabel(challenge.coinFace);
   const call=faceLabel(challenge.coinCall);
 
@@ -18,9 +19,11 @@ export default function CoinFlipMinigame({challenge}){
   if(!isResult){
     return (
       <div className="action-game coin-game coin-call">
-        <div className="coin-warning">FOOTSTEPS IN THE HALL</div>
+        <div className="coin-warning">{power?"THE SECURITY PANEL FLASHES":"FOOTSTEPS IN THE HALL"}</div>
         <p className="coin-instructions">
-          The lock made too much noise. Call the coin before it lands—one side gets you out.
+          {power
+            ? "The contacts arced and the night guard heard it. Call the coin before it lands—one side gets you out."
+            : "The lock made too much noise. Call the coin before it lands—one side gets you out."}
         </p>
         <div className="coin-stage" aria-hidden="true">
           <div className="coin-token coin-token-ready"><span>?</span></div>

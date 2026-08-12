@@ -5,6 +5,8 @@ import { DAY_HOURS, PRICES, FIRM_START } from "./constants.js";
 import { settings } from "./settings.js";
 import { rnd, rand } from "./utils.js";
 import { buildClientPool } from "./clients.js";
+import { createProgression } from "./progression.js";
+import { createFraudRisk } from "./fraud.js";
 
 const NEMESES=["Miles Sorren","Tripp Vanderbilt III","Ashley Kang","Bradford Lowe"];
 
@@ -35,6 +37,8 @@ export function newState(scenario,difficulty){
     // Senior Partner overflow can earn one early Name Partner review; all fields are save-stable
     finalWarningUsed:false, // earned aggression safety valve; once per run and persisted
     actionChallenge:null, // persisted COVERT ACTION minigame; reload cannot reroll or erase a failed attempt
+    progression:createProgression(scenario), // independent XP/level + SNEAKY/ENDURANCE training
+    fraudRisk:createFraudRisk(scenario), // Fraud-only, persisted identity suspicion + once-daily slip checkpoint
     judgeMemory:{}, // lifetime court totals + bounded recent events, keyed by stable judge id
     caseSeq:0, // persisted procedural filing id cursor (replay/save-visible odds must not drift)
     buyinPaid:false, buyinHinted:false, // rank 2->3 needs the partnership buy-in

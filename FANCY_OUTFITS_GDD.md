@@ -70,20 +70,68 @@ Each courtroom case draws a judge with stats:
 Judge stats, prior appearance, deterministic style-aware quote, career record, active-recall rule and exact live modifier are visible before the choice. Delayed outcomes enter memory only when their REPLY is revealed, so hidden results never leak through later odds; their archive context is frozen when the filing is sent, not recomputed on reply day. Court history resets with a new run and persists through save/load.
 
 ### 7.1 Interactive Covert Actions
-The first vertical slice lives in the Redvale document-hold file. A three-attempt paperclip lock
-challenge uses qualitative feedback without exposing the hidden target. Opening it grants +12% to
-that file's later risky legal options; a broken pick moves to an explicit heads-or-tails escape call.
-Escape preserves the case but consumes the route, while capture poisons and archives the case.
+Two playable vertical slices now share one engine contract:
 
-Challenge target and coin face derive from `runSeed | caseId | actionId`, never the shared gameplay
-RNG. The complete phase, attempt count and identity persist in save schema v9 so reload cannot reroll
-or refund an attempt. Only one action may be active and its case carries a matching persisted marker.
-Future minigames must keep this same engine contract: deterministic identity, one-shot completion,
-blocking modal, no hidden result in UI, honest time/fatigue cost and strict save cross-validation.
+- **Redvale archive lock:** a three-attempt paperclip challenge gives qualitative feedback without
+  exposing the hidden target. Opening it grants +12% to that file's later risky legal options.
+- **NimbusHost service bypass:** three visible timing rings rotate at different deterministic speeds.
+  The player stops each marker inside its amber isolation window; one miss alerts security. Aligning
+  all three prints the patch ledger and grants +12% to the Aldergate file's later risky legal options.
+- **Procedural backup preservation:** the twelfth generator template can offer either board type on
+  later filings. This makes earned SNEAKY ranks reusable after the two hand-written actions without
+  turning COVERT work into an always-available farm.
+
+Neither action wins its lawsuit automatically. A broken pick or missed circuit moves to an explicit
+heads-or-tails escape call. Escape preserves the case but consumes the route; capture poisons and
+archives the case.
+
+Targets, board geometry and coin face derive from `runSeed | caseId | actionId`, never the shared
+gameplay RNG. Save schema v14 persists the exact challenge type, phase, attempts/circuit state,
+timing checkpoint, identity and versioned SNEAKY/ENDURANCE snapshot. Static puzzle values are re-derived on load, while phase/state
+invariants and the matching case marker are cross-validated. Only one action may be active. Future
+minigames must keep this same contract: deterministic identity, one-shot completion, blocking modal,
+no hidden result in UI, honest time/fatigue cost and strict save cross-validation.
+
+### 7.2 Character Progression
+
+Character LEVEL is independent from firm rank. XP thresholds are `0 / 50 / 120 / 210 / 320 / 450 /
+600 / 780`; each gained level grants one point for the current career. SNEAKY improves both COVERT
+board types (lock tolerance/attempts and Power Cut speed/window), while ENDURANCE reduces positive
+work-generated fatigue after the scenario modifier. Scenario-native ranks do not consume points.
+
+XP is written only at visible terminal/reveal points: instant case resolution, delayed REPLY,
+delegated final handback, completed COVERT action and genuine crisis resolution. Hidden delayed
+results, action starts/attempts, silent delegation returns, deadlines, favors, chores and purchases
+award none. Progression consumes no shared RNG. New COVERT actions snapshot skills at start; skill
+allocation is blocked while one is active. Schema v12 migrates older active puzzles with legacy rules
+so their committed cost and exact board state do not change mid-action; the short-lived schema-11
+late-work fatigue rule is upgraded without dropping its active checkpoint.
+
+### 7.3 The Fraud — Identity Pressure
+
+The Fraud's missing diploma becomes a stateful risk instead of a disconnected random death. Every
+positive work interaction records the day's highest post-ENDURANCE FATIGUE. If that peak reaches 80,
+one roll occurs only after all ordinary end-of-day terminal checks have cleared: 80–89 = 0.5%, 90–94
+= 1.5%, 95–99 = 3%, 100 = 5%. Coffee can lower current fatigue but cannot launder the recorded peak.
+A reload cannot reroll the checkpoint, and non-Fraud / sub-80 careers consume no extra gameplay RNG.
+
+A hit schedules, but does not resolve, a fatigue-slip scene for the next playable morning. The random
+hit never changes stats or ends the run. The player chooses a guaranteed nonlethal cover story or a
+riskier technical/aggressive answer. Failed covers raise visible SUSPICION and schedule three identity
+pressure stages: an alumni/faculty question, conflicting bar numbers, and a malpractice insurer asking
+for primary-source proof of degree. Only a chosen risky failure at the final stage produces EXPOSED;
+every stage retains a 100% BOLD/INFL-cost survival route.
+
+`fraudRisk` persists suspicion, daily peak, the last checked day, slip/containment counters and the
+exact pending `slip|inquiry` kind/day. Schema v14 strictly validates the state, canonical active
+event and the exact-once pre-morning continuation. A due confrontation opens before ordinary morning
+decay, rival/reply/roster effects; after the choice those effects resume once, even across reload.
+Canonical scene rebuilding rejects marker/option tampering. Identity scenes grant no XP, so repeated
+rare slips cannot become a progression farm.
 
 ## 8. Starting Scenarios (roguelike seeds)
 Each run starts with a different hook:
-- **The Fraud** — you never went to law school. Certain events can expose you; some options are "too risky for someone with your secret."
+- **The Fraud** — you never went to law school. Work-fatigue peaks of 80+ can cause a rare next-morning slip; failed cover stories escalate a visible three-stage identity inquiry. The random slip itself never exposes you.
 - **The Debtor** — $180k student debt, payment due every N days. Miss one → game over. Pushes you toward money options.
 - **The Legacy** — a name partner is your estranged parent. Influence is easier, Reputation is harsher (everyone assumes nepotism).
 

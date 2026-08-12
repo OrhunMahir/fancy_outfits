@@ -45,6 +45,8 @@ const utils = await import("../src/game/utils.js");
 const constants = await import("../src/game/constants.js");
 const npcs = await import("../src/game/npcs.js");
 const content = await import("../src/game/content.js");
+const progression = await import("../src/game/progression.js");
+const fraud = await import("../src/game/fraud.js");
 const { settings } = await import("../src/game/settings.js");
 
 const SCENARIOS = ["fraud", "debtor", "legacy", "defector", "boomerang"];
@@ -169,6 +171,7 @@ function provenance() {
   const files = [
     "scripts/soak-balance.mjs", "src/game/constants.js", "src/game/state.js", "src/game/engine.js",
     "src/game/content.js", "src/game/casegen.js", "src/game/npcs.js", "src/game/clients.js", "src/game/utils.js",
+    "src/game/minigames.js", "src/game/progression.js", "src/game/fraud.js",
   ];
   const fileHashes = Object.fromEntries(files.map(file => [file, sha(readFileSync(file))]));
   let commit = "unknown", status = "unknown", diff = "unknown";
@@ -372,7 +375,7 @@ function canonicalSnapshot(rngCalls) {
   });
   return {
     rngCalls, day: S.day, rank: S.rank, rep: S.rep, bold: S.bold, inf: S.inf, firm: S.firm,
-    money: S.money, hours: S.hours, fatigue: S.fatigue, ot: [S.otToday, S.otHours],
+    money: S.money, hours: S.hours, fatigue: S.fatigue, progression:S.progression, fraudRisk:S.fraudRisk, ot: [S.otToday, S.otHours],
     over: S.over, endlessWon: S.endlessWon, runRecorded: S.runRecorded, caseSeq: S.caseSeq,
     event: S.event ? { id: S.event.id, opts: S.event.opts.map(option => option.text) } : null,
     pendingChoice: S.pendingChoice ? { case: S.pendingChoice.c?.id || S.pendingChoice.c?.title,
@@ -410,6 +413,10 @@ function assertInvariants(run, label) {
     if (!Number.isFinite(S[key]) || S[key] < min || S[key] > max) fail("invalid " + key + "=" + S[key]);
   if (!Number.isFinite(S.money) || !Number.isFinite(S.hours) || S.hours < 0 || S.hours > 48) fail("invalid economy/clock");
   if (!Number.isSafeInteger(S.caseSeq) || S.caseSeq < 0) fail("invalid case sequence");
+  const progressionError=progression.progressionValidationError(S.progression,S.scenario);
+  if(progressionError) fail("invalid progression: "+progressionError);
+  const fraudError=fraud.fraudRiskValidationError(S.fraudRisk,S.scenario,S.day);
+  if(fraudError) fail("invalid identity pressure: "+fraudError);
   if (!Number.isSafeInteger(S.reviewMomentum) || S.reviewMomentum < 0 || S.reviewMomentum > 100) fail("invalid review momentum");
   if (!Number.isSafeInteger(S.seniorPartnerDay) || S.seniorPartnerDay < 0 || S.seniorPartnerDay > S.day) fail("invalid Senior Partner day");
   if (!Number.isSafeInteger(S.exceptionalReviewDay) || S.exceptionalReviewDay < 0 || S.exceptionalReviewDay > S.day) fail("invalid exceptional review day");
@@ -482,6 +489,9 @@ function newMetrics(tuple) {
     firmFlowBy,npStartFirm:null,minPostNpFirm:null,firmCapDays:0,
     rosterTicks:0,rosterWins:0,rosterLosses:0,rosterRawDrift:0,rosterCappedDrift:0,
     rosterEmployeeDays:0,rosterImpactDays:0,firings:0,firedImpact:0,lawsuits:0,
+    finalXp:0,finalLevel:1,finalSkillPoints:0,
+    fraud:{checks:0,hits:0,byBand:{80:{checks:0,hits:0},90:{checks:0,hits:0},95:{checks:0,hits:0},100:{checks:0,hits:0}},
+      stages:{},exposed:0},
     integrity: [], flags: [], traceDigest: null,
   };
 }
@@ -728,6 +738,16 @@ function driveRun(tuple, horizon, { captureTrace = false } = {}) {
     } else if(kind==="inf_overflow") metrics.overflowInf+=amount;
     else if(kind==="exceptional_review") metrics.exceptionalReviewDay=event.day;
     else if(kind==="final_warning") metrics.finalWarnings++;
+    else if(kind==="fraud_slip_check"){
+      const band=event.peak>=100?100:event.peak>=95?95:event.peak>=90?90:80;
+      metrics.fraud.checks++; metrics.fraud.byBand[band].checks++;
+      if(event.hit){ metrics.fraud.hits++; metrics.fraud.byBand[band].hits++; }
+    } else if(kind==="fraud_stage"){
+      const key=event.eventKind+(event.stage??"");
+      const stage=metrics.fraud.stages[key]||(metrics.fraud.stages[key]={seen:0,won:0,scheduled:0,contained:0,exposed:0});
+      stage.seen++; if(event.win) stage.won++; if(event.scheduled) stage.scheduled++;
+      if(event.contained) stage.contained++; if(event.exposed){ stage.exposed++; metrics.fraud.exposed++; }
+    }
     else if(kind==="firm"&&event.postNamePartner){
       const key=Object.prototype.hasOwnProperty.call(metrics.firmFlowBy,source)?source:"other", flow=metrics.firmFlowBy[key];
       flow.up+=Math.max(0,amount); flow.down+=Math.max(0,-amount); flow.net+=amount;
@@ -802,6 +822,7 @@ function driveRun(tuple, horizon, { captureTrace = false } = {}) {
     metrics.outcome = S.over ? (S.summary?.title || "TERMINAL").replace(/^GAME OVER: /, "") : "HORIZON";
     metrics.finalDay = S.day; metrics.finalRank = S.rank; metrics.finalRep = S.rep; metrics.finalBold = S.bold;
     metrics.finalInf = S.inf; metrics.finalFirm = S.firm; metrics.finalFatigue = S.fatigue; metrics.finalMoney = S.money;
+    metrics.finalXp=S.progression.xp; metrics.finalLevel=S.progression.level; metrics.finalSkillPoints=S.progression.skillPoints;
     metrics.finalNemesisInf=S.nemesis?.inf??null; metrics.finalNemesisRank=S.nemesis?.rank??null;
     metrics.finalNpcRel=round(mean(S.npcs.map(n=>n.rel)));
     metrics.finalWarningUsed=!!S.finalWarningUsed;
@@ -868,6 +889,24 @@ function summarizeAggressiveOffers(runs){
     p40:pct(runs.reduce((sum,run)=>sum+run.aggressiveOffers.p40,0)/Math.max(1,count))};
 }
 
+function summarizeFraud(runs){
+  const checks=runs.reduce((sum,run)=>sum+run.fraud.checks,0);
+  const hits=runs.reduce((sum,run)=>sum+run.fraud.hits,0);
+  const byBand=Object.fromEntries([80,90,95,100].map(band=>{
+    const bandChecks=runs.reduce((sum,run)=>sum+run.fraud.byBand[band].checks,0);
+    const bandHits=runs.reduce((sum,run)=>sum+run.fraud.byBand[band].hits,0);
+    return [band,{checks:bandChecks,hits:bandHits,hitRate:pct(bandHits/Math.max(1,bandChecks))}];
+  }));
+  const stageKeys=new Set(runs.flatMap(run=>Object.keys(run.fraud.stages)));
+  const stages=Object.fromEntries([...stageKeys].sort().map(key=>[key,runs.reduce((total,run)=>{
+    const stage=run.fraud.stages[key];
+    if(stage) for(const field of ["seen","won","scheduled","contained","exposed"]) total[field]+=stage[field];
+    return total;
+  },{seen:0,won:0,scheduled:0,contained:0,exposed:0})]));
+  return {checks,hits,hitRate:pct(hits/Math.max(1,checks)),byBand,stages,
+    exposed:runs.reduce((sum,run)=>sum+run.fraud.exposed,0)};
+}
+
 function summarizeFirmEndgame(runs){
   const np=runs.filter(run=>run.npDay!=null);
   const collapses=np.filter(run=>run.outcome==="FIRM COLLAPSE");
@@ -932,6 +971,8 @@ function summarizeCell(runs) {
     meanRivalTruces:round(mean(runs.map(run=>run.rivalActions.truce))),
     sentHomeRate: pct(runs.filter(run => run.sentHome > 0).length / runs.length),
     meanFinalRank: round(mean(runs.map(run => run.finalRank))), meanFinalFirm: round(mean(runs.map(run => run.finalFirm))),
+    meanFinalXp:round(mean(runs.map(run=>run.finalXp))),medianFinalLevel:round(quantile(runs.map(run=>run.finalLevel),.5),1),
+    medianWinnerLevel:round(quantile(wins.map(run=>run.finalLevel),.5),1),maxWinnerLevel:wins.length?Math.max(...wins.map(run=>run.finalLevel)):null,
     meanMinFirm: round(mean(runs.map(run => run.minFirm))), meanMinRep: round(mean(runs.map(run => run.minRep))),
     maxBacklog: Math.max(...runs.map(run => run.maxBacklog)), p95Backlog: round(quantile(runs.map(run => run.maxBacklog), .95), 1),
     meanFinalBacklog: round(mean(runs.map(run => run.finalBacklog))),
@@ -950,7 +991,7 @@ function summarizeCell(runs) {
     finalWarningRate:pct(runs.filter(run=>run.finalWarningUsed).length/runs.length),
     medianExceptionalReviewDay:round(quantile(runs.map(run=>run.exceptionalReviewDay).filter(day=>day!=null),.5),1),
     meanOverflowInf:round(mean(runs.map(run=>run.overflowInf))),
-    judgeCaps: summarizeJudgeCaps(runs), aggressiveOffers:summarizeAggressiveOffers(runs),firmEndgame:summarizeFirmEndgame(runs),promotionMedian,promotionReadyMedian,
+    judgeCaps: summarizeJudgeCaps(runs), aggressiveOffers:summarizeAggressiveOffers(runs),fraud:summarizeFraud(runs),firmEndgame:summarizeFirmEndgame(runs),promotionMedian,promotionReadyMedian,
     styleShares, styleWinRates, meanInfGainBy,
     calibrationGap: rolls ? round((actual - expected) / rolls * 100, 2) : null,
     integrityFailures: runs.filter(run => run.integrity.length).length, outcomes: terminals,
@@ -983,12 +1024,14 @@ function summarizeCohort(runs){
     meanRivalTruces:round(mean(runs.map(run=>run.rivalActions.truce))),
     sentHomeRate:pct(runs.filter(run=>run.sentHome>0).length/runs.length),
     meanFinalFirm:round(mean(runs.map(run=>run.finalFirm))),maxBacklog:Math.max(...runs.map(run=>run.maxBacklog)),
+    meanFinalXp:round(mean(runs.map(run=>run.finalXp))),medianFinalLevel:round(quantile(runs.map(run=>run.finalLevel),.5),1),
+    medianWinnerLevel:round(quantile(wins.map(run=>run.finalLevel),.5),1),maxWinnerLevel:wins.length?Math.max(...wins.map(run=>run.finalLevel)):null,
     meanGrossInf:round(mean(runs.map(run=>Object.values(run.infGainBy).reduce((a,b)=>a+b,0)))),
     exceptionalReviewRate:pct(runs.filter(run=>run.exceptionalReviewDay!=null).length/runs.length),
     finalWarningRate:pct(runs.filter(run=>run.finalWarningUsed).length/runs.length),
     medianExceptionalReviewDay:round(quantile(runs.map(run=>run.exceptionalReviewDay).filter(day=>day!=null),.5),1),
     meanOverflowInf:round(mean(runs.map(run=>run.overflowInf))),
-    aggressiveOffers:summarizeAggressiveOffers(runs),firmEndgame:summarizeFirmEndgame(runs),promotionReadyMedian,meanInfGainBy,styleShares,outcomes,
+    aggressiveOffers:summarizeAggressiveOffers(runs),fraud:summarizeFraud(runs),firmEndgame:summarizeFirmEndgame(runs),promotionReadyMedian,meanInfGainBy,styleShares,outcomes,
     integrityFailures:runs.filter(run=>run.integrity.length).length};
 }
 
@@ -1178,12 +1221,14 @@ function printResult(result) {
     fired:cohort.firedRate+"%",misses:cohort.meanMisses,agg:cohort.styleShares.aggressive+"%",
     nemFail:cohort.meanNemesisFailure,firmCollapse:cohort.firmEndgame.collapseRate+"%",
     firmDelta:cohort.firmEndgame.meanFirmDelta,firmCap:cohort.firmEndgame.capDayRate+"%",
-    grossInf:cohort.meanGrossInf,exReview:cohort.exceptionalReviewRate+"%",integrity:cohort.integrityFailures})));
+    grossInf:cohort.meanGrossInf,xp:cohort.meanFinalXp,level:cohort.medianWinnerLevel??cohort.medianFinalLevel,
+    exReview:cohort.exceptionalReviewRate+"%",integrity:cohort.integrityFailures})));
   console.log("Scenario cells:");
   console.table(result.cells.map(cell => ({
     variant:cell.variant,scenario: cell.scenario, mode: cell.mode, bot: cell.policy, wins: cell.winRate + "%",
     medWin: cell.medianWinDay ?? "-", misses: cell.meanMisses, p95Backlog: cell.p95Backlog,
-    sentHome: cell.sentHomeRate + "%", judgeCap20: cell.judgePost20CapRate + "%", integrity: cell.integrityFailures,
+    sentHome: cell.sentHomeRate + "%", fraud:cell.fraud.hits+"/"+cell.fraud.checks,
+    judgeCap20: cell.judgePost20CapRate + "%", integrity: cell.integrityFailures,
   })));
   if (result.warnings.length) {
     console.log("Suspicious findings (replayed extrema are recorded in JSON):");

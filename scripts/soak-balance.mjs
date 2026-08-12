@@ -798,6 +798,30 @@ function driveRun(tuple, horizon, { captureTrace = false } = {}) {
         runAction(run, "event " + event.id + ": " + option.text, () => engine.resolveCrisis(option));
         continue;
       }
+      // EVIDENCE TIMELINE prep is modal like an event. Bots model player skill
+      // with the POLICY rng only: the game stream must stay untouched, and both
+      // the solved and muddled branches need long-run coverage.
+      if (S.actionChallenge) {
+        const ch = S.actionChallenge;
+        if (ch.type !== "timeline") throw new Error("unhandled action challenge: " + ch.type);
+        if (ch.phase === "timeline") {
+          if (run.policyRng() < .5) { runAction(run, "timeline decline", () => engine.declineTimelineChallenge()); continue; }
+          metrics.timelinePlayed = (metrics.timelinePlayed || 0) + 1;
+          if (run.policyRng() < .5) { // "read the file": walk the board into the authored order
+            const target = [...ch.solution];
+            for (let i = 0; i < target.length; i++) {
+              let guard = 0;
+              while (state.S.actionChallenge && state.S.actionChallenge.order[i] !== target[i] && guard++ < 12)
+                engine.moveTimelineEvent(target[i], -1);
+            }
+          }
+          runAction(run, "timeline submit", () => engine.submitTimelineOrder());
+          continue;
+        }
+        if (state.S.actionChallenge.phase === "timeline_success") metrics.timelineSolved = (metrics.timelineSolved || 0) + 1;
+        runAction(run, "timeline complete", () => engine.completeActionChallenge());
+        continue;
+      }
       if (S.leaving) { drainTimers(); observe(run); continue; }
       if (tryCareerAction(run)) continue;
       const cases = actionables(S).filter(c => !run.skipped.has(c))

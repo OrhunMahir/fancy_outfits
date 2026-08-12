@@ -2370,6 +2370,181 @@ globalThis.clearInterval = () => {};
     assert.ok(state.S.summary.lines.every(line => typeof line === "string"));
   }
 
+  // ---------- EVIDENCE TIMELINE (v1.9.20) ----------
+  // The board is dealt from a run/case identity, never from the shared stream.
+  const timelineArgs = { runSeed: 0x51a7d, caseId: "depo", optionIndex: 1, timelineId: "vance_expense_chronology",
+    events: content.buildPool().find(c => c.id === "depo").timeline.events, count: 4, cost: .5, toil: 6, lateExtra: 0 };
+  const boardA = minigames.createTimelineChallenge(timelineArgs);
+  const boardB = minigames.createTimelineChallenge(timelineArgs);
+  assert.deepEqual(boardA, boardB, "the same identity always deals the same chronology");
+  assert.equal(boardA.cards.length, 4);
+  assert.notDeepEqual(boardA.order, boardA.solution, "a board never opens already solved");
+  assert.deepEqual([...boardA.order].sort(), [...boardA.solution].sort());
+  const otherRun = minigames.createTimelineChallenge({ ...timelineArgs, runSeed: 0x51a7e });
+  assert.notDeepEqual(otherRun.cards.map(c => c.id).concat(otherRun.order),
+    boardA.cards.map(c => c.id).concat(boardA.order), "a different run asks a different chronology");
+  // Solving is pure ordering: solution order wins, anything else scores partial.
+  const solvedBoard = minigames.submitTimeline({ ...boardA, order: [...boardA.solution] });
+  assert.deepEqual([solvedBoard.phase, solvedBoard.correct], ["timeline_success", boardA.solution.length]);
+  const wrongBoard = minigames.submitTimeline({ ...boardA, order: [...boardA.solution].reverse() });
+  assert.equal(wrongBoard.phase, "timeline_fail");
+  assert.ok(wrongBoard.correct < boardA.solution.length);
+  const moved = minigames.moveTimelineCard(boardA, boardA.order[1], -1);
+  assert.deepEqual(moved.order.slice(0, 2), [boardA.order[1], boardA.order[0]]);
+  assert.deepEqual(minigames.moveTimelineCard(boardA, boardA.order[0], -1).order, boardA.order, "the top card cannot rise");
+
+  const liveDepo = (optionStyle = "technical") => {
+    const raw = content.buildPool().find(c => c.id === "depo");
+    const c = engine.instantiateCase(raw);
+    const o = c.opts.find(option => option.style === optionStyle);
+    Object.assign(state.S, { inbox: [c], openCase: c, event: null, summary: null, pendingSummary: null,
+      hours: 4, fatigue: 0, clients: [], nemesis: null, objective: null });
+    return { c, o };
+  };
+  const forceTimeline = () => { utils.setSeed(1); for (let i = 0; i < 400; i++) { const cursor = utils.getRngState();
+    if (utils.rand() * 100 < constants.TIMELINE_TRIGGER) { utils.setRngState(cursor); return true; } } return false; };
+
+  // A prep window opens on a risky play, costs its half hour, and — crucially —
+  // resolves the SAME play afterwards instead of becoming a separate action.
+  fresh("daily");
+  let depo = liveDepo();
+  assert.equal(engine.timelineEligible(depo.c, depo.o), true);
+  assert.equal(engine.timelineEligible(depo.c, depo.c.opts.find(o => o.safe)), false, "safe plays never trigger prep");
+  assert.ok(forceTimeline());
+  engine.choose(depo.c, depo.o);
+  assert.equal(state.S.actionChallenge?.type, "timeline");
+  assert.equal(engine.isPaused(), true);
+  assert.equal(state.S.hours, 4, "the prep hour is billed at completion, not at deal time");
+  assert.equal(depo.c.timelineDone, true, "the offer is spent even if the run reloads mid-puzzle");
+  // A stale second click resolves nothing twice.
+  const midSnapshot = JSON.stringify({ ch: state.S.actionChallenge, hours: state.S.hours, inbox: state.S.inbox.length });
+  engine.choose(depo.c, depo.o);
+  engine.choose(depo.c, depo.c.opts.find(o => o.safe));
+  assert.equal(JSON.stringify({ ch: state.S.actionChallenge, hours: state.S.hours, inbox: state.S.inbox.length }), midSnapshot);
+  // Mid-puzzle reload restores the exact board and cursor.
+  const orderedMid = minigames.moveTimelineCard(state.S.actionChallenge, state.S.actionChallenge.order[2], -1);
+  engine.moveTimelineEvent(state.S.actionChallenge.order[2], -1);
+  assert.deepEqual(state.S.actionChallenge.order, orderedMid.order);
+  const savedTimeline = JSON.parse(JSON.stringify(state.S.actionChallenge));
+  const timelineCursor = utils.getRngState();
+  assert.equal(engine.loadGame(1), true);
+  assert.deepEqual(state.S.actionChallenge, savedTimeline, "a mid-puzzle reload keeps the same chronology");
+  assert.equal(utils.getRngState(), timelineCursor, "restoring a board consumes no shared randomness");
+  const reloadedDepo = state.S.inbox.find(c => c.id === "depo");
+  assert.equal(reloadedDepo.timelineInProgress, "vance_expense_chronology");
+
+  // Solving it raises exactly that option's odds, then the play resolves.
+  const solvedOrder = [...state.S.actionChallenge.solution];
+  for (let i = 0; i < solvedOrder.length; i++) {
+    let guard = 0;
+    while (state.S.actionChallenge.order[i] !== solvedOrder[i] && guard++ < 12)
+      engine.moveTimelineEvent(solvedOrder[i], -1);
+  }
+  const riskyOption = reloadedDepo.opts[state.S.actionChallenge.optionIndex];
+  const baseOdds = engine.chance(riskyOption, reloadedDepo);
+  engine.submitTimelineOrder();
+  assert.equal(state.S.actionChallenge.phase, "timeline_success");
+  assert.equal(engine.chance(riskyOption, reloadedDepo), baseOdds, "odds only move once the prep is banked");
+  const hoursBeforeBank = state.S.hours, playCost = engine.optHours(reloadedDepo, riskyOption);
+  engine.completeActionChallenge();
+  assert.equal(state.S.actionChallenge, null);
+  assert.equal(state.S.runStats.timelineW, 1);
+  assert.equal(state.S.hours, hoursBeforeBank - constants.TIMELINE_HOURS - playCost, "prep and the play both bill their hours");
+  assert.equal(state.S.inbox.some(c => c.id === "depo"), false, "the committed play resolves after the prep");
+
+  // A muddled chronology costs odds plus a light mark — never the case itself.
+  fresh("daily");
+  depo = liveDepo("aggressive");
+  assert.ok(forceTimeline());
+  engine.choose(depo.c, depo.o);
+  const wrongOrder = [...state.S.actionChallenge.solution].reverse();
+  for (let i = 0; i < wrongOrder.length; i++) {
+    let guard = 0;
+    while (state.S.actionChallenge.order[i] !== wrongOrder[i] && guard++ < 12)
+      engine.moveTimelineEvent(wrongOrder[i], -1);
+  }
+  const repBeforeMiss = state.S.rep;
+  engine.submitTimelineOrder();
+  assert.equal(state.S.actionChallenge.phase, "timeline_fail");
+  const missedCase = state.S.inbox.find(c => c.id === "depo");
+  const missedOption = missedCase.opts[state.S.actionChallenge.optionIndex];
+  const oddsBeforeMiss = engine.chance(missedOption, missedCase);
+  engine.completeActionChallenge();
+  assert.equal(state.S.runStats.timelineL, 1);
+  // The mark itself is light; the rest of any drop belongs to the play that followed.
+  assert.ok(state.S.rep <= repBeforeMiss + constants.TIMELINE_FAIL_REP, "a wobbly chronology leaves a light mark");
+  assert.ok(state.S.logEntries.some(e => /MUDDLED CHRONOLOGY/.test(e.txt)), "the miss is reported to the player");
+  assert.ok(!state.S.over, "a failed chronology never ends the run");
+  assert.equal(oddsBeforeMiss > 0, true);
+
+  // Declining is free: no hour, no fatigue, no odds change — the play just runs.
+  fresh("daily");
+  depo = liveDepo();
+  assert.ok(forceTimeline());
+  const hoursBeforeDecline = state.S.hours, declinedCost = engine.optHours(depo.c, depo.o);
+  engine.choose(depo.c, depo.o);
+  assert.equal(state.S.actionChallenge?.phase, "timeline");
+  engine.declineTimelineChallenge();
+  assert.equal(state.S.actionChallenge, null);
+  assert.equal(state.S.hours, hoursBeforeDecline - declinedCost, "declining bills the play's own hours, never the prep's");
+  assert.equal(state.S.inbox.some(c => c.id === "depo"), false, "declining still resolves the committed play");
+
+  // The edge is scoped to the prepped option and cannot leak onto the others.
+  fresh("standard");
+  depo = liveDepo();
+  const scopedIndex = depo.c.opts.indexOf(depo.o);
+  depo.c.timelineEdge = { optionIndex: scopedIndex, value: constants.TIMELINE_EDGE_WIN };
+  const otherRisky = depo.c.opts.find((o, i) => i !== scopedIndex && !o.safe && !o.action);
+  const withEdge = engine.chance(depo.o, depo.c);
+  delete depo.c.timelineEdge;
+  assert.equal(withEdge - engine.chance(depo.o, depo.c), constants.TIMELINE_EDGE_WIN);
+  depo.c.timelineEdge = { optionIndex: scopedIndex, value: constants.TIMELINE_EDGE_WIN };
+  const otherWith = engine.chance(otherRisky, depo.c);
+  delete depo.c.timelineEdge;
+  assert.equal(otherWith, engine.chance(otherRisky, depo.c), "another option on the same file gains nothing");
+
+  // Tampering: a forged win, a shrunken board and an orphan marker are rejected.
+  fresh("daily");
+  depo = liveDepo();
+  assert.ok(forceTimeline());
+  engine.choose(depo.c, depo.o);
+  engine.saveGame();
+  const rawTimelineSave = JSON.parse(localStorage.getItem(constants.SAVE_KEY + "_s1"));
+  assert.equal(rawTimelineSave.schemaVersion, constants.SAVE_SCHEMA_VERSION);
+  const rejects = (mutate, label) => {
+    const copy = JSON.parse(JSON.stringify(rawTimelineSave));
+    mutate(copy);
+    localStorage.setItem(constants.SAVE_KEY + "_s1", JSON.stringify(copy));
+    assert.equal(engine.loadGame(1), false, label);
+    localStorage.setItem(constants.SAVE_KEY + "_s1", JSON.stringify(rawTimelineSave));
+  };
+  rejects(c => { c.actionChallenge.phase = "timeline_success"; c.actionChallenge.correct = c.actionChallenge.cards.length; },
+    "a forged solved board is rejected");
+  rejects(c => { c.actionChallenge.cards = c.actionChallenge.cards.slice(0, 2);
+    c.actionChallenge.order = c.actionChallenge.order.slice(0, 2); c.actionChallenge.solution = c.actionChallenge.solution.slice(0, 2); },
+    "a shrunken board is rejected");
+  rejects(c => { c.actionChallenge.solution = [...c.actionChallenge.order]; }, "a rewritten solution is rejected");
+  rejects(c => { c.actionChallenge = null; }, "an orphan timeline marker is rejected");
+  rejects(c => { const depoCase = c.inbox.find(x => x.id === "depo"); delete depoCase.timelineInProgress; },
+    "a challenge without its case marker is rejected");
+  assert.equal(engine.loadGame(1), true, "the untouched save still loads");
+
+  // v14 careers migrate forward and never look mid-puzzle.
+  const legacyTimeline = JSON.parse(JSON.stringify(rawTimelineSave));
+  legacyTimeline.schemaVersion = 14;
+  legacyTimeline.actionChallenge = null;
+  delete legacyTimeline.runStats.timelineW;
+  delete legacyTimeline.runStats.timelineL;
+  const legacyDepo = legacyTimeline.inbox.find(c => c.id === "depo");
+  legacyDepo.timelineInProgress = "vance_expense_chronology";
+  legacyDepo.timelineDone = true;
+  localStorage.setItem(constants.SAVE_KEY + "_s1", JSON.stringify(legacyTimeline));
+  assert.equal(engine.loadGame(1), true, "a v14 career migrates to the timeline schema");
+  assert.deepEqual([state.S.runStats.timelineW, state.S.runStats.timelineL], [0, 0]);
+  assert.equal(state.S.inbox.find(c => c.id === "depo").timelineInProgress, undefined,
+    "migration clears any stale mid-puzzle marker");
+  assert.equal(state.S.actionChallenge, null);
+
   // Production CSP has no loopback WebSocket escape hatch; Vite adds it only in dev.
   const indexHtml = readFileSync("index.html", "utf8");
   const viteConfig = readFileSync("vite.config.mjs", "utf8");
@@ -2395,7 +2570,7 @@ globalThis.clearInterval = () => {};
     }
   }
 
-  console.log("v1.9.5–v1.9.19.1 checks passed: Fraud identity pressure/morning continuation, progression/skills, lockpick/Power Cut minigames, balance experiments, Final Warning, Friday/Exceptional Review promotions, delegation cap, strict saves/migrations, procedural IDs, long-run integrity, FIRM payroll, rolling judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
+  console.log("v1.9.5–v1.9.20 checks passed: Evidence Timeline prep (deal/reload/tamper/migration/scope), Fraud identity pressure/morning continuation, progression/skills, lockpick/Power Cut minigames, balance experiments, Final Warning, Friday/Exceptional Review promotions, delegation cap, strict saves/migrations, procedural IDs, long-run integrity, FIRM payroll, rolling judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;

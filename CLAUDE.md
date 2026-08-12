@@ -274,7 +274,7 @@
 
 **Dış denetim notu (Codex, 2026-08-12):** Bayat/untracked `AGENTS.md` yüzünden gerçek checkpoint yanlışlıkla v1.9.1/hakim hafızası sanılmıştı. Hakim hafızası v1.9.8/v1.9.13'te bitmişti; gerçek yarım iş v1.9.16 sonrası Power Cut entegrasyonuydu. Yarım model/UI dosyaları korunup engine/content/save/CSS/test zinciri tamamlandı.
 
-**En son çalışılan konu (2026-08-12):** v1.9.19 Fraud fatigue slip + üç aşamalı identity pressure tamamlandı. Band sınırları, daily peak/coffee semantiği, terminal gün sırası, safe-route nonlethal garantisi, staged EXPOSED nedeni, pre-morning exact-once resume, schema12→14 migration ve event/state tamper regresyonları yeşil. `npm test`, production build ve Fraud odaklı deterministic soak geçti. Sıradaki kullanıcı-onaylı içerik: mobil layout + Capacitor; ardından bağlamsal SFX ve Steam paketleme.
+**En son çalışılan konu (2026-08-13):** v1.9.19 Fraud fatigue slip + üç aşamalı identity pressure tamamlandı ve `46adae600` ile `origin/minigames`'e pushlandı. Band sınırları, daily peak/coffee semantiği, terminal gün sırası, safe-route nonlethal garantisi, staged EXPOSED nedeni, pre-morning exact-once resume, schema12→14 migration ve event/state tamper regresyonları yeşil. `npm test`, production build ve deterministic soak geçti. Güncel ortak handoff ve oturum günlüğü `DEV_LOGBOOK.md`'dir. Sıradaki kullanıcı-onaylı içerik **Evidence Timeline** vertical slice; henüz kodlanmadı. Mobil layout + Capacitor, bağlamsal SFX ve Steam paketleme sonraki backlog'dur.
 
 **Aklında tut (kullanıcı onaylı bekleyenler):** mobil layout + Capacitor; bağlamsal SFX; Steam paketleme (electron-builder + steamworks.js).
 
@@ -559,7 +559,7 @@ if(S.scenario==="legacy"){
 
 Sen bu projeye yeni katılan geliştiricisin. Şunları bilmelisin:
 
-1. Proje `fancy-outfits/` klasöründe; React 18 + Vite 7 (Node ≥22.12). Oyun mantığı `src/game/` (saf JS, React'ten bağımsız), UI `src/components/`. `FANCY_OUTFITS_GDD.md` gelecek özelliklerin spec'i, bu `CLAUDE.md` tam bağlam.
+1. İlk olarak `DEV_LOGBOOK.md` dosyasını oku; güncel checkpoint, aktif iş ve iki araç arasındaki çalışma protokolü oradadır. Proje `fancy-outfits/` klasöründe; React 18 + Vite 7 (Node ≥22.12). Oyun mantığı `src/game/` (saf JS, React'ten bağımsız), UI `src/components/`. `FANCY_OUTFITS_GDD.md` gelecek özelliklerin spec'i, bu `CLAUDE.md` tam bağlam.
 2. Çalıştırmak: `npm run dev` (tarayıcı), `npm start` (Electron/Steam hedefi). Her değişiklikten sonra `npm run build` ile doğrula, davranışı tarayıcıda elle test et.
 3. Dokunmadan önce oku: `src/game/engine.js` içinde `chance()` (denge), `apply()` (tüm stat mutasyonu buradan) ve `endDay()` (gün akışı); dava JSON şeması (CLAUDE.md §7, gerçek veri `src/game/content.js`).
 4. Kırmızı çizgiler: yeni runtime bağımlılığı/asset dosyası ekleme; oyun metinlerine "Suits/Papers Please" yazma; safe-vs-bluff çekirdek gerilimini bozma; `apply()`'ı bypass etme; `src/game/` ↔ `src/components/` katman ayrımını bozma; oyun dili İngilizce kalır, kullanıcıyla Türkçe konuşulur.

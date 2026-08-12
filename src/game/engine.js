@@ -14,10 +14,13 @@ import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DELEGATE_CAP, DAY_HOURS, TIER_HOU
          ROSTER_ACTIVITY, ROSTER_WIN_GAIN, ROSTER_LOSS_COST, FIRM_PAYROLL_DIVISOR,
          FIRM_CRITICAL, FIRM_STABLE, FIRM_THRIVING, FIRM_RANK_REQ,
          FIRM_PLAN_GAIN, FIRM_PLAN_HOURS, FIRM_PLAN_FATIGUE, FIRM_PLAN_COOLDOWN,
-         FIRE_HEAT, FIRE_HEAT_SENIOR, HEAT_DECAY, HEAT_MIN } from "./constants.js";
+         FIRE_HEAT, FIRE_HEAT_SENIOR, HEAT_DECAY, HEAT_MIN,
+         TIMELINE_TRIGGER, TIMELINE_CARDS, TIMELINE_CARDS_SENIOR, TIMELINE_SENIOR_RANK,
+         TIMELINE_EDGE_WIN, TIMELINE_EDGE_LOSS, TIMELINE_FAIL_REP, TIMELINE_HOURS, TIMELINE_FATIGUE } from "./constants.js";
 import { clamp, rnd, rand, shuffle, hash, setSeed, clearSeed, getRngState, setRngState } from "./utils.js";
 import { LOCK_MIN, LOCK_MAX, POWER_RING_COUNT, createLockpickChallenge, clampLockPosition, tryLockpick, callCoin,
-         createPowerCutChallenge, advancePowerCut, stopPowerCut, powerAngleAt, powerAngleDistance } from "./minigames.js";
+         createPowerCutChallenge, advancePowerCut, stopPowerCut, powerAngleAt, powerAngleDistance,
+         createTimelineChallenge, moveTimelineCard, submitTimeline } from "./minigames.js";
 import { SFX, startAmbience, stopAmbience, applyBgmVolume } from "./sound.js";
 import { settings, setSetting } from "./settings.js";
 import { buildPool, JUDGES, crises, SCENARIOS, buildWeekend } from "./content.js";
@@ -486,6 +489,8 @@ export function chance(o,c){
   if(c&&c.crisisMod&&!o.safe) p+=c.crisisMod.v; // a Traitor leaked / a Brave ally shields (GDD §5-6)
   if(c&&c.dossier&&!o.safe) p+=12;              // detective's dossier on this file
   if(c&&c.covertEdge&&!o.safe) p+=c.covertEdge;  // evidence recovered through a completed COVERT ACTION
+  // an EVIDENCE TIMELINE only moves the play it was prepped for, never the whole file
+  if(c&&c.timelineEdge&&!o.safe&&c.opts.indexOf(o)===c.timelineEdge.optionIndex) p+=c.timelineEdge.value;
   if(c&&c.tampered&&!o.safe) p-=6;              // the rival reordered these pages
   // the Defector knows Snidely Fitch's playbook
   if(S.scenario==="defector"&&!o.safe&&c&&/Snidely Fitch/.test((c.body||"")+(c.title||""))) p+=8;
@@ -1163,6 +1168,100 @@ function beginActionChallenge(c,o,cost){
   saveGame(); notify();
 }
 
+/* ---------- EVIDENCE TIMELINE ----------
+   Fires AFTER the player commits to a risky play on a case whose text carries a
+   chronology. It cannot win or lose the file: it only moves THAT play's odds.
+   The whole app is modal while a challenge is open, so rank (and therefore the
+   board size) cannot change between begin and complete. */
+const timelineCardCount=()=>S.rank>=TIMELINE_SENIOR_RANK?TIMELINE_CARDS_SENIOR:TIMELINE_CARDS;
+export const timelineEligible=(c,o)=>!!(c&&o&&!c.msg&&!c.favor&&!c.timelineDone&&!c.timelineInProgress&&
+  !o.safe&&!o.action&&plain(c.timeline)&&typeof c.timeline.id==="string"&&Array.isArray(c.timeline.events)&&c.timeline.events.length>=2);
+
+function timelineRefs(ch=S&&S.actionChallenge){
+  if(!S||!ch||ch.type!=="timeline") return null;
+  const c=S.inbox.find(item=>!item.msg&&item.id===ch.caseId);
+  const o=c&&c.opts[ch.optionIndex];
+  return c&&o&&!o.safe&&!o.action&&plain(c.timeline)&&c.timeline.id===ch.actionId?{c,o}:null;
+}
+
+function beginTimelineChallenge(c,o,confirmedLate){
+  const optionIndex=c.opts.indexOf(o);
+  if(optionIndex<0||c.timelineInProgress||S.actionChallenge) return false;
+  const skillSnapshot=currentSkillSnapshot();
+  // ENDURANCE softens prep work exactly like any other billed hour.
+  const toil=workFatigue(TIMELINE_FATIGUE,snapshotProgression(skillSnapshot),S.scenario);
+  c.timelineDone=true;               // one offer per file, even across a mid-puzzle reload
+  c.timelineInProgress=c.timeline.id;
+  S.actionChallenge={
+    ...createTimelineChallenge({runSeed:S.seed,caseId:c.id,optionIndex,timelineId:c.timeline.id,
+      events:c.timeline.events,count:Math.min(timelineCardCount(),c.timeline.events.length),
+      cost:TIMELINE_HOURS,toil,lateExtra:0}),
+    skillSnapshot, optionIndex, startedDay:S.day, hoursBefore:S.hours, confirmedLate:!!confirmedLate,
+    caseTitle:c.title, actionTitle:c.timeline.title, body:c.timeline.body,
+  };
+  S.openCase=null;
+  SFX.open();
+  log("EVIDENCE TIMELINE: "+c.timeline.title+" ("+TIMELINE_HOURS+"h prep committed)","sys");
+  saveGame(); notify();
+  return true;
+}
+
+export function moveTimelineEvent(id,direction){
+  const ch=S&&S.actionChallenge;
+  if(!ch||ch.phase!=="timeline"||!timelineRefs(ch)) return;
+  S.actionChallenge=moveTimelineCard(ch,id,direction);
+  SFX.click();
+  saveGame(); notify();
+}
+
+export function submitTimelineOrder(){
+  const ch=S&&S.actionChallenge;
+  if(!ch||ch.phase!=="timeline"||!timelineRefs(ch)) return;
+  const next=submitTimeline(ch);
+  S.actionChallenge=next;
+  if(next.phase==="timeline_success") SFX.open(); else SFX.lose();
+  saveGame(); notify();
+}
+
+/* Walking away costs nothing and changes nothing — the offer is simply spent. */
+export function declineTimelineChallenge(){
+  const ch=S&&S.actionChallenge;
+  if(!ch||ch.type!=="timeline"||ch.phase!=="timeline") return;
+  const refs=timelineRefs(ch);
+  S.actionChallenge=null;
+  if(refs){ delete refs.c.timelineInProgress; }
+  SFX.click();
+  log("You go in cold. No chronology, no prep, no lost hour.","sys");
+  if(refs) choose(refs.c,refs.o,ch.confirmedLate,true);
+  else { saveGame(); notify(); }
+}
+
+function completeTimelineChallenge(ch){
+  const refs=timelineRefs(ch);
+  S.actionChallenge=null;
+  if(!refs){
+    log("EVIDENCE TIMELINE CANCELLED: the underlying file could not be verified.","bad");
+    saveGame(); notify(); return;
+  }
+  const {c,o}=refs;
+  delete c.timelineInProgress;
+  const solved=ch.phase==="timeline_success";
+  c.timelineEdge={optionIndex:ch.optionIndex,value:solved?TIMELINE_EDGE_WIN:TIMELINE_EDGE_LOSS};
+  if(solved){
+    S.runStats.timelineW++;
+    SFX.win();
+    log("CHRONOLOGY LOCKED: the file reads in one direction now. (+"+TIMELINE_EDGE_WIN+"% on this play)","good");
+  } else {
+    S.runStats.timelineL++;
+    doShake();
+    log("MUDDLED CHRONOLOGY: "+ch.correct+"/"+ch.cards.length+" in place. (-"+Math.abs(TIMELINE_EDGE_LOSS)+"% on this play)","bad");
+    apply({rep:TIMELINE_FAIL_REP},false,"case");
+  }
+  spendHours(ch.cost,ch.toil,true);
+  if(S.over||fatigueCheck(ch.cost)){ saveGame(); notify(); return; }
+  choose(c,o,ch.confirmedLate,true); // the play the prep was for now resolves
+}
+
 export function setLockpickPosition(value){
   const ch=S&&S.actionChallenge;
   if(!ch||ch.phase!=="lockpick") return;
@@ -1217,6 +1316,10 @@ export function callActionCoin(side){
 
 export function completeActionChallenge(){
   const ch=S&&S.actionChallenge;
+  if(ch&&ch.type==="timeline"){
+    if(["timeline_success","timeline_fail"].includes(ch.phase)) completeTimelineChallenge(ch);
+    return;
+  }
   if(!ch||!["lock_success","power_success","coin_result"].includes(ch.phase)) return;
   const refs=actionRefs(ch);
   S.actionChallenge=null;
@@ -1264,7 +1367,7 @@ export function completeActionChallenge(){
   saveGame(); notify();
 }
 
-export function choose(c,o,confirmedLate){
+export function choose(c,o,confirmedLate,timelinePrepped){
   if(!S||S.actionChallenge||!c||!o||!S.inbox.includes(c)||c.pending||c.delegated) return; // stale/double clicks resolve nothing twice
   SFX.click();
   const cost0=optHours(c,o);
@@ -1282,6 +1385,9 @@ export function choose(c,o,confirmedLate){
         {text:"Step back. The file waits for the morning.",base:100,safe:true,lateNo:true,ok:{fx:{},txt:""}}]};
     notify(); return;
   }
+  // A rare prep window opens BEFORE any money changes hands: resuming this play
+  // after the challenge must not charge a bribe (or anything else) twice.
+  if(!timelinePrepped&&timelineEligible(c,o)&&rand()*100<TIMELINE_TRIGGER&&beginTimelineChallenge(c,o,confirmedLate)) return;
   if(o.bribe){ // the golf money leaves your account win or lose
     if(S.money<o.bribe){ log("You can't afford the judge's 'green fees'.","bad"); notify(); return; }
     apply({money:-o.bribe},true);
@@ -1910,11 +2016,30 @@ function validOption(o,depth){
   if(o.fail!=null&&!validOutcome(o.fail,depth)) return false;
   return !!o.safe||o.base>=100||validOutcome(o.fail,depth);
 }
+function validTimelineData(t){
+  if(t==null) return true;
+  if(!plain(t)||typeof t.id!=="string"||!t.id||typeof t.title!=="string"||typeof t.body!=="string") return false;
+  if(!Array.isArray(t.events)||t.events.length<2||t.events.length>12) return false;
+  const ids=new Set();
+  for(const e of t.events){
+    if(!plain(e)||typeof e.id!=="string"||!e.id||typeof e.text!=="string"||!Number.isFinite(e.at)) return false;
+    if(ids.has(e.id)) return false;
+    ids.add(e.id);
+  }
+  return true;
+}
+function validTimelineEdge(edge,opts){
+  if(edge==null) return true;
+  return plain(edge)&&nonNegativeInt(edge.optionIndex)&&edge.optionIndex<(opts||[]).length&&
+    Number.isInteger(edge.value)&&edge.value>=TIMELINE_EDGE_LOSS&&edge.value<=TIMELINE_EDGE_WIN;
+}
 function validCase(c,depth=0){
   return depth<=8&&plain(c)&&typeof c.id==="string"&&c.id.length>0&&typeof c.title==="string"&&typeof c.body==="string"&&validJudge(c.judge)&&
     Array.isArray(c.opts)&&c.opts.length>0&&validBig(c.big)&&c.opts.every(o=>validOption(o,depth))&&
     (c.covertEdge==null||(Number.isFinite(c.covertEdge)&&c.covertEdge>=0&&c.covertEdge<=30))&&
     (c.covertNote==null||typeof c.covertNote==="string")&&(c.actionInProgress==null||typeof c.actionInProgress==="string")&&
+    validTimelineData(c.timeline)&&(c.timelineDone==null||typeof c.timelineDone==="boolean")&&
+    (c.timelineInProgress==null||typeof c.timelineInProgress==="string")&&validTimelineEdge(c.timelineEdge,c.opts)&&
     (!c.judge||c.opts.every(o=>!o.action))&&
     (!c.big||c.opts.every(o=>o.delay==null&&!o.action)); // Client War has its own lifecycle; no delayed/action options
 }
@@ -1985,7 +2110,7 @@ function backfillMissingCaseIds(d){
 class SaveDataError extends Error{ constructor(code,message){ super(message); this.code=code; } }
 const ensureArray=(d,key)=>{ if(d[key]==null) d[key]=[]; };
 const RUN_COUNTER_KEYS=["safe","bluffW","bluffL","techW","techL","covertTry","covertW","covertEscape","covertCaught",
-  "bribeTry","bribeW","favorHelp","favorNo","miss","crises","fired"];
+  "timelineW","timelineL","bribeTry","bribeW","favorHelp","favorNo","miss","crises","fired"];
 const TODAY_COUNTER_KEYS=["resolved","wins","safeUsed","aggWin","delegated","moneyGained"];
 const nonNegativeInt=v=>Number.isSafeInteger(v)&&v>=0;
 const validCounters=(v,keys)=>plain(v)&&keys.every(k=>nonNegativeInt(v[k]));
@@ -2150,7 +2275,21 @@ const migrateV13ToV14=raw=>{
     morningPhase:plain(raw.event)&&["slip","inquiry"].includes(raw.event.fraudKind)?"complete":"idle"}:null;
   return {...raw,fraudRisk,schemaVersion:14};
 };
-const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6,6:migrateV6ToV7,7:migrateV7ToV8,8:migrateV8ToV9,9:migrateV9ToV10,10:migrateV10ToV11,11:migrateV11ToV12,12:migrateV12ToV13,13:migrateV13ToV14};
+/* v14 -> v15 adds the EVIDENCE TIMELINE. Older runs carry no board and no
+   per-case markers; the fresh counters are backfilled and any half-written
+   timeline marker is cleared so a legacy file can never look mid-puzzle. */
+const migrateV14ToV15=raw=>{
+  const d={...raw,schemaVersion:15};
+  d.runStats=backfillCounters(d.runStats,RUN_COUNTER_KEYS);
+  const strip=list=>Array.isArray(list)?list.map(c=>{
+    if(!plain(c)||c.msg) return c;
+    const {timelineInProgress,timelineEdge,timelineDone,...rest}=c;
+    return rest;
+  }):list;
+  d.inbox=strip(d.inbox);
+  return d;
+};
+const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6,6:migrateV6ToV7,7:migrateV7ToV8,8:migrateV8ToV9,9:migrateV9ToV10,10:migrateV10ToV11,11:migrateV11ToV12,12:migrateV12ToV13,13:migrateV13ToV14,14:migrateV14ToV15};
 
 const JUDGE_MEMORY_COUNTERS=["seen","aggressiveW","aggressiveL","technicalW","technicalL","bribeW","bribeL","safe","neutralW","neutralL"];
 function validJudgeMemory(memory,day){
@@ -2261,8 +2400,26 @@ function validPowerChallenge(ch,day){
   if(ch.phase==="coin_result") return ["heads","tails"].includes(ch.coinCall)&&typeof ch.escaped==="boolean"&&ch.escaped===(ch.coinCall===ch.coinFace);
   return ch.coinCall==null&&ch.escaped==null;
 }
+const TIMELINE_PHASES=new Set(["timeline","timeline_success","timeline_fail"]);
+function validTimelineChallenge(ch,day){
+  if(!validActionChallengeBase(ch,day,TIMELINE_PHASES)||ch.type!=="timeline"||typeof ch.confirmedLate!=="boolean") return false;
+  if(!Array.isArray(ch.cards)||!Array.isArray(ch.order)||!Array.isArray(ch.solution)) return false;
+  const size=ch.cards.length;
+  if(size<2||size>12||ch.order.length!==size||ch.solution.length!==size) return false;
+  if(ch.cards.some(card=>!plain(card)||typeof card.id!=="string"||!card.id||typeof card.text!=="string")) return false;
+  const ids=ch.cards.map(card=>card.id), key=[...ids].sort().join("|");
+  if(new Set(ids).size!==size||[...ch.order].sort().join("|")!==key||[...ch.solution].sort().join("|")!==key) return false;
+  if(!nonNegativeInt(ch.correct)||ch.correct>size||!nonNegativeInt(ch.turn)) return false;
+  const solvedNow=ch.order.every((id,index)=>id===ch.solution[index]);
+  const scored=ch.order.reduce((sum,id,index)=>sum+(id===ch.solution[index]?1:0),0);
+  if(ch.phase==="timeline"&&ch.correct!==0) return false;                       // unscored board
+  if(ch.phase==="timeline_success"&&(!solvedNow||ch.correct!==size)) return false; // claimed win must actually be solved
+  if(ch.phase==="timeline_fail"&&(solvedNow||ch.correct!==scored)) return false;   // and a loss must actually be wrong
+  return ch.coinCall==null&&ch.escaped==null;
+}
 function validActionChallenge(ch,day,progression){
-  const valid=ch&&ch.type==="lockpick"?validLockChallenge(ch,day):ch&&ch.type==="power_cut"?validPowerChallenge(ch,day):false;
+  const valid=ch&&ch.type==="lockpick"?validLockChallenge(ch,day):ch&&ch.type==="power_cut"?validPowerChallenge(ch,day):
+    ch&&ch.type==="timeline"?validTimelineChallenge(ch,day):false;
   if(!valid) return false;
   if(ch.skillSnapshot.rulesVersion===1) return ch.skillSnapshot.sneaky===getSkillRank(progression,"sneaky")&&
     ch.skillSnapshot.endurance===getSkillRank(progression,"endurance");
@@ -2346,7 +2503,33 @@ function migrateSaveData(raw){
   if(liveInboxIds.some(id=>typeof id!=="string"||!id)||new Set(liveInboxIds).size!==liveInboxIds.length)
     throw new SaveDataError("invalid","The saved inbox contains a duplicate filing.");
   const actionMarked=d.inbox.filter(c=>!c.msg&&c.actionInProgress!=null);
-  if(d.actionChallenge){
+  const timelineMarked=d.inbox.filter(c=>!c.msg&&c.timelineInProgress!=null);
+  const openTimeline=d.actionChallenge&&d.actionChallenge.type==="timeline"?d.actionChallenge:null;
+  if(timelineMarked.length>1||(timelineMarked.length===1)!==!!openTimeline)
+    throw new SaveDataError("invalid","A case is stuck inside a missing EVIDENCE TIMELINE.");
+  if(openTimeline){
+    const ch=openTimeline;
+    const c=d.inbox.find(item=>!item.msg&&item.id===ch.caseId);
+    const o=c&&c.opts[ch.optionIndex];
+    if(actionMarked.length||!c||c.timelineInProgress!==ch.actionId||c.timelineDone!==true||!o||o.safe||o.action||
+      !plain(c.timeline)||c.timeline.id!==ch.actionId)
+      throw new SaveDataError("invalid","The saved EVIDENCE TIMELINE no longer matches its case file.");
+    // The app is fully modal while a challenge is open, so rank — and therefore
+    // the board size — cannot have moved since it was dealt.
+    const expectedCount=Math.min(d.rank>=TIMELINE_SENIOR_RANK?TIMELINE_CARDS_SENIOR:TIMELINE_CARDS,c.timeline.events.length);
+    const expectedToil=workFatigue(TIMELINE_FATIGUE,snapshotProgression(ch.skillSnapshot),d.scenario);
+    const expected=createTimelineChallenge({runSeed:d.seed,caseId:c.id,optionIndex:ch.optionIndex,timelineId:c.timeline.id,
+      events:c.timeline.events,count:expectedCount,cost:TIMELINE_HOURS,toil:expectedToil,lateExtra:0});
+    if(ch.runSeed!==d.seed||ch.startedDay!==d.day||d.hours!==ch.hoursBefore||ch.cost!==TIMELINE_HOURS||
+      ch.toil!==expectedToil||ch.lateExtra!==0||ch.cards.length!==expectedCount||ch.coinFace!==expected.coinFace)
+      throw new SaveDataError("invalid","The saved EVIDENCE TIMELINE outcome was altered.");
+    if(ch.cards.some((card,index)=>card.id!==expected.cards[index].id||card.text!==expected.cards[index].text)||
+      ch.solution.join("|")!==expected.solution.join("|"))
+      throw new SaveDataError("invalid","The saved chronology board was altered.");
+    if(ch.caseTitle!==c.title||ch.actionTitle!==c.timeline.title||ch.body!==c.timeline.body)
+      throw new SaveDataError("invalid","The saved EVIDENCE TIMELINE briefing was altered.");
+  }
+  if(d.actionChallenge&&!openTimeline){
     const c=d.inbox.find(item=>!item.msg&&item.id===d.actionChallenge.caseId);
     const o=c&&c.opts[d.actionChallenge.optionIndex];
     if(actionMarked.length!==1||!c||c.actionInProgress!==d.actionChallenge.actionId||!o||!o.action||o.action.id!==d.actionChallenge.actionId)

@@ -315,6 +315,27 @@ h2{font-size:10px; color:var(--gold); margin-bottom:10px; border-bottom:2px soli
 .power-success .lock-success-mark{background:#172950; border-color:#87a9ff; box-shadow:6px 6px 0 #0a1025;}
 .power-success .lock-success-title{color:#9fe6ff;}
 
+/* Evidence Timeline: ordering board, keyboard/touch first (no drag and drop). */
+.timeline-list{list-style:none; margin:0 0 10px; padding:0; display:flex; flex-direction:column; gap:6px;}
+.timeline-card{
+  display:flex; align-items:center; gap:8px; padding:7px;
+  background:var(--dark); border:2px solid var(--panel2);
+}
+.timeline-rank{
+  flex:0 0 auto; width:20px; height:20px; display:flex; align-items:center; justify-content:center;
+  color:var(--gold); background:#131c3f; border:2px solid var(--panel2); font-size:8px;
+}
+.timeline-text{flex:1 1 auto; font-size:8px; line-height:1.9;}
+.timeline-moves{flex:0 0 auto; display:flex; gap:4px;}
+.btn.small.timeline-move{width:44px; min-width:44px; min-height:44px; padding:0; text-align:center; line-height:1;}
+.timeline-actions{display:flex; flex-direction:column; gap:7px;}
+.btn.small.timeline-decline{width:100%; min-height:44px; background:#2a2f45; box-shadow:0 4px 0 #12162a;}
+.timeline-decline:hover{background:#39405f;}
+.timeline-result .lock-success-mark{background:#14301f; border-color:#5bd48b; box-shadow:6px 6px 0 #08160e;}
+.timeline-result .lock-success-title{color:#8ef0b4;}
+.timeline-result-miss .lock-success-mark{background:#3a1520; border-color:#e07a90; box-shadow:6px 6px 0 #1c0910;}
+.timeline-result-miss .lock-success-title{color:#ffb3c1;}
+
 /* Last-chance coin call after a failed covert action. */
 .coin-warning{
   margin-bottom:8px; padding:7px; color:#ffdce2; background:#5e1f2c;

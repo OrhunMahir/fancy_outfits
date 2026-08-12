@@ -4,6 +4,29 @@ import { useGame } from "../game/useGame.js";
 import CoinFlipMinigame from "./minigames/CoinFlipMinigame.jsx";
 import LockpickMinigame from "./minigames/LockpickMinigame.jsx";
 import PowerCutMinigame from "./minigames/PowerCutMinigame.jsx";
+import TimelineMinigame from "./minigames/TimelineMinigame.jsx";
+
+/* The chronology result is not a covert win/loss: it hands the play you already
+   committed to a better or worse footing, then the case resolves as normal. */
+function TimelineResultPanel({challenge}){
+  const buttonRef=useRef(null);
+  const solved=challenge.phase==="timeline_success";
+
+  useEffect(()=>{
+    buttonRef.current?.focus();
+  },[]);
+
+  return (
+    <div className={`action-game lock-success timeline-result${solved?"":" timeline-result-miss"}`}>
+      <div className="lock-success-mark" aria-hidden="true">{solved?"+12%":"−10%"}</div>
+      <h3 className="lock-success-title">{solved?"THE CHRONOLOGY HOLDS":"THE STORY WOBBLES"}</h3>
+      <p className="lock-success-copy">{challenge.feedback}</p>
+      <button ref={buttonRef} className="btn safe action-primary lock-continue" type="button" onClick={completeActionChallenge}>
+        GO IN
+      </button>
+    </div>
+  );
+}
 
 function SuccessPanel({challenge}){
   const buttonRef=useRef(null);
@@ -86,8 +109,11 @@ export default function ActionMinigameOverlay(){
 
   if(!challenge) return null;
 
+  const timeline=challenge.type==="timeline";
   let game=null;
-  if(challenge.phase==="lockpick") game=<LockpickMinigame challenge={challenge} />;
+  if(challenge.phase==="timeline") game=<TimelineMinigame challenge={challenge} />;
+  else if(challenge.phase==="timeline_success"||challenge.phase==="timeline_fail") game=<TimelineResultPanel challenge={challenge} />;
+  else if(challenge.phase==="lockpick") game=<LockpickMinigame challenge={challenge} />;
   else if(challenge.phase==="power_cut") game=<PowerCutMinigame challenge={challenge} />;
   else if(challenge.phase==="lock_success"||challenge.phase==="power_success") game=<SuccessPanel challenge={challenge} />;
   else if(challenge.phase==="coin_call"||challenge.phase==="coin_result") game=<CoinFlipMinigame challenge={challenge} />;
@@ -104,7 +130,7 @@ export default function ActionMinigameOverlay(){
         tabIndex="-1"
         onKeyDown={trapFocus}
       >
-        <div className="action-kicker">COVERT ACTION</div>
+        <div className="action-kicker">{timeline?"CASE PREP · EVIDENCE TIMELINE":"COVERT ACTION"}</div>
         <h2 id="action-challenge-title">{challenge.actionTitle||"AFTER HOURS"}</h2>
         <p id="action-challenge-body" className="action-brief">
           {challenge.body||"Keep quiet. Leave no trace."}

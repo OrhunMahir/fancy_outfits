@@ -10,7 +10,9 @@
 > fatigue slip + üç aşamalı identity pressure ve schema v14 tamamlandı. Due Fraud confrontation
 > sabah pasiflerinden önce açılır; persisted continuation seçim sonrası sabahı exact-once sürdürür.
 > Aktif v9/v10 minigame kayıtları legacy skill snapshot'ıyla board/toil/checkpoint değiştirmeden sürer.
-> Gerçek sıradaki kullanıcı-onaylı iş: mobil layout + Capacitor; ardından bağlamsal SFX ve Steam paketleme.
+> Ortak güncel oturum/handoff kaydı için önce `DEV_LOGBOOK.md` okunmalıdır. Kullanıcının 2026-08-13
+> kararıyla gerçek sıradaki iş bağlamsal minigame hattı, ilk vertical slice **Evidence Timeline**'dır.
+> Mobil layout + Capacitor bunun ardından backlog'da kalır; sonra bağlamsal SFX ve Steam paketleme gelir.
 > Aşağıdaki “sıradaki: hakim hafızası” kayıtları
 > yalnız tarihsel bağlamdır ve aktif backlog sayılmaz.
 
@@ -190,7 +192,10 @@
 
 **v1.9.19 eklendi (2026-08-12):** Fraud günlük post-ENDURANCE FATIGUE peak'ini kaydeder ve gün sonunda tek kez 80/90/95/100 bandına göre `%0.5/%1.5/%3/%5` slip check yapar. Hit doğrudan game-over değildir; ertesi sabah cover kararı, ardından başarısız kararlarda alumni → bar mismatch → insurer proof zinciri gelir. Her aşamada nonlethal safe yol, yalnız final risky fail'de EXPOSED vardır. Due yüzleşme sabah pasiflerinden önce açılır ve seçim sonrası sabah exact-once sürer. THE SECRET UI, exact Info copy, soak telemetry ve strict schema v14 `fraudRisk`/pending/canonical-event/continuation doğrulaması tamamlandı; reload zinciri kaybetmez.
 
-**En son çalışılan konu (2026-08-12):** Fraud fatigue slip + identity pressure tamamlandı; unit/integration/save-tamper/build ve Fraud odaklı soak yeşil. Sıradaki: mobil (layout+Capacitor), bağlamsal SFX ve Steam paketleme.
+**En son çalışılan konu (2026-08-13):** Fraud fatigue slip + identity pressure tamamlandı ve
+`46adae600` ile `origin/minigames`'e pushlandı. Güncel ortak handoff `DEV_LOGBOOK.md` içindedir.
+Sıradaki kullanıcı-onaylı iş: Evidence Timeline vertical slice; henüz kodlanmadı. Mobil
+(layout+Capacitor), bağlamsal SFX ve Steam paketleme sonraki backlog'dur.
 
 ---
 

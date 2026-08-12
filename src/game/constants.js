@@ -73,8 +73,21 @@ export const EXCEPTIONAL_REVIEW_THRESHOLD=36, EXCEPTIONAL_REVIEW_WAIT=2, EXCEPTI
 // voted-out senior), decays x HEAT_DECAY nightly, but never below HEAT_MIN
 // once you've fired anyone — ex-employees have long memories.
 export const FIRE_HEAT=9, FIRE_HEAT_SENIOR=16, HEAT_DECAY=0.93, HEAT_MIN=1;
+// EVIDENCE TIMELINE: a rare prep challenge that fires AFTER you commit to a
+// risky play on a case whose text carries a datable chronology. It never wins
+// or loses the case by itself — it only moves that play's odds, so reading the
+// file stays the edge. The board is drawn from an authored event pool so the
+// same case asks a different chronology in a different run.
+export const TIMELINE_TRIGGER=25;          // % chance on an eligible risky play
+export const TIMELINE_CARDS=4;             // events on the board (5 from rank 2)
+export const TIMELINE_CARDS_SENIOR=5;
+export const TIMELINE_SENIOR_RANK=2;       // rank at which the board grows
+export const TIMELINE_EDGE_WIN=12;         // exact chronology: this play gets +12%
+export const TIMELINE_EDGE_LOSS=-10;       // muddled chronology: -10%
+export const TIMELINE_FAIL_REP=-2;         // a light mark, never a lost case
+export const TIMELINE_HOURS=.5, TIMELINE_FATIGUE=3; // prep costs, paid either way
 // The storage key stays stable; ordered migrations use the embedded schema.
-export const SAVE_SCHEMA_VERSION=14;
+export const SAVE_SCHEMA_VERSION=15;
 export const SAVE_LOG_LIMIT=200, SAVE_ARCHIVE_LIMIT=200;
 export const INBOX_MESSAGE_LIMIT=80; // notifications are history, not permanent case files
 export const SAVE_KEY="fo_save_v1";

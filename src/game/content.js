@@ -52,7 +52,17 @@ export function buildPool(){
       {text:"Move to void the NDA — no signing authority.",base:78,style:"technical",delay:2,ok:{fx:{rep:8,inf:7,money:1200},txt:"The NDA is VOID. Opposing counsel visibly ages five years."},fail:{fx:{rep:-5},txt:"They produce a ratification memo. Ouch. Should've dug deeper."}},
       {text:"Bluff: threaten a defamation countersuit.",base:35,boldW:3,style:"aggressive",delay:1,ok:{fx:{bold:6,inf:5,money:800},txt:"They fold. Your bluff had absolutely no legal basis. Beautiful."},fail:{fx:{rep:-10,bold:-2},txt:"They call the bluff and read your empty threat aloud in a meeting."}}]});
   P.push({id:"depo",tier:1,title:"CASE: Vance deposition prep",deadline:3,
-    body:"Depose the CFO of Vance Industries. The file shows two versions of the same expense report — one signed BEFORE the audit, one after, with $2M moved to 'consulting'. The CFO's lawyer is a screamer from Snidely Fitch.",
+    body:"Depose the CFO of Vance Industries. His lawyer is a screamer from Snidely Fitch, but the binder's dates don't shout — they just sit there. February 2nd: Vance retains a consulting outfit whose only employee is the CFO's brother-in-law. March 3rd: the Q3 expense report is signed. March 11th: the auditors send formal notice. March 12th: the CFO emails the controller, 'make Q3 read clean'. March 14th: $2M moves from facilities to consulting. March 19th: a second, tidier version of that same Q3 report is signed. April 2nd: the brother-in-law resigns. Two versions, one audit, and only one order that makes sense.",
+    timeline:{id:"vance_expense_chronology",title:"THE VANCE CHRONOLOGY",
+      body:"Before you sit down across from him, lay the file's events end to end. Opposing counsel will build this same chronology tonight — you would rather see it first.",
+      events:[
+        {id:"retainer",at:1,text:"Vance retains the consulting firm run by the CFO's brother-in-law"},
+        {id:"report1",at:2,text:"The original Q3 expense report is signed"},
+        {id:"notice",at:3,text:"The auditors send formal notice"},
+        {id:"email",at:4,text:"The CFO emails the controller: 'make Q3 read clean'"},
+        {id:"move",at:5,text:"$2M moves from facilities to consulting"},
+        {id:"report2",at:6,text:"A second, tidier version of the Q3 report is signed"},
+        {id:"resign",at:7,text:"The brother-in-law resigns from the consulting firm"}]},
     opts:[
       {text:"Ask soft questions. Preserve the relationship.",base:100,safe:true,ok:{fx:{bold:-3,inf:1},txt:"A polite, useless deposition. The partners yawn."}},
       {text:"Walk him into contradicting the two reports.",base:70,style:"technical",ok:{fx:{rep:7,inf:6,money:900},txt:"'So which signature is yours?' Silence. Checkmate."},fail:{fx:{rep:-6},txt:"He lawyered up mid-sentence. The screamer screamed. You blinked."}},

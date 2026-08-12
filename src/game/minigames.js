@@ -112,6 +112,89 @@ export function callCoin(challenge,call){
   };
 }
 
+/* ---------- EVIDENCE TIMELINE ----------
+   Order the events a case file already describes. Like every other board here,
+   the puzzle derives from a run/case identity instead of the shared gameplay
+   RNG: the same run asks the same chronology, a different run asks another
+   subset of the authored pool. `at` is the authored chronological rank and is
+   never shown; the player has to take it from the case text. */
+export function timelineDeal(events,count,identity){
+  const pool=(Array.isArray(events)?events:[]).filter(e=>e&&typeof e.id==="string");
+  const size=Math.max(2,Math.min(pool.length,Math.trunc(Number(count))||0));
+  // Stable, identity-ordered draw: sort the whole pool by a per-event hash and
+  // take the first `size`. No shared RNG, no Array#sort comparator randomness.
+  const drawn=pool
+    .map(event=>({event,key:hash(`${identity}|draw|${event.id}`)}))
+    .sort((a,b)=>a.key-b.key||(a.event.id<b.event.id?-1:1))
+    .slice(0,size)
+    .map(entry=>entry.event);
+  const solution=[...drawn].sort((a,b)=>(Number(a.at)||0)-(Number(b.at)||0)||(a.id<b.id?-1:1)).map(e=>e.id);
+  // Deterministic Fisher-Yates for the starting order, re-rolled until it is
+  // not already solved (a free win would make the read worthless).
+  const shuffle=salt=>{
+    const order=drawn.map(e=>e.id);
+    for(let i=order.length-1;i>0;i--){
+      const j=hash(`${identity}|${salt}|swap|${i}`)%(i+1);
+      [order[i],order[j]]=[order[j],order[i]];
+    }
+    return order;
+  };
+  let order=shuffle("deal");
+  for(let attempt=1;attempt<8&&order.every((id,index)=>id===solution[index]);attempt++) order=shuffle(`deal${attempt}`);
+  if(order.every((id,index)=>id===solution[index])) order=[...order].reverse();
+  return {cards:drawn.map(e=>({id:e.id,text:String(e.text||"")})),order,solution};
+}
+
+export function createTimelineChallenge({runSeed,caseId,optionIndex,timelineId,events,count,cost,toil,lateExtra}){
+  const identity=`${runSeed}|${caseId}|${timelineId}`;
+  const {cards,order,solution}=timelineDeal(events,count,identity);
+  return {
+    type:"timeline",
+    phase:"timeline",
+    runSeed,
+    caseId,
+    actionId:timelineId,
+    optionIndex,
+    cost,
+    toil,
+    lateExtra,
+    cards,
+    order,
+    solution,
+    correct:0,
+    turn:0,
+    feedback:"Put the events in the order the file describes, earliest first.",
+    coinFace:hash(`${identity}|coin`)%2===0?"heads":"tails", // unused here; keeps one challenge shape
+  };
+}
+
+export function moveTimelineCard(challenge,id,direction){
+  if(challenge.phase!=="timeline") return {...challenge};
+  const order=[...(challenge.order||[])];
+  const index=order.indexOf(id);
+  const target=index+(direction<0?-1:1);
+  if(index<0||target<0||target>=order.length) return {...challenge};
+  [order[index],order[target]]=[order[target],order[index]];
+  return {...challenge,order,turn:(challenge.turn||0)+1,
+    feedback:"Order revised. Submit when the chronology reads true."};
+}
+
+export function submitTimeline(challenge){
+  if(challenge.phase!=="timeline") return {...challenge};
+  const order=challenge.order||[], solution=challenge.solution||[];
+  const correct=order.reduce((sum,id,index)=>sum+(id===solution[index]?1:0),0);
+  const solved=correct===solution.length&&solution.length>0;
+  return {
+    ...challenge,
+    phase:solved?"timeline_success":"timeline_fail",
+    correct,
+    turn:(challenge.turn||0)+1,
+    feedback:solved
+      ?"The chronology holds. Every date lines up with the file."
+      :`Only ${correct} of ${solution.length} events sat in the right place. The story wobbles.`,
+  };
+}
+
 // Three timing rings for the electrical sabotage action. The shared gameplay
 // RNG is deliberately never read here: a run/case/action identity fixes the
 // board, while the snapshotted SNEAKY score changes only its difficulty.

@@ -81,7 +81,18 @@ Codex'in önerdiği "ayrı COVERT ACTION benzeri seçenek" **reddedildi**. Kulla
 
 Kullanıcı slice'ı onayladı ve `feat: add evidence timeline case prep` ile `origin/minigames`'e
 pushladı (kesin hash için `git log origin/minigames --oneline -3`). Kullanıcıyla mutabık kalınan
-sıradaki tur **1 + 2 birlikte**:
+sıradaki tur — **0 önce, sonra 1 + 2 birlikte**:
+
+0. **Bulmacayı atlamak artık bedelsiz OLMAMALI** (kullanıcı kararı, 2026-08-13, oyunu denedikten
+   sonra). Şu an `declineTimelineChallenge()` hiçbir şey değiştirmiyor: saat/FATIGUE yok, edge yok.
+   İstenen: **"GO IN COLD" seçilirse o hamlenin şansı biraz düşsün** (öneri: `TIMELINE_EDGE_DECLINE
+   = -4`; hazırlıksız girmenin bedeli, fail'in −10'undan hafif olmalı ki oynamak hâlâ mantıklı
+   kalsın). Saat/FATIGUE maliyeti yine alınmamalı — bedel yalnız şans tarafında.
+   Dokunulacak yerler: `constants.js` (yeni sabit), `engine.js` → `declineTimelineChallenge()`
+   (`c.timelineEdge={optionIndex,value:TIMELINE_EDGE_DECLINE}` yazıp öyle resume et) ve
+   `validTimelineEdge` alt sınırı, `TimelineMinigame.jsx` buton metni ("GO IN COLD (no prep, no
+   cost)" → şans düşüşünü dürüstçe söylemeli), `scripts/v195-check.mjs` içindeki
+   *"Declining is free"* testi (artık "ücretsiz ama şansı düşürür" olarak güncellenmeli).
 
 1. **`timeline` verisini prosedürel şablonlara yay** — `casegen.js` içinde tarih mantığı zaten olan
    şablonlar: backdated email, patent prior disclosure, expired notary. Şu an özellik yalnız tek el

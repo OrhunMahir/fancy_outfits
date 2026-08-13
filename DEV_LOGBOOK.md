@@ -79,10 +79,20 @@ Codex'in önerdiği "ayrı COVERT ACTION benzeri seçenek" **reddedildi**. Kulla
 
 ### Sıradaki kesin adım
 
-1. Kullanıcı bu slice'ı oynayıp onaylasın; ardından ikinci minigame seçimi (Codex listesi:
-   Contradiction Board 2. sırada).
-2. `timeline` verisini prosedürel şablonlara yayma (backdated email / patent prior disclosure /
-   expired notary) — içerik tekrarını asıl kıran adım budur.
+Kullanıcı slice'ı onayladı ve `feat: add evidence timeline case prep` ile `origin/minigames`'e
+pushladı (kesin hash için `git log origin/minigames --oneline -3`). Kullanıcıyla mutabık kalınan
+sıradaki tur **1 + 2 birlikte**:
+
+1. **`timeline` verisini prosedürel şablonlara yay** — `casegen.js` içinde tarih mantığı zaten olan
+   şablonlar: backdated email, patent prior disclosure, expired notary. Şu an özellik yalnız tek el
+   yazması davada (`depo`) ve %25 tetiklemeyle duruyor; çoğu run'da hiç görünmüyor. Altyapı hazır,
+   bu saf içerik işi: her şablona 6-7 olayluk havuz + gövde metnine gömülü tarihler. Üretilen
+   isim/tarih/rakam her seferinde değiştiği için içerik tekrarı asıl burada kırılır.
+2. **Safe %100 dengesi** (aşağıdaki kullanıcı notu) — aynı turda ölçülebilir: `soak` çıktısı stil
+   dağılımını ve win oranını zaten raporluyor, değişiklik öncesi/sonrası aynı seed matrisiyle
+   karşılaştırılmalı. Denge sabiti değişirse `BALANCE_SOAK_REPORT.md`'ye paired kohort eklenir.
+
+Ondan sonra: ikinci minigame seçimi (Codex listesinde **Contradiction Board** 2. sırada).
 
 ### Kullanıcı notu — sonraki denge işi
 

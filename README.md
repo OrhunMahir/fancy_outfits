@@ -30,6 +30,39 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.21 — Nobody walks in cold for free *(2026-08-13)*
+- **Skipping the chronology now costs something:** GO IN COLD still spends no hour and no fatigue,
+  but the play you already committed to argues at −4%. That is deliberately lighter than the −10%
+  of a muddled chronology, so sitting down with the binder remains the better bet. Saved evidence
+  edges are validated against the exact set of outcomes the game can stamp, so a hand-edited
+  advantage is refused.
+- **The chronology reaches the whole docket:** five procedural templates — the late filing, the two
+  signed reports, the backdated warning email, the patent that predates itself and the assembled
+  loan guaranty — now carry their own seven-event chronology. Every date lives in the case body and
+  never on the cards, and the generated names and figures run through the events too, so the same
+  template reads differently in a different career.
+- **The safe route has a price again — but never a chance of failing:** a safe play is still 100%.
+  What changed is what it pays. Settling real files back to back reads as COASTING: each
+  consecutive quiet settlement returns 1 less Influence and drains 2 more Boldness, up to four
+  deep, and any risky play anywhere clears the record. Careful lawyering also got slower (×1.75
+  hours instead of ×1.5). The case pane prints the exact coasting cost before you choose.
+- **Measured, not guessed:** the decision came from paired 64-seed cohorts (320 careers per cell).
+  The coasting penalty leaves ordinary careers untouched while cutting the always-settle career's
+  Influence by a third; a ×2.0 hour price was rejected as a disguised global difficulty increase.
+  Save schema v16 migrates older careers with a clean streak; the soak keeps a `safe_legacy`
+  control variant.
+
+### v19.20 — Put the file in order *(2026-08-13)*
+- **Evidence Timeline:** not a separate action — after you commit to a risky play on a file whose
+  text carries a chronology, a preparation window opens 25% of the time. Ordering the events
+  correctly gives that specific play +12%; a muddled order costs it 10% and leaves a light mark.
+  The case is never won or lost by the puzzle itself.
+- **Reading is the edge:** the board is dealt from an authored event pool by run/case identity, is
+  never dealt already solved, and the cards carry no dates — only the case file does.
+- **Playable by hand, thumb or keyboard:** per-card up/down buttons at 44px, no drag and drop.
+  Preparation costs half an hour and 3 fatigue whether you succeed or not; declining is free.
+  Save schema v15 rebuilds the board from its identity, so a mid-puzzle reload cannot reroll it.
+
 ### v19.19.1 — The question comes first *(2026-08-12)*
 - **First playable morning checkpoint:** a queued Fraud confrontation now opens before REP/INFL
   decay, rival progress, delayed results and roster drift. The guaranteed cover decision can never

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { moveTimelineEvent, submitTimelineOrder, declineTimelineChallenge } from "../../game/engine.js";
+import { TIMELINE_EDGE_DECLINE } from "../../game/constants.js";
 
 /* Ordering board: every card is a real focusable button pair, so the puzzle is
    playable with a mouse, a thumb (48px targets) or the keyboard alone. No drag
@@ -55,7 +56,7 @@ export default function TimelineMinigame({challenge}){
           SUBMIT CHRONOLOGY
         </button>
         <button className="btn small timeline-decline" type="button" onClick={declineTimelineChallenge}>
-          GO IN COLD (no prep, no cost)
+          GO IN COLD (no hour spent · {TIMELINE_EDGE_DECLINE}% on this play)
         </button>
       </div>
     </div>

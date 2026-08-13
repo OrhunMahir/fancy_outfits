@@ -5,6 +5,7 @@ import { S, setS, notify, newState } from "./state.js";
 import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DELEGATE_CAP, DAY_HOURS, TIER_HOURS, DELEGATE_HOURS,
          OVERTIME_HOURS, OVERTIME_LIMIT, OVERTIME_FATIGUE, OVERTIME_FATIGUE_STEP, LATE_FATIGUE,
          FATIGUE_REST, SAFE_HOURS_MULT, TECH_HOURS_MULT, TECH_INF_MULT, AGG_INF_MULT,
+         SAFE_COASTING, SAFE_STREAK_CAP, SAFE_STREAK_BOLD, SAFE_STREAK_INF_STEP,
          JUDGE_MEMORY_WINDOW, JUDGE_MEMORY_EVENT_LIMIT, JUDGE_MEMORY_WEIGHTS, JUDGE_MEMORY_WEEKLY_DECAY,
          COFFEE_RELIEF, COFFEE_FALLOFF, COFFEE_LIMIT, FATIGUE_DANGER, SENTHOME_REP, SENTHOME_INF,
          REP_FIRED, FINAL_WARNING_BOLD, FINAL_WARNING_BLUFF_WINS, FINAL_WARNING_REP, FINAL_WARNING_BOLD_COST, DEADLINE_PENALTY,
@@ -16,7 +17,7 @@ import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DELEGATE_CAP, DAY_HOURS, TIER_HOU
          FIRM_PLAN_GAIN, FIRM_PLAN_HOURS, FIRM_PLAN_FATIGUE, FIRM_PLAN_COOLDOWN,
          FIRE_HEAT, FIRE_HEAT_SENIOR, HEAT_DECAY, HEAT_MIN,
          TIMELINE_TRIGGER, TIMELINE_CARDS, TIMELINE_CARDS_SENIOR, TIMELINE_SENIOR_RANK,
-         TIMELINE_EDGE_WIN, TIMELINE_EDGE_LOSS, TIMELINE_FAIL_REP, TIMELINE_HOURS, TIMELINE_FATIGUE } from "./constants.js";
+         TIMELINE_EDGE_WIN, TIMELINE_EDGE_LOSS, TIMELINE_EDGE_DECLINE, TIMELINE_FAIL_REP, TIMELINE_HOURS, TIMELINE_FATIGUE } from "./constants.js";
 import { clamp, rnd, rand, shuffle, hash, setSeed, clearSeed, getRngState, setRngState } from "./utils.js";
 import { LOCK_MIN, LOCK_MAX, POWER_RING_COUNT, createLockpickChallenge, clampLockPosition, tryLockpick, callCoin,
          createPowerCutChallenge, advancePowerCut, stopPowerCut, powerAngleAt, powerAngleDistance,
@@ -141,6 +142,12 @@ const memoryFor=c=>{
 };
 const judgeMemoryModel=()=>balanceExperiment&&["legacy","rolling","friday"].includes(balanceExperiment.judgeMemoryModel)?
   balanceExperiment.judgeMemoryModel:"rolling";
+/* Two levers that price the safe route WITHOUT touching its 100% reliability:
+   its hours (C) and its diminishing payoff when leaned on (A). Both ship off. */
+const safeHoursMultiplier=()=>balanceExperiment&&Number.isFinite(balanceExperiment.safeHoursMult)?
+  Math.max(1,balanceExperiment.safeHoursMult):SAFE_HOURS_MULT;
+const safeCoastingEnabled=()=>balanceExperiment&&typeof balanceExperiment.safeCoasting==="boolean"?
+  balanceExperiment.safeCoasting:SAFE_COASTING;
 const recentJudgeEvents=m=>Array.isArray(m&&m.recent)?m.recent:[];
 const memoryEventValue=(style,event)=>{
   if(event.style!==style) return 0;
@@ -325,8 +332,29 @@ export function rivalTick(){
 }
 
 /* per-run ledger bookkeeping (die is already cast when this is called) */
+/* Coasting: errands and favors are not a career choice, so only real files
+   (tier>=1) count. The penalty is read BEFORE this play joins the streak, so
+   the first quiet settlement is always free — the second one starts costing. */
+const coastable=(c,o)=>!!(safeCoastingEnabled()&&c&&o&&!c.favor&&!c.msg&&(c.tier||0)>=1);
+function safeCoastPenalty(c,o){
+  if(!coastable(c,o)||!o.safe) return null;
+  const step=Math.min(S.safeStreak||0,SAFE_STREAK_CAP);
+  return step>0?{bold:-SAFE_STREAK_BOLD*step,inf:-SAFE_STREAK_INF_STEP*step,step}:null;
+}
+const coastFx=(fx,coast)=>!coast?fx:{...fx,
+  bold:((fx&&fx.bold)||0)+coast.bold,
+  ...((fx&&fx.inf)>0?{inf:Math.max(0,fx.inf+coast.inf)}:{})};
+/* UI selector: what settling THIS file right now would cost in payoff. The
+   dice never move, so showing it leaks nothing the difficulty modes hide. */
+export const coastingPreview=(c,o)=>safeCoastPenalty(c,o);
+function updateSafeStreak(c,o){
+  if(!coastable(c,o)) return;
+  S.safeStreak=o.safe?Math.min((S.safeStreak||0)+1,SAFE_STREAK_CAP):0;
+}
+
 function trackChoice(c,o,win){
   const r=S.runStats;
+  updateSafeStreak(c,o);
   if(o.safe) r.safe++;
   else if(o.style==="aggressive"){ win?r.bluffW++:r.bluffL++; }
   else if(o.style==="technical"){ win?r.techW++:r.techL++; }
@@ -510,7 +538,7 @@ export const hoursFor=c=>TIER_HOURS[c.tier||0];
    x1.25 — the bluff is the only fast move in the building (v1.6) */
 export const optHours=(c,o)=>{
   if(o&&o.action) return Math.max(.5,Math.round(o.action.hours*4)/4);
-  const m=o.safe?SAFE_HOURS_MULT:(o.style==="technical"?TECH_HOURS_MULT:1);
+  const m=o.safe?safeHoursMultiplier():(o.style==="technical"?TECH_HOURS_MULT:1);
   const dual=S.decor&&S.decor.monitor?0.25:0; // second monitor: fewer alt-tabs
   return Math.max(0.5,Math.round((hoursFor(c)*m-dual)*4)/4);
 };
@@ -1223,15 +1251,20 @@ export function submitTimelineOrder(){
   saveGame(); notify();
 }
 
-/* Walking away costs nothing and changes nothing — the offer is simply spent. */
+/* Walking away keeps the hour and the fatigue, but you argue a file you never
+   laid end to end: the committed play goes in a little colder. Lighter than a
+   muddled chronology, so sitting down with the binder is still worth it. */
 export function declineTimelineChallenge(){
   const ch=S&&S.actionChallenge;
   if(!ch||ch.type!=="timeline"||ch.phase!=="timeline") return;
   const refs=timelineRefs(ch);
   S.actionChallenge=null;
-  if(refs){ delete refs.c.timelineInProgress; }
+  if(refs){
+    delete refs.c.timelineInProgress;
+    refs.c.timelineEdge={optionIndex:ch.optionIndex,value:TIMELINE_EDGE_DECLINE};
+  }
   SFX.click();
-  log("You go in cold. No chronology, no prep, no lost hour.","sys");
+  log("You go in cold. The hour stays yours; the chronology does not. ("+TIMELINE_EDGE_DECLINE+"% on this play)","bad");
   if(refs) choose(refs.c,refs.o,ch.confirmedLate,true);
   else { saveGame(); notify(); }
 }
@@ -1415,6 +1448,7 @@ export function choose(c,o,confirmedLate,timelinePrepped){
   }
   S.inbox=S.inbox.filter(x=>x!==c); S.openCase=null;
   const win=rand()*100<p, out=win?o.ok:o.fail;
+  const coast=safeCoastPenalty(c,o); // measured before this play joins the streak
   trackChoice(c,o,win);
   archiveCase(c,o.text,win,out.txt,c.favor?"favor":"");
   rememberJudgeOutcome(c,o,win);
@@ -1422,7 +1456,8 @@ export function choose(c,o,confirmedLate,timelinePrepped){
   if(win){
     SFX.win();
     log("["+c.title+"] "+out.txt,"good");
-    awardXp(caseXpFor(c,o,true),"CASE · "+c.title); apply(out.fx,false,c.favor?"favor":c.big?"big_case":"case");
+    awardXp(caseXpFor(c,o,true),"CASE · "+c.title); apply(coastFx(out.fx,coast),false,c.favor?"favor":c.big?"big_case":"case");
+    if(coast) log("COASTING: "+(coast.step+1)+" quiet settlements in a row. The floor notices what you don't take on.","bad");
     if((c.tier||0)>=1&&!c.favor){ apply({firm:1},true,c.big?"big_case":"case"); maybeImpressClient(c); } // wins keep the lights on — and attract logos
     if(((out.fx&&out.fx.rep)||0)+((out.fx&&out.fx.inf)||0)>=10) flash("HENDERED!");
   } else {
@@ -2028,10 +2063,13 @@ function validTimelineData(t){
   }
   return true;
 }
+const TIMELINE_EDGE_VALUES=new Set([TIMELINE_EDGE_WIN,TIMELINE_EDGE_LOSS,TIMELINE_EDGE_DECLINE]);
 function validTimelineEdge(edge,opts){
   if(edge==null) return true;
+  // Only the three outcomes the game can actually stamp: a hand-written value
+  // in between (a quiet +5, a forged -1) is a tampered save, not a real play.
   return plain(edge)&&nonNegativeInt(edge.optionIndex)&&edge.optionIndex<(opts||[]).length&&
-    Number.isInteger(edge.value)&&edge.value>=TIMELINE_EDGE_LOSS&&edge.value<=TIMELINE_EDGE_WIN;
+    TIMELINE_EDGE_VALUES.has(edge.value);
 }
 function validCase(c,depth=0){
   return depth<=8&&plain(c)&&typeof c.id==="string"&&c.id.length>0&&typeof c.title==="string"&&typeof c.body==="string"&&validJudge(c.judge)&&
@@ -2289,7 +2327,11 @@ const migrateV14ToV15=raw=>{
   d.inbox=strip(d.inbox);
   return d;
 };
-const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6,6:migrateV6ToV7,7:migrateV7ToV8,8:migrateV8ToV9,9:migrateV9ToV10,10:migrateV10ToV11,11:migrateV11ToV12,12:migrateV12ToV13,13:migrateV13ToV14,14:migrateV14ToV15};
+/* v15 -> v16 adds the safe-play streak. A legacy career has no history of
+   consecutive settlements, so it resumes with a clean slate. */
+const migrateV15ToV16=raw=>({...raw,schemaVersion:16,
+  safeStreak:Number.isSafeInteger(raw.safeStreak)?clamp(raw.safeStreak,0,SAFE_STREAK_CAP):0});
+const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6,6:migrateV6ToV7,7:migrateV7ToV8,8:migrateV8ToV9,9:migrateV9ToV10,10:migrateV10ToV11,11:migrateV11ToV12,12:migrateV12ToV13,13:migrateV13ToV14,14:migrateV14ToV15,15:migrateV15ToV16};
 
 const JUDGE_MEMORY_COUNTERS=["seen","aggressiveW","aggressiveL","technicalW","technicalL","bribeW","bribeL","safe","neutralW","neutralL"];
 function validJudgeMemory(memory,day){
@@ -2458,6 +2500,8 @@ function migrateSaveData(raw){
     throw new SaveDataError("invalid","The saved overtime counter is invalid.");
   if(d.firm!=null&&(!Number.isFinite(d.firm)||d.firm<0||d.firm>100))
     throw new SaveDataError("invalid","The saved firm value is invalid.");
+  if(!nonNegativeInt(d.safeStreak)||d.safeStreak>SAFE_STREAK_CAP)
+    throw new SaveDataError("invalid","The saved safe-play streak is invalid.");
   if(!nonNegativeInt(d.firmPlanDay)) throw new SaveDataError("invalid","The saved turnaround cooldown is invalid.");
   if(d.firmGateHintRank!==null&&(!Number.isInteger(d.firmGateHintRank)||d.firmGateHintRank<0||d.firmGateHintRank>3))
     throw new SaveDataError("invalid","The saved FIRM promotion hint is invalid.");

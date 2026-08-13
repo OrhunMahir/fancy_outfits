@@ -192,9 +192,14 @@
 
 **v1.9.19 eklendi (2026-08-12):** Fraud günlük post-ENDURANCE FATIGUE peak'ini kaydeder ve gün sonunda tek kez 80/90/95/100 bandına göre `%0.5/%1.5/%3/%5` slip check yapar. Hit doğrudan game-over değildir; ertesi sabah cover kararı, ardından başarısız kararlarda alumni → bar mismatch → insurer proof zinciri gelir. Her aşamada nonlethal safe yol, yalnız final risky fail'de EXPOSED vardır. Due yüzleşme sabah pasiflerinden önce açılır ve seçim sonrası sabah exact-once sürer. THE SECRET UI, exact Info copy, soak telemetry ve strict schema v14 `fraudRisk`/pending/canonical-event/continuation doğrulaması tamamlandı; reload zinciri kaybetmez.
 
-**En son çalışılan konu (2026-08-13):** Fraud fatigue slip + identity pressure tamamlandı ve
-`46adae600` ile `origin/minigames`'e pushlandı. Güncel ortak handoff `DEV_LOGBOOK.md` içindedir.
-Sıradaki kullanıcı-onaylı iş: Evidence Timeline vertical slice; henüz kodlanmadı. Mobil
+**v1.9.20 eklendi (2026-08-13):** Evidence Timeline — ayrı bir aksiyon seçeneği değil, riskli hamle seçildikten sonra `TIMELINE_TRIGGER`(%25) ile açılan hazırlık penceresi. Board run/case/timeline kimliğinden dağıtılır, paylaşılan RNG'yi tüketmez, çözülmüş açılmaz. 0.5h + 3 FATIGUE her sonuçta ödenir; doğru sıra yalnız hazırlanan seçeneğe +12, yanlış sıra −10 ve −2 REP. Schema v15 board'u kimlikten yeniden türeterek doğrular.
+
+**v1.9.21 eklendi (2026-08-13):** (a) `TIMELINE_EDGE_DECLINE=-4` — "GO IN COLD" saat/FATIGUE yakmaz ama hamlenin şansını düşürür; `validTimelineEdge` artık tam değer kümesi (`{+12,−10,−4}`) doğrular. (b) Timeline 5 prosedürel şablona yayıldı (geç dosyalama, iki versiyonlu rapor, backdated email, patent, guaranty); tarihler yalnız gövdede, kartlarda değil. (c) Safe rota fiyatlandırıldı, güvenilirliği değil: `SAFE_COASTING` (ardışık safe çözümlerde INF −1/basamak, BOLD −2/basamak, cap 4, riskli hamle sıfırlar — `S.safeStreak`, schema v16) + `SAFE_HOURS_MULT` 1.5→1.75. Karar paired 64-seed kohortlarla verildi; 2.0× saat gizli global zorluk artışı olduğu için reddedildi (`BALANCE_SOAK_REPORT.md` v19.21). Soak'ta `safe_legacy` kontrolü var.
+
+**En son çalışılan konu (2026-08-13):** v1.9.20 Evidence Timeline `357ade0a4` ile pushlandı;
+ardından v1.9.21 (decline cezası + prosedürel timeline yayılması + safe rota fiyatlandırması,
+schema v16) tamamlandı ve kullanıcının push'unu bekliyor. Güncel ortak handoff `DEV_LOGBOOK.md`
+içindedir. Sıradaki kullanıcı-onaylı iş: **Contradiction Board** (2. bağlamsal minigame). Mobil
 (layout+Capacitor), bağlamsal SFX ve Steam paketleme sonraki backlog'dur.
 
 ---
@@ -470,5 +475,5 @@ Sen bu projeye yeni katılan geliştiricisin. Şunları bilmelisin:
 2. Çalıştırmak: `npm run dev` (tarayıcı), `npm start` (Electron/Steam hedefi). Her değişiklikten sonra `npm run build` ile doğrula, davranışı tarayıcıda elle test et.
 3. Dokunmadan önce oku: `src/game/engine.js` içinde `chance()` (denge), `apply()` (tüm stat mutasyonu buradan) ve `endDay()` (gün akışı); dava JSON şeması (AGENTS.md §7, gerçek veri `src/game/content.js`).
 4. Kırmızı çizgiler: yeni runtime bağımlılığı/asset dosyası ekleme; oyun metinlerine "Suits/Papers Please" yazma; safe-vs-bluff çekirdek gerilimini bozma; `apply()`'ı bypass etme; `src/game/` ↔ `src/components/` katman ayrımını bozma; oyun dili İngilizce kalır, kullanıcıyla Türkçe konuşulur.
-5. Gerçek sıradaki iş kullanıcı onaylı Fraud fatigue slip-up + kimlik açığa çıkma sahneleri. Hakim hafızasını veya progression'ı yeniden yazma; ikisi de tamamlandı.
+5. Gerçek sıradaki iş kullanıcı onaylı **Contradiction Board** (2. bağlamsal minigame). Hakim hafızası, progression, Fraud identity pressure ve Evidence Timeline TAMAMLANDI — yeniden yazma. Her oturuma `DEV_LOGBOOK.md`'nin en üstteki kaydıyla başla; bu dosya özet, o dosya güncel checkpoint.
 6. Kod stili: `src/game/` kompakt (tek satır guard'lar, ternary'ler), tuning sabitleri `constants.js`'te; componentler sade JSX.

@@ -801,6 +801,37 @@ globalThis.clearInterval = () => {};
   }
   assert.deepEqual([...generatedCovertTypes].sort(),["lockpick","power_cut"]);
 
+  // The chronology feature cannot live on one hand-written file: the templates
+  // whose bodies already carry dates must offer it too, with the dates in the
+  // BODY and never on the cards — otherwise the board solves itself.
+  fresh("daily");
+  utils.setSeed(2053);
+  const generatedTimelines = new Map();
+  for (let i = 0; i < 1500 && generatedTimelines.size < 5; i++) {
+    const filing = casegen.genCase();
+    if (filing.timeline) generatedTimelines.set(filing.timeline.id, filing);
+  }
+  assert.equal(generatedTimelines.size, 5, "five procedural templates carry an authored chronology");
+  const datePattern = /\b(january|february|march|april|may|june|july|august|september|october|november|december|\d{1,2}:\d{2})\b/i;
+  for (const [id, filing] of generatedTimelines) {
+    const { events, title, body } = filing.timeline;
+    assert.ok(events.length >= 6 && events.length <= 12, id + " offers a deep enough pool to vary between runs");
+    assert.equal(new Set(events.map(e => e.id)).size, events.length, id + " has unique event ids");
+    assert.deepEqual(events.map(e => e.at), events.map((_, index) => index + 1), id + " ranks its events 1..n");
+    assert.ok(title.length > 0 && body.length > 0, id + " briefs the player");
+    assert.ok(datePattern.test(filing.body), id + " puts its dates in the case file");
+    for (const event of events)
+      assert.ok(!datePattern.test(event.text), id + "/" + event.id + " must not hand the answer to the card");
+    // A risky play on a generated file really does open the prep window.
+    const c = engine.instantiateCase(filing);
+    const risky = c.opts.find(option => !option.safe && !option.action);
+    assert.equal(engine.timelineEligible(c, risky), true, id + " opens prep on a risky play");
+    const board = minigames.createTimelineChallenge({ runSeed: 7, caseId: c.id, optionIndex: c.opts.indexOf(risky),
+      timelineId: id, events, count: constants.TIMELINE_CARDS, cost: constants.TIMELINE_HOURS, toil: 3, lateExtra: 0 });
+    assert.equal(board.cards.length, constants.TIMELINE_CARDS);
+    assert.notDeepEqual(board.order, board.solution, id + " never deals a solved board");
+  }
+
   // Delayed court outcomes remain secret until REPLY. A save/reload preserves
   // the rolled result and RNG cursor; reveal records memory exactly once.
   fresh("daily");
@@ -2477,17 +2508,99 @@ globalThis.clearInterval = () => {};
   assert.ok(!state.S.over, "a failed chronology never ends the run");
   assert.equal(oddsBeforeMiss > 0, true);
 
-  // Declining is free: no hour, no fatigue, no odds change — the play just runs.
+  // Declining costs no hour and no fatigue, but going in cold is not free: the
+  // committed play carries a light penalty, lighter than a muddled chronology.
   fresh("daily");
   depo = liveDepo();
   assert.ok(forceTimeline());
-  const hoursBeforeDecline = state.S.hours, declinedCost = engine.optHours(depo.c, depo.o);
+  const hoursBeforeDecline = state.S.hours, fatigueBeforeDecline = state.S.fatigue;
+  const declinedCost = engine.optHours(depo.c, depo.o), declinedIndex = depo.c.opts.indexOf(depo.o);
   engine.choose(depo.c, depo.o);
   assert.equal(state.S.actionChallenge?.phase, "timeline");
   engine.declineTimelineChallenge();
   assert.equal(state.S.actionChallenge, null);
   assert.equal(state.S.hours, hoursBeforeDecline - declinedCost, "declining bills the play's own hours, never the prep's");
+  // ENDURANCE can only soften work fatigue, so the play's own raw cost is the ceiling.
+  assert.ok(state.S.fatigue <= fatigueBeforeDecline + declinedCost * 2, "declining adds no prep fatigue");
+  assert.deepEqual(depo.c.timelineEdge, { optionIndex: declinedIndex, value: constants.TIMELINE_EDGE_DECLINE },
+    "going in cold stamps its own penalty on the committed play");
+  const coldOdds = engine.chance(depo.o, depo.c);
+  delete depo.c.timelineEdge;
+  assert.equal(coldOdds - engine.chance(depo.o, depo.c), constants.TIMELINE_EDGE_DECLINE, "the cold play argues at lower odds");
+  depo.c.timelineEdge = { optionIndex: declinedIndex, value: constants.TIMELINE_EDGE_DECLINE };
+  assert.ok(constants.TIMELINE_EDGE_DECLINE < 0 && constants.TIMELINE_EDGE_DECLINE > constants.TIMELINE_EDGE_LOSS,
+    "skipping the board must sting less than botching it, or nobody would ever play");
+  assert.ok(state.S.logEntries.some(e => /go in cold/i.test(e.txt)), "the player is told what going in cold costs");
   assert.equal(state.S.inbox.some(c => c.id === "depo"), false, "declining still resolves the committed play");
+
+  // ---- Pricing the safe route without touching its 100% reliability ----
+  // Both levers ship OFF: the soak measures them as paired cohorts first.
+  const coastFile = index => {
+    const c = engine.instantiateCase({ id: "coast" + index, tier: 1, title: "CASE: quiet settlement " + index, deadline: 3,
+      body: "A file that can be settled or argued.",
+      opts: [
+        { text: "Settle quietly.", base: 100, safe: true, ok: { fx: { inf: 8, bold: -3 }, txt: "Settled." } },
+        { text: "Argue the technical read.", base: 100, style: "technical",
+          ok: { fx: { inf: 8 }, txt: "Won." }, fail: { fx: { rep: -4 }, txt: "Lost." } }] });
+    state.S.inbox = [c]; state.S.openCase = c; state.S.hours = 40; state.S.event = null;
+    return c;
+  };
+  const playFile = (index, wantSafe) => {
+    const c = coastFile(index), o = c.opts.find(option => !!option.safe === wantSafe);
+    const before = { inf: state.S.inf, bold: state.S.bold };
+    engine.choose(c, o);
+    return { inf: state.S.inf - before.inf, bold: state.S.bold - before.bold };
+  };
+
+  // The pre-v1.9.21 rules are still reachable as a soak control: no coasting.
+  engine.setBalanceExperiment({ safeCoasting: false });
+  fresh("standard");
+  const legacyFirst = playFile(1, true), legacySecond = playFile(2, true);
+  assert.deepEqual(legacySecond, legacyFirst, "the legacy control pays every safe play in full");
+  assert.equal(state.S.safeStreak, 0, "a disabled lever writes no streak into the save");
+
+  engine.setBalanceExperiment(null);
+  assert.equal(constants.SAFE_COASTING, true, "the shipped rules price a coasting career");
+  fresh("standard");
+  const coastFirst = playFile(1, true);
+  assert.equal(state.S.safeStreak, 1, "the first quiet settlement is free and starts the streak");
+  const coastSecond = playFile(2, true);
+  assert.ok(coastSecond.inf < coastFirst.inf, "the second settlement in a row returns less Influence");
+  assert.equal(coastSecond.bold - coastFirst.bold, -constants.SAFE_STREAK_BOLD, "and drains more Boldness");
+  assert.ok(state.S.logEntries.some(e => /COASTING/.test(e.txt)), "the player is told why the payoff shrank");
+  assert.equal(state.S.safeStreak, 2);
+  playFile(3, false);
+  assert.equal(state.S.safeStreak, 0, "taking a risk clears the coasting record");
+  const coastAfterRisk = playFile(4, true);
+  assert.deepEqual(coastAfterRisk, coastFirst, "and the next safe play is paid in full again");
+  // Errands and favors are not career choices: they never build the streak.
+  const errand = engine.instantiateCase({ id: "coast_errand", tier: 0, title: "MEMO: coffee", deadline: 1, body: "Not billable.",
+    opts: [{ text: "Do it.", base: 100, safe: true, ok: { fx: { inf: 2 }, txt: "Done." } }] });
+  state.S.inbox = [errand]; state.S.hours = 40;
+  engine.choose(errand, errand.opts[0]);
+  assert.equal(state.S.safeStreak, 1, "an errand neither builds nor breaks the streak");
+
+  // Lever C is pure clock pressure and never touches the dice.
+  const hoursCase = coastFile(9), hoursSafe = hoursCase.opts.find(o => o.safe);
+  const shippedHours = engine.optHours(hoursCase, hoursSafe);
+  engine.setBalanceExperiment({ safeHoursMult: 2 });
+  assert.ok(engine.optHours(hoursCase, hoursSafe) > shippedHours, "the hours lever slows careful play down");
+  assert.equal(engine.chance(hoursSafe, hoursCase), 100, "neither lever ever makes a safe play fail");
+  engine.setBalanceExperiment(null);
+  assert.equal(engine.optHours(hoursCase, hoursSafe), shippedHours, "production keeps the shipped 1.5x");
+
+  // v15 careers migrate forward with a clean streak; an impossible one is refused.
+  fresh("standard");
+  engine.saveGame();
+  const rawStreak = JSON.parse(localStorage.getItem(constants.SAVE_KEY + "_s1"));
+  assert.equal(rawStreak.schemaVersion, 16);
+  const legacyStreak = { ...rawStreak, schemaVersion: 15 };
+  delete legacyStreak.safeStreak;
+  localStorage.setItem(constants.SAVE_KEY + "_s1", JSON.stringify(legacyStreak));
+  assert.equal(engine.loadGame(1), true, "a v15 career migrates to the streak schema");
+  assert.equal(state.S.safeStreak, 0);
+  localStorage.setItem(constants.SAVE_KEY + "_s1", JSON.stringify({ ...rawStreak, safeStreak: constants.SAFE_STREAK_CAP + 1 }));
+  assert.equal(engine.loadGame(1), false, "a streak longer than the cap is rejected");
 
   // The edge is scoped to the prepped option and cannot leak onto the others.
   fresh("standard");
@@ -2527,6 +2640,10 @@ globalThis.clearInterval = () => {};
   rejects(c => { c.actionChallenge = null; }, "an orphan timeline marker is rejected");
   rejects(c => { const depoCase = c.inbox.find(x => x.id === "depo"); delete depoCase.timelineInProgress; },
     "a challenge without its case marker is rejected");
+  rejects(c => { c.inbox.find(x => x.id === "depo").timelineEdge = { optionIndex: 1, value: -7 }; },
+    "an edge value the game never stamps is rejected");
+  rejects(c => { c.inbox.find(x => x.id === "depo").timelineEdge = { optionIndex: 1, value: constants.TIMELINE_EDGE_WIN + 1 }; },
+    "an inflated edge is rejected");
   assert.equal(engine.loadGame(1), true, "the untouched save still loads");
 
   // v14 careers migrate forward and never look mid-puzzle.
@@ -2570,7 +2687,7 @@ globalThis.clearInterval = () => {};
     }
   }
 
-  console.log("v1.9.5–v1.9.20 checks passed: Evidence Timeline prep (deal/reload/tamper/migration/scope), Fraud identity pressure/morning continuation, progression/skills, lockpick/Power Cut minigames, balance experiments, Final Warning, Friday/Exceptional Review promotions, delegation cap, strict saves/migrations, procedural IDs, long-run integrity, FIRM payroll, rolling judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
+  console.log("v1.9.5–v1.9.21 checks passed: Evidence Timeline prep + cold-entry penalty (deal/reload/tamper/migration/scope), safe-route pricing (coasting/hours/v16), Fraud identity pressure/morning continuation, progression/skills, lockpick/Power Cut minigames, balance experiments, Final Warning, Friday/Exceptional Review promotions, delegation cap, strict saves/migrations, procedural IDs, long-run integrity, FIRM payroll, rolling judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;

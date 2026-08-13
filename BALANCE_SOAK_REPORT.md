@@ -1,11 +1,59 @@
 # FANCY OUTFITS — Deterministik Kariyer Soak Raporu
 
-**Sürüm:** v19.15 (v19.9 baseline + progression, controlled-risk, FIRM, hakim-memory, INF-overflow ve Final Warning A/B turları)
+**Sürüm:** v19.21 (v19.9 baseline + progression, controlled-risk, FIRM, hakim-memory, INF-overflow, Final Warning ve safe-route A/B turları)
 
-**Tarih:** 2026-08-09
+**Tarih:** 2026-08-13
 
 **Kapsam:** Standard 40 gün, Endless 50–80 gün; beş senaryo; denge, uzun-run
 bütünlüğü ve şüpheli seed tekrarları.
+
+## v19.21 safe rota fiyatlandırması — uygulanan karar
+
+### Sorun
+
+Kullanıcı gözlemi: "safe seçeneklerin %100 olması dengeyi bozuyor". Kırmızı çizgi (safe ASLA
+fail etmez) korunacağı için bedel yalnız şans DIŞINDA aranabilirdi. İki kaldıraç test edildi:
+
+- **A — coasting:** ardışık her safe çözüm (yalnız tier≥1 gerçek dosyalar) `SAFE_STREAK_INF_STEP`
+  kadar az INF öder ve `SAFE_STREAK_BOLD` kadar fazla BOLD yakar, `SAFE_STREAK_CAP`(4) derinliğe
+  kadar. Herhangi bir riskli hamle streak'i sıfırlar. Yüzde yerine düz basamak seçildi: draw-time
+  ölçekleyicilerden sonra bir safe dosya ~1 INF ödüyor, çarpan yuvarlamada yok oluyordu.
+- **C — saat:** `SAFE_HOURS_MULT` 1.5 → 1.75 / 2.0.
+
+### Ölçüm (64 seed × 5 senaryo × 4 politika = kohort başına 320 Standard kariyer)
+
+| Variant | Technical | Mixed | Bold Mixed | max_chance medyan final INF |
+|---|---:|---:|---:|---:|
+| `safe_legacy` (eski kural) | %67,8 | %65,6 | %69,1 | 68 |
+| `safe_coasting` (A) | %67,8 | %65,6 | %68,4 | **46** |
+| `safe_hours_175` (C hafif) | %66,9 | %64,4 | %63,1 | 53 |
+| **shipped: A + 1.75x** | **%66,9** | **%63,8** | **%61,6** | **38** |
+| `safe_hours_2` (C sert) | %54,7 | %53,4 | %47,2 | 49 |
+| `safe_both` (A + 2.0x) | %54,7 | %53,4 | %45,6 | 36 |
+
+413/413 + 203/203 replay birebir aynı, integrity ihlali 0.
+
+### Karar ve gerekçe
+
+- **A tek başına cerrahi:** normal kariyerlerde win oranı DEĞİŞMİYOR (aynı ondalığa kadar), çünkü
+  Technical/Mixed botları safe'i art arda oynamıyor (~50 hamlede 9–11 safe). Buna karşılık
+  "her dosyayı sessizce kapat" kariyerinin INF'i %32 düşüyor. Ceza tam olarak hedeflenen davranışa
+  biniyor.
+- **C 2.0x reddedildi:** safe nerf'ü gibi görünüp aslında global zorluk artışı — her politika
+  13–22 puan win kaybediyor, bold_mixed kovulması %10,9 → %20,9'a çıkıyor. Bu ayrı bir tasarım
+  kararı olur, safe fiyatlandırması değil.
+- **Canlıya alınan:** A + C(1.75). Kullanıcı iki kaldıracı birlikte istedi; hafif sürüm toplamda
+  1–7,5 win puanı ödüyor ve coasting kariyerini en sert sıkan kombinasyon (INF 68 → 38).
+
+### Doğrulanan çıkarım
+
+Saf safe rota (`max_chance`) HER variant'ta %0 kazanıyor ve ~%80 KOVULUYOR: safe zaten run
+kazandırmıyordu. Kullanıcının hissettiği sorun kazanma değil, her dosyada bedelsiz garantili
+çıkış olmasıydı — coasting tam olarak bunu fiyatlandırıyor. Zar matematiği değişmedi;
+`chance()` içindeki `o.base>=100` erken dönüşü ve GDD'nin "safe asla fail etmez" sözleşmesi aynen
+duruyor.
+
+> Aşağıdaki v19.15 bölümü Final Warning kararını, sonraki bölümler tarihsel baseline'ı korur.
 
 ## v19.15 Final Warning — uygulanan kural ve açık kalan hedef
 

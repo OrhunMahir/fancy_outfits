@@ -39,7 +39,17 @@ const TEMPLATES=[
   // 3 — filed too late (court; the dismissal may get appealed → multi-stage)
   ()=>{const a=rnd(CO),b=rnd(CO.filter(x=>x!==a)),d=rnd([1,2,3]),ex=rnd(["their CEO was 'at a wellness retreat'","their server 'ate the draft'","their counsel 'misread a calendar'"]);
   const c={tier:2,title:`COURT: ${a} v. ${b}`,deadline:rnd([3,4]),judge:true,
-    body:`Motion to dismiss. ${a}'s complaint hit the docket ${d} day(s) AFTER the statute of limitations ran out — their tolling argument is that ${ex}. The filing stamp doesn't care. Sympathy might.`,
+    body:`Motion to dismiss. ${a}'s complaint hit the docket ${d} day(s) AFTER the statute of limitations ran out — their tolling argument is that ${ex}. The filing stamp doesn't care. Sympathy might. The docket sheet spells the year out: March 4, the ${b} contract is terminated. March 18, ${a}'s general counsel opens a claim file. June 2, their outside counsel sends a first demand letter. August 9, ${a} fires that outside counsel. September 1, the limitations period runs out. September ${1+d}, the clerk stamps the complaint. September 20, new counsel files the tolling declaration.`,
+    timeline:{id:"late_filing_docket",title:"THE DOCKET, IN ORDER",
+      body:`Before you argue the calendar, put the calendar in order. The panel will ask when ${a} knew what it knew, and a lawyer who fumbles that question loses the easy dismissal.`,
+      events:[
+        {id:"terminate",at:1,text:`The ${b} contract is terminated`},
+        {id:"claimfile",at:2,text:`${a}'s general counsel opens a claim file`},
+        {id:"demand",at:3,text:"Outside counsel sends the first demand letter"},
+        {id:"firing",at:4,text:`${a} fires that outside counsel`},
+        {id:"expiry",at:5,text:"The limitations period runs out"},
+        {id:"stamp",at:6,text:"The clerk stamps the complaint"},
+        {id:"tolling",at:7,text:"New counsel files the tolling declaration"}]},
     opts:[
       {text:"Consent to proceed on the merits.",base:100,safe:true,ok:{fx:{bold:-3,inf:2},txt:"Trial ahead. The safe road is long and unpaid."}},
       {text:"The deadline is the deadline. Cold math.",base:66,style:"technical",ok:{fx:{rep:8,inf:8,money:1400},txt:"'The calendar does not do wellness.' Dismissed. HENDERED."},fail:{fx:{rep:-6},txt:"Tolled anyway. The judge calls your argument 'correct, and unlikable'."}},
@@ -65,7 +75,17 @@ const TEMPLATES=[
   // 5 — two versions of the same report
   ()=>{const a=rnd(CO),m=rnd([1,2,3]);
   return {tier:1,title:`CASE: ${a} audit prep`,deadline:rnd([2,3]),
-    body:`Prep the ${a} CFO for deposition. The binder holds two versions of the same expense report: one signed BEFORE the audit, one after — with ${money(m*1000000)} quietly reclassified to 'consulting'. Their counsel included both copies. By accident, presumably.`,
+    body:`Prep the ${a} CFO for deposition. The binder holds two versions of the same expense report: one signed BEFORE the audit, one after — with ${money(m*1000000)} quietly reclassified to 'consulting'. Their counsel included both copies. By accident, presumably. The dates are duller than the numbers and twice as useful. January 12: the audit committee schedules its review. February 3: the original report is signed. February 20: the auditors ask for supporting invoices. February 21: the CFO's assistant books a vendor 'orientation dinner'. March 2: the ${money(m*1000000)} moves to consulting. March 6: the second report is signed. March 30: the assistant leaves the company.`,
+    timeline:{id:"audit_two_reports",title:`THE ${a.toUpperCase()} BINDER, END TO END`,
+      body:"Two signatures, one audit. Lay the binder out in order and the reclassification stops looking like accounting and starts looking like a decision.",
+      events:[
+        {id:"schedule",at:1,text:"The audit committee schedules its review"},
+        {id:"first",at:2,text:"The original expense report is signed"},
+        {id:"invoices",at:3,text:"The auditors ask for supporting invoices"},
+        {id:"dinner",at:4,text:"The assistant books a vendor 'orientation dinner'"},
+        {id:"reclass",at:5,text:`${money(m*1000000)} moves to 'consulting'`},
+        {id:"second",at:6,text:"The second, tidier report is signed"},
+        {id:"exit",at:7,text:"The assistant leaves the company"}]},
     opts:[
       {text:"Soft questions. Preserve the relationship.",base:100,safe:true,ok:{fx:{bold:-3,inf:1},txt:"Forty minutes of nothing. The partners check their phones."}},
       {text:"Walk him into the two signatures.",base:70,style:"technical",ok:{fx:{rep:7,inf:6,money:800},txt:"'Which signature is yours?' Both, it turns out. Checkmate."},fail:{fx:{rep:-6},txt:"He explains the reclass with a straight face and a footnote. You blinked."}},
@@ -89,7 +109,17 @@ const TEMPLATES=[
   // 8 — the backdated email
   ()=>{const a=rnd(CO),who=rnd(LAST),m=rnd([2,3,5]);
   return {tier:1,title:`CASE: ${a} termination dispute`,deadline:rnd([2,3]),
-    body:`${a} fired ${who} 'for cause' and produced a warning email dated three weeks prior. But the email's metadata — buried in the header ${a} handed over unredacted — shows it was actually sent the morning of the firing. The 'cause' was manufactured after the decision.`,
+    body:`${a} fired ${who} 'for cause' and produced a warning email dated May 6 — three weeks before the firing. But the header ${a} handed over unredacted says otherwise. April 2: ${who}'s last review lands at 'exceeds expectations'. April 15: HR opens a 'restructuring' spreadsheet. May 27, 08:14: the warning email is actually sent. May 27, 09:30: ${who} is fired for cause. May 30: the severance offer is withdrawn. June 1: HR forwards the whole file to outside counsel, headers and all. June 9: ${a} produces the email in discovery. The 'cause' was manufactured after the decision.`,
+    timeline:{id:"backdated_email_header",title:"WHAT THE HEADER SAYS",
+      body:`The paper file and the metadata tell two different stories. Build the real one first — ${a} will hand you the other one all day.`,
+      events:[
+        {id:"review",at:1,text:`${who}'s last performance review lands at 'exceeds expectations'`},
+        {id:"restructure",at:2,text:"HR opens the 'restructuring' spreadsheet"},
+        {id:"sent",at:3,text:"The warning email is actually sent"},
+        {id:"fired",at:4,text:`${who} is fired 'for cause'`},
+        {id:"severance",at:5,text:"The severance offer is withdrawn"},
+        {id:"forward",at:6,text:"HR forwards the unredacted file to outside counsel"},
+        {id:"produced",at:7,text:"The email is produced in discovery"}]},
     opts:[
       {text:"Advise a clean severance. Move on.",base:100,safe:true,ok:{fx:{bold:-3,inf:2,money:300},txt:"Paid, signed, gone. Nobody reads the header ever again."}},
       {text:"Confront them with the metadata timestamp.",base:73,style:"technical",delay:rnd([1,2]),ok:{fx:{rep:8,inf:7,money:1000},txt:`The header doesn't lie even when ${a} does. They settle before discovery.`},fail:{fx:{rep:-5},txt:"They claim a 'server clock error'. It's flimsy — but it's today's problem now."}},
@@ -97,7 +127,17 @@ const TEMPLATES=[
   // 9 — the patent that predates itself
   ()=>{const a=rnd(CO),b=rnd(CO.filter(x=>x!==a));
   return {tier:1,title:`CASE: ${a} v. ${b} (patent)`,deadline:rnd([2,3]),
-    body:`${b} sues ${a} for infringing a 'revolutionary' patent. The filing date is right there on page one. So is the trade-show brochure in exhibit 9, where ${b} publicly demoed the exact invention — fourteen months BEFORE they filed. Public disclosure that old sinks the patent. They exhibited their own poison.`,
+    body:`${b} sues ${a} for infringing a 'revolutionary' patent. The filing date is right there on page one. So is the trade-show brochure in exhibit 9, where ${b} publicly demoed the exact invention — fourteen months BEFORE they filed. Public disclosure that old sinks the patent. The prosecution history runs: year one, March 4, the trade-show demo. Year one, April 20, ${b} posts the demo video publicly. Year two, May 9, the application is filed. Year two, November 2, the patent issues. Year three, January 15, ${a} launches the accused product. Year three, March 1, the cease-and-desist arrives. Year three, April 12, the complaint is filed. They exhibited their own poison.`,
+    timeline:{id:"patent_prior_disclosure",title:"THE PROSECUTION HISTORY",
+      body:`Prior disclosure is a date problem, not an argument problem. Put ${b}'s own history in order and the fourteen months speak for themselves.`,
+      events:[
+        {id:"demo",at:1,text:"The invention is demoed at the trade show"},
+        {id:"video",at:2,text:`${b} posts the demo video publicly`},
+        {id:"filed",at:3,text:"The patent application is filed"},
+        {id:"issued",at:4,text:"The patent issues"},
+        {id:"launch",at:5,text:`${a} launches the accused product`},
+        {id:"cease",at:6,text:"The cease-and-desist letter arrives"},
+        {id:"complaint",at:7,text:"The infringement complaint is filed"}]},
     opts:[
       {text:"License it cheaply. Avoid the fight.",base:100,safe:true,ok:{fx:{inf:2,bold:-3,money:200},txt:"A modest license. The 'revolutionary' patent lives to bully again."}},
       {text:"Invalidate it on the prior public disclosure.",base:74,style:"technical",ok:{fx:{rep:8,inf:7,money:1300},txt:"Exhibit 9 is their own brochure. The patent evaporates. So does their smugness."},fail:{fx:{rep:-5},txt:"The demo was 'a prototype, not the claimed invention'. Arguable. Ugh."}},
@@ -105,7 +145,17 @@ const TEMPLATES=[
   // 10 — the guaranty nobody signed twice
   ()=>{const who=rnd(LAST),a=rnd(CO),k=rnd([200,350,500]);
   return {tier:1,title:`CASE: ${a} loan guaranty`,deadline:rnd([2,3]),
-    body:`${a} defaulted on a $${k}k loan and the bank is chasing ${who}, who allegedly 'personally guaranteed' it. The guaranty page bears ${who}'s signature — but it's a photocopy grafted onto a different font than the rest of the document, and the notary stamp expired the year before the date written on it. Somebody assembled this.`,
+    body:`${a} defaulted on a $${k}k loan and the bank is chasing ${who}, who allegedly 'personally guaranteed' it. The guaranty page bears ${who}'s signature — but it's a photocopy grafted onto a different font than the rest of the document, and it is dated June 14, stamped by a notary whose commission expired April 1. The rest of the file is honest about its dates: February 2, ${a} draws the loan down. February 20, the credit committee demands a personal guarantor. April 1, the notary's commission expires. September 8, ${a} misses its first payment. September 21, the bank scans its own file copy — with no guaranty page in it. October 5, the demand letter goes to ${who}. November 30, the guaranty page appears in the bank's production. Somebody assembled this.`,
+    timeline:{id:"guaranty_assembly",title:"WHEN THE PAGE APPEARED",
+      body:`The signature is the wrong fight. The right fight is the order: a page nobody could scan in September cannot have been signed in June.`,
+      events:[
+        {id:"drawdown",at:1,text:`${a} draws the loan down`},
+        {id:"committee",at:2,text:"The credit committee demands a personal guarantor"},
+        {id:"commission",at:3,text:"The notary's commission expires"},
+        {id:"default",at:4,text:`${a} misses its first payment`},
+        {id:"scan",at:5,text:"The bank scans its file copy — no guaranty page in it"},
+        {id:"demandletter",at:6,text:`The demand letter goes to ${who}`},
+        {id:"appears",at:7,text:"The guaranty page appears in the bank's production"}]},
     opts:[
       {text:"Negotiate a payment plan and stop asking questions.",base:100,safe:true,ok:{fx:{bold:-4,inf:2},txt:"A quiet plan. The Frankenstein guaranty is never mentioned again."}},
       {text:"Challenge the guaranty — expired notary, spliced page.",base:72,style:"technical",delay:rnd([1,2]),ok:{fx:{rep:8,inf:6,money:900},txt:"An expired notary can't notarize the future. The guaranty is void. The bank blinks."},fail:{fx:{rep:-5},txt:"The bank produces a 'corrected' copy overnight. Convenient. Hard to disprove today."}},

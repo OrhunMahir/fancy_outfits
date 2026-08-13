@@ -25,6 +25,7 @@ export function newState(scenario,difficulty){
     // the fictional workday: hours remaining, overtime taken today, and how tired you are
     hours:settings.dayLen||DAY_HOURS, otHours:0, otToday:0, fatigue:0,
     coffeeToday:0,  // two diminishing cups per day; then the machine cuts you off
+    safeStreak:0,   // consecutive safe resolutions on real files; any risk taken resets it
     npcStories:[],  // rel>=40 unlocks each colleague's story scene, once per run
     difficulty:difficulty||"easy", // easy | medium | hard | realistic — blurs INFO only, never the dice
     mode:"standard", dailyDate:null, // standard | ironman | endless | daily (set by startGame)

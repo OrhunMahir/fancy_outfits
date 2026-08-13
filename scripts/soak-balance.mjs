@@ -92,6 +92,12 @@ const VARIANTS = Object.freeze({
   exceptional_30: {note:"Exceptional Review after 30 clipped INF, two mornings as Senior Partner and REP 30.",engine:{exceptionalReview:{threshold:30,wait:2,minRep:30}}},
   exceptional_36: {note:"Exceptional Review after 36 clipped INF, two mornings as Senior Partner and REP 30.",engine:{exceptionalReview:{threshold:36,wait:2,minRep:30}}},
   final_warning_off: {note:"Control: fatal aggressive failures receive no earned one-time protection.",engine:{finalWarning:false}},
+  safe_legacy: {note:"Pre-v1.9.21 safe route: no coasting penalty and 1.5x safe hours.",engine:{safeCoasting:false,safeHoursMult:1.5}},
+  safe_coasting: {note:"Consecutive safe resolutions on real files drain more Boldness and return less Influence.",engine:{safeCoasting:true,safeHoursMult:1.5}},
+  safe_hours_2: {note:"Safe plays cost 2.0x hours instead of the shipped 1.75x.",engine:{safeHoursMult:2}},
+  safe_both: {note:"Both safe-route levers at once: coasting penalty plus 2.0x hours.",engine:{safeCoasting:true,safeHoursMult:2}},
+  safe_hours_175: {note:"Safe plays cost 1.75x hours: a milder clock price than 2.0x.",engine:{safeHoursMult:1.75}},
+  safe_coasting_hours_175: {note:"Coasting penalty plus the milder 1.75x safe hours.",engine:{safeCoasting:true,safeHoursMult:1.75}},
   delegation_half: { note: "Delegated positive INF is multiplied by 0.5.", engine: { infMultipliers: { delegated: .5 } } },
   distributed_rewards: { note: "Modest positive INF reductions across case and non-case progression sources.", engine: { infMultipliers: {
     case: .9, big_case: .9, delayed: .85, delegated: .65, favor: .9,

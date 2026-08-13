@@ -18,6 +18,75 @@ Her çalışma oturumunda:
 
 ---
 
+## 2026-08-13 — Claude: cold-entry penalty, timeline rollout, safe-route pricing (v1.9.21)
+
+### Git checkpoint
+
+- Branch: `minigames`, base commit `3f0398a59` (bu oturumda commit atılmadı; kullanıcı kendi
+  pushlayacak).
+- Dokunulan dosyalar: `src/game/constants.js`, `engine.js`, `state.js`, `casegen.js`,
+  `src/components/CasePane.jsx`, `InfoOverlay.jsx`, `minigames/TimelineMinigame.jsx`,
+  `scripts/v195-check.mjs`, `scripts/soak-balance.mjs`, `BALANCE_SOAK_REPORT.md`, bu dosya.
+
+### 0 — "GO IN COLD" artık bedelsiz değil
+
+- `TIMELINE_EDGE_DECLINE=-4`: `declineTimelineChallenge()` resume etmeden önce
+  `c.timelineEdge={optionIndex,value:-4}` damgalar. Saat ve FATIGUE alınmaz (kullanıcı kuralı) —
+  bedel yalnız şans tarafında ve fail'in −10'undan hafif, yani bulmacayı oynamak hâlâ mantıklı.
+- `validTimelineEdge` aralık kontrolünden **tam değer kümesine** geçti (`{+12, −10, −4}`); elle
+  yazılmış bir `−7`/`+13` artık reddedilir. Save şeması bu madde için değişmedi.
+- Buton metni ve log satırı düşüşü dürüstçe söylüyor.
+
+### 1 — Timeline prosedürel şablonlara yayıldı
+
+Beş şablon artık kendi kronolojisini taşıyor: geç dosyalama (docket), iki versiyonlu rapor
+(binder), backdated email (header), patent prior disclosure (prosecution history), noter+eklenmiş
+sayfa (guaranty). Her biri 7 olay; **tarihler yalnız dava gövdesinde**, kartlarda yok. Üretilen
+isim/rakamlar olay metinlerine de giriyor, dolayısıyla aynı şablon her run'da farklı okunuyor.
+Yeni regresyon: beş kimliğin varlığı, `at` sıralaması, kartlarda tarih-yasağı, riskli hamlede
+eligibility ve "çözülmüş board dağıtılmaz".
+
+### 2 — Safe rota fiyatlandırması (A + C, ölçümle)
+
+- Kırmızı çizgi korundu: safe hâlâ %100, `chance()` erken dönüşüne dokunulmadı.
+- **A (coasting, `S.safeStreak`, schema v16):** ardışık safe çözümlerde INF −1/basamak,
+  BOLD −2/basamak, cap 4; herhangi bir riskli hamle sıfırlar; errand/favor sayılmaz.
+- **C:** `SAFE_HOURS_MULT` 1.5 → **1.75**.
+- 64 seed × 5 senaryo × 4 politika paired kohortlar: A tek başına normal kariyerleri hiç
+  değiştirmiyor ama "hep sessizce kapat" kariyerinin INF'ini %32 düşürüyor; C=2.0 ise 13–22 win
+  puanı yakan gizli bir global zorluk artışı olduğu için REDDEDİLDİ. Ayrıntı ve tablo
+  `BALANCE_SOAK_REPORT.md` v19.21 bölümünde. Soak'a `safe_legacy` kontrol variant'ı eklendi.
+- UI: CasePane safe seçeneğinde canlı `COASTING: -n INF, -n BOLD` etiketi, DESK ipucu ve Info
+  paneli güncellendi.
+
+### Testler
+
+- `npm test` yeşil. Yeni bloklar: decline cezası (saat/FATIGUE yok + −4 damgası + log), edge
+  değer-kümesi tamper'ları, prosedürel timeline içerik invariantları, coasting (ilk safe bedava,
+  ikincisi INF/BOLD yakıyor, risk sıfırlıyor, errand saymıyor), `safeHoursMult` kaldıracı,
+  v15→v16 migration ve cap üstü streak reddi.
+- Mutasyon kontrolü: `coastFx` etkisiz bırakılınca test kırmızı, geri alınca yeşil — assertion'lar
+  gerçekten ısırıyor.
+- `npm run build` yeşil. `npm run test:soak` → replay 314/314, integrity 0. A/B koşuları:
+  413/413 ve 203/203 replay birebir, integrity 0.
+- Tarayıcı: safe seçenek `3.5h` (1.75×) gösteriyor, ikinci ardışık safe'te `COASTING: -1 INF,
+  -2 BOLD` etiketi çıkıyor, timeline modalında `GO IN COLD (no hour spent · -4% on this play)`
+  ve tıklayınca log `You go in cold... (-4% on this play)` yazıp davayı aynı akışta çözüyor.
+  Konsolda yalnız dev-server CSP uyarıları (önceden de vardı).
+
+### Sıradaki kesin adım
+
+Kullanıcının onayı ve push'u sonrası: **ikinci minigame — Contradiction Board** (Codex listesinde
+2. sıra): ifade ile belgeyi eşleyip sınırlı denemeyle çelişki bulma. Timeline sözleşmesi birebir
+uygulanacak — ipucu dava metninde, otomatik zafer yok, saat/FATIGUE her iki sonuçta ödenir,
+board deterministik ve save/reload sürebilir, 44px dokunma hedefi.
+
+Açık kalan not: safe fiyatlandırmasında C kaldıracı 1.75'te bırakıldı. Kullanıcı oyunu deneyip
+"hâlâ çok kolay/çok sert" derse tek sabit (`SAFE_HOURS_MULT`) geri alınabilir veya
+`SAFE_STREAK_*` derinleştirilebilir; ikisi de soak variant'ı olarak duruyor.
+
+---
+
 ## 2026-08-13 — Claude: Evidence Timeline vertical slice (v1.9.20)
 
 ### Git checkpoint

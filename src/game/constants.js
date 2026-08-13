@@ -19,7 +19,18 @@ export const FATIGUE_DANGER=75;
 export const SENTHOME_REP=-6, SENTHOME_INF=-4;
 export const FATIGUE_REST=18;      // overnight recovery (+3 per unspent hour — leave early, rest more)
 // careful play is SLOW play: hour cost multipliers by approach (v1.6)
-export const SAFE_HOURS_MULT=1.5, TECH_HOURS_MULT=1.25;
+export const SAFE_HOURS_MULT=1.75, TECH_HOURS_MULT=1.25;
+// Safe plays never fail — that contract is untouchable. What they can lose is
+// their PAYOFF: leaning on the quiet settlement over and over reads as coasting,
+// so each consecutive safe resolution drains more Boldness and returns less
+// Influence. One risky play anywhere resets the streak. Paired soak cohorts
+// (v1.9.21) showed this leaves normal careers untouched while costing the
+// always-settle career a third of its Influence; 2.0x safe hours was rejected
+// as a disguised global difficulty change.
+export const SAFE_COASTING=true;
+// A flat step, not a multiplier: a safe file pays about 1 Influence after the
+// draw-time scalers, so a percentage cut would round away to nothing.
+export const SAFE_STREAK_CAP=4, SAFE_STREAK_BOLD=2, SAFE_STREAK_INF_STEP=1;
 export const TECH_INF_MULT=.70, AGG_INF_MULT=1.25; // technical builds trust; aggression climbs faster
 // Judges keep a bounded transcript. Live odds use the three most recent
 // appearances with sharply fading weight; lifetime W/L counters remain UI-only.
@@ -84,10 +95,11 @@ export const TIMELINE_CARDS_SENIOR=5;
 export const TIMELINE_SENIOR_RANK=2;       // rank at which the board grows
 export const TIMELINE_EDGE_WIN=12;         // exact chronology: this play gets +12%
 export const TIMELINE_EDGE_LOSS=-10;       // muddled chronology: -10%
+export const TIMELINE_EDGE_DECLINE=-4;     // walked in unprepared: lighter than a miss, never free
 export const TIMELINE_FAIL_REP=-2;         // a light mark, never a lost case
 export const TIMELINE_HOURS=.5, TIMELINE_FATIGUE=3; // prep costs, paid either way
 // The storage key stays stable; ordered migrations use the embedded schema.
-export const SAVE_SCHEMA_VERSION=15;
+export const SAVE_SCHEMA_VERSION=16;
 export const SAVE_LOG_LIMIT=200, SAVE_ARCHIVE_LIMIT=200;
 export const INBOX_MESSAGE_LIMIT=80; // notifications are history, not permanent case files
 export const SAVE_KEY="fo_save_v1";

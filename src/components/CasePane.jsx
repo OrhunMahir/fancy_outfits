@@ -1,6 +1,6 @@
 // Middle panel: the desk (tip text) or the open case file with its options.
 import { useGame } from "../game/useGame.js";
-import { displayChance, displayPct, choose, deferCase, delegateCase, hireDetective, hoursFor, optHours, judgeMemoryInfo } from "../game/engine.js";
+import { displayChance, displayPct, choose, deferCase, delegateCase, hireDetective, hoursFor, optHours, judgeMemoryInfo, coastingPreview } from "../game/engine.js";
 import { delegationChance } from "../game/npcs.js";
 import { PRICES, STAKE_REWARD, STAKE_PENALTY, DELEGATE_CAP } from "../game/constants.js";
 
@@ -11,7 +11,8 @@ export default function CasePane(){
     <div id="casepane" className="panel">
       <h2>DESK</h2>
       <div className="kv">Pick a file from your inbox.<br/><br/>
-        Tip: the safe option never fails — and never impresses. Boldness feeds your bluffs;
+        Tip: the safe option never fails — and never impresses. Settle real files back to back
+        and the floor calls it coasting: each quiet settlement in a row pays less. Boldness feeds your bluffs;
         failed bluffs eat your reputation. Reputation decays daily and low rep makes every
         risky play harder. The firm forgets fast. Judges don't.</div>
     </div>
@@ -47,7 +48,9 @@ export default function CasePane(){
       <div className="opts">
         {c.opts.map((o,i)=>{
           const pct=displayChance(o,c);
-          const label=[o.action&&"INTERACTIVE",pct&&pct+" success", optHours(c,o)+"h", o.delay&&`reply in ${o.delay}d`, o.style].filter(Boolean).join(" · ");
+          const coast=coastingPreview(c,o); // settling again pays less; the odds never change
+          const label=[o.action&&"INTERACTIVE",pct&&pct+" success", optHours(c,o)+"h", o.delay&&`reply in ${o.delay}d`, o.style,
+            coast&&`COASTING: ${coast.inf} INF, ${coast.bold} BOLD`].filter(Boolean).join(" · ");
           return (
             <button key={i}
                     className={"btn"+(o.safe?" safe":o.style==="aggressive"?" bold":o.style==="bribe"?" bribe":o.style==="covert"?" covert":"")}

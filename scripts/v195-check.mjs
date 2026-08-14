@@ -794,12 +794,17 @@ globalThis.clearInterval = () => {};
   // actions: the procedural docket can surface either COVERT board again.
   fresh("daily");
   utils.setSeed(2052);
-  const generatedCovertTypes=new Set();
-  for(let i=0;i<1000&&generatedCovertTypes.size<2;i++){
-    const action=casegen.genCase().opts.find(option=>option.action)?.action;
-    if(action) generatedCovertTypes.add(action.type);
+  const generatedCovertTypes=new Set(), generatedPrepTypes=new Set();
+  for(let i=0;i<1000&&(generatedCovertTypes.size<2||!generatedPrepTypes.size);i++){
+    for(const option of casegen.genCase().opts){
+      if(!option.action) continue;
+      if(option.action.type==="contradiction") generatedPrepTypes.add(option.style);
+      else generatedCovertTypes.add(option.action.type);
+    }
   }
   assert.deepEqual([...generatedCovertTypes].sort(),["lockpick","power_cut"]);
+  // Prep boards ride the same machinery but must never be labelled covert.
+  assert.deepEqual([...generatedPrepTypes],["prep"],"the procedural docket also offers contradiction prep");
 
   // The chronology feature cannot live on one hand-written file: the templates
   // whose bodies already carry dates must offer it too, with the dates in the
@@ -2593,7 +2598,7 @@ globalThis.clearInterval = () => {};
   fresh("standard");
   engine.saveGame();
   const rawStreak = JSON.parse(localStorage.getItem(constants.SAVE_KEY + "_s1"));
-  assert.equal(rawStreak.schemaVersion, 16);
+  assert.equal(rawStreak.schemaVersion, constants.SAVE_SCHEMA_VERSION);
   const legacyStreak = { ...rawStreak, schemaVersion: 15 };
   delete legacyStreak.safeStreak;
   localStorage.setItem(constants.SAVE_KEY + "_s1", JSON.stringify(legacyStreak));
@@ -2662,6 +2667,175 @@ globalThis.clearInterval = () => {};
     "migration clears any stale mid-puzzle marker");
   assert.equal(state.S.actionChallenge, null);
 
+  // ---- CONTRADICTION BOARD (v1.9.22) ----
+  // Voluntary prep, not a covert job: no coin call, no getting caught, and the
+  // chart never resolves the file — it only arms the legal play you still owe.
+  const livePemberton = () => {
+    const raw = content.buildPool().find(c => c.id === "court2");
+    const c = engine.instantiateCase(raw);
+    const o = c.opts.find(option => option.action?.type === "contradiction");
+    Object.assign(state.S, { inbox: [c], openCase: c, event: null, summary: null, pendingSummary: null,
+      hours: 6, fatigue: 0, clients: [], nemesis: null, objective: null });
+    return { c, o };
+  };
+  const solveContradiction = () => {
+    for (const pair of [...state.S.actionChallenge.solution]) {
+      if (!state.S.actionChallenge || state.S.actionChallenge.phase !== "contradiction") break;
+      engine.selectContradictionCard(pair.statement);
+      engine.pinContradiction(pair.document);
+    }
+  };
+
+  // The deal is identity-derived: stable per run/case, different in another run,
+  // and it never reads the shared gameplay RNG.
+  const contraArgs = { runSeed: 0x9a31c, caseId: "court2", actionId: "pemberton_contradictions",
+    cost: 1.5, toil: 9, lateExtra: 0,
+    pairs: content.buildPool().find(c => c.id === "court2").opts.find(o => o.action).action.pairs,
+    decoys: content.buildPool().find(c => c.id === "court2").opts.find(o => o.action).action.decoys };
+  const contraA = minigames.createContradictionChallenge(contraArgs);
+  const contraB = minigames.createContradictionChallenge(contraArgs);
+  assert.deepEqual(contraA, contraB, "the same run deals the same board");
+  const contraOther = minigames.createContradictionChallenge({ ...contraArgs, runSeed: 0x9a31d });
+  assert.notDeepEqual(contraOther.statements.map(s => s.id), contraA.statements.map(s => s.id),
+    "another career is asked a different set");
+  assert.equal(contraA.statements.length, minigames.CONTRA_STATEMENTS);
+  assert.equal(contraA.documents.length, minigames.CONTRA_STATEMENTS + minigames.CONTRA_DECOYS,
+    "one exhibit on the board contradicts nothing");
+  assert.notDeepEqual(contraA.documents.map(d => d.id), contraA.solution.map(pair => pair.document),
+    "the exhibit column is not the answer key in order");
+  assert.equal(new Set(contraA.documents.map(d => d.id)).size, contraA.documents.length, "no exhibit is listed twice");
+
+  fresh("daily");
+  let pemberton = livePemberton();
+  assert.ok(pemberton.o, "a court file may carry prep work even though it cannot carry a burglary");
+  const contraCursor = utils.getRngState();
+  engine.choose(pemberton.c, pemberton.o);
+  assert.equal(utils.getRngState(), contraCursor, "dealing the board consumes no shared randomness");
+  assert.equal(state.S.actionChallenge?.type, "contradiction");
+  assert.equal(state.S.hours, 6, "the prep hours are billed at completion, not at deal time");
+  assert.equal(pemberton.c.actionInProgress, "pemberton_contradictions");
+  assert.equal(state.S.runStats.contraTry, 1);
+
+  // Mid-board reload restores the exact position.
+  engine.selectContradictionCard(state.S.actionChallenge.solution[0].statement);
+  const midContra = JSON.parse(JSON.stringify(state.S.actionChallenge));
+  assert.equal(engine.loadGame(1), true);
+  assert.deepEqual(state.S.actionChallenge, midContra, "a mid-board reload keeps the same exhibits");
+
+  // A wrong pin burns an attempt; the right one banks a contradiction.
+  const wrongDoc = state.S.actionChallenge.documents
+    .find(d => !state.S.actionChallenge.solution.some(pair => pair.document === d.id));
+  const attemptsBefore = state.S.actionChallenge.attemptsLeft;
+  engine.pinContradiction(wrongDoc.id);
+  assert.equal(state.S.actionChallenge.attemptsLeft, attemptsBefore - 1, "a decoy costs credibility");
+  assert.equal(state.S.actionChallenge.matched.length, 0);
+  assert.equal(state.S.actionChallenge.selected, null, "a miss clears the selection");
+  solveContradiction();
+  assert.equal(state.S.actionChallenge.phase, "contradiction_success");
+
+  const pembertonLive = state.S.inbox.find(c => c.id === "court2");
+  const risky = pembertonLive.opts.find(o => o.style === "technical");
+  const oddsBeforeChart = engine.chance(risky, pembertonLive);
+  const hoursBeforeChart = state.S.hours;
+  engine.completeActionChallenge();
+  assert.equal(state.S.actionChallenge, null);
+  assert.equal(state.S.runStats.contraW, 1);
+  assert.equal(pembertonLive.covertEdge, 15, "a finished chart arms this file's risky legal plays");
+  // The edge feeds the same odds ceiling every other bonus does.
+  assert.equal(engine.chance(risky, pembertonLive), Math.min(95, oddsBeforeChart + 15));
+  assert.equal(state.S.hours, hoursBeforeChart - 1.5, "prep bills its hours either way");
+  assert.ok(state.S.inbox.includes(pembertonLive), "the case still has to be argued");
+  assert.equal(state.S.openCase, pembertonLive, "and it comes back to the desk");
+  assert.equal(pembertonLive.opts.some(o => o.action), false, "one sitting per file");
+
+  // Closing the binder early banks a proportional edge, never the full one.
+  fresh("daily");
+  pemberton = livePemberton();
+  engine.choose(pemberton.c, pemberton.o);
+  const partialTotal = state.S.actionChallenge.solution.length;
+  engine.selectContradictionCard(state.S.actionChallenge.solution[0].statement);
+  engine.pinContradiction(state.S.actionChallenge.solution[0].document);
+  engine.closeContradictionBoard();
+  assert.equal(state.S.actionChallenge.phase, "contradiction_fail");
+  engine.completeActionChallenge();
+  const partialCase = state.S.inbox.find(c => c.id === "court2");
+  assert.equal(partialCase.covertEdge, Math.floor(15 * 1 / partialTotal), "a partial chart proves partially");
+  assert.ok(partialCase.covertEdge > 0 && partialCase.covertEdge < 15);
+  assert.equal(state.S.runStats.contraL, 1);
+  assert.ok(!state.S.over, "a failed chart never ends a career");
+
+  // Running out of attempts with nothing proven costs the hours and no edge.
+  fresh("daily");
+  pemberton = livePemberton();
+  engine.choose(pemberton.c, pemberton.o);
+  let guard = 0;
+  while (state.S.actionChallenge.phase === "contradiction" && guard++ < 20) {
+    const ch = state.S.actionChallenge;
+    const decoy = ch.documents.find(d => !ch.solution.some(pair => pair.document === d.id));
+    engine.selectContradictionCard(ch.statements.find(s => !ch.matched.some(m => m.statement === s.id)).id);
+    engine.pinContradiction(decoy.id);
+  }
+  assert.equal(state.S.actionChallenge.phase, "contradiction_fail");
+  assert.equal(state.S.actionChallenge.attemptsLeft, 0);
+  const hoursBeforeMiss = state.S.hours;
+  engine.completeActionChallenge();
+  const missedChart = state.S.inbox.find(c => c.id === "court2");
+  assert.equal(missedChart.covertEdge, undefined, "nothing proven, nothing gained");
+  assert.equal(state.S.hours, hoursBeforeMiss - 1.5, "the wasted afternoon is still billed");
+  assert.ok(state.S.inbox.includes(missedChart), "and the hearing still has to happen");
+
+  // Stale clicks resolve nothing twice.
+  fresh("daily");
+  pemberton = livePemberton();
+  engine.choose(pemberton.c, pemberton.o);
+  const staleSnapshot = JSON.stringify(state.S.actionChallenge);
+  engine.choose(pemberton.c, pemberton.o);
+  engine.pinContradiction(state.S.actionChallenge.documents[0].id); // nothing selected yet
+  engine.selectContradictionCard("not_a_statement");
+  assert.equal(JSON.stringify(state.S.actionChallenge), staleSnapshot);
+
+  // Tampering: a forged chart, a rewritten board and an orphan marker are refused.
+  engine.saveGame();
+  const rawContra = JSON.parse(localStorage.getItem(constants.SAVE_KEY + "_s1"));
+  const rejectsContra = (mutate, label) => {
+    const copy = JSON.parse(JSON.stringify(rawContra));
+    mutate(copy);
+    localStorage.setItem(constants.SAVE_KEY + "_s1", JSON.stringify(copy));
+    assert.equal(engine.loadGame(1), false, label);
+    localStorage.setItem(constants.SAVE_KEY + "_s1", JSON.stringify(rawContra));
+  };
+  rejectsContra(c => { c.actionChallenge.phase = "contradiction_success";
+    c.actionChallenge.matched = [...c.actionChallenge.solution]; }, "a forged finished chart is rejected");
+  rejectsContra(c => { c.actionChallenge.matched = [{ statement: c.actionChallenge.statements[0].id, document: "doc_invented" }]; },
+    "an invented contradiction is rejected");
+  rejectsContra(c => { c.actionChallenge.solution = c.actionChallenge.statements
+    .map((s, i) => ({ statement: s.id, document: c.actionChallenge.documents[i].id })); }, "a rewritten answer key is rejected");
+  rejectsContra(c => { c.actionChallenge.attemptsLeft = c.actionChallenge.maxAttempts + 3; }, "extra attempts are rejected");
+  rejectsContra(c => { c.actionChallenge.documents = c.actionChallenge.documents.slice(0, 2); }, "a shrunken board is rejected");
+  rejectsContra(c => { c.actionChallenge = null; }, "an orphan prep marker is rejected");
+  assert.equal(engine.loadGame(1), true, "the untouched prep save still loads");
+
+  // v16 careers migrate forward: no board, fresh counters, nothing else moved.
+  const legacyContra = JSON.parse(JSON.stringify(rawContra));
+  legacyContra.schemaVersion = 16;
+  legacyContra.actionChallenge = null;
+  delete legacyContra.runStats.contraTry;
+  delete legacyContra.runStats.contraW;
+  delete legacyContra.runStats.contraL;
+  const legacyPemberton = legacyContra.inbox.find(c => c.id === "court2");
+  delete legacyPemberton.actionInProgress;
+  localStorage.setItem(constants.SAVE_KEY + "_s1", JSON.stringify(legacyContra));
+  assert.equal(engine.loadGame(1), true, "a v16 career migrates to the contradiction schema");
+  assert.deepEqual([state.S.runStats.contraTry, state.S.runStats.contraW, state.S.runStats.contraL], [0, 0, 0]);
+
+  // A judged file still cannot carry a burglary.
+  const burglaryCourt = content.buildPool().find(c => c.id === "court2");
+  const covertOnCourt = JSON.parse(JSON.stringify(content.buildPool().find(c => c.id === "redvale").opts.find(o => o.action)));
+  fresh("daily");
+  state.S.inbox = [engine.instantiateCase({ ...burglaryCourt, opts: [...burglaryCourt.opts, covertOnCourt] })];
+  assert.equal(engine.saveGame(), true);
+  assert.equal(engine.loadGame(1), false, "a covert action on a court file is still refused");
+
   // Production CSP has no loopback WebSocket escape hatch; Vite adds it only in dev.
   const indexHtml = readFileSync("index.html", "utf8");
   const viteConfig = readFileSync("vite.config.mjs", "utf8");
@@ -2687,7 +2861,7 @@ globalThis.clearInterval = () => {};
     }
   }
 
-  console.log("v1.9.5–v1.9.21 checks passed: Evidence Timeline prep + cold-entry penalty (deal/reload/tamper/migration/scope), safe-route pricing (coasting/hours/v16), Fraud identity pressure/morning continuation, progression/skills, lockpick/Power Cut minigames, balance experiments, Final Warning, Friday/Exceptional Review promotions, delegation cap, strict saves/migrations, procedural IDs, long-run integrity, FIRM payroll, rolling judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
+  console.log("v1.9.5–v1.9.22 checks passed: Contradiction Board prep (deal/attempts/partial/tamper/v17), Evidence Timeline prep + cold-entry penalty (deal/reload/tamper/migration/scope), safe-route pricing (coasting/hours/v16), Fraud identity pressure/morning continuation, progression/skills, lockpick/Power Cut minigames, balance experiments, Final Warning, Friday/Exceptional Review promotions, delegation cap, strict saves/migrations, procedural IDs, long-run integrity, FIRM payroll, rolling judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;

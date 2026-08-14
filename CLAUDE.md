@@ -279,9 +279,17 @@
 - **Timeline prosedürel şablonlara yayıldı:** `casegen.js`'te 5 şablon (geç dosyalama, iki versiyonlu rapor, backdated email, patent prior disclosure, guaranty/noter) kendi 7 olaylık kronolojisini taşır. Tarihler YALNIZ dava gövdesinde; kartlarda tarih yok (regresyon testi bunu zorlar). Üretilen isim/rakamlar olay metinlerine de girer.
 - **Safe rota fiyatlandırıldı, güvenilirliği DEĞİL:** safe hâlâ %100 (`chance()` erken dönüşü aynı). (a) **Coasting** — `S.safeStreak` (schema v16): tier≥1 dosyalarda ardışık her safe çözüm `SAFE_STREAK_INF_STEP`(1) az INF öder, `SAFE_STREAK_BOLD`(2) fazla BOLD yakar, cap 4; herhangi bir riskli hamle sıfırlar; errand/favor saymaz. (b) `SAFE_HOURS_MULT` 1.5 → **1.75**. Karar 64 seed × 5 senaryo × 4 politika paired kohortlarla verildi: A normal kariyerleri değiştirmiyor ama "hep sessizce kapat" kariyerinin INF'ini %32 düşürüyor; 2.0× saat gizli global zorluk artışı olduğu için REDDEDİLDİ (`BALANCE_SOAK_REPORT.md` v19.21). Soak'ta `safe_legacy` kontrol variant'ı var. UI: CasePane'de canlı `COASTING: -n INF, -n BOLD` etiketi + Info/DESK metni.
 
+**v1.9.22 eklendi (2026-08-13, kullanıcı isteği — Contradiction Board):**
+- **Gönüllü CASE PREP seçeneği** (`style:"prep"`, `action.type:"contradiction"`): Timeline'ın tersi tasarım — istemsiz/ucuz/küçük kenar yerine bilinçli seçim, 1.5h + 6 FATIGUE peşin, +15 kenar. COVERT makinesi (`o.action`, `beginActionChallenge`, save doğrulaması) yeniden kullanıldı ama covert semantiği DEĞİL: coin call yok, yakalanma yok, ayrı `contraTry/contraW/contraL` sayaçları. `validOption` etiketi tipe göre zorlar (contradiction→prep, lockpick/power_cut→covert).
+- **Board (`minigames.js`, saf):** `contradictionDeal` 6 çift + 3 decoy havuzundan kimlikle (`runSeed|caseId|actionId`) 3 ifade + 1 decoy çeker, exhibit sütununu deterministik Fisher–Yates'le karıştırır; paylaşılan `rand()` tüketilmez. İfade seç → exhibit seç; yanlış eşleşme `CONTRA_ATTEMPTS`(4) denemeden birini yakar; "CLOSE THE BINDER" erken çıkışta kanıtlananı saklar.
+- **Ödül:** tam chart `action.edge`(15); kısmi `floor(edge*found/total)`; sıfır → kenar yok, −2 BOLD. Kenar mevcut `c.covertEdge` alanına yazılır (dosyanın kanıt kenarı), not metni prep dilinde. **Dava çözülmez** — dosya inbox'ta kalır ve masaya geri açılır.
+- **Invariant değişikliği:** court dosyaları artık prep taşıyabilir (`validCase` gevşetildi), covert taşımaya devam edemez — duruşma gecesi exhibit hazırlamak mantıklı, hırsızlık değil.
+- **İçerik:** el yazması `court2` (Pemberton) 6 çelişki + 3 decoy taşır; prosedürel şablon 4 (tartışmalı vasiyet) %50 ihtimalle kendi board'unu taşır (üretilen isim/mekân ifadelere girer).
+- **Save schema v17:** `migrateV16ToV17` sayaçları backfill eder; `validContradictionChallenge` yapı/deneme/tur tutarlılığını ve bankaya yazılmış her çiftin gerçek çözüm çifti olduğunu doğrular; load'da board kimlikten yeniden türetilip karşılaştırılır. Soak botları aksiyon seçeneklerini bilinçli olarak seçmez (interaktif board'lar kendi testleriyle kapsanır).
+
 **Dış denetim notu (Codex, 2026-08-12):** Bayat/untracked `AGENTS.md` yüzünden gerçek checkpoint yanlışlıkla v1.9.1/hakim hafızası sanılmıştı. Hakim hafızası v1.9.8/v1.9.13'te bitmişti; gerçek yarım iş v1.9.16 sonrası Power Cut entegrasyonuydu. Yarım model/UI dosyaları korunup engine/content/save/CSS/test zinciri tamamlandı.
 
-**En son çalışılan konu (2026-08-13):** v1.9.20 Evidence Timeline `357ade0a4` ile pushlandı; ardından v1.9.21 (GO IN COLD cezası + timeline'ın 5 prosedürel şablona yayılması + safe rota fiyatlandırması, schema v16) tamamlandı ve kullanıcının push'unu bekliyor. `npm test`, `npm run build`, `npm run test:soak` (replay 314/314, integrity 0) ve paired A/B koşuları (413/413 + 203/203 replay) yeşil. Güncel ortak handoff ve oturum günlüğü `DEV_LOGBOOK.md`'dir. Sıradaki kullanıcı-onaylı iş **Contradiction Board** (2. bağlamsal minigame). Mobil layout + Capacitor, bağlamsal SFX ve Steam paketleme sonraki backlog'dur.
+**En son çalışılan konu (2026-08-13):** v1.9.21 `ea50a3894` ile pushlandı; ardından v1.9.22 (Contradiction Board, schema v17) tamamlandı ve kullanıcının push'unu bekliyor. `npm test`, `npm run build`, `npm run test:soak` (replay 336/336, integrity 0) yeşil; tarayıcıda gerçek tıklamalarla tam tur doğrulandı. Güncel ortak handoff ve oturum günlüğü `DEV_LOGBOOK.md`'dir. Sıradaki kullanıcı-onaylı iş **mobil layout + Capacitor**; bağlamsal SFX, GitHub Pages demo ve Steam paketleme sonraki backlog'dur.
 
 **Aklında tut (kullanıcı onaylı bekleyenler):** mobil layout + Capacitor; bağlamsal SFX; Steam paketleme (electron-builder + steamworks.js).
 
@@ -327,7 +335,7 @@ fancy-outfits/
 │   │   ├── achievements.js       ← 11 başarım, localStorage (fo_ach_v1), unlock()
 │   │   ├── npcs.js               ← NPC roster, trait dağıtımı, delegationChance(), buildFavor()
 │   │   ├── sound.js              ← WebAudio sentez SFX + prosedürel ambiyans (settings'ten ses)
-│   │   ├── minigames.js          ← deterministik/saf lockpick + Power Cut + coin challenge modelleri
+│   │   ├── minigames.js          ← deterministik/saf lockpick + Power Cut + Timeline + Contradiction + coin modelleri
 │   │   ├── progression.js        ← saf XP/level/skill invariantları + SNEAKY/ENDURANCE modifierleri
 │   │   ├── fraud.js              ← Fraud suspicion/peak state, slip bandları, canonical identity eventleri
 │   │   ├── utils.js              ← clamp, rnd, hash, rand/setSeed (deterministik RNG — daily mod)
@@ -345,7 +353,7 @@ fancy-outfits/
 │       ├── ArchiveOverlay.jsx    ← LOG sekmesi: dava arşivi (gün, seçim, sonuç, via etiketi)
 │       ├── EventOverlay.jsx      ← kriz ekranı (+ Traitor/Brave modifier satırı)
 │       ├── ActionMinigameOverlay.jsx ← blocking COVERT ACTION modalı + focus/inert yönetimi
-│       ├── minigames/            ← Lockpick, PowerCut ve CoinFlip sunum bileşenleri
+│       ├── minigames/            ← Lockpick, PowerCut, Timeline, Contradiction, CoinFlip bileşenleri
 │       └── SummaryOverlay.jsx    ← gün sonu / cuma review / game over / win + run ledger
 ├── FANCY_OUTFITS_GDD.md          ← Tasarım dokümanı (gelecek özelliklerin speci)
 ├── BALANCE_SOAK_REPORT.md        ← v19.9 baseline + v19.10–v19.13 progression/risk/FIRM/memory A/B raporu
@@ -527,7 +535,7 @@ if(S.scenario==="legacy"){
 - ~~**Skill/level katmanı:** XP/level, senaryo innate rankları, SNEAKY/ENDURANCE, UI ve schema v12 migration.~~ — v1.9.18'de TAMAMLANDI.
 - ~~**Fraud fatigue slip-up + kimlik baskısı:** günlük peak bandları, cover kararı, üç aşama, schema v14.~~ — v1.9.19'da TAMAMLANDI.
 - ~~**Evidence Timeline** — riskli hamle sonrası kronoloji hazırlığı (v1.9.20), decline cezası + 5 prosedürel şablona yayılma + safe rota fiyatlandırması (v1.9.21).~~ — TAMAMLANDI.
-- **Contradiction Board** — ifade/belge eşleyip sınırlı denemeyle çelişki bulma. Sıradaki bağlamsal minigame (kullanıcı onaylı sıra; Codex listesinde 2.). Timeline sözleşmesi aynen geçerli.
+- ~~**Contradiction Board** — ifade/belge eşleyip sınırlı denemeyle çelişki bulma.~~ — v1.9.22'de EKLENDİ (gönüllü CASE PREP seçeneği, schema v17).
 - **Mobil yayın** — önce mobil layout geçişi (3 sütun → sekmeli görünüm, 44px dokunma hedefleri, safe-area, visibilitychange pause), sonra **Capacitor** sarmalama (Electron'un mobil karşılığı; oyun mantığına dokunulmaz). iOS'ta localStorage yerine Capacitor Preferences. (ONAYLANDI, yukarıdakilerden sonra)
 - ~~4. senaryo, başarımlar, oyun modları, klavye kısayolları~~ — v1.1'de EKLENDİ.
 - **GitHub Pages demo yayını** — `dist/`i yayınlayan tek workflow; oyun linkle paylaşılabilir olur.

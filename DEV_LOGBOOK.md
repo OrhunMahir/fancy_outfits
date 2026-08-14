@@ -18,6 +18,87 @@ Her çalışma oturumunda:
 
 ---
 
+## 2026-08-13 — Claude: Contradiction Board (v1.9.22)
+
+### Git checkpoint
+
+- Branch: `minigames`, base commit `ea50a3894` (bu oturumda commit atılmadı; kullanıcı kendi
+  pushlayacak).
+- Dokunulan dosyalar: `src/game/minigames.js`, `engine.js`, `state.js`, `content.js`, `casegen.js`,
+  `constants.js`, `src/components/minigames/ContradictionMinigame.jsx` (yeni),
+  `ActionMinigameOverlay.jsx`, `CasePane.jsx`, `InfoOverlay.jsx`, `src/styles.css`,
+  `scripts/v195-check.mjs`, `scripts/soak-balance.mjs`, `README.md`.
+
+### Tasarım kararı — Timeline'ın tersi bir seçim
+
+Timeline **istemsiz** (riskli hamleden sonra %25 açılır, ucuz, küçük kenar). Contradiction Board
+bilinçli olarak onun zıddı yapıldı: dosyanın üzerinde **gönüllü bir seçenek** (`style:"prep"`),
+1.5h + 6 FATIGUE peşin, karşılığında daha büyük kenar (+15). Böylece iki bulmaca aynı rolü
+paylaşmıyor: biri sürpriz, diğeri saat-karşılığı-kenar takası.
+
+COVERT makinesi (`o.action`) yeniden kullanıldı ama **covert semantiği kullanılmadı**: coin call
+yok, yakalanma yok, `covertW/covertCaught` sayaçlarına yazmıyor, ayrı `contraTry/W/L` sayaçları
+var. `validOption` artık aksiyon tipine göre etiketi zorluyor (`contradiction` → `prep`,
+diğerleri → `covert`), böylece ikisi birbirinin etiketini ödünç alamıyor.
+
+### Uygulanan
+
+- **Board (`minigames.js`, saf):** `contradictionDeal` 6 çift + 3 decoy havuzundan `hash(runSeed|
+  caseId|actionId)` kimliğiyle 3 çift + 1 decoy çeker, exhibit sütununu deterministik Fisher–Yates
+  ile karıştırır. Paylaşılan `rand()` akışı **tüketilmez** (testte cursor eşitliğiyle doğrulandı).
+- **Oynanış:** ifade seç → exhibit seç. Doğru eşleşme bankaya yazılır, yanlış eşleşme 4 denemeden
+  birini yakar. Deneme biterse `contradiction_fail`. "CLOSE THE BINDER" erken çıkışta kanıtlananı
+  saklar.
+- **Ödül:** tam chart → `action.edge` (15); kısmi → `floor(edge*found/total)`; sıfır → kenar yok,
+  −2 BOLD. Kenar mevcut `c.covertEdge` alanına yazılır (dosyanın kanıt kenarı; `chance()` ve save
+  doğrulaması zaten bunu tanıyor), not metni prep diliyle basılır. Dosya **inbox'ta kalır** ve
+  masaya geri açılır — hukuki karar hâlâ oyuncunun.
+- **Ana kural:** court dosyaları artık prep taşıyabiliyor (`validCase` gevşetildi) ama **covert
+  taşıyamıyor** — duruşma gecesi exhibit hazırlamak mantıklı, hırsızlık değil. Test bunu zorluyor.
+- **İçerik:** el yazması `court2` (Pemberton) gövdesi 6 çelişki + 3 decoy taşıyacak şekilde
+  yeniden yazıldı; prosedürel şablon 4 (tartışmalı vasiyet) %50 ihtimalle kendi board'unu taşıyor
+  ve üretilen isim/mekân ifadelere giriyor.
+- **UI:** `ContradictionMinigame.jsx` iki sütun, her kart 48px dokunma hedefi, ≤520px'te alt alta
+  yığılıyor; sürükle-bırak yok. Kicker "CASE PREP · CONTRADICTION BOARD", sonuç paneli `n/m`
+  gösteriyor. `.btn.prep` covert morundan ayrı (soğuk mavi) — gece işi değil.
+- **Save schema v17:** `migrateV16ToV17` sayaçları backfill eder; `validContradictionChallenge`
+  board yapısını, deneme/tur tutarlılığını ve bankaya yazılmış her çiftin gerçek çözüm çifti
+  olduğunu doğrular; load sırasında board kimlikten yeniden türetilip karşılaştırılır.
+
+### Testler
+
+- `npm test` yeşil. Yeni blok: deal determinizmi (aynı run aynı board, farklı run farklı set,
+  decoy sayısı, cevap anahtarı sıraya oturmuyor), shared-RNG cursor sabit, prep saatinin
+  tamamlanmada faturalanması, board-ortası reload, yanlış pin deneme yakıyor, tam/kısmi/sıfır
+  sonuç kenarları, stale/çift tık, 6 tamper senaryosu, v16→v17 migration, court+covert reddi.
+- Mutasyon kontrolü: yanlış pin bedava bırakılınca test kırmızı ("a decoy costs credibility"),
+  geri alınca yeşil.
+- `npm run build` yeşil. `npm run test:soak` → **replay 336/336 identical, integrity 0**.
+- Tarayıcı (gerçek tıklamalarla tam tur): board açıldı, decoy pin `ATTEMPTS LEFT 3/4` yaptı, üç
+  doğru eşleşme `THE CHART HOLDS 3/3` verdi, BACK TO THE FILE sonrası 8h→6.5h, +10 FATIGUE,
+  `covertEdge=15`, prep seçeneği dosyadan düştü, dosya masaya döndü. Mobil genişlikte sütunlar
+  alt alta yığıldı, yatay taşma yok (`scrollWidth === innerWidth`), kart yüksekliği 48px.
+  Konsolda yalnız önceden de var olan dev-server CSP uyarıları.
+
+### Soak notu
+
+Headless botlar aksiyon seçeneklerini bilinçli olarak ellemiyor (mevcut kural: interaktif board'lar
+kendi deterministik regresyon testleriyle kapsanır). Contradiction gönüllü bir seçenek olduğu için
+soak'ta hiç açılmıyor; yorum bunu açıkça söyleyecek şekilde güncellendi. Denge sabiti
+değişmediğinden yeni A/B kohortu gerekmedi.
+
+### Sıradaki kesin adım
+
+Kullanıcının onayı ve push'u sonrası sırada **mobil layout + Capacitor** var (onaylı backlog'un
+başı): 3 sütun → sekmeli görünüm, 44px dokunma hedefleri, safe-area, `visibilitychange` pause;
+sonra Capacitor sarmalama ve iOS'ta localStorage yerine Preferences. Alternatif: Codex listesinden
+3. minigame (Document Reconstruction / Shredder Recovery) — ama kullanıcı önce mobili onaylamıştı.
+
+Açık not: safe fiyatlandırmasında `SAFE_HOURS_MULT` 1.75'te duruyor; oyun hissine göre tek sabitle
+geri alınabilir.
+
+---
+
 ## 2026-08-13 — Claude: cold-entry penalty, timeline rollout, safe-route pricing (v1.9.21)
 
 ### Git checkpoint

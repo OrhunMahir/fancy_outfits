@@ -220,9 +220,10 @@ function perceivedChance(option, c) {
 }
 
 function availableOptions(c) {
-  // Career policies audit the legal decision economy. Interactive COVERT
-  // ACTIONS need player execution and are covered by their own deterministic
-  // regression tests, so headless bots leave them on the table.
+  // Career policies audit the legal decision economy. Interactive boards —
+  // COVERT ACTIONS and CASE PREP alike — need player execution and are covered
+  // by their own deterministic regression tests, so headless bots leave them on
+  // the table. (The involuntary Evidence Timeline is handled in the run loop.)
   return c.opts.filter(option => !option.action&&(!option.bribe || state.S.money >= option.bribe));
 }
 

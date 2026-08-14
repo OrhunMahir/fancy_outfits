@@ -21,7 +21,9 @@ import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DELEGATE_CAP, DAY_HOURS, TIER_HOU
 import { clamp, rnd, rand, shuffle, hash, setSeed, clearSeed, getRngState, setRngState } from "./utils.js";
 import { LOCK_MIN, LOCK_MAX, POWER_RING_COUNT, createLockpickChallenge, clampLockPosition, tryLockpick, callCoin,
          createPowerCutChallenge, advancePowerCut, stopPowerCut, powerAngleAt, powerAngleDistance,
-         createTimelineChallenge, moveTimelineCard, submitTimeline } from "./minigames.js";
+         createTimelineChallenge, moveTimelineCard, submitTimeline,
+         CONTRA_ATTEMPTS, CONTRA_STATEMENTS, createContradictionChallenge, selectContradictionStatement,
+         pairContradiction, concedeContradiction } from "./minigames.js";
 import { SFX, startAmbience, stopAmbience, applyBgmVolume } from "./sound.js";
 import { settings, setSetting } from "./settings.js";
 import { buildPool, JUDGES, crises, SCENARIOS, buildWeekend } from "./content.js";
@@ -1166,7 +1168,10 @@ function createActionChallenge(action,args,skillSnapshot=legacySkillSnapshot()){
   const snapshot={...skillSnapshot};
   const rank=snapshot.rulesVersion===1?clamp(Math.trunc(Number(snapshot.sneaky)||0),0,MAX_SKILL):0;
   const skill=sneakyModifiers({skills:{sneaky:rank}});
-  const challenge=action.type==="power_cut"
+  const challenge=action.type==="contradiction"
+    // Reading exhibits is lawyering, not burglary: SNEAKY buys nothing here.
+    ?createContradictionChallenge({...args,pairs:action.pairs,decoys:action.decoys})
+    :action.type==="power_cut"
     ?createPowerCutChallenge({...args,sneaky:skill.powerScore})
     :createLockpickChallenge({...args,toleranceBonus:skill.lockToleranceBonus,attemptBonus:skill.lockAttemptBonus});
   return {...challenge,skillSnapshot:snapshot};
@@ -1189,10 +1194,11 @@ function beginActionChallenge(c,o,cost){
     optionIndex, startedDay:S.day, hoursBefore, caseTitle:c.title,
     actionTitle:action.title, body:action.body,
   };
-  S.runStats.covertTry++;
+  const prep=action.type==="contradiction";
+  if(prep) S.runStats.contraTry++; else S.runStats.covertTry++;
   S.openCase=null;
-  SFX.crisis();
-  log("COVERT ACTION STARTED: "+action.title+" ("+cost+"h committed)","sys");
+  if(prep) SFX.open(); else SFX.crisis();
+  log((prep?"CONTRADICTION BOARD: ":"COVERT ACTION STARTED: ")+action.title+" ("+cost+"h committed)","sys");
   saveGame(); notify();
 }
 
@@ -1347,10 +1353,81 @@ export function callActionCoin(side){
   saveGame(); notify();
 }
 
+/* ---------- CONTRADICTION BOARD ----------
+   A voluntary prep option on the file: honest hours spent hunting the exhibit
+   that breaks a sworn statement. It never wins the case — a finished chart only
+   strengthens that file's risky legal plays, and a collapsed one costs the
+   hours you already spent. No coin call, no getting caught. */
+const contradictionOpen=ch=>!!ch&&ch.type==="contradiction"&&ch.phase==="contradiction";
+
+export function selectContradictionCard(statementId){
+  const ch=S&&S.actionChallenge;
+  if(!contradictionOpen(ch)||!actionRefs(ch)) return;
+  S.actionChallenge=selectContradictionStatement(ch,statementId);
+  SFX.click();
+  saveGame(); notify();
+}
+
+export function pinContradiction(documentId){
+  const ch=S&&S.actionChallenge;
+  if(!contradictionOpen(ch)||!ch.selected||!actionRefs(ch)) return;
+  const next=pairContradiction(ch,ch.selected,documentId);
+  S.actionChallenge=next;
+  if(next.phase==="contradiction_success") SFX.open();
+  else if(next.phase==="contradiction_fail"){ SFX.lose(); doShake(); }
+  else if(next.matched.length>(ch.matched||[]).length) SFX.send();
+  else SFX.click();
+  saveGame(); notify();
+}
+
+/* Stopping early banks whatever the chart already proves. */
+export function closeContradictionBoard(){
+  const ch=S&&S.actionChallenge;
+  if(!contradictionOpen(ch)||!actionRefs(ch)) return;
+  S.actionChallenge=concedeContradiction(ch);
+  SFX.click();
+  saveGame(); notify();
+}
+
+function completeContradictionChallenge(ch){
+  const refs=actionRefs(ch);
+  S.actionChallenge=null;
+  if(!refs){
+    log("CONTRADICTION BOARD CANCELLED: the underlying file could not be verified.","bad");
+    saveGame(); notify(); return;
+  }
+  const {c,o,action}=refs;
+  delete c.actionInProgress;
+  c.opts=c.opts.filter(option=>option!==o); // one sitting per file, whatever it produced
+  const found=ch.matched.length, total=ch.solution.length;
+  const solved=ch.phase==="contradiction_success";
+  const edge=solved?(action.edge||0):Math.floor((action.edge||0)*found/Math.max(1,total));
+  const out=solved?action.success:(found?action.partial:action.miss);
+
+  if(solved) S.runStats.contraW++; else S.runStats.contraL++;
+  if(edge>0){
+    c.covertEdge=Math.max(c.covertEdge||0,edge); // the file's evidence edge, however it was earned
+    c.covertNote=(solved&&action.edgeText)||("CONTRADICTION CHART — "+found+"/"+total+" proven (+"+edge+"%)");
+  }
+  if(solved){ SFX.win(); log("["+c.title+"] "+out.txt,"good"); }
+  else { SFX.lose(); log("["+c.title+"] "+out.txt,found?"sys":"bad"); if(!found) doShake(); }
+  apply(out.fx,false,"case");
+  if(!S.over) S.openCase=c; // the file stays on the desk: the legal play is still yours to make
+
+  spendHours(ch.cost,ch.toil,true);
+  if(!S.over&&fatigueCheck(ch.cost)) return;
+  if(!S.over){ maybeDemand(); checkClock(); }
+  saveGame(); notify();
+}
+
 export function completeActionChallenge(){
   const ch=S&&S.actionChallenge;
   if(ch&&ch.type==="timeline"){
     if(["timeline_success","timeline_fail"].includes(ch.phase)) completeTimelineChallenge(ch);
+    return;
+  }
+  if(ch&&ch.type==="contradiction"){
+    if(["contradiction_success","contradiction_fail"].includes(ch.phase)) completeContradictionChallenge(ch);
     return;
   }
   if(!ch||!["lock_success","power_success","coin_result"].includes(ch.phase)) return;
@@ -1867,6 +1944,8 @@ function ledger(){
   return ["— RUN LEDGER —",
     "Bluffs: "+r.bluffW+" landed / "+r.bluffL+" blew up · Technical: "+r.techW+"W/"+r.techL+"L · Safe plays: "+r.safe,
     "Covert actions: "+r.covertTry+" attempted · "+r.covertW+" opened · "+r.covertEscape+" escaped · "+r.covertCaught+" caught",
+    "Case prep: "+r.timelineW+" chronologies locked / "+r.timelineL+" muddled · "+
+      r.contraTry+" contradiction charts ("+r.contraW+" complete)",
     "Final Warning: "+(S.finalWarningUsed?"SPENT":"unused"),
     "Bribes offered: "+r.bribeTry+(r.bribeTry?" ("+r.bribeW+" taken)":""),
     "Favors: "+r.favorHelp+" helped · "+r.favorNo+" declined"+
@@ -2037,13 +2116,34 @@ function validOutcome(out,depth){
   if(out.next==null) return true;
   return plain(out.next)&&(out.next.after==null||Number.isFinite(out.next.after))&&validCase(out.next.case,(depth||0)+1);
 }
-const validAction=a=>plain(a)&&typeof a.id==="string"&&a.id.length>0&&["lockpick","power_cut"].includes(a.type)&&
+const validActionBase=a=>plain(a)&&typeof a.id==="string"&&a.id.length>0&&
   typeof a.title==="string"&&typeof a.body==="string"&&Number.isFinite(a.hours)&&a.hours>=.5&&a.hours<=12&&Number.isInteger(a.hours*4)&&
   Number.isFinite(a.fatigue)&&a.fatigue>=0&&a.fatigue<=100&&Number.isFinite(a.edge)&&a.edge>=0&&a.edge<=30&&
-  typeof a.edgeText==="string"&&[a.success,a.escape,a.caught].every(out=>validOutcome(out,0)&&out.next==null);
+  typeof a.edgeText==="string";
+const validContradictionCards=a=>{
+  if(!Array.isArray(a.pairs)||a.pairs.length<CONTRA_STATEMENTS||a.pairs.length>12) return false;
+  if(!Array.isArray(a.decoys)||a.decoys.length<1||a.decoys.length>12) return false;
+  const ids=new Set();
+  for(const p of a.pairs){
+    if(!plain(p)||typeof p.id!=="string"||!p.id||typeof p.statement!=="string"||typeof p.document!=="string") return false;
+    if(ids.has(p.id)) return false;
+    ids.add(p.id);
+  }
+  for(const d of a.decoys){
+    if(!plain(d)||typeof d.id!=="string"||!d.id||typeof d.text!=="string"||ids.has(d.id)) return false;
+    ids.add(d.id);
+  }
+  return true;
+};
+const validAction=a=>validActionBase(a)&&(a.type==="contradiction"
+  ?validContradictionCards(a)&&[a.success,a.partial,a.miss].every(out=>validOutcome(out,0)&&out.next==null)
+  :["lockpick","power_cut"].includes(a.type)&&[a.success,a.escape,a.caught].every(out=>validOutcome(out,0)&&out.next==null));
 function validOption(o,depth){
   if(!plain(o)||typeof o.text!=="string") return false;
-  if(o.action) return o.style==="covert"&&validAction(o.action)&&o.base==null&&o.ok==null&&o.fail==null;
+  // Covert jobs and honest prep both suspend the desk, but they are not the same
+  // kind of choice and must not borrow each other's label.
+  if(o.action) return o.style===(o.action.type==="contradiction"?"prep":"covert")&&
+    validAction(o.action)&&o.base==null&&o.ok==null&&o.fail==null;
   if(!Number.isFinite(o.base)||!validOutcome(o.ok,depth)) return false;
   if(o.style!=null&&!["technical","aggressive","bribe","neutral"].includes(o.style)) return false;
   for(const key of ["boldW","delay","bribe","hours","fatigue","relOk","relFail"])
@@ -2078,7 +2178,9 @@ function validCase(c,depth=0){
     (c.covertNote==null||typeof c.covertNote==="string")&&(c.actionInProgress==null||typeof c.actionInProgress==="string")&&
     validTimelineData(c.timeline)&&(c.timelineDone==null||typeof c.timelineDone==="boolean")&&
     (c.timelineInProgress==null||typeof c.timelineInProgress==="string")&&validTimelineEdge(c.timelineEdge,c.opts)&&
-    (!c.judge||c.opts.every(o=>!o.action))&&
+    // A burglary during a court appearance never made sense; preparing exhibits
+    // for one is exactly what the night before a hearing is for.
+    (!c.judge||c.opts.every(o=>!o.action||o.action.type==="contradiction"))&&
     (!c.big||c.opts.every(o=>o.delay==null&&!o.action)); // Client War has its own lifecycle; no delayed/action options
 }
 
@@ -2148,7 +2250,7 @@ function backfillMissingCaseIds(d){
 class SaveDataError extends Error{ constructor(code,message){ super(message); this.code=code; } }
 const ensureArray=(d,key)=>{ if(d[key]==null) d[key]=[]; };
 const RUN_COUNTER_KEYS=["safe","bluffW","bluffL","techW","techL","covertTry","covertW","covertEscape","covertCaught",
-  "timelineW","timelineL","bribeTry","bribeW","favorHelp","favorNo","miss","crises","fired"];
+  "timelineW","timelineL","contraTry","contraW","contraL","bribeTry","bribeW","favorHelp","favorNo","miss","crises","fired"];
 const TODAY_COUNTER_KEYS=["resolved","wins","safeUsed","aggWin","delegated","moneyGained"];
 const nonNegativeInt=v=>Number.isSafeInteger(v)&&v>=0;
 const validCounters=(v,keys)=>plain(v)&&keys.every(k=>nonNegativeInt(v[k]));
@@ -2331,7 +2433,10 @@ const migrateV14ToV15=raw=>{
    consecutive settlements, so it resumes with a clean slate. */
 const migrateV15ToV16=raw=>({...raw,schemaVersion:16,
   safeStreak:Number.isSafeInteger(raw.safeStreak)?clamp(raw.safeStreak,0,SAFE_STREAK_CAP):0});
-const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6,6:migrateV6ToV7,7:migrateV7ToV8,8:migrateV8ToV9,9:migrateV9ToV10,10:migrateV10ToV11,11:migrateV11ToV12,12:migrateV12ToV13,13:migrateV13ToV14,14:migrateV14ToV15,15:migrateV15ToV16};
+/* v16 -> v17 adds the CONTRADICTION BOARD. Older careers carry no board and no
+   counters; nothing else about them changes. */
+const migrateV16ToV17=raw=>({...raw,schemaVersion:17,runStats:backfillCounters(raw.runStats,RUN_COUNTER_KEYS)});
+const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6,6:migrateV6ToV7,7:migrateV7ToV8,8:migrateV8ToV9,9:migrateV9ToV10,10:migrateV10ToV11,11:migrateV11ToV12,12:migrateV12ToV13,13:migrateV13ToV14,14:migrateV14ToV15,15:migrateV15ToV16,16:migrateV16ToV17};
 
 const JUDGE_MEMORY_COUNTERS=["seen","aggressiveW","aggressiveL","technicalW","technicalL","bribeW","bribeL","safe","neutralW","neutralL"];
 function validJudgeMemory(memory,day){
@@ -2459,9 +2564,37 @@ function validTimelineChallenge(ch,day){
   if(ch.phase==="timeline_fail"&&(solvedNow||ch.correct!==scored)) return false;   // and a loss must actually be wrong
   return ch.coinCall==null&&ch.escaped==null;
 }
+const CONTRA_PHASES=new Set(["contradiction","contradiction_success","contradiction_fail"]);
+function validContradictionChallenge(ch,day){
+  if(!validActionChallengeBase(ch,day,CONTRA_PHASES)||ch.type!=="contradiction") return false;
+  if(!Array.isArray(ch.statements)||!Array.isArray(ch.documents)||!Array.isArray(ch.solution)||!Array.isArray(ch.matched)) return false;
+  const size=ch.solution.length;
+  if(ch.statements.length!==size||size<2||ch.documents.length<size||ch.documents.length>size+12) return false;
+  const card=entry=>plain(entry)&&typeof entry.id==="string"&&!!entry.id&&typeof entry.text==="string";
+  if(ch.statements.some(s=>!card(s))||ch.documents.some(d=>!card(d))) return false;
+  const statementIds=new Set(ch.statements.map(s=>s.id)), documentIds=new Set(ch.documents.map(d=>d.id));
+  if(statementIds.size!==size||documentIds.size!==ch.documents.length) return false;
+  if(ch.solution.some(pair=>!plain(pair)||!statementIds.has(pair.statement)||!documentIds.has(pair.document))) return false;
+  if(!nonNegativeInt(ch.maxAttempts)||ch.maxAttempts!==CONTRA_ATTEMPTS||!nonNegativeInt(ch.attemptsLeft)||ch.attemptsLeft>ch.maxAttempts) return false;
+  if(!nonNegativeInt(ch.turn)||ch.turn>ch.maxAttempts+size) return false;
+  if(ch.selected!=null&&!statementIds.has(ch.selected)) return false;
+  // Every banked pair must be a real solution pair, claimed at most once.
+  const seenStatements=new Set(), seenDocuments=new Set();
+  for(const m of ch.matched){
+    if(!plain(m)||!ch.solution.some(pair=>pair.statement===m.statement&&pair.document===m.document)) return false;
+    if(seenStatements.has(m.statement)||seenDocuments.has(m.document)) return false;
+    seenStatements.add(m.statement); seenDocuments.add(m.document);
+  }
+  if(ch.matched.length>size||ch.turn!==ch.matched.length+(ch.maxAttempts-ch.attemptsLeft)) return false;
+  if(ch.phase==="contradiction"&&(ch.attemptsLeft<1||ch.matched.length===size)) return false;
+  if(ch.phase==="contradiction_success"&&(ch.matched.length!==size||ch.selected!=null)) return false;
+  if(ch.phase==="contradiction_fail"&&ch.matched.length===size) return false; // a finished chart is a success, not a miss
+  return ch.coinCall==null&&ch.escaped==null;
+}
 function validActionChallenge(ch,day,progression){
   const valid=ch&&ch.type==="lockpick"?validLockChallenge(ch,day):ch&&ch.type==="power_cut"?validPowerChallenge(ch,day):
-    ch&&ch.type==="timeline"?validTimelineChallenge(ch,day):false;
+    ch&&ch.type==="timeline"?validTimelineChallenge(ch,day):
+    ch&&ch.type==="contradiction"?validContradictionChallenge(ch,day):false;
   if(!valid) return false;
   if(ch.skillSnapshot.rulesVersion===1) return ch.skillSnapshot.sneaky===getSkillRank(progression,"sneaky")&&
     ch.skillSnapshot.endurance===getSkillRank(progression,"endurance");
@@ -2590,6 +2723,11 @@ function migrateSaveData(raw){
       throw new SaveDataError("invalid","The saved COVERT ACTION outcome was altered.");
     if(ch.type==="lockpick"&&(ch.target!==expected.target||ch.tolerance!==expected.tolerance||ch.maxAttempts!==expected.maxAttempts))
       throw new SaveDataError("invalid","The saved lock position was altered.");
+    if(ch.type==="contradiction"&&(ch.statements.length!==expected.statements.length||ch.documents.length!==expected.documents.length||
+      ch.statements.some((s,index)=>s.id!==expected.statements[index].id||s.text!==expected.statements[index].text)||
+      ch.documents.some((d,index)=>d.id!==expected.documents[index].id||d.text!==expected.documents[index].text)||
+      ch.solution.some((pair,index)=>pair.statement!==expected.solution[index].statement||pair.document!==expected.solution[index].document)))
+      throw new SaveDataError("invalid","The saved contradiction board was altered.");
     if(ch.type==="power_cut"&&(ch.sneaky!==expected.sneaky||ch.maxMisses!==expected.maxMisses||ch.rings.length!==expected.rings.length||
       ch.rings.some((ring,index)=>{
         const fixed=expected.rings[index];

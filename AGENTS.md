@@ -196,11 +196,13 @@
 
 **v1.9.21 eklendi (2026-08-13):** (a) `TIMELINE_EDGE_DECLINE=-4` — "GO IN COLD" saat/FATIGUE yakmaz ama hamlenin şansını düşürür; `validTimelineEdge` artık tam değer kümesi (`{+12,−10,−4}`) doğrular. (b) Timeline 5 prosedürel şablona yayıldı (geç dosyalama, iki versiyonlu rapor, backdated email, patent, guaranty); tarihler yalnız gövdede, kartlarda değil. (c) Safe rota fiyatlandırıldı, güvenilirliği değil: `SAFE_COASTING` (ardışık safe çözümlerde INF −1/basamak, BOLD −2/basamak, cap 4, riskli hamle sıfırlar — `S.safeStreak`, schema v16) + `SAFE_HOURS_MULT` 1.5→1.75. Karar paired 64-seed kohortlarla verildi; 2.0× saat gizli global zorluk artışı olduğu için reddedildi (`BALANCE_SOAK_REPORT.md` v19.21). Soak'ta `safe_legacy` kontrolü var.
 
-**En son çalışılan konu (2026-08-13):** v1.9.20 Evidence Timeline `357ade0a4` ile pushlandı;
-ardından v1.9.21 (decline cezası + prosedürel timeline yayılması + safe rota fiyatlandırması,
-schema v16) tamamlandı ve kullanıcının push'unu bekliyor. Güncel ortak handoff `DEV_LOGBOOK.md`
-içindedir. Sıradaki kullanıcı-onaylı iş: **Contradiction Board** (2. bağlamsal minigame). Mobil
-(layout+Capacitor), bağlamsal SFX ve Steam paketleme sonraki backlog'dur.
+**v1.9.22 eklendi (2026-08-13):** Contradiction Board — Timeline'ın tersi tasarım: dosyanın üzerinde gönüllü CASE PREP seçeneği (`style:"prep"`, `action.type:"contradiction"`), 1.5h + 6 FATIGUE peşin, tam chart +15 kenar, kısmi `floor(edge*found/total)`, sıfır → kenar yok + −2 BOLD. COVERT makinesi yeniden kullanıldı ama covert semantiği değil (coin call/yakalanma yok, ayrı `contraTry/W/L` sayaçları); `validOption` etiketi tipe göre zorlar. Board `runSeed|caseId|actionId` kimliğinden 3 ifade + 1 decoy çeker, paylaşılan RNG'yi tüketmez, `CONTRA_ATTEMPTS`(4) denemeyle sınırlıdır. Dava ÇÖZÜLMEZ — dosya masaya döner. Court dosyaları artık prep taşıyabilir, covert taşıyamaz. Hostlar: el yazması `court2` + prosedürel şablon 4 (%50). Schema v17 board'u kimlikten yeniden türeterek doğrular.
+
+**En son çalışılan konu (2026-08-13):** v1.9.21 `ea50a3894` ile pushlandı; ardından v1.9.22
+(Contradiction Board, schema v17) tamamlandı ve kullanıcının push'unu bekliyor. `npm test`,
+`npm run build`, `npm run test:soak` (replay 336/336, integrity 0) yeşil. Güncel ortak handoff
+`DEV_LOGBOOK.md` içindedir. Sıradaki kullanıcı-onaylı iş: **mobil layout + Capacitor**. Bağlamsal
+SFX, GitHub Pages demo ve Steam paketleme sonraki backlog'dur.
 
 ---
 
@@ -475,5 +477,5 @@ Sen bu projeye yeni katılan geliştiricisin. Şunları bilmelisin:
 2. Çalıştırmak: `npm run dev` (tarayıcı), `npm start` (Electron/Steam hedefi). Her değişiklikten sonra `npm run build` ile doğrula, davranışı tarayıcıda elle test et.
 3. Dokunmadan önce oku: `src/game/engine.js` içinde `chance()` (denge), `apply()` (tüm stat mutasyonu buradan) ve `endDay()` (gün akışı); dava JSON şeması (AGENTS.md §7, gerçek veri `src/game/content.js`).
 4. Kırmızı çizgiler: yeni runtime bağımlılığı/asset dosyası ekleme; oyun metinlerine "Suits/Papers Please" yazma; safe-vs-bluff çekirdek gerilimini bozma; `apply()`'ı bypass etme; `src/game/` ↔ `src/components/` katman ayrımını bozma; oyun dili İngilizce kalır, kullanıcıyla Türkçe konuşulur.
-5. Gerçek sıradaki iş kullanıcı onaylı **Contradiction Board** (2. bağlamsal minigame). Hakim hafızası, progression, Fraud identity pressure ve Evidence Timeline TAMAMLANDI — yeniden yazma. Her oturuma `DEV_LOGBOOK.md`'nin en üstteki kaydıyla başla; bu dosya özet, o dosya güncel checkpoint.
+5. Gerçek sıradaki iş kullanıcı onaylı **mobil layout + Capacitor**. Hakim hafızası, progression, Fraud identity pressure, Evidence Timeline ve Contradiction Board TAMAMLANDI — yeniden yazma. Her oturuma `DEV_LOGBOOK.md`'nin en üstteki kaydıyla başla; bu dosya özet, o dosya güncel checkpoint.
 6. Kod stili: `src/game/` kompakt (tek satır guard'lar, ternary'ler), tuning sabitleri `constants.js`'te; componentler sade JSX.

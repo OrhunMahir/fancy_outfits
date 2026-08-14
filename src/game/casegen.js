@@ -66,12 +66,33 @@ const TEMPLATES=[
   return c;},
   // 4 — the impossible witnesses (court)
   ()=>{const who=rnd(LAST),place=rnd(["on a cruise in international waters","at a silent retreat with no visitors' log","courtside at a playoff game, on camera"]);
-  return {tier:2,title:`COURT: In re ${who} estate`,deadline:rnd([3,4]),judge:true,
-    body:`A contested will leaves everything to a ${rnd(["life coach","reptile sanctuary","'spiritual adviser'","golf instructor"])}. The 'final' will has two witnesses — both of whom, per the attached statements, were ${place} on the signing date. Social media agrees with the geography, not the will.`,
+  const heir=rnd(["life coach","reptile sanctuary","'spiritual adviser'","golf instructor"]);
+  const c={tier:2,title:`COURT: In re ${who} estate`,deadline:rnd([3,4]),judge:true,
+    body:`A contested will leaves everything to a ${heir}. The 'final' will has two witnesses — both of whom, per the attached statements, were ${place} on the signing date. Social media agrees with the geography, not the will. The bundle also holds a pharmacy log, a bank record, a notary's day book, a hospice visitor sheet and a stack of paper nobody has cross-read against the affidavits.`,
     opts:[
       {text:"Broker a settlement split.",base:100,safe:true,ok:{fx:{bold:-2,inf:2,money:400},txt:"Everyone unhappy in equal shares. Textbook."}},
       {text:"Present the location evidence. Void the will.",base:74,style:"technical",ok:{fx:{rep:8,inf:7,money:1300},txt:"Exhibit A: a timestamped photo. The will folds like a beach chair."},fail:{fx:{rep:-5},txt:"One witness signed remotely — legal here since '21. The other one you never checked."}},
-      {text:"Accuse the beneficiary of undue influence.",base:38,boldW:3,style:"aggressive",ok:{fx:{bold:7,inf:7,money:900},txt:"They confess to 'manifesting the estate'. On the record."},fail:{fx:{rep:-10},txt:"No evidence, just vibes. The judge bills you for the vibes."}}]};},
+      {text:"Accuse the beneficiary of undue influence.",base:38,boldW:3,style:"aggressive",ok:{fx:{bold:7,inf:7,money:900},txt:"They confess to 'manifesting the estate'. On the record."},fail:{fx:{rep:-10},txt:"No evidence, just vibes. The judge bills you for the vibes."}}]};
+  if(rand()<.5) c.opts.push({text:"CASE PREP: chart the affidavits against the bundle.",style:"prep",
+    action:{id:"generated_estate_contradictions",type:"contradiction",title:`THE ${who.toUpperCase()} AFFIDAVITS`,
+      body:"Two witnesses swore to a version of that afternoon. The bundle disagrees with them in five different places. Pin each sentence to the page that ends it — and leave the pages that prove nothing alone.",
+      hours:1.5,fatigue:6,edge:15,
+      edgeText:"CONTRADICTION CHART COMPLETE (+15% on this file's risky legal plays)",
+      pairs:[
+        {id:"present",statement:"'I stood beside him while he signed.'",document:`Travel record placing that witness ${place} that day`},
+        {id:"hand",statement:"'He wrote it out in his own hand.'",document:"Handwriting report: the body text was typed weeks earlier"},
+        {id:"stranger",statement:`'I had never met the ${heir} before the funeral.'`,document:`A joint bank transfer to the ${heir}, dated that spring`},
+        {id:"alert",statement:"'He was sharp as ever that week.'",document:"Pharmacy log: sedatives dispensed daily that week"},
+        {id:"notary",statement:"'A notary sat with us at the table.'",document:"The notary's day book, blank on the signing date"},
+        {id:"alone",statement:"'No one visited him that afternoon.'",document:`Hospice visitor sheet listing the ${heir} at 2pm`}],
+      decoys:[
+        {id:"gardener",text:"An unpaid invoice from the estate's gardener"},
+        {id:"policy",text:"A lapsed home insurance policy nobody renewed"},
+        {id:"obituary",text:"The newspaper obituary, published a week later"}],
+      success:{fx:{bold:2},txt:"Every sworn sentence now has a document sitting on top of it. The will still has to be attacked — but the witnesses are already finished."},
+      partial:{fx:{},txt:"Some of it holds. The rest you would not put in front of a judge, so it stays in the binder."},
+      miss:{fx:{bold:-2},txt:"The affidavits survive the afternoon. Hours spent, nothing you can stand behind."}}});
+  return c;},
   // 5 — two versions of the same report
   ()=>{const a=rnd(CO),m=rnd([1,2,3]);
   return {tier:1,title:`CASE: ${a} audit prep`,deadline:rnd([2,3]),

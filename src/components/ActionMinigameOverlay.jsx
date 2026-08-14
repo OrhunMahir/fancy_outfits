@@ -5,6 +5,29 @@ import CoinFlipMinigame from "./minigames/CoinFlipMinigame.jsx";
 import LockpickMinigame from "./minigames/LockpickMinigame.jsx";
 import PowerCutMinigame from "./minigames/PowerCutMinigame.jsx";
 import TimelineMinigame from "./minigames/TimelineMinigame.jsx";
+import ContradictionMinigame from "./minigames/ContradictionMinigame.jsx";
+
+/* Prep work has no getaway: the chart either holds, holds partly, or doesn't. */
+function ContradictionResultPanel({challenge}){
+  const buttonRef=useRef(null);
+  const solved=challenge.phase==="contradiction_success";
+  const found=challenge.matched.length, total=challenge.solution.length;
+
+  useEffect(()=>{
+    buttonRef.current?.focus();
+  },[]);
+
+  return (
+    <div className={`action-game lock-success timeline-result${solved?"":" timeline-result-miss"}`}>
+      <div className="lock-success-mark" aria-hidden="true">{found}/{total}</div>
+      <h3 className="lock-success-title">{solved?"THE CHART HOLDS":found?"A PARTIAL CHART":"NOTHING PROVABLE"}</h3>
+      <p className="lock-success-copy">{challenge.feedback}</p>
+      <button ref={buttonRef} className="btn safe action-primary lock-continue" type="button" onClick={completeActionChallenge}>
+        BACK TO THE FILE
+      </button>
+    </div>
+  );
+}
 
 /* The chronology result is not a covert win/loss: it hands the play you already
    committed to a better or worse footing, then the case resolves as normal. */
@@ -110,8 +133,12 @@ export default function ActionMinigameOverlay(){
   if(!challenge) return null;
 
   const timeline=challenge.type==="timeline";
+  const contradiction=challenge.type==="contradiction";
   let game=null;
-  if(challenge.phase==="timeline") game=<TimelineMinigame challenge={challenge} />;
+  if(challenge.phase==="contradiction") game=<ContradictionMinigame challenge={challenge} />;
+  else if(challenge.phase==="contradiction_success"||challenge.phase==="contradiction_fail")
+    game=<ContradictionResultPanel challenge={challenge} />;
+  else if(challenge.phase==="timeline") game=<TimelineMinigame challenge={challenge} />;
   else if(challenge.phase==="timeline_success"||challenge.phase==="timeline_fail") game=<TimelineResultPanel challenge={challenge} />;
   else if(challenge.phase==="lockpick") game=<LockpickMinigame challenge={challenge} />;
   else if(challenge.phase==="power_cut") game=<PowerCutMinigame challenge={challenge} />;
@@ -130,7 +157,9 @@ export default function ActionMinigameOverlay(){
         tabIndex="-1"
         onKeyDown={trapFocus}
       >
-        <div className="action-kicker">{timeline?"CASE PREP · EVIDENCE TIMELINE":"COVERT ACTION"}</div>
+        <div className="action-kicker">
+          {timeline?"CASE PREP · EVIDENCE TIMELINE":contradiction?"CASE PREP · CONTRADICTION BOARD":"COVERT ACTION"}
+        </div>
         <h2 id="action-challenge-title">{challenge.actionTitle||"AFTER HOURS"}</h2>
         <p id="action-challenge-body" className="action-brief">
           {challenge.body||"Keep quiet. Leave no trace."}

@@ -30,6 +30,25 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.22 — The Contradiction Board *(2026-08-13)*
+- **Prep work you choose, not prep work that happens to you:** eligible files now offer CASE PREP —
+  spend 1.5 hours and 6 fatigue to pin each sworn statement to the exhibit that makes it
+  impossible. Unlike the Evidence Timeline, this is a deliberate option on the file, and unlike a
+  COVERT ACTION it risks nothing but your afternoon: there is no coin call and nobody gets caught.
+- **Limited attempts, and one exhibit that proves nothing:** three statements, four exhibits and
+  four attempts. A decoy pin costs credibility; run out and the chart collapses. You can also close
+  the binder early and bank what you already proved.
+- **The chart never wins the case:** a complete chart adds +15% to that file's risky legal plays, a
+  partial chart adds a proportional share, an empty one costs only the hours. The legal decision is
+  still yours to make afterwards, and the file goes straight back onto the desk.
+- **Two hosts, so it stays rare but repeatable:** the hand-written Pemberton estate hearing carries
+  the authored six-contradiction bundle, and half of the generated contested-estate filings carry
+  their own — with the generated names running through the statements and exhibits.
+- **Court files may now carry prep (but still never a burglary):** the board is dealt from a
+  run/case/action identity, survives save and reload mid-chart, and every persisted board is
+  re-derived and compared on load. Save schema v17 migrates older careers with no board and fresh
+  counters; the run ledger reports charts attempted and completed.
+
 ### v19.21 — Nobody walks in cold for free *(2026-08-13)*
 - **Skipping the chronology now costs something:** GO IN COLD still spends no hour and no fatigue,
   but the play you already committed to argues at −4%. That is deliberately lighter than the −10%

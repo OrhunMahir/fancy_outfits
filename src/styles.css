@@ -30,6 +30,9 @@ body::after{ /* scanlines */
 .btn.bribe{background:#7a5a17; box-shadow:0 4px 0 #45320c;} .btn.bribe:hover{background:#96701f;}
 .btn.covert{background:#65459a; border-left:4px solid var(--gold); box-shadow:0 4px 0 #39265d;}
 .btn.covert:hover{background:#7c5bb2;}
+/* Case prep is legal work, not a night job: cool slate, no gold trespass edge. */
+.btn.prep{background:#2f5d7a; border-left:4px solid #7fc6e8; box-shadow:0 4px 0 #1a3646;}
+.btn.prep:hover{background:#3b7397;}
 .btn.small{width:auto; padding:6px 10px; font-size:8px;}
 .btn:disabled{opacity:.35; cursor:default;}
 .btn:disabled:hover{background:var(--panel2);} .btn:disabled:active{transform:none; box-shadow:0 4px 0 #1b2a6b;}
@@ -335,6 +338,24 @@ h2{font-size:10px; color:var(--gold); margin-bottom:10px; border-bottom:2px soli
 .timeline-result .lock-success-title{color:#8ef0b4;}
 .timeline-result-miss .lock-success-mark{background:#3a1520; border-color:#e07a90; box-shadow:6px 6px 0 #1c0910;}
 .timeline-result-miss .lock-success-title{color:#ffb3c1;}
+
+/* Contradiction Board: two columns of tappable cards, no drag and drop. */
+.contra-status{
+  margin-bottom:8px; padding:6px; text-align:center; font-size:8px;
+  color:var(--gold); background:#131c3f; border:2px solid var(--panel2);
+}
+.contra-columns{display:flex; gap:8px; margin-bottom:10px;}
+.contra-column{flex:1 1 0; min-width:0;}
+.contra-heading{margin:0 0 6px; font-size:8px; color:#9fb2ff; letter-spacing:1px;}
+.contra-list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px;}
+.btn.small.contra-card{
+  width:100%; min-height:48px; padding:7px; text-align:left; font-size:8px; line-height:1.8;
+  white-space:normal; word-break:break-word;
+}
+.btn.small.contra-card.contra-selected{background:#2f5d7a; box-shadow:0 4px 0 #1a3646; border-left:4px solid #7fc6e8;}
+.btn.small.contra-card.contra-done{background:#1e4a33; box-shadow:0 4px 0 #10281c; opacity:1;}
+.btn.small.contra-card.contra-done:disabled{opacity:.8;}
+@media (max-width:520px){ .contra-columns{flex-direction:column;} }
 
 /* Last-chance coin call after a failed covert action. */
 .coin-warning{

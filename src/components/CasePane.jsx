@@ -53,7 +53,7 @@ export default function CasePane(){
             coast&&`COASTING: ${coast.inf} INF, ${coast.bold} BOLD`].filter(Boolean).join(" · ");
           return (
             <button key={i}
-                    className={"btn"+(o.safe?" safe":o.style==="aggressive"?" bold":o.style==="bribe"?" bribe":o.style==="covert"?" covert":"")}
+                    className={"btn"+(o.safe?" safe":o.style==="aggressive"?" bold":o.style==="bribe"?" bribe":o.style==="covert"?" covert":o.style==="prep"?" prep":"")}
                     disabled={!!(o.bribe&&S.money<o.bribe)}
                     onClick={()=>choose(c,o)}>
               {(i+1)+". "+o.text}

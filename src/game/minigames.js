@@ -195,6 +195,114 @@ export function submitTimeline(challenge){
   };
 }
 
+/* ---------- CONTRADICTION BOARD ----------
+   Honest legal prep, not a covert job: pin each sworn statement to the exhibit
+   that makes it impossible. Attempts are limited, one exhibit on the board
+   contradicts nothing, and — like every board here — the deal comes from a
+   run/case/action identity instead of the shared gameplay RNG. */
+export const CONTRA_STATEMENTS=3;
+export const CONTRA_DECOYS=1;
+export const CONTRA_ATTEMPTS=4;
+
+const drawByIdentity=(pool,size,identity,salt)=>pool
+  .map(entry=>({entry,key:hash(`${identity}|${salt}|${entry.id}`)}))
+  .sort((a,b)=>a.key-b.key||(a.entry.id<b.entry.id?-1:1))
+  .slice(0,size)
+  .map(item=>item.entry);
+
+export function contradictionDeal(pairs,decoys,identity,count=CONTRA_STATEMENTS,decoyCount=CONTRA_DECOYS){
+  const pairPool=(Array.isArray(pairs)?pairs:[]).filter(p=>p&&typeof p.id==="string");
+  const decoyPool=(Array.isArray(decoys)?decoys:[]).filter(d=>d&&typeof d.id==="string");
+  const size=Math.max(2,Math.min(pairPool.length,Math.trunc(Number(count))||0));
+  const drawn=drawByIdentity(pairPool,size,identity,"pair");
+  const spare=drawByIdentity(decoyPool,Math.max(0,Math.min(decoyPool.length,Math.trunc(Number(decoyCount))||0)),identity,"decoy");
+
+  const statements=drawn.map(p=>({id:p.id,text:String(p.statement||"")}));
+  const documents=[
+    ...drawn.map(p=>({id:"doc_"+p.id,text:String(p.document||"")})),
+    ...spare.map(d=>({id:"doc_"+d.id,text:String(d.text||"")})),
+  ];
+  // Deterministic Fisher-Yates so the exhibit column never lines up with the
+  // statement column — the answer has to come from the file, not the layout.
+  for(let i=documents.length-1;i>0;i--){
+    const j=hash(`${identity}|shuffle|${i}`)%(i+1);
+    [documents[i],documents[j]]=[documents[j],documents[i]];
+  }
+  return {statements,documents,solution:drawn.map(p=>({statement:p.id,document:"doc_"+p.id}))};
+}
+
+export function createContradictionChallenge({runSeed,caseId,actionId,cost,toil,lateExtra,pairs,decoys}){
+  const identity=`${runSeed}|${caseId}|${actionId}`;
+  const {statements,documents,solution}=contradictionDeal(pairs,decoys,identity);
+  return {
+    type:"contradiction",
+    phase:"contradiction",
+    runSeed,
+    caseId,
+    actionId,
+    cost,
+    toil,
+    lateExtra,
+    statements,
+    documents,
+    solution,
+    matched:[],
+    selected:null,
+    maxAttempts:CONTRA_ATTEMPTS,
+    attemptsLeft:CONTRA_ATTEMPTS,
+    turn:0,
+    feedback:"Pin each sworn statement to the exhibit that makes it impossible.",
+    coinFace:hash(`${identity}|coin`)%2===0?"heads":"tails", // unused here; keeps one challenge shape
+  };
+}
+
+export function selectContradictionStatement(challenge,statementId){
+  if(challenge.phase!=="contradiction") return {...challenge};
+  const known=(challenge.statements||[]).some(s=>s.id===statementId);
+  const settled=(challenge.matched||[]).some(m=>m.statement===statementId);
+  if(!known||settled) return {...challenge};
+  const selected=challenge.selected===statementId?null:statementId;
+  return {...challenge,selected,
+    feedback:selected?"Now pick the exhibit that cannot be true alongside it.":"Selection cleared."};
+}
+
+export function pairContradiction(challenge,statementId,documentId){
+  if(challenge.phase!=="contradiction") return {...challenge};
+  const statements=challenge.statements||[], documents=challenge.documents||[], solution=challenge.solution||[];
+  const matched=challenge.matched||[];
+  if(!statements.some(s=>s.id===statementId)||!documents.some(d=>d.id===documentId)) return {...challenge};
+  if(matched.some(m=>m.statement===statementId||m.document===documentId)) return {...challenge};
+
+  const turn=(challenge.turn||0)+1;
+  const correct=solution.some(pair=>pair.statement===statementId&&pair.document===documentId);
+  if(correct){
+    const nextMatched=[...matched,{statement:statementId,document:documentId}];
+    const done=nextMatched.length===solution.length;
+    return {...challenge,
+      phase:done?"contradiction_success":"contradiction",
+      matched:nextMatched,selected:null,turn,
+      feedback:done
+        ?"Every statement is nailed to a document it cannot survive."
+        :`Contradiction locked. ${solution.length-nextMatched.length} left.`};
+  }
+
+  const attemptsLeft=Math.max(0,(challenge.attemptsLeft||0)-1);
+  return {...challenge,
+    phase:attemptsLeft===0?"contradiction_fail":"contradiction",
+    attemptsLeft,selected:null,turn,
+    feedback:attemptsLeft===0
+      ?"Out of credibility. Opposing counsel would eat that chart alive."
+      :`That exhibit does not touch this statement. ${attemptsLeft} attempt(s) left.`};
+}
+
+export function concedeContradiction(challenge){
+  if(challenge.phase!=="contradiction") return {...challenge};
+  return {...challenge,phase:"contradiction_fail",selected:null,
+    feedback:(challenge.matched||[]).length
+      ?"You stop while the chart still holds together."
+      :"You close the binder. Nothing on the board is provable today."};
+}
+
 // Three timing rings for the electrical sabotage action. The shared gameplay
 // RNG is deliberately never read here: a run/case/action identity fixes the
 // board, while the snapshotted SNEAKY score changes only its difficulty.

@@ -30,6 +30,15 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.22.1 — A struck coin *(2026-08-17)*
+- **The escape coin is a real coin now:** two faces instead of a letter on a disc. Heads carries a
+  suit and the firm's name, tails the scales of justice and a promise of ONE VERDICT — both drawn
+  as inline SVG on a pixel grid, still with no asset files.
+- **It comes at you:** the toss starts far away and tumbles toward the camera, hangs close for a
+  beat and settles into frame, with a milled rim built from stacked rings and a shadow that grows
+  as it approaches. The landing rotation is what decides the visible face, so the coin can never
+  show a side it did not land on — including when animations are turned off.
+
 ### v19.22 — The Contradiction Board *(2026-08-13)*
 - **Prep work you choose, not prep work that happens to you:** eligible files now offer CASE PREP —
   spend 1.5 hours and 6 fatigue to pin each sworn statement to the exhibit that makes it

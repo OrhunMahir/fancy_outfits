@@ -2735,14 +2735,18 @@ globalThis.clearInterval = () => {};
 
   const pembertonLive = state.S.inbox.find(c => c.id === "court2");
   const risky = pembertonLive.opts.find(o => o.style === "technical");
-  const oddsBeforeChart = engine.chance(risky, pembertonLive);
   const hoursBeforeChart = state.S.hours;
   engine.completeActionChallenge();
   assert.equal(state.S.actionChallenge, null);
   assert.equal(state.S.runStats.contraW, 1);
   assert.equal(pembertonLive.covertEdge, 15, "a finished chart arms this file's risky legal plays");
-  // The edge feeds the same odds ceiling every other bonus does.
-  assert.equal(engine.chance(risky, pembertonLive), Math.min(95, oddsBeforeChart + 15));
+  // Measure the edge at one instant: the prep also spends hours and adds
+  // fatigue, so comparing odds across the completion would measure both.
+  const withChart = engine.chance(risky, pembertonLive);
+  delete pembertonLive.covertEdge;
+  const withoutChart = engine.chance(risky, pembertonLive);
+  pembertonLive.covertEdge = 15;
+  assert.equal(withChart, Math.min(95, withoutChart + 15), "the edge feeds the same odds ceiling as every other bonus");
   assert.equal(state.S.hours, hoursBeforeChart - 1.5, "prep bills its hours either way");
   assert.ok(state.S.inbox.includes(pembertonLive), "the case still has to be argued");
   assert.equal(state.S.openCase, pembertonLive, "and it comes back to the desk");
@@ -2808,8 +2812,11 @@ globalThis.clearInterval = () => {};
     c.actionChallenge.matched = [...c.actionChallenge.solution]; }, "a forged finished chart is rejected");
   rejectsContra(c => { c.actionChallenge.matched = [{ statement: c.actionChallenge.statements[0].id, document: "doc_invented" }]; },
     "an invented contradiction is rejected");
-  rejectsContra(c => { c.actionChallenge.solution = c.actionChallenge.statements
-    .map((s, i) => ({ statement: s.id, document: c.actionChallenge.documents[i].id })); }, "a rewritten answer key is rejected");
+  // Rotating the key is guaranteed to differ from the real deal, whatever the
+  // board happened to shuffle into.
+  rejectsContra(c => { const key = c.actionChallenge.solution;
+    c.actionChallenge.solution = key.map((pair, i) => ({ statement: pair.statement, document: key[(i + 1) % key.length].document })); },
+    "a rewritten answer key is rejected");
   rejectsContra(c => { c.actionChallenge.attemptsLeft = c.actionChallenge.maxAttempts + 3; }, "extra attempts are rejected");
   rejectsContra(c => { c.actionChallenge.documents = c.actionChallenge.documents.slice(0, 2); }, "a shrunken board is rejected");
   rejectsContra(c => { c.actionChallenge = null; }, "an orphan prep marker is rejected");

@@ -18,6 +18,72 @@ Her çalışma oturumunda:
 
 ---
 
+## 2026-08-17 — Claude: struck coin (v1.9.22.1)
+
+### Git checkpoint
+
+- Branch: `minigames`, base commit `52a54c02b` (bu oturumda commit atılmadı).
+- Dokunulan dosyalar: `src/components/minigames/CoinFlipMinigame.jsx`, `src/styles.css`,
+  `scripts/v195-check.mjs` (aşağıdaki test düzeltmesi), `README.md`, bu dosya.
+
+### Yazı-tura artık gerçek bir madeni para
+
+- Eskisi: düz bir daire + ortasında "H"/"T" harfi, yerinde `rotateY` dönüşü.
+- Yenisi: `transform-style:preserve-3d` ile **iki yüzü olan** bir para. HEADS = takım elbise
+  (oyunun adı bu) + "PARSON HENDERSON" / "ATTORNEYS AT LAW" kuşakları; TAILS = adalet terazisi +
+  "ONE VERDICT" / "FANCY OUTFITS". Yüzler 64 birimlik ızgarada inline SVG, asset yok.
+- **Kenar:** 10 adet içi boş halka Z ekseninde istiflenir; `repeating-conic-gradient` tırtıl
+  (milling) verir. İlk denemede dilimler DOLU daireydi ve para eğikken yüzü tamamen kapatıyordu —
+  `mask:radial-gradient(...)` ile ortası boşaltıldı. Bu, bakılmadan fark edilmeyecek bir hataydı.
+- **Hareket:** `coin-toss-*` keyframe'i parayı `translateZ(-520px)`'den `+120px`'e getirir — yani
+  kameraya doğru gelir, yakında bir an asılı kalır, sonra kadraja oturur. Çağrı ekranında yavaş
+  takla (`coin-tumble`) döner ki oyuncu iki yüzü de görsün. Altında ölçeğe göre büyüyen gölge var.
+- **Doğru yüze inmek CSS'e gömülü:** heads `-1800deg` (tam tur katı), tails `-1620deg` (yarım tur
+  fazlası). `animation-fill-mode:none` olduğu için animasyon bitince taban kurala düşer ve taban
+  kural (`.coin3d-lands-tails{transform:rotateX(180deg)}`) aynı kareyi verir — ne sıçrama olur ne
+  de `prefers-reduced-motion` altında yanlış yüz görünür.
+
+### Bu turda yakalanan gerçek hata (kod değil, test)
+
+`npm test`, kod değişmeden kırmızıya döndü: dün yazdığım iki assertion **tarihe bağlıydı**.
+`fresh("daily")` senaryoyu günün tarihinden seçtiği için (a) kenar etkisini tamamlanma sınırının
+iki yakasından ölçen assertion yorgunluk cezasını da ölçüyordu, (b) cevap anahtarını "yeniden
+yazan" tamper senaryosu, o günün dağıtımında tesadüfen aynı anahtarı üretebiliyordu. İkisi de
+değişmez (invariant) ölçüme çevrildi; `TZ` değiştirerek dört farklı tarihte doğrulandı. Bu hata
+`52a54c02b`'de de vardı, yani pushlanmış haldeydi.
+
+### Testler
+
+- `npm test` yeşil (Kiritimati/Midway/UTC/İstanbul saat dilimlerinde ayrı ayrı koşuldu).
+- `npm run build` yeşil.
+- Tarayıcı: çağrı ekranında takla, atış sırasında 430ms ve 700ms kareleri dondurularak incelendi
+  (yüz kapanmıyor, tırtıllı kenar görünüyor), iniş her iki yüzde de doğru. Konsolda yalnız
+  dev-server CSP uyarısı.
+- Not: Browser paneli arka plandayken animasyon saati donuyor; ilerlemeyi ölçmek için WAAPI ile
+  kare dondurmak gerekti. Uygulama tarafında sorun değil.
+
+### Kullanıcı kararı: para ileride oyunun logosu olacak
+
+Kullanıcı bu parayı **oyunun logosu** yapmak istiyor; bu tur bilinçli olarak YAPILMADI, yalnız
+buraya not edildi. Yapılacağı zaman:
+
+- Yüz çizimleri şu an `CoinFlipMinigame.jsx` içinde gömülü. Logo işine girilirse önce paylaşılan
+  bir `CoinArt` bileşenine (ör. `src/components/CoinArt.jsx`) çıkarılmalı; minigame ve logo aynı
+  kaynaktan beslenmeli, çizim ikinci kez elle kopyalanmamalı.
+- Kullanım yerleri: StartScreen başlığı, topbar amblemi, `index.html` favicon'u (SVG data-URI —
+  asset dosyası kuralı bozulmadan), ileride Steam/itch kapak görseli.
+- Favicon ve kapak için tek yüz yeter; HEADS (takım elbise) oyunun adıyla doğrudan örtüştüğü için
+  daha güçlü aday.
+- Dikkat: parodi isim kuralı (Parson Henderson) korunmalı; gerçek marka/kurum çağrıştıran ekleme
+  yapılmamalı.
+
+### Sıradaki kesin adım
+
+Değişmedi: **mobil layout + Capacitor**. Öncesinde kullanıcı isterse GitHub Pages demosu (tek
+workflow) — repo görünürlüğü ve demo yayınlama kararı kullanıcıya ait.
+
+---
+
 ## 2026-08-13 — Claude: Contradiction Board (v1.9.22)
 
 ### Git checkpoint

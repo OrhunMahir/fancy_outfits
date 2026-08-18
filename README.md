@@ -30,6 +30,18 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.24 — The lock fights back *(2026-08-18)*
+- **Picking a lock is now about pressure, not a number:** lean on the pick and the cylinder loads
+  up. Stop where it wants to turn and the lock opens; turn too early and the attempt is wasted;
+  push past what the pick will take and it snaps in the keyway — no button press required.
+- **One pick to start with.** A beginner gets exactly one, so the first covert job is genuinely
+  tense. SNEAKY is the only thing that buys more: it adds picks, widens the zone where the cylinder
+  gives, and leaves more slack before the steel goes.
+- **You can feel it through the pick:** rising pins, a bowing pick and a strain readout that runs
+  from SLACK to ABOUT TO GO. The gauge reads pressure, never the hidden give point.
+- **A pick already in progress is handed back, not converted:** careers saved mid-attempt under the
+  old model load normally with the covert option unspent.
+
 ### v19.23 — Sharper circuits, and a first day that explains itself *(2026-08-18)*
 - **The sabotage panel is a climb now:** the three circuits used to spin at nearly the same
   difficulty. The first is now a warm-up, the second asks for timing, and the third is genuinely

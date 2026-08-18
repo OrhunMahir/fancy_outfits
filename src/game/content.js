@@ -39,7 +39,7 @@ export function buildPool(){
         fail:{fx:{rep:-11,bold:-2},txt:"They demand the witness's name. Your silence enters the room before your answer does."}},
       {text:"COVERT ACTION: enter Fitch after hours and photograph the archive index.",style:"covert",
         action:{id:"redvale_archive_lock",type:"lockpick",title:"THE FITCH RECORDS ROOM",
-          body:"The cleaning carts turn the far corner. An old cabinet, one paperclip, three quiet attempts. Find the cylinder's weak point before security finishes its round.",
+          body:"The cleaning carts turn the far corner. An old cabinet, one bent paperclip, and however many spares your hands have earned. Lean on it until the cylinder gives — lean past that and the pick leaves half itself in the keyway.",
           hours:1.5,fatigue:4,edge:12,
           edgeText:"ARCHIVE INDEX RECOVERED (+12% on this file's risky legal plays)",
           success:{fx:{bold:3},txt:"The cabinet opens. Six box numbers, six dates, one silent photograph. You still need a legal move — now you have the missing index."},

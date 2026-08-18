@@ -200,6 +200,8 @@
 
 **v1.9.23 eklendi (2026-08-18):** (a) Elektrik sabotajı kademeli zorlaştı — pencereler 514/360/248 ms yerine **677/330/182 ms**, 3. halka 132°/s. `POWER_CURVES`/`POWER_RULES=1`; eski eğri RULES 0 olarak korunur, save'de açık board dağıtıldığı kuralla yeniden türetilir. Schema v18 + `migrateV17ToV18`. UI: "CIRCUIT n · WARM-UP/STEADY/FAST". (b) İlk açılışta 4 kartlık walkthrough (`intro.js`, `IntroOverlay.jsx`, `fo_intro_v1`); `S.introStep` transient, `isPaused()`'a girer, save'e YAZILMAZ.
 
+**v1.9.24 eklendi (2026-08-18):** Kilit açma yeniden tasarlandı — açı seçmek yerine GERİLİM: `give`±`tolerance` bandında TURN açar, `breakAt` geçilirse pik kırılıp hak gider (TURN'süz), erken TURN de hakkı yakar. `LOCK_ATTEMPTS=1` (rank 0'da tek pik); SNEAKY eşiklerinde +1 pik, ayrıca band ve kırılma payı büyür. `lockFeel` dürüst geri bildirim (dead/shift/give/strain). UI: yükselen pimler, bükülen pik, strain okuması. Schema v19: `migrateV18ToV19` yarım kilidi düşürüp covert seçeneği harcanmamış olarak iade eder.
+
 **En son çalışılan konu (2026-08-13):** v1.9.21 `ea50a3894` ile pushlandı; ardından v1.9.22
 (Contradiction Board, schema v17) tamamlandı ve kullanıcının push'unu bekliyor. `npm test`,
 `npm run build`, `npm run test:soak` (replay 336/336, integrity 0) yeşil. Güncel ortak handoff

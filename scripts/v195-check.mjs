@@ -88,11 +88,11 @@ globalThis.clearInterval = () => {};
       hours: 2, fatigue: 0, clients: [], nemesis: null, objective: null });
     return { c, o };
   };
-  const missAngle = challenge => challenge.target <= 0 ? minigames.LOCK_MAX : minigames.LOCK_MIN;
+  const missTension = () => 0; // the cylinder never gives at zero pressure
   const oppositeFace = face => face === "heads" ? "tails" : "heads";
-  const exhaustLock = () => {
+  const exhaustLock = () => { // turn with no pressure until every pick is spent
     for (let i = 0; i < 10 && state.S.actionChallenge?.phase === "lockpick"; i++) {
-      engine.setLockpickPosition(missAngle(state.S.actionChallenge));
+      engine.setLockTension(missTension());
       engine.attemptLockpick();
     }
   };
@@ -153,17 +153,38 @@ globalThis.clearInterval = () => {};
   utils.setSeed(0x12345678);
   const puzzleCursor = utils.getRngState();
   const puzzleArgs = { runSeed: 123, caseId: "covert1", actionId: "breakin", cost: 1.5, toil: 7, lateExtra: 0 };
+  const LOCK_BREAK_TEST = ch => ch.breakAt;
   const puzzle1 = minigames.createLockpickChallenge(puzzleArgs);
   const puzzle2 = minigames.createLockpickChallenge(puzzleArgs);
   assert.deepEqual(puzzle1, puzzle2);
-  assert.equal(puzzle1.target, 41);
   assert.equal(puzzle1.coinFace, "heads");
   assert.equal(utils.getRngState(), puzzleCursor);
-  const solvedPuzzle = minigames.tryLockpick(puzzle1, puzzle1.target);
-  assert.deepEqual([solvedPuzzle.phase, solvedPuzzle.turn, solvedPuzzle.attemptsLeft, solvedPuzzle.position],
-    ["lock_success", 1, 3, puzzle1.target]);
-  let failedPuzzle = puzzle1;
-  for (let i = 0; i < 3; i++) failedPuzzle = minigames.tryLockpick(failedPuzzle, missAngle(failedPuzzle));
+  // A beginner gets exactly one pick; SNEAKY is the only thing that buys more.
+  assert.equal(puzzle1.maxAttempts, 1, "the first level picks a lock with one shot");
+  assert.ok(puzzle1.breakAt > puzzle1.give + puzzle1.tolerance, "there is real slack before the pick snaps");
+  assert.equal(puzzle1.tension, 0);
+  // Leaning into the give zone and turning opens it.
+  const tensedPuzzle = minigames.pressLockTension(puzzle1, puzzle1.give);
+  assert.deepEqual([tensedPuzzle.tension, tensedPuzzle.phase, tensedPuzzle.attemptsLeft], [puzzle1.give, "lockpick", 1]);
+  assert.equal(minigames.lockFeel(tensedPuzzle), "give", "the hand can feel the cylinder yield");
+  const solvedPuzzle = minigames.tryLockpick(tensedPuzzle);
+  assert.deepEqual([solvedPuzzle.phase, solvedPuzzle.turn, solvedPuzzle.attemptsLeft, solvedPuzzle.tension],
+    ["lock_success", 1, 1, puzzle1.give]);
+  // Pushing past what the pick takes ends the attempt on its own — no turn needed.
+  const snappedPuzzle = minigames.pressLockTension(puzzle1, puzzle1.breakAt);
+  assert.deepEqual([snappedPuzzle.phase, snappedPuzzle.attemptsLeft, snappedPuzzle.snapped, snappedPuzzle.tension],
+    ["coin_call", 0, true, 0], "one pick, one snap, straight to the coin");
+  assert.match(snappedPuzzle.feedback, /snaps/i);
+  // Turning too early spends the pick just the same.
+  const earlyPuzzle = minigames.tryLockpick(minigames.pressLockTension(puzzle1, Math.max(0, puzzle1.give - puzzle1.tolerance - 6)));
+  assert.deepEqual([earlyPuzzle.phase, earlyPuzzle.attemptsLeft], ["coin_call", 0]);
+  // Trained hands get more picks AND more room before the snap.
+  const trained = minigames.createLockpickChallenge({ ...puzzleArgs, toleranceBonus: 5, attemptBonus: 2 });
+  assert.equal(trained.maxAttempts, 3, "SNEAKY buys extra picks");
+  assert.ok(trained.tolerance > puzzle1.tolerance && trained.breakAt > puzzle1.breakAt,
+    "and a wider give zone with more slack before it snaps");
+  let failedPuzzle = trained;
+  for (let i = 0; i < 3; i++) failedPuzzle = minigames.pressLockTension(failedPuzzle, LOCK_BREAK_TEST(failedPuzzle));
   assert.deepEqual([failedPuzzle.phase, failedPuzzle.turn, failedPuzzle.attemptsLeft], ["coin_call", 3, 0]);
   assert.equal(minigames.callCoin(failedPuzzle, failedPuzzle.coinFace).escaped, true);
   assert.equal(minigames.callCoin(failedPuzzle, oppositeFace(failedPuzzle.coinFace)).escaped, false);
@@ -235,7 +256,8 @@ globalThis.clearInterval = () => {};
   for (const [modIndex,mod] of sneakyRanks.entries()) {
     const lock=minigames.createLockpickChallenge({...puzzleArgs,toleranceBonus:mod.lockToleranceBonus,attemptBonus:mod.lockAttemptBonus});
     const power=minigames.createPowerCutChallenge({...powerArgs,sneaky:mod.powerScore});
-    assert.deepEqual([lock.tolerance,lock.maxAttempts],[10+mod.lockToleranceBonus,3+mod.lockAttemptBonus]);
+    // One pick at rank 0, one more at each SNEAKY attempt threshold.
+    assert.deepEqual([lock.tolerance,lock.maxAttempts],[4+mod.lockToleranceBonus,1+mod.lockAttemptBonus]);
     assert.deepEqual(power.rings.map(ring=>ring.speed),expectedPowerSpeeds[modIndex]);
     const speeds=power.rings.map(ring=>ring.speed), windows=power.rings.map(stopWindowMs);
     assert.ok(speeds[0]<speeds[1]&&speeds[1]<speeds[2],"each circuit spins faster than the last");
@@ -556,7 +578,14 @@ globalThis.clearInterval = () => {};
   const schema11LateInfo=engine.inspectSave(2);
   assert.equal(schema11LateInfo.status,"ready","schema 11 late COVERT checkpoints migrate without loss");
   assert.equal(schema11LateInfo.needsUpgrade,true);
-  assert.deepEqual([schema11LateInfo.save.schemaVersion,schema11LateInfo.save.actionChallenge.toil],[constants.SAVE_SCHEMA_VERSION,11]);
+  assert.equal(schema11LateInfo.save.schemaVersion,constants.SAVE_SCHEMA_VERSION);
+  // v1.9.24 replaced the lockpick's angle with tension. The two models share no
+  // geometry, so an in-progress PICK is handed back whole rather than converted:
+  // the challenge is dropped and the covert option returns to the file, unspent.
+  assert.equal(schema11LateInfo.save.actionChallenge,null,"a legacy pick in progress is not half-converted");
+  const handedBack=schema11LateInfo.save.inbox.find(c=>c.id==="redvale");
+  assert.equal(handedBack.actionInProgress,undefined,"and its case is no longer stuck mid-attempt");
+  assert.equal(handedBack.opts.some(o=>o.action?.type==="lockpick"),true,"the option is still there to spend");
   storage.delete(`${constants.SAVE_KEY}_s2`);
 
   // Base options shuffle without mutating source content; INF scales once by style.
@@ -1030,25 +1059,35 @@ globalThis.clearInterval = () => {};
   // rather than an automatic case win, and consumes its option exactly once.
   fresh("daily");
   let redvale = liveRedvale();
+  // A beginner only gets one pick, so train SNEAKY before testing a mid-attempt
+  // reload — the extra picks are exactly what the skill buys.
+  let trainedProgression = progression.addXp(state.S.progression, 120).progression;
+  trainedProgression = progression.allocateSkill(trainedProgression, "sneaky").progression;
+  trainedProgression = progression.allocateSkill(trainedProgression, "sneaky").progression;
+  state.S.progression = trainedProgression;
+  const trainedXpBase = state.S.progression.xp;
   utils.setSeed(0x2468ace0);
   const actionCursor = utils.getRngState();
   const legalOption = redvale.c.opts.find(option => !option.action);
   engine.choose(redvale.c, redvale.o);
+  const trainedAttempts = state.S.actionChallenge.maxAttempts;
+  assert.ok(trainedAttempts >= 2, "trained hands carry spare picks");
   assert.equal(utils.getRngState(), actionCursor);
   assert.equal(state.S.runStats.covertTry, 1);
   assert.deepEqual(state.S.actionChallenge.skillSnapshot,{rulesVersion:1,
     sneaky:state.S.progression.skills.sneaky,endurance:state.S.progression.skills.endurance});
   assert.deepEqual([state.S.actionChallenge.tolerance,state.S.actionChallenge.maxAttempts],
-    [10+state.S.progression.skills.sneaky,3+(state.S.progression.skills.sneaky>=2?1:0)+(state.S.progression.skills.sneaky>=5?1:0)]);
+    [4+state.S.progression.skills.sneaky,1+(state.S.progression.skills.sneaky>=2?1:0)+(state.S.progression.skills.sneaky>=5?1:0)]);
   assert.equal(engine.isPaused(), true);
   const blockedSnapshot = JSON.stringify({ challenge: state.S.actionChallenge, stats: state.S.runStats, hours: state.S.hours });
   engine.choose(redvale.c, legalOption);
   assert.equal(JSON.stringify({ challenge: state.S.actionChallenge, stats: state.S.runStats, hours: state.S.hours }), blockedSnapshot);
-  engine.setLockpickPosition(missAngle(state.S.actionChallenge));
+  engine.setLockTension(missTension());
   engine.attemptLockpick();
   const savedChallenge = JSON.parse(JSON.stringify(state.S.actionChallenge));
   const cursorAfterMiss = utils.getRngState();
-  assert.deepEqual([savedChallenge.phase, savedChallenge.attemptsLeft, savedChallenge.turn], ["lockpick", 2, 1]);
+  assert.deepEqual([savedChallenge.phase, savedChallenge.attemptsLeft, savedChallenge.turn],
+    ["lockpick", trainedAttempts - 1, 1]);
   assert.equal(engine.loadGame(1), true);
   assert.deepEqual(state.S.actionChallenge, savedChallenge);
   assert.equal(utils.getRngState(), cursorAfterMiss);
@@ -1056,7 +1095,7 @@ globalThis.clearInterval = () => {};
   const loadedRedvale = state.S.inbox.find(c => c.id === "redvale");
   assert.equal(loadedRedvale.actionInProgress, "redvale_archive_lock");
   assert.equal(loadedRedvale.opts[state.S.actionChallenge.optionIndex].action.id, "redvale_archive_lock");
-  engine.setLockpickPosition(state.S.actionChallenge.target);
+  engine.setLockTension(state.S.actionChallenge.give);
   engine.attemptLockpick();
   assert.equal(state.S.actionChallenge.phase, "lock_success");
   engine.completeActionChallenge();
@@ -1069,7 +1108,7 @@ globalThis.clearInterval = () => {};
   assert.deepEqual([state.S.hours, state.S.fatigue, state.S.bold], [.5, 7, 43]);
   assert.deepEqual([state.S.runStats.covertTry, state.S.runStats.covertW,
     state.S.runStats.covertEscape, state.S.runStats.covertCaught], [1, 1, 0, 0]);
-  assert.equal(state.S.progression.xp,progression.COVERT_XP.success);
+  assert.equal(state.S.progression.xp,trainedXpBase+progression.COVERT_XP.success);
   assert.deepEqual([state.S.today.resolved, state.S.archiveTotal], [0, 0]);
   const successOnce = JSON.stringify({ hours: state.S.hours, fatigue: state.S.fatigue, bold: state.S.bold,
     stats: state.S.runStats, opts: loadedRedvale.opts, edge: loadedRedvale.covertEdge });
@@ -1494,7 +1533,7 @@ globalThis.clearInterval = () => {};
   fresh("daily");
   redvale=liveRedvale();
   engine.choose(redvale.c,redvale.o);
-  engine.setLockpickPosition(missAngle(state.S.actionChallenge));
+  engine.setLockTension(missTension());
   engine.attemptLockpick();
   const validActionRaw=JSON.parse(storage.get(saveKey));
   assert.equal(engine.inspectSave(1).status,"ready");
@@ -1507,16 +1546,24 @@ globalThis.clearInterval = () => {};
   const v9ActiveLockInfo=engine.inspectSave(2);
   assert.equal(v9ActiveLockInfo.status,"ready");
   assert.equal(v9ActiveLockInfo.needsUpgrade,true);
-  assert.deepEqual(v9ActiveLockInfo.save.actionChallenge.skillSnapshot,{rulesVersion:0,sneaky:0,endurance:0});
-  assert.deepEqual([v9ActiveLockInfo.save.actionChallenge.phase,v9ActiveLockInfo.save.actionChallenge.turn,
-    v9ActiveLockInfo.save.actionChallenge.attemptsLeft,v9ActiveLockInfo.save.actionChallenge.position],
-    ["lockpick",1,2,v9ActiveLockRaw.actionChallenge.position],
-    "v9 careers resume an active lockpick without losing dynamic progress");
+  // The tension rewrite (v1.9.24) shares no geometry with the old angle dial,
+  // so an ancient in-progress pick is handed back rather than converted: the
+  // career loads, the challenge is gone and the covert option is spendable.
+  assert.equal(v9ActiveLockInfo.save.actionChallenge,null,
+    "v9 careers do not resume a lockpick built on rules that no longer exist");
+  const v9HandedBack=v9ActiveLockInfo.save.inbox.find(c=>c.id==="redvale");
+  assert.equal(v9HandedBack.actionInProgress,undefined);
   assert.equal(engine.loadGame(2),true);
-  engine.setLockpickPosition(state.S.actionChallenge.target);
+  const v9Case=state.S.inbox.find(c=>c.id==="redvale");
+  const v9Action=v9Case.opts.find(o=>o.action?.type==="lockpick");
+  assert.ok(v9Action,"the covert option survives the hand-back");
+  state.S.hours=2; state.S.event=null;
+  engine.choose(v9Case,v9Action);
+  assert.equal(state.S.actionChallenge.phase,"lockpick","and can be started fresh under the new rules");
+  engine.setLockTension(state.S.actionChallenge.give);
   engine.attemptLockpick();
   engine.completeActionChallenge();
-  assert.equal(state.S.actionChallenge,null,"the grandfathered lockpick remains completable");
+  assert.equal(state.S.actionChallenge,null,"the re-picked lock completes normally");
   engine.setSlot(1);
 
   // Schema 10 predates progression. Every scenario receives only its innate
@@ -1592,9 +1639,11 @@ globalThis.clearInterval = () => {};
     alteredAction((raw,ch,c)=>{ c.actionInProgress="wrong_action"; }),
     alteredAction((raw,ch,c)=>{ raw.actionChallenge=null; c.actionInProgress=ch.actionId; }),
     alteredAction((raw,ch)=>{ ch.phase="lock_success"; ch.attemptsLeft=ch.maxAttempts;
-      ch.turn=1; ch.position=missAngle(ch); }),
+      ch.turn=1; ch.tension=0; }),
     alteredAction((raw,ch)=>{ ch.phase="coin_call"; ch.attemptsLeft=0;
-      ch.turn=ch.maxAttempts; ch.position=ch.target; }),
+      ch.turn=ch.maxAttempts; ch.tension=ch.give; }),
+    alteredAction((raw,ch)=>{ ch.tension=ch.breakAt; }), // a pick resting past its snap point
+    alteredAction((raw,ch)=>{ ch.breakAt=ch.give; }),    // no slack at all
     alteredAction((raw,ch)=>{ ch.phase="coin_result"; ch.attemptsLeft=0; ch.turn=ch.maxAttempts;
       ch.coinCall=ch.coinFace; ch.escaped=false; }),
     alteredAction((raw,ch)=>{ ch.actionTitle="A FORGED BRIEFING"; }),
@@ -2939,7 +2988,7 @@ globalThis.clearInterval = () => {};
     }
   }
 
-  console.log("v1.9.5–v1.9.23 checks passed: first-run walkthrough, sharpened sabotage circuits (curve/legacy boards/v18), Contradiction Board prep (deal/attempts/partial/tamper/v17), Evidence Timeline prep + cold-entry penalty (deal/reload/tamper/migration/scope), safe-route pricing (coasting/hours/v16), Fraud identity pressure/morning continuation, progression/skills, lockpick/Power Cut minigames, balance experiments, Final Warning, Friday/Exceptional Review promotions, delegation cap, strict saves/migrations, procedural IDs, long-run integrity, FIRM payroll, rolling judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
+  console.log("v1.9.5–v1.9.24 checks passed: lockpick tension/snap (one pick at rank 0, SNEAKY buys more, legacy hand-back), first-run walkthrough, sharpened sabotage circuits (curve/legacy boards/v18), Contradiction Board prep (deal/attempts/partial/tamper/v17), Evidence Timeline prep + cold-entry penalty (deal/reload/tamper/migration/scope), safe-route pricing (coasting/hours/v16), Fraud identity pressure/morning continuation, progression/skills, lockpick/Power Cut minigames, balance experiments, Final Warning, Friday/Exceptional Review promotions, delegation cap, strict saves/migrations, procedural IDs, long-run integrity, FIRM payroll, rolling judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;

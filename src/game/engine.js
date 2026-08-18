@@ -19,7 +19,7 @@ import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DELEGATE_CAP, DAY_HOURS, TIER_HOU
          TIMELINE_TRIGGER, TIMELINE_CARDS, TIMELINE_CARDS_SENIOR, TIMELINE_SENIOR_RANK,
          TIMELINE_EDGE_WIN, TIMELINE_EDGE_LOSS, TIMELINE_EDGE_DECLINE, TIMELINE_FAIL_REP, TIMELINE_HOURS, TIMELINE_FATIGUE } from "./constants.js";
 import { clamp, rnd, rand, shuffle, hash, setSeed, clearSeed, getRngState, setRngState } from "./utils.js";
-import { LOCK_MIN, LOCK_MAX, POWER_RING_COUNT, POWER_RULES, createLockpickChallenge, clampLockPosition, tryLockpick, callCoin,
+import { LOCK_MIN, LOCK_MAX, POWER_RING_COUNT, POWER_RULES, createLockpickChallenge, clampLockTension, pressLockTension, tryLockpick, callCoin,
          createPowerCutChallenge, advancePowerCut, stopPowerCut, powerAngleAt, powerAngleDistance,
          createTimelineChallenge, moveTimelineCard, submitTimeline,
          CONTRA_ATTEMPTS, CONTRA_STATEMENTS, createContradictionChallenge, selectContradictionStatement,
@@ -1320,17 +1320,24 @@ function completeTimelineChallenge(ch){
   choose(c,o,ch.confirmedLate,true); // the play the prep was for now resolves
 }
 
-export function setLockpickPosition(value){
+/* Leaning on the pick can end the attempt by itself, so unlike the old angle
+   slider this is a real move: it persists and can snap. */
+export function setLockTension(value){
   const ch=S&&S.actionChallenge;
-  if(!ch||ch.phase!=="lockpick") return;
-  ch.position=clampLockPosition(value);
+  if(!ch||ch.phase!=="lockpick"||!actionRefs(ch)) return;
+  const next=pressLockTension(ch,value);
+  const snapped=next.snapped&&!ch.snapped;
+  S.actionChallenge=next;
+  if(snapped){ SFX.lose(); doShake(); }
+  if(next.phase==="coin_call") SFX.lose();
+  if(snapped||next.phase==="coin_call"){ saveGame(); }
   notify();
 }
 
 export function attemptLockpick(){
   const ch=S&&S.actionChallenge;
   if(!ch||ch.phase!=="lockpick"||!actionRefs(ch)) return;
-  const next=tryLockpick(ch,ch.position);
+  const next=tryLockpick(ch);
   S.actionChallenge=next;
   if(next.phase==="lock_success") SFX.open();
   else if(next.phase==="coin_call") SFX.lose();
@@ -2463,7 +2470,23 @@ const migrateV17ToV18=raw=>{
     d.actionChallenge={...d.actionChallenge,rules:0};
   return d;
 };
-const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6,6:migrateV6ToV7,7:migrateV7ToV8,8:migrateV8ToV9,9:migrateV9ToV10,10:migrateV10ToV11,11:migrateV11ToV12,12:migrateV12ToV13,13:migrateV13ToV14,14:migrateV14ToV15,15:migrateV15ToV16,16:migrateV16ToV17,17:migrateV17ToV18};
+/* v18 -> v19 replaces the lockpick's angle with tension. The two models share
+   no geometry, so a pick that was in progress is handed back instead of being
+   half-converted: the covert option returns to the file, unspent. */
+const migrateV18ToV19=raw=>{
+  const d={...raw,schemaVersion:19};
+  if(plain(d.actionChallenge)&&d.actionChallenge.type==="lockpick"){
+    const openId=d.actionChallenge.actionId;
+    d.actionChallenge=null;
+    if(Array.isArray(d.inbox)) d.inbox=d.inbox.map(c=>{
+      if(!plain(c)||c.msg||c.actionInProgress!==openId) return c;
+      const {actionInProgress,...rest}=c;
+      return rest;
+    });
+  }
+  return d;
+};
+const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6,6:migrateV6ToV7,7:migrateV7ToV8,8:migrateV8ToV9,9:migrateV9ToV10,10:migrateV10ToV11,11:migrateV11ToV12,12:migrateV12ToV13,13:migrateV13ToV14,14:migrateV14ToV15,15:migrateV15ToV16,16:migrateV16ToV17,17:migrateV17ToV18,18:migrateV18ToV19};
 
 const JUDGE_MEMORY_COUNTERS=["seen","aggressiveW","aggressiveL","technicalW","technicalL","bribeW","bribeL","safe","neutralW","neutralL"];
 function validJudgeMemory(memory,day){
@@ -2519,17 +2542,22 @@ function validActionChallengeBase(ch,day,phases){
 }
 function validLockChallenge(ch,day){
   if(!validActionChallengeBase(ch,day,LOCK_ACTION_PHASES)||ch.type!=="lockpick"||
-    !Number.isInteger(ch.target)||ch.target<LOCK_MIN||ch.target>LOCK_MAX||!Number.isInteger(ch.position)||ch.position<LOCK_MIN||ch.position>LOCK_MAX||
-    !Number.isFinite(ch.tolerance)||ch.tolerance<1||ch.tolerance>30||!nonNegativeInt(ch.maxAttempts)||ch.maxAttempts<1||ch.maxAttempts>10||
+    !Number.isInteger(ch.give)||ch.give<LOCK_MIN||ch.give>LOCK_MAX||
+    !Number.isInteger(ch.tension)||ch.tension<LOCK_MIN||ch.tension>LOCK_MAX||
+    !Number.isFinite(ch.tolerance)||ch.tolerance<1||ch.tolerance>30||
+    !Number.isInteger(ch.breakAt)||ch.breakAt<=ch.give+ch.tolerance||ch.breakAt>LOCK_MAX||
+    typeof ch.snapped!=="boolean"||
+    !nonNegativeInt(ch.maxAttempts)||ch.maxAttempts<1||ch.maxAttempts>10||
     !nonNegativeInt(ch.attemptsLeft)||ch.attemptsLeft>ch.maxAttempts||!nonNegativeInt(ch.turn)||ch.turn>ch.maxAttempts) return false;
   if(ch.phase==="lockpick"&&ch.attemptsLeft<1) return false;
   if((ch.phase==="coin_call"||ch.phase==="coin_result")&&ch.attemptsLeft!==0) return false;
   const spent=ch.maxAttempts-ch.attemptsLeft;
-  const inside=Math.abs(ch.position-ch.target)<=ch.tolerance;
+  const inside=Math.abs(ch.tension-ch.give)<=ch.tolerance;
+  // A saved pick is never resting past the point where it would have snapped.
+  if(ch.tension>=ch.breakAt) return false;
   if(ch.phase==="lockpick"&&ch.turn!==spent) return false;
-  if(ch.phase==="lockpick"&&ch.turn>0&&inside) return false;
   if(ch.phase==="lock_success"&&(ch.attemptsLeft<1||ch.turn!==spent+1||!inside)) return false;
-  if((ch.phase==="coin_call"||ch.phase==="coin_result")&&(ch.turn!==ch.maxAttempts||inside)) return false;
+  if((ch.phase==="coin_call"||ch.phase==="coin_result")&&(ch.turn!==ch.maxAttempts||ch.tension!==0)) return false;
   if(ch.phase==="coin_result") return ["heads","tails"].includes(ch.coinCall)&&typeof ch.escaped==="boolean"&&ch.escaped===(ch.coinCall===ch.coinFace);
   return ch.coinCall==null&&ch.escaped==null;
 }

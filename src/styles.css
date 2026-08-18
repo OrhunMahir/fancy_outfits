@@ -522,3 +522,29 @@ h2{font-size:10px; color:var(--gold); margin-bottom:10px; border-bottom:2px soli
 .intro-actions{display:flex; flex-direction:column; gap:7px;}
 .btn.small.intro-skip{width:100%; min-height:44px; background:#2a2f45; box-shadow:0 4px 0 #12162a;}
 .intro-skip:hover{background:#39405f;}
+
+/* Lockpick: tension gauge, straining pick and pins that lift with pressure. */
+.lock-pins{position:absolute; top:8px; left:50%; margin-left:-32px; display:flex; gap:6px; width:64px;}
+.lock-pin{
+  flex:1 1 0; height:18px; background:#8fa3c8; border:2px solid var(--dark);
+  transition:transform .12s steps(3,end);
+}
+.lock-feel-give .lock-pin{background:#7fe0a5;}
+.lock-feel-strain .lock-pin{background:#e08a9a;}
+.lock-readout{
+  margin-top:8px; text-align:center; font-size:7px; letter-spacing:1px; color:var(--grey);
+}
+.lock-strain-high .lock-readout{color:var(--gold);}
+.lock-strain-critical .lock-readout{color:#ff8da1; animation:coin-alert .5s steps(2,end) infinite;}
+.lock-gauge{height:12px; margin:6px 0 4px; background:var(--dark); border:2px solid var(--panel2);}
+.lock-gauge-fill{display:block; height:100%; background:var(--green); transition:width .1s linear;}
+.lock-strain-working .lock-gauge-fill{background:#8fd66b;}
+.lock-strain-high .lock-gauge-fill{background:var(--gold);}
+.lock-strain-critical .lock-gauge-fill{background:var(--red);}
+.lock-pick{transition:transform .12s steps(3,end);}
+.lock-pick-snapped{opacity:.4; filter:saturate(.2);}
+.lock-nudge{display:flex; gap:8px; margin:8px 0 10px;}
+.btn.small.lock-nudge-btn{flex:1 1 0; min-height:48px; text-align:center;}
+@media (prefers-reduced-motion:reduce){
+  .lock-pin,.lock-pick,.lock-gauge-fill{transition:none!important;}
+}

@@ -193,7 +193,7 @@ const TEMPLATES=[
   ()=>{const a=rnd(CO),host=rnd(CO.filter(x=>x!==a)),type=rand()<.5?"lockpick":"power_cut";
   const action=type==="lockpick"?{
     id:"generated_archive_lock",type,title:"THE OFFSITE EVIDENCE CAGE",
-    body:"The night clerk leaves the evidence cage for one cigarette. The backup manifest sits behind a tired brass lock. One paperclip, three quiet attempts, no heroic speeches.",
+    body:"The night clerk leaves the evidence cage for one cigarette. The backup manifest sits behind a tired brass lock. One paperclip, one steady hand, no heroic speeches — push too hard and it snaps.",
     hours:1.5,fatigue:4,edge:12,
     edgeText:"BACKUP MANIFEST RECOVERED (+12% on this file's risky legal plays)",
     success:{fx:{bold:3},txt:"The lock yields. You photograph a manifest proving the backup survived. The filing still needs a legal answer — now it has teeth."},

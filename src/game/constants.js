@@ -99,7 +99,7 @@ export const TIMELINE_EDGE_DECLINE=-4;     // walked in unprepared: lighter than
 export const TIMELINE_FAIL_REP=-2;         // a light mark, never a lost case
 export const TIMELINE_HOURS=.5, TIMELINE_FATIGUE=3; // prep costs, paid either way
 // The storage key stays stable; ordered migrations use the embedded schema.
-export const SAVE_SCHEMA_VERSION=18;
+export const SAVE_SCHEMA_VERSION=19;
 export const SAVE_LOG_LIMIT=200, SAVE_ARCHIVE_LIMIT=200;
 export const INBOX_MESSAGE_LIMIT=80; // notifications are history, not permanent case files
 export const SAVE_KEY="fo_save_v1";

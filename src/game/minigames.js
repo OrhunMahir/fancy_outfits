@@ -1,12 +1,17 @@
 import { hash } from "./utils.js";
 
-export const LOCK_MIN=-70;
-export const LOCK_MAX=70;
+/* The lock is worked with TENSION, not an angle: you lean on the pick until the
+   cylinder gives. Lean too far and the pick snaps and that attempt is gone —
+   which is the whole tension of the thing, since a beginner only gets one. */
+export const LOCK_MIN=0;
+export const LOCK_MAX=100;
+export const LOCK_STEP=3;
 export const POWER_RING_COUNT=3;
 export const POWER_FRAME_CAP_MS=80;
 
-const LOCK_TOLERANCE=10;
-const LOCK_ATTEMPTS=3;
+const LOCK_TOLERANCE=4;     // half-width of the give zone before SNEAKY widens it
+const LOCK_ATTEMPTS=1;      // SNEAKY is the only thing that buys more picks
+const LOCK_BREAK_MARGIN=5;  // minimum slack between the give zone and the snap
 const POWER_MISSES=1;
 
 const normalizeAngle=value=>{
@@ -34,9 +39,12 @@ export function powerAngleAt(ring,elapsedMs=ring?.elapsedMs){
 // Minigame outcomes derive from stable identities, never the shared gameplay RNG.
 export function createLockpickChallenge({runSeed,caseId,actionId,cost,toil,lateExtra,toleranceBonus=0,attemptBonus=0}){
   const identity=`${runSeed}|${caseId}|${actionId}`;
-  const span=LOCK_MAX-LOCK_MIN+1;
-  const tolerance=Math.max(1,Math.min(30,LOCK_TOLERANCE+Math.trunc(Number(toleranceBonus)||0)));
+  const bonus=Math.max(0,Math.trunc(Number(toleranceBonus)||0));
+  const tolerance=Math.max(1,Math.min(30,LOCK_TOLERANCE+bonus));
   const maxAttempts=Math.max(1,Math.min(10,LOCK_ATTEMPTS+Math.trunc(Number(attemptBonus)||0)));
+  const give=28+(hash(`${identity}|give`)%45); // the cylinder yields somewhere in 28..72
+  // A steadier hand also breaks fewer picks, so SNEAKY widens the slack too.
+  const breakAt=Math.min(LOCK_MAX,give+tolerance+LOCK_BREAK_MARGIN+(hash(`${identity}|break`)%6)+bonus);
   return {
     type:"lockpick",
     phase:"lockpick",
@@ -46,57 +54,89 @@ export function createLockpickChallenge({runSeed,caseId,actionId,cost,toil,lateE
     cost,
     toil,
     lateExtra,
-    target:LOCK_MIN+(hash(`${identity}|target`)%span),
+    give,
     tolerance,
+    breakAt,
     maxAttempts,
     attemptsLeft:maxAttempts,
-    position:0,
+    tension:0,
+    snapped:false,
     turn:0,
-    feedback:"Find the lock's sweet spot before the pick snaps.",
+    feedback:"Lean on the pick. Stop when the cylinder wants to turn.",
     coinFace:hash(`${identity}|coin`)%2===0?"heads":"tails",
   };
 }
 
-export function clampLockPosition(value){
+/* What the hand can honestly feel. The give zone reports itself truthfully —
+   the skill is stopping there instead of pushing one notch further. */
+export function lockFeel(challenge,tension=challenge?.tension){
+  const t=Number(tension)||0, give=Number(challenge?.give)||0, tol=Number(challenge?.tolerance)||0;
+  if(t>give+tol) return "strain";
+  if(t>=give-tol) return "give";
+  if(t>=give-tol*3) return "shift";
+  return "dead";
+}
+const FEEL_TEXT={
+  dead:"The pins sit dead. Nothing is moving yet.",
+  shift:"Something shifts deep in the cylinder.",
+  give:"The cylinder wants to turn. Right here.",
+  strain:"The pick bows. This is more than it will take.",
+};
+
+export function clampLockTension(value){
   const n=Number(value);
   if(!Number.isFinite(n)) return 0;
-  return Math.max(LOCK_MIN,Math.min(LOCK_MAX,n));
+  return Math.max(LOCK_MIN,Math.min(LOCK_MAX,Math.round(n)));
 }
 
-export function tryLockpick(challenge,position){
+/* Leaning on the pick is itself a move: past breakAt it snaps and costs the
+   attempt, without the player ever pressing "turn". */
+export function pressLockTension(challenge,value){
   if(challenge.phase!=="lockpick") return {...challenge};
-
-  const nextPosition=clampLockPosition(position);
-  const distance=Math.abs(nextPosition-challenge.target);
-  const turn=(challenge.turn||0)+1;
-
-  if(distance<=challenge.tolerance){
-    return {
-      ...challenge,
-      phase:"lock_success",
-      position:nextPosition,
-      turn,
-      feedback:"The pins settle. The lock opens.",
-    };
-  }
+  const tension=clampLockTension(value);
+  if(tension<challenge.breakAt)
+    return {...challenge,tension,snapped:false,feedback:FEEL_TEXT[lockFeel(challenge,tension)]};
 
   const attemptsLeft=Math.max(0,(challenge.attemptsLeft||0)-1);
-  let feedback;
-  if(attemptsLeft===0) feedback="The pick snaps. Call the coin and try to get away.";
-  else if(distance<=challenge.tolerance*2) feedback="Almost. The cylinder gives, then catches.";
-  else if(distance<=challenge.tolerance*4) feedback="The pins shift. You're getting warmer.";
-  else feedback="Wrong angle. The pick strains.";
-
   return {
     ...challenge,
     phase:attemptsLeft===0?"coin_call":"lockpick",
     attemptsLeft,
-    position:nextPosition,
-    turn,
-    feedback,
+    tension:0,
+    snapped:true,
+    turn:(challenge.turn||0)+1,
+    feedback:attemptsLeft===0
+      ?"The pick snaps off in the keyway. Call the coin and try to get away."
+      :"The pick snaps. You bend another one straight and start over.",
   };
 }
 
+export function tryLockpick(challenge){
+  if(challenge.phase!=="lockpick") return {...challenge};
+  const turn=(challenge.turn||0)+1;
+  const tension=clampLockTension(challenge.tension);
+
+  if(Math.abs(tension-challenge.give)<=challenge.tolerance){
+    return {...challenge,phase:"lock_success",tension,turn,snapped:false,
+      feedback:"The pins settle in a row. The lock opens."};
+  }
+
+  const attemptsLeft=Math.max(0,(challenge.attemptsLeft||0)-1);
+  return {
+    ...challenge,
+    phase:attemptsLeft===0?"coin_call":"lockpick",
+    attemptsLeft,
+    tension:0,
+    snapped:false,
+    turn,
+    feedback:attemptsLeft===0
+      ?"The cylinder holds and the pick gives out. Call the coin and try to get away."
+      :"Not enough. The cylinder rolls back and you start the pressure again.",
+  };
+}
+
+/* The last-chance coin after a failed covert action. Its face was fixed when
+   the board was dealt, so calling it can never be re-rolled by a reload. */
 export function callCoin(challenge,call){
   const coinCall=String(call).toLowerCase()==="heads"?"heads":"tails";
   const escaped=coinCall===challenge.coinFace;

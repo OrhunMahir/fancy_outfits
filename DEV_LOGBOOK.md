@@ -18,6 +18,74 @@ Her çalışma oturumunda:
 
 ---
 
+## 2026-08-18 — Claude: lockpick rebuilt as tension + snap (v1.9.24)
+
+### Git checkpoint
+
+- Branch: `minigames`, base commit `3a1535e2a`. v1.9.23 ve bu kayıt birlikte commit bekliyor.
+- Dokunulan dosyalar: `src/game/minigames.js`, `engine.js`, `constants.js`, `content.js`,
+  `casegen.js`, `src/components/minigames/LockpickMinigame.jsx`, `src/styles.css`,
+  `scripts/v195-check.mjs`, `README.md`, bu dosya.
+
+### Yeni mekanik (kullanıcı isteği)
+
+Eskisi: −70..+70 arası bir açı seç, "TEST LOCK" bas, 3 hakkın var. Sürükleme bedava, tek karar
+"doğru sayıyı bul"du.
+
+Yenisi **gerilim**: çubuğu ittikçe pikap kilide yüklenir.
+- `give` (gizli veriş noktası) ± `tolerance` aralığında TURN edersen kilit açılır.
+- `breakAt` eşiğini geçersen **pik kırılır ve o hak gider** — TURN'e basmana gerek yok, itmek
+  başlı başına bir hamle. Bu yüzden `setLockTension` artık kayda yazan gerçek bir engine aksiyonu.
+- Erken çevirmek de hakkı yakar. Yani iki yönlü risk: az bastın → boşa gitti, çok bastın → kırıldı.
+- El, doğruyu dürüstçe söyler: `lockFeel` dead → shift → **give** → strain. Beceri, "veriyor"
+  bandında durup bir tık daha itmemek.
+
+**Hak sayısı SNEAKY'ye bağlandı** (kullanıcının istediği gibi ilk seviyede tek hak):
+
+| SNEAKY | pik | veriş bandı | kırılmadan önceki pay |
+|---|---|---|---|
+| 0 | **1** | 9 birim | ~8-10 |
+| 2 | 2 | 13 birim | ~9-10 |
+| 5 | 3 | 19 birim | ~10-13 |
+
+SNEAKY hem fazladan pik veriyor hem bandı genişletiyor hem de kırılma payını büyütüyor — yatırım
+üç yerden birden hissediliyor.
+
+### Görsel
+
+Kilit silindiri artık gerilimle **yükselen pimler**, yüklendikçe bükülen pik, SLACK → UNDER LOAD →
+STRAINING → ABOUT TO GO okuması ve renk değiştiren bir gerilim göstergesi taşıyor. Gösterge mutlak
+basınca göre renkleniyor — gizli veriş noktasını sızdırmıyor. Fare/dokunma için 48px EASE OFF /
+PUSH düğmeleri, klavye için range input.
+
+### Save uyumu — bilinçli karar
+
+Açı modeli ile gerilim modeli ortak geometri paylaşmıyor; yarım kalmış bir kilidi "dönüştürmek"
+uydurma olurdu. `migrateV18ToV19` açık lockpick challenge'ını **düşürüp** dosyanın
+`actionInProgress` işaretini siliyor: covert seçenek harcanmamış olarak masaya dönüyor. Oyuncu
+hiçbir şey kaybetmiyor, sadece kilidi yeni kurallarla yeniden açıyor. Power Cut'taki RULES 0
+yaklaşımı burada uygulanmadı çünkü iki ayrı model + iki ayrı arayüz bakmak gerekirdi.
+Eski testlerdeki "v9/v11 kariyeri açık kilidi kaldığı yerden sürdürür" garantisi, yerini "kilit
+bütün olarak iade edilir ve yeniden açılabilir" garantisine bıraktı.
+
+### Testler
+
+- `npm test` yeşil. Yeni/port edilen bloklar: rank 0'da tek pik, `breakAt` payının varlığı,
+  veriş bandında TURN → açılış, `breakAt`'e itince TURN'süz kırılma → coin, erken TURN'ün hakkı
+  yakması, SNEAKY'nin pik/band/pay üçlüsünü birden büyütmesi, "kırılma noktasının ötesinde duran
+  pik" ve "payı sıfırlanmış kilit" save tamper'ları, v9/v11 iade yolu.
+- `npm run build` ve `npm run test:soak` (replay 336/336, integrity 0) yeşil.
+- Tarayıcı: gerilimi 63'e kadar itip STRAINING/kırmızı pimleri gördüm, EASE OFF ile banda dönüp
+  TURN ile açtım (+12 kanıt kenarı, seçenek dosyadan düştü); ayrı bir kilitte `breakAt`'e itip tek
+  pikin kırılmasını ve doğrudan coin call'a düşmesini doğruladım. Konsol temiz.
+- İçerik metni de güncellendi: "three quiet attempts" artık yalan olurdu.
+
+### Sıradaki kesin adım
+
+Değişmedi: **mobil layout + Capacitor**.
+
+---
+
 ## 2026-08-18 — Claude: sabotage difficulty curve + first-run walkthrough (v1.9.23)
 
 ### Git checkpoint

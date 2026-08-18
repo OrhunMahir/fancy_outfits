@@ -30,6 +30,178 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.24 — The lock fights back *(2026-08-18)*
+- **Picking a lock is now about pressure, not a number:** lean on the pick and the cylinder loads
+  up. Stop where it wants to turn and the lock opens; turn too early and the attempt is wasted;
+  push past what the pick will take and it snaps in the keyway — no button press required.
+- **One pick to start with.** A beginner gets exactly one, so the first covert job is genuinely
+  tense. SNEAKY is the only thing that buys more: it adds picks, widens the zone where the cylinder
+  gives, and leaves more slack before the steel goes.
+- **You can feel it through the pick:** the plug turns with the pick as you load it, the pins lift,
+  the whole cylinder shakes harder the more you lean on it, and a strain readout runs from SLACK to
+  ABOUT TO GO. Every one of those signals reads pressure, never the hidden give point.
+- **A sheared pick stays in the keyway** — and that changes the story. The coin then decides whether
+  you work the stub free or leave it: leave it, and facilities finds a scored lock in the morning,
+  the building manager pulls the corridor tape and your badge is on it. Fail without breaking
+  anything and getting caught is simply a matter of who walks past.
+- **A pick already in progress is handed back, not converted:** careers saved mid-attempt under the
+  old model load normally with the covert option unspent.
+
+### v19.23 — Sharper circuits, and a first day that explains itself *(2026-08-18)*
+- **The sabotage panel is a climb now:** the three circuits used to spin at nearly the same
+  difficulty. The first is now a warm-up, the second asks for timing, and the third is genuinely
+  fast — roughly a two-thirds narrower stopping window than the first. Each ring says which it is.
+  Training SNEAKY widens all three, so the skill buys more than it used to.
+- **A board already in progress keeps its old circuits:** the update cannot rewrite a puzzle you
+  are halfway through, and a save that claims otherwise is refused.
+- **First-run walkthrough:** four cards on your very first career explain the desk, the clock, the
+  choice between the quiet play and the risky one, and the ladder — then never appear again. Skip
+  it at any point; the i panel still holds everything.
+
+### v19.22.1 — A struck coin *(2026-08-17)*
+- **The escape coin is a real coin now:** two faces instead of a letter on a disc. Heads carries a
+  suit and the firm's name, tails the scales of justice and a promise of ONE VERDICT — both drawn
+  as inline SVG on a pixel grid, still with no asset files.
+- **It comes at you:** the toss starts far away and tumbles toward the camera, hangs close for a
+  beat and settles into frame, with a milled rim built from stacked rings and a shadow that grows
+  as it approaches. The landing rotation is what decides the visible face, so the coin can never
+  show a side it did not land on — including when animations are turned off.
+
+### v19.22 — The Contradiction Board *(2026-08-13)*
+- **Prep work you choose, not prep work that happens to you:** eligible files now offer CASE PREP —
+  spend 1.5 hours and 6 fatigue to pin each sworn statement to the exhibit that makes it
+  impossible. Unlike the Evidence Timeline, this is a deliberate option on the file, and unlike a
+  COVERT ACTION it risks nothing but your afternoon: there is no coin call and nobody gets caught.
+- **Limited attempts, and one exhibit that proves nothing:** three statements, four exhibits and
+  four attempts. A decoy pin costs credibility; run out and the chart collapses. You can also close
+  the binder early and bank what you already proved.
+- **The chart never wins the case:** a complete chart adds +15% to that file's risky legal plays, a
+  partial chart adds a proportional share, an empty one costs only the hours. The legal decision is
+  still yours to make afterwards, and the file goes straight back onto the desk.
+- **Two hosts, so it stays rare but repeatable:** the hand-written Pemberton estate hearing carries
+  the authored six-contradiction bundle, and half of the generated contested-estate filings carry
+  their own — with the generated names running through the statements and exhibits.
+- **Court files may now carry prep (but still never a burglary):** the board is dealt from a
+  run/case/action identity, survives save and reload mid-chart, and every persisted board is
+  re-derived and compared on load. Save schema v17 migrates older careers with no board and fresh
+  counters; the run ledger reports charts attempted and completed.
+
+### v19.21 — Nobody walks in cold for free *(2026-08-13)*
+- **Skipping the chronology now costs something:** GO IN COLD still spends no hour and no fatigue,
+  but the play you already committed to argues at −4%. That is deliberately lighter than the −10%
+  of a muddled chronology, so sitting down with the binder remains the better bet. Saved evidence
+  edges are validated against the exact set of outcomes the game can stamp, so a hand-edited
+  advantage is refused.
+- **The chronology reaches the whole docket:** five procedural templates — the late filing, the two
+  signed reports, the backdated warning email, the patent that predates itself and the assembled
+  loan guaranty — now carry their own seven-event chronology. Every date lives in the case body and
+  never on the cards, and the generated names and figures run through the events too, so the same
+  template reads differently in a different career.
+- **The safe route has a price again — but never a chance of failing:** a safe play is still 100%.
+  What changed is what it pays. Settling real files back to back reads as COASTING: each
+  consecutive quiet settlement returns 1 less Influence and drains 2 more Boldness, up to four
+  deep, and any risky play anywhere clears the record. Careful lawyering also got slower (×1.75
+  hours instead of ×1.5). The case pane prints the exact coasting cost before you choose.
+- **Measured, not guessed:** the decision came from paired 64-seed cohorts (320 careers per cell).
+  The coasting penalty leaves ordinary careers untouched while cutting the always-settle career's
+  Influence by a third; a ×2.0 hour price was rejected as a disguised global difficulty increase.
+  Save schema v16 migrates older careers with a clean streak; the soak keeps a `safe_legacy`
+  control variant.
+
+### v19.20 — Put the file in order *(2026-08-13)*
+- **Evidence Timeline:** not a separate action — after you commit to a risky play on a file whose
+  text carries a chronology, a preparation window opens 25% of the time. Ordering the events
+  correctly gives that specific play +12%; a muddled order costs it 10% and leaves a light mark.
+  The case is never won or lost by the puzzle itself.
+- **Reading is the edge:** the board is dealt from an authored event pool by run/case identity, is
+  never dealt already solved, and the cards carry no dates — only the case file does.
+- **Playable by hand, thumb or keyboard:** per-card up/down buttons at 44px, no drag and drop.
+  Preparation costs half an hour and 3 fatigue whether you succeed or not; declining is free.
+  Save schema v15 rebuilds the board from its identity, so a mid-puzzle reload cannot reroll it.
+
+### v19.19.1 — The question comes first *(2026-08-12)*
+- **First playable morning checkpoint:** a queued Fraud confrontation now opens before REP/INFL
+  decay, rival progress, delayed results and roster drift. The guaranteed cover decision can never
+  be skipped by a passive morning loss; resolving it resumes the remaining morning exactly once.
+- **Crash-safe continuation:** save schema v14 persists and strictly validates that pre-morning
+  continuation. Reloading the active confrontation cannot replay or skip the morning pipeline, and
+  schema-v13 identity records migrate without changing their suspicion or pending scene.
+
+### v19.19 — The secret gets tired *(2026-08-12)*
+- **Fraud identity pressure:** THE FRAUD now records the highest work-fatigue reached each day. At
+  80–89 / 90–94 / 95–99 / 100 FATIGUE, one end-of-day slip check uses 0.5% / 1.5% / 3% / 5%.
+  Coffee cannot erase an already reached peak, only one roll can occur per day, and a terminal day
+  never records a confrontation the player could not answer.
+- **No random instant loss:** a hit schedules a visible cover-story decision for the next morning.
+  Failed technical or aggressive answers raise SUSPICION through an alumni question, conflicting bar
+  records and a malpractice-insurer proof request. Only a deliberately chosen risky failure at the
+  final inquiry can expose the secret; every stage keeps a 100% nonlethal survival route with a real
+  BOLD/INFL cost.
+- **Strict, resumable chain:** pending event kind/day, suspicion, daily peak and counters persist in
+  save schema v14. Active scenes are rebuilt/validated against canonical content, cannot be edited
+  into ordinary XP-paying crises, survive reload without a reroll, take priority over weekend/crisis
+  content and open before ordinary morning passives; the remaining morning resumes after the answer.
+  Schema-v12 careers start
+  from a clean identity-pressure baseline; an already-open legacy credentials audit is grandfathered.
+- **Visible and measurable:** THE SECRET panel shows suspicion, today's peak/band, spent check and due
+  follow-up. The info panel documents the exact bands. Regression coverage includes boundaries,
+  reload idempotence, migration/tamper rejection, safe routes at terminal stat floors, exact EXPOSED
+  cause and promotion-summary interruption; deterministic soak output now reports Fraud checks,
+  hits, stages and exposure.
+
+### v19.18 — Earn the edge *(2026-08-12)*
+- **Independent career progression:** resolved work now earns deterministic XP across eight levels.
+  Every level gained grants one spendable point; scenario-native ranks are separate and never consume
+  those points. XP has no RNG calls, cannot go negative and is capped at 780.
+- **Two real skills:** SNEAKY widens lockpick tolerance, adds attempts at ranks 2/5, slows Power Cut
+  rings by 7% per rank and widens their windows. ENDURANCE cuts positive work fatigue by 6% per rank
+  after the scenario's own fatigue profile; rest, coffee, overtime and narrative penalties are not
+  discounted. A twelfth procedural filing can surface either COVERT board in later careers, so
+  SNEAKY points earned after the two hand-written actions still have work to do.
+- **No XP leaks or farms:** immediate cases award at resolution; delayed filings only at REPLY;
+  delegated results award a smaller amount only on final handback; COVERT and genuine crisis results
+  award once. Starts, clicks, hidden rolls, favors, deadlines, chores and shopping award nothing.
+- **Training UI and strict resume:** the sidebar exposes LEVEL/XP, available points, innate ranks and
+  exact current/next effects with accessible controls. Save schema v12 strictly validates XP, level,
+  point conservation and skill ranks. New COVERT challenges snapshot their skills; active v9/v10
+  lockpick/Power Cut saves migrate under legacy rules without changing the board, fatigue or timing
+  checkpoint. Schema-11 late-work checkpoints also migrate without losing the active puzzle.
+- **Measured pace:** the final 720-career soak ended with 342/342 deterministic replays and zero
+  integrity failures. Standard technical/mixed winners reached median level 5; 30-day Endless
+  careers reached median level 7, leaving level 8 as the long-career target.
+
+### v19.17 — Cut the current *(2026-08-12)*
+- **Second playable COVERT ACTION:** Aldergate's NimbusHost file exposes a three-circuit service
+  bypass. Stop each rotating marker inside its visible amber window; all three contacts must align
+  before the local patch ledger prints. The recovered ledger adds +12% to that file's later risky
+  legal plays instead of resolving the lawsuit for free.
+- **Failure stays legible:** one missed circuit visibly arcs and moves to the same explicit coin-call
+  escape rule as the lockpick. Escape preserves the lawsuit but burns the route; capture archives
+  the file and applies the full REP/FIRM/BOLD fallout. Every branch commits 1.5 hours and 8 FATIGUE.
+- **Deterministic timing without DAILY drift:** board targets, starting angles, speeds, directions and
+  the escape coin derive from run/case/action identity. Animation never consumes gameplay RNG, and
+  frame deltas are capped so a hidden/background tab cannot jump a marker across the board.
+- **Strict resume contract:** introduced in save schema v10; current schema v14 still persists each locked/missed circuit, elapsed timing and
+  active marker. Static board values are re-derived on load; inconsistent angles/elapsed time, phase,
+  circuit order, target, speed or action identity are rejected. Desktop and compact layouts use the
+  same keyboard/touch control and blocking focus-safe modal.
+
+### v19.16 — Interactive covert action vertical slice *(2026-08-11)*
+- **The first playable minigame:** Redvale's document-hold file now offers a purple COVERT ACTION.
+  The player gets three paperclip tests against a hidden lock position; breaking the pick opens a
+  visible heads-or-tails escape call instead of silently rolling another case percentage.
+- **Evidence, not an automatic win:** opening the cabinet recovers the archive index and adds +12%
+  to this file's later risky legal plays. Escaping loses the route but preserves the case; getting
+  caught poisons and archives it with severe REP/FIRM/BOLD fallout. Every branch spends 1.5 hours
+  and 7 FATIGUE, and the action can only be attempted once.
+- **DAILY/save integrity:** lock and coin outcomes derive from run/case/action identity without
+  consuming the shared RNG. Save schema v9 resumes the exact phase and attempts, migrates v8
+  safely, and rejects forged targets, phases, counters, briefings, case markers and impossible
+  success positions.
+- **Modal and mobile-ready UI:** the target never appears in the DOM; keyboard focus is trapped and
+  restored, background controls become inert, touch targets are 48–52px, safe areas and reduced
+  motion are respected, and the dialog fits a 390×844 viewport without horizontal clipping.
+
 ### v19.15 — Earned Final Warning *(2026-08-09)*
 - **One earned exception:** a fatal aggressive loss can be stayed once per run, but only when the
   play began at BOLD 70+, after at least three landed bluffs, with bluff wins still ahead of

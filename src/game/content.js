@@ -1,7 +1,8 @@
 // All hand-written game content: cases, judges, crises, scenarios.
 // Case/option schema (AI-generated cases must match it too — CLAUDE.md §7):
 // { id, tier, title, deadline, judge?, body, opts:[
-//   { text, base, boldW?, style?, safe?, delay?, ok:{fx,txt}, fail:{fx,txt} } ] }
+//   { text, base, boldW?, style?, safe?, delay?, ok:{fx,txt}, fail:{fx,txt} }
+//   or a rare { text, style:"covert", action:{...} } interactive action. ] }
 import { S } from "./state.js";
 import { rnd } from "./utils.js";
 
@@ -25,6 +26,25 @@ export function buildPool(){
       {text:"Leave it. See nothing. Go home.",base:100,safe:true,ok:{fx:{bold:-2,inf:1},txt:"Delivered. Whatever was on that whiteboard stays there."}},
       {text:"Memorize the witness list first.",base:55,boldW:2,ok:{fx:{bold:4,inf:5},txt:"You recite it to Hardwick from memory. 'Huh,' he says. High praise."},fail:{fx:{rep:-8},txt:"They catch you staring and file a complaint about 'the lurking associate'."}},
       {text:"'Nice whiteboard. Shame if someone photographed it.'",base:20,boldW:3,style:"aggressive",ok:{fx:{bold:6,inf:6},txt:"Their associate panics and reveals more than the board did."},fail:{fx:{rep:-12},txt:"Their name partner calls YOUR name partner. Bad day."}}]});
+  P.push({id:"redvale",tier:1,title:"CASE: Redvale document hold",deadline:3,
+    body:"Redvale's missing safety reports should have been preserved before the lawsuit. Snidely Fitch swears the originals were destroyed in a server failure. But a courier receipt in exhibit F lists six paper archive boxes delivered to Fitch last Tuesday. Their building memo adds one useful detail: the night cleaners change shifts at 10:15, and the records room still uses an old brass cabinet lock.",
+    opts:[
+      {text:"Negotiate without the reports. Keep the client out of headlines.",base:100,safe:true,
+        ok:{fx:{bold:-4,inf:2,money:350},txt:"Redvale pays for silence. The six boxes remain exactly where Fitch said they weren't."}},
+      {text:"Move for sanctions using the courier receipt.",base:72,style:"technical",
+        ok:{fx:{rep:8,inf:7,money:1100},txt:"Six boxes beat one confident affidavit. The court orders production and Fitch stops smiling."},
+        fail:{fx:{rep:-6},txt:"Fitch calls them unrelated billing archives. Without the index, the judge will not infer the rest."}},
+      {text:"Bluff: claim a whistleblower already copied the archive index.",base:36,boldW:3,style:"aggressive",
+        ok:{fx:{bold:7,inf:7,money:850},txt:"Fitch produces the reports before your imaginary witness can be deposed."},
+        fail:{fx:{rep:-11,bold:-2},txt:"They demand the witness's name. Your silence enters the room before your answer does."}},
+      {text:"COVERT ACTION: enter Fitch after hours and photograph the archive index.",style:"covert",
+        action:{id:"redvale_archive_lock",type:"lockpick",title:"THE FITCH RECORDS ROOM",
+          body:"The cleaning carts turn the far corner. An old cabinet, one bent paperclip, and however many spares your hands have earned. Lean on it until the cylinder gives — lean past that and the pick leaves half itself in the keyway.",
+          hours:1.5,fatigue:4,edge:12,
+          edgeText:"ARCHIVE INDEX RECOVERED (+12% on this file's risky legal plays)",
+          success:{fx:{bold:3},txt:"The cabinet opens. Six box numbers, six dates, one silent photograph. You still need a legal move — now you have the missing index."},
+          escape:{fx:{bold:-2},txt:"You leave the way you came in and nobody files anything. The archive stays shut, though, and this route is gone."},
+          caught:{fx:{rep:-18,firm:-6,bold:-5},txt:"By morning it is a written complaint with your name in it. Redvale's case is poisoned, the partners get the call before their coffee, and your badge photo becomes an exhibit."}}}]});
   P.push({id:"nda",tier:1,title:"CASE: Kessler NDA breach",deadline:3,
     body:"Client Kessler Corp is being sued for breaching an NDA. Reading the file: the NDA was signed by a Vice President of the counterparty who — per exhibit C — had NO signing authority under their own bylaws. Opposing counsel hasn't noticed.",
     opts:[
@@ -32,7 +52,17 @@ export function buildPool(){
       {text:"Move to void the NDA — no signing authority.",base:78,style:"technical",delay:2,ok:{fx:{rep:8,inf:7,money:1200},txt:"The NDA is VOID. Opposing counsel visibly ages five years."},fail:{fx:{rep:-5},txt:"They produce a ratification memo. Ouch. Should've dug deeper."}},
       {text:"Bluff: threaten a defamation countersuit.",base:35,boldW:3,style:"aggressive",delay:1,ok:{fx:{bold:6,inf:5,money:800},txt:"They fold. Your bluff had absolutely no legal basis. Beautiful."},fail:{fx:{rep:-10,bold:-2},txt:"They call the bluff and read your empty threat aloud in a meeting."}}]});
   P.push({id:"depo",tier:1,title:"CASE: Vance deposition prep",deadline:3,
-    body:"Depose the CFO of Vance Industries. The file shows two versions of the same expense report — one signed BEFORE the audit, one after, with $2M moved to 'consulting'. The CFO's lawyer is a screamer from Snidely Fitch.",
+    body:"Depose the CFO of Vance Industries. His lawyer is a screamer from Snidely Fitch, but the binder's dates don't shout — they just sit there. February 2nd: Vance retains a consulting outfit whose only employee is the CFO's brother-in-law. March 3rd: the Q3 expense report is signed. March 11th: the auditors send formal notice. March 12th: the CFO emails the controller, 'make Q3 read clean'. March 14th: $2M moves from facilities to consulting. March 19th: a second, tidier version of that same Q3 report is signed. April 2nd: the brother-in-law resigns. Two versions, one audit, and only one order that makes sense.",
+    timeline:{id:"vance_expense_chronology",title:"THE VANCE CHRONOLOGY",
+      body:"Before you sit down across from him, lay the file's events end to end. Opposing counsel will build this same chronology tonight — you would rather see it first.",
+      events:[
+        {id:"retainer",at:1,text:"Vance retains the consulting firm run by the CFO's brother-in-law"},
+        {id:"report1",at:2,text:"The original Q3 expense report is signed"},
+        {id:"notice",at:3,text:"The auditors send formal notice"},
+        {id:"email",at:4,text:"The CFO emails the controller: 'make Q3 read clean'"},
+        {id:"move",at:5,text:"$2M moves from facilities to consulting"},
+        {id:"report2",at:6,text:"A second, tidier version of the Q3 report is signed"},
+        {id:"resign",at:7,text:"The brother-in-law resigns from the consulting firm"}]},
     opts:[
       {text:"Ask soft questions. Preserve the relationship.",base:100,safe:true,ok:{fx:{bold:-3,inf:1},txt:"A polite, useless deposition. The partners yawn."}},
       {text:"Walk him into contradicting the two reports.",base:70,style:"technical",ok:{fx:{rep:7,inf:6,money:900},txt:"'So which signature is yours?' Silence. Checkmate."},fail:{fx:{rep:-6},txt:"He lawyered up mid-sentence. The screamer screamed. You blinked."}},
@@ -54,9 +84,34 @@ export function buildPool(){
         fail:{fx:{rep:-6},txt:"The judge tolls it anyway and calls your argument 'heartless but tidy'."}},
       {text:"Attack the hospitalization as fabricated.",base:35,boldW:3,style:"aggressive",ok:{fx:{bold:8,inf:8,money:1200},txt:"Their 'hospital records' are from a med spa. Courtroom gasps."},fail:{fx:{rep:-12},txt:"The CEO was genuinely in an ICU. You are now the villain of this story."}}]});
   P.push({id:"court2",tier:2,title:"COURT: In re Pemberton estate",deadline:4,
-    body:"A contested will. The 'final' will leaving everything to a yoga instructor was witnessed by two people — both of whom, per the file, were on a cruise ship in international waters that day. Instagram proves it.",
+    body:"A contested will. The 'final' will leaving everything to a yoga instructor was signed at the Pemberton house on the 14th, witnessed by two people — both of whom, per the cruise manifest, boarded on the 12th and did not disembark until the 19th. Instagram agrees with the manifest. The rest of the binder is just as talkative: a lab report calling the testator's signature a laser-printed image rather than ink; a care-home chart showing him sedated for a procedure all that afternoon; the family solicitor's engagement log, closed two years before the will was supposedly drafted; the studio newsletter naming one witness as co-host of the instructor's retreats; a phone photo taken inside that room, timestamped, with the instructor in it. Also in the bundle: a parking ticket issued to the gardener and an unsigned insurance renewal. Both witnesses swore an affidavit anyway.",
     judge:true,
     opts:[
+      {text:"CASE PREP: build the contradiction chart before the hearing.",style:"prep",
+        action:{id:"pemberton_contradictions",type:"contradiction",title:"THE PEMBERTON AFFIDAVITS",
+          body:"Two affidavits, one bundle of exhibits, and a hearing in the morning. Pin each sworn sentence to the document it cannot survive. Not every exhibit contradicts something — pinning the wrong one in open court costs you the room.",
+          hours:1.5,fatigue:6,edge:15,
+          edgeText:"CONTRADICTION CHART COMPLETE (+15% on this file's risky legal plays)",
+          pairs:[
+            {id:"signing",statement:"'I watched Mr Pemberton sign at the house on the 14th.'",
+              document:"Cruise manifest: both witnesses boarded on the 12th, ashore again on the 19th"},
+            {id:"ink",statement:"'He signed in blue ink, with his own fountain pen.'",
+              document:"Lab report: the signature is a laser-printed image, never ink on paper"},
+            {id:"social",statement:"'I had never met the beneficiary socially.'",
+              document:"Studio newsletter naming that witness as co-host of her retreats"},
+            {id:"solicitor",statement:"'The family solicitor drew the will up for him.'",
+              document:"Solicitor's engagement log, closed two years before that date"},
+            {id:"lucid",statement:"'He was lucid and unassisted the whole afternoon.'",
+              document:"Care-home chart: sedated for a procedure that entire afternoon"},
+            {id:"alone",statement:"'Nobody else was in the room with us.'",
+              document:"Timestamped phone photo taken in that room, beneficiary in frame"}],
+          decoys:[
+            {id:"parking",text:"A parking ticket issued to the estate's gardener that week"},
+            {id:"insurance",text:"The house insurance renewal notice, unsigned"},
+            {id:"invoice",text:"An unpaid invoice from the estate's window cleaner"}],
+          success:{fx:{bold:2},txt:"Six sentences, six documents, no room to breathe. The chart does not win the case — it just makes every honest answer worse for them."},
+          partial:{fx:{},txt:"Part of the chart holds. The rest you would not put in front of a judge, so it stays in the binder."},
+          miss:{fx:{bold:-2},txt:"The affidavits survive the afternoon. You spent the hours and proved nothing you can stand behind."}}},
       {text:"Negotiate a split. Everyone unhappy equally.",base:100,safe:true,ok:{fx:{bold:-2,inf:2,money:400},txt:"Settled. The yoga instructor achieves inner peace and outer money."}},
       {text:"Present the cruise evidence. Void the will.",base:75,style:"technical",ok:{fx:{rep:8,inf:7,money:1400},txt:"Exhibit A: a poolside selfie, timestamped. The will collapses."},fail:{fx:{rep:-5},txt:"Turns out one witness signed remotely — legal in this state. Who knew."}},
       {text:"Accuse the instructor of undue influence. Loudly.",base:38,boldW:3,style:"aggressive",ok:{fx:{bold:7,inf:7,money:1000},txt:"She confesses to 'guided manifestation of the estate'. Case over."},fail:{fx:{rep:-10},txt:"No evidence, just vibes. The judge sanctions your vibes."}}]});
@@ -67,7 +122,7 @@ export function buildPool(){
       {text:"Fire off a retaliation counterclaim.",base:72,style:"technical",delay:2,ok:{fx:{rep:5,inf:6,bold:3},txt:"Landlord folds instantly. Marv now tells you things. Useful things."},fail:{fx:{rep:-4},txt:"Paperwork bounced on a technicality. Marv is polite about it. Too polite."}},
       {text:"Call the landlord and improvise menacingly.",base:45,boldW:2,style:"aggressive",ok:{fx:{bold:5,inf:4},txt:"You cite three statutes that don't exist. It works. Marv applauds."},fail:{fx:{rep:-6},txt:"The landlord is also a lawyer. Of course he is."}}]});
   P.push({id:"breach",tier:1,title:"CASE: Aldergate data breach",deadline:3,
-    body:"Client Aldergate leaked 40,000 customer records and the customers noticed. Their cloud vendor, NimbusHost, blames 'shared responsibility'. But NimbusHost's own SLA — exhibit D — promises critical patches within 72 hours, and the breach log shows the hole sat open for nine days. Their lawyers write very confident letters.",
+    body:"Client Aldergate leaked 40,000 customer records and the customers noticed. Their cloud vendor, NimbusHost, blames 'shared responsibility'. But NimbusHost's own SLA — exhibit D — promises critical patches within 72 hours, and the breach log shows the hole sat open for nine days. A facilities photo shows their local audit printer behind a three-circuit service bypass: kill the circuits in sequence and the uneditable patch ledger prints before remote admin can purge it. Their lawyers write very confident letters.",
     opts:[
       {text:"Settle with the customers quietly.",base:100,safe:true,ok:{fx:{bold:-4,inf:2},txt:"Checks mailed, mouths closed. Aldergate grumbles about the invoice."}},
       {text:"Turn it on NimbusHost — the 72-hour SLA.",base:74,style:"technical",
@@ -89,7 +144,15 @@ export function buildPool(){
             opts:[
               {text:"Apologize. Fully. Painfully.",base:100,safe:true,ok:{fx:{bold:-6,inf:1},txt:"The judge accepts, with a lecture that ages you. Motion denied. Barely."}},
               {text:"Argue the statements were 'aspirational'.",base:55,style:"technical",ok:{fx:{rep:4,bold:3},txt:"'Aspirational.' The judge almost smiles. Motion denied; the word enters firm legend."},fail:{fx:{rep:-8,money:-800},txt:"Sanctioned. The fine has your name on it, not Aldergate's."}},
-              {text:"Accuse THEM of bad faith for filming it.",base:25,boldW:3,style:"aggressive",ok:{fx:{bold:9,rep:5,inf:6},txt:"Astonishingly, it lands — their 'PR monitoring' looks worse than your mouth. Case closed."},fail:{fx:{rep:-13,money:-1200},txt:"The judge sanctions you mid-sentence. Opposing counsel frames the transcript."}}]}}}}]});
+              {text:"Accuse THEM of bad faith for filming it.",base:25,boldW:3,style:"aggressive",ok:{fx:{bold:9,rep:5,inf:6},txt:"Astonishingly, it lands — their 'PR monitoring' looks worse than your mouth. Case closed."},fail:{fx:{rep:-13,money:-1200},txt:"The judge sanctions you mid-sentence. Opposing counsel frames the transcript."}}]}}}},
+      {text:"COVERT ACTION: cut NimbusHost's service power and recover the patch ledger.",style:"covert",
+        action:{id:"breach_service_power",type:"power_cut",title:"THE NIMBUSHOST SERVICE FLOOR",
+          body:"Three live bypass contacts feed the audit room. Drop each marker inside its amber isolation window. One bad cut arcs loudly enough to wake the security desk.",
+          hours:1.5,fatigue:5,edge:12,
+          edgeText:"PATCH LEDGER RECOVERED (+12% on this file's risky legal plays)",
+          success:{fx:{bold:4},txt:"The last contact lands. Emergency lights swallow the corridor while the audit printer coughs out nine days of ignored patch alerts. You still need a legal move — now you have their clock in ink."},
+          escape:{fx:{bold:-2},txt:"A contact arcs, but your coin call gets you through the stairwell before the guard turns the corner. The ledger stays inside and this route is burned."},
+          caught:{fx:{rep:-19,firm:-6,bold:-4},txt:"The service panel flashes your mistake to Security. NimbusHost finds you under the emergency lights with insulated cutters in hand. Aldergate's defense becomes Exhibit A in a criminal conversation."}}}]});
   P.push({id:"poach",tier:1,title:"MEMO: Snidely Fitch is poaching you",deadline:2,
     body:"A Snidely Fitch recruiter 'bumps into you' at lunch. Offer: +40% salary, real cases, an office with a door. All you'd have to do is bring one — just one — client file with you.",
     opts:[
@@ -142,12 +205,6 @@ export function crises(){
       {text:"Let it burn out. Old news ages fast.",base:100,safe:true,ok:{fx:{rep:-4,bold:-2},txt:"It fades. Mostly. 'Mostly' has a long tail in this building."}},
       {text:"Pin the original firing on bad process — with receipts.",base:60,style:"technical",ok:{fx:{rep:9,inf:6},txt:"Your receipts beat their gossip. The narrative flips: you were RIGHT, and Hardwick knew it."},fail:{fx:{rep:-8},txt:"Read aloud at podium distance, your receipts sound like excuses."}},
       {text:"Own it. Stand on a chair. Tell the WHOLE story.",base:40,boldW:3,style:"aggressive",ok:{fx:{bold:9,inf:8,rep:4},txt:"The floor expected shame; they got a keynote. Legend status: pending."},fail:{fx:{rep:-11},txt:"Halfway up the chair you remember the whole story isn't flattering."}}]});
-  C.push({id:"audit",title:"CRISIS: Bar credentials audit",cond:()=>S.scenario==="fraud"&&S.day>=3,
-    body:"The firm is running a routine bar-credentials audit. Yours would come back... creative. The auditor, coincidentally, is drowning in her own caseload and mentions she'd kill for help on a filing.",
-    opts:[
-      {text:"Help with her filing. All night. Every night.",base:80,ok:{fx:{inf:4,bold:2},txt:"Your file mysteriously moves to the bottom of the pile. Forever, hopefully."},fail:{fx:{rep:-8},txt:"She helps you back — by escalating your file 'as a courtesy'. Sweat."}},
-      {text:"Pay a 'database consultant'. ($1500)",base:65,ok:{fx:{money:-1500},txt:"Your record now exists. It even has a GPA. A modest one, for realism."},fail:{fx:{money:-1500,rep:-12},txt:"The consultant vanishes with the money and leaves a typo in your fake bar number."}},
-      {text:"Do nothing. You've survived worse.",base:35,boldW:3,ok:{fx:{bold:6},txt:"The audit skips associates below Senior. Breathe."},fail:{expose:true,fx:{},txt:"'Quick question about your law school,' says the email. Then HR. Then a man with a clipboard and your fake transcript."}}]});
   C.push({id:"poisonfile",title:"CRISIS: The poison file",cond:()=>S.scenario==="defector"&&S.day>=2,
     body:"A memo surfaces suggesting you left Snidely Fitch with a briefcase full of client files. The memo is doctored — you left with a plant and a grudge — but it carries your (forged) initials, and Hardwick's undivided attention.",
     opts:[
@@ -188,7 +245,7 @@ export function buildWeekend(){
 }
 
 export const SCENARIOS={
-  fraud:{label:"THE FRAUD — you never went to law school",desc:"Photographic memory, zero diploma. Special exposure crises. Get caught: game over."},
+  fraud:{label:"THE FRAUD — you never went to law school",desc:"Photographic memory, zero diploma. At 80+ fatigue, rare slips can start a three-stage identity inquiry. A slip never exposes you by itself; failed cover-ups can."},
   debtor:{label:"THE DEBTOR — $180k student loans",desc:"Pay $2,000 every 3 days. Miss a payment: game over. Chase the money options."},
   legacy:{label:"THE LEGACY — your parent's name is on the wall",desc:"Influence gains +25%, reputation losses +25%. Everyone assumes nepotism."},
   defector:{label:"THE DEFECTOR — you jumped ship from Snidely Fitch",desc:"You know their playbook (+8% vs Fitch). They know where you live. Sabotage crises."},

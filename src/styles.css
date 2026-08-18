@@ -28,6 +28,11 @@ body::after{ /* scanlines */
 .btn.safe{background:#3a7d5a; box-shadow:0 4px 0 #1e4a33;} .btn.safe:hover{background:#48996f;}
 .btn.bold{background:#a03a4e; box-shadow:0 4px 0 #5e1f2c;} .btn.bold:hover{background:#c04a61;}
 .btn.bribe{background:#7a5a17; box-shadow:0 4px 0 #45320c;} .btn.bribe:hover{background:#96701f;}
+.btn.covert{background:#65459a; border-left:4px solid var(--gold); box-shadow:0 4px 0 #39265d;}
+.btn.covert:hover{background:#7c5bb2;}
+/* Case prep is legal work, not a night job: cool slate, no gold trespass edge. */
+.btn.prep{background:#2f5d7a; border-left:4px solid #7fc6e8; box-shadow:0 4px 0 #1a3646;}
+.btn.prep:hover{background:#3b7397;}
 .btn.small{width:auto; padding:6px 10px; font-size:8px;}
 .btn:disabled{opacity:.35; cursor:default;}
 .btn:disabled:hover{background:var(--panel2);} .btn:disabled:active{transform:none; box-shadow:0 4px 0 #1b2a6b;}
@@ -122,6 +127,11 @@ h2{font-size:10px; color:var(--gold); margin-bottom:10px; border-bottom:2px soli
 .npcrow{margin-bottom:8px;}
 .npcrow .lblrow{display:flex; justify-content:space-between; font-size:8px;}
 .npcrow .tagline{font-size:8px; color:var(--grey);}
+.skill-ready{margin:8px 0; color:var(--gold); font-size:7px; line-height:1.8;}
+.skill-row{padding:7px; background:var(--dark); border:2px solid var(--panel2);}
+.skill-row .tagline{margin-top:4px; line-height:1.8;}
+.skill-upgrade{min-height:44px; margin-top:7px;}
+.skill-upgrade:focus-visible{outline:3px solid var(--gold); outline-offset:2px;}
 .delg{margin:10px 0 4px; border-top:2px dashed var(--panel2); padding-top:8px;}
 .delg .btn{margin:0 6px 6px 0;}
 /* office scene */
@@ -135,3 +145,430 @@ h2{font-size:10px; color:var(--gold); margin-bottom:10px; border-bottom:2px soli
 #scene{border:4px solid var(--dark); box-shadow:0 0 0 2px var(--panel2); line-height:0;}
 #scene svg{width:100%; height:110px; display:block; image-rendering:pixelated;}
 #scenecap{font-size:8px; color:var(--grey); padding:6px 2px 0; text-align:center;}
+
+/* COVERT ACTION minigames */
+.action-overlay{
+  background:
+    radial-gradient(circle at 50% 42%,rgba(59,93,201,.2),transparent 42%),
+    rgba(8,9,18,.94);
+}
+.action-overlay .action-dialog{
+  position:relative; max-width:620px; padding:18px;
+  background:linear-gradient(180deg,#303f7a 0,#202a58 100%);
+  border-color:#080912; box-shadow:0 0 0 3px var(--panel2),10px 10px 0 rgba(0,0,0,.42);
+  animation:action-enter .18s steps(3,end);
+}
+.action-dialog::before,.action-dialog::after{
+  content:""; position:absolute; width:16px; height:16px; pointer-events:none;
+}
+.action-dialog::before{left:6px; top:6px; border-left:3px solid var(--gold); border-top:3px solid var(--gold);}
+.action-dialog::after{right:6px; bottom:6px; border-right:3px solid var(--gold); border-bottom:3px solid var(--gold);}
+.action-kicker{
+  display:inline-block; margin-bottom:8px; padding:3px 6px; color:var(--dark);
+  background:var(--gold); font-size:7px; letter-spacing:1px; box-shadow:3px 3px 0 #8e653b;
+}
+.action-dialog h2{font-size:12px; line-height:1.7; padding-right:20px;}
+.action-brief{font-size:8px; line-height:1.9; color:#dbe6ff;}
+.action-divider{height:3px; margin:13px 0; background:repeating-linear-gradient(90deg,var(--panel2) 0 10px,transparent 10px 16px);}
+.action-game{position:relative;}
+.action-primary{
+  min-height:48px; text-align:center; touch-action:manipulation;
+  border:2px solid rgba(255,255,255,.14);
+}
+.action-primary:focus-visible,.lock-range:focus-visible{
+  outline:3px solid var(--gold); outline-offset:3px;
+}
+.action-live{min-height:18px; margin-top:10px; color:var(--gold); font-size:8px; text-align:center;}
+
+/* Lockpick: the player sees their pick angle, never the hidden sweet spot. */
+.lock-instructions{margin-bottom:10px; color:var(--grey); font-size:8px; text-align:center;}
+.lock-stage{
+  display:flex; align-items:center; justify-content:center; min-height:184px; margin-bottom:8px;
+  overflow:hidden; background:
+    linear-gradient(90deg,transparent 49.5%,rgba(255,255,255,.035) 49.5% 50.5%,transparent 50.5%),
+    repeating-linear-gradient(0deg,#11162e 0 10px,#141a37 10px 20px);
+  border:3px solid var(--dark); box-shadow:inset 0 0 0 2px #263268;
+}
+.lock-door-plate{
+  position:relative; width:226px; height:146px; background:#5f7183; border:5px solid #263342;
+  box-shadow:inset 0 0 0 4px #8297a7,8px 8px 0 rgba(0,0,0,.34);
+}
+.lock-door-plate::before,.lock-door-plate::after{
+  content:"+"; position:absolute; color:#263342; font-size:14px; line-height:1;
+}
+.lock-door-plate::before{left:8px; top:7px;}
+.lock-door-plate::after{right:8px; bottom:7px;}
+.lock-cylinder{
+  /* centred with margins, never a transform: the tremor animation owns transform */
+  position:absolute; left:50%; top:50%; width:92px; height:92px; margin:-46px 0 0 -46px;
+  border:7px solid #222c39; border-radius:50%;
+  background:repeating-radial-gradient(circle,#9aadb7 0 8px,#778b99 9px 15px);
+  box-shadow:inset 0 0 0 5px #b7c7cf,0 0 0 4px #151c26;
+}
+.lock-keyway{
+  position:absolute; left:50%; top:50%; width:14px; height:36px;
+  transform:translate(-50%,-30%); background:#0a0d13; border:3px solid #313d48;
+  clip-path:polygon(22% 0,78% 0,78% 54%,100% 100%,0 100%,22% 54%);
+}
+.lock-pick{
+  position:absolute; z-index:2; left:50%; top:50%; width:76px; height:5px;
+  transform-origin:0 50%; background:#ffdf9b; border-top:1px solid #fff1c9;
+  box-shadow:0 3px 0 #8f6c45; transition:transform .08s linear;
+}
+.lock-pick::after{
+  content:""; position:absolute; right:-9px; top:-7px; width:24px; height:16px;
+  border:5px solid #d59a58; background:transparent; box-shadow:3px 3px 0 rgba(0,0,0,.28);
+}
+.lock-pick-tip{
+  position:absolute; left:-5px; top:-3px; width:9px; height:10px; background:#fff0bd;
+  clip-path:polygon(0 45%,100% 0,100% 100%);
+}
+.lock-control-label{display:block; margin:9px 0 2px; color:var(--gold); font-size:8px; text-align:center;}
+.lock-range{
+  appearance:none; -webkit-appearance:none; display:block; width:100%; height:48px;
+  margin:0; padding:0 3px; background:transparent; cursor:ew-resize; touch-action:pan-x;
+}
+.lock-range::-webkit-slider-runnable-track{
+  height:12px; background:var(--dark); border:3px solid var(--panel2); box-shadow:inset 0 0 0 2px #202a58;
+}
+.lock-range::-webkit-slider-thumb{
+  appearance:none; -webkit-appearance:none; width:26px; height:34px; margin-top:-14px;
+  background:var(--gold); border:4px solid #8e653b; border-radius:0; box-shadow:3px 3px 0 rgba(0,0,0,.4);
+}
+.lock-range::-moz-range-track{
+  height:8px; background:var(--dark); border:3px solid var(--panel2); box-shadow:inset 0 0 0 2px #202a58;
+}
+.lock-range::-moz-range-thumb{
+  width:20px; height:28px; background:var(--gold); border:4px solid #8e653b;
+  border-radius:0; box-shadow:3px 3px 0 rgba(0,0,0,.4);
+}
+.lock-range-hints{display:flex; justify-content:space-between; margin-top:-7px; color:var(--grey); font-size:6px;}
+.lock-attempts{
+  display:flex; align-items:center; justify-content:space-between; min-height:34px;
+  margin:10px 0; padding:7px 9px; color:#dbe6ff; background:var(--dark); border:2px solid var(--panel2); font-size:7px;
+}
+.lock-attempt-pips{display:flex; gap:5px; margin-left:8px;}
+.lock-pip{display:block; width:18px; height:8px; border:2px solid #17204b;}
+.lock-pip-live{background:var(--gold); box-shadow:2px 2px 0 #8e653b;}
+.lock-pip-spent{background:#3c4560;}
+.lock-test{margin-top:3px;}
+.lock-success{text-align:center; padding:16px 0 3px;}
+.lock-success-mark{
+  display:flex; align-items:center; justify-content:center; width:112px; height:58px; margin:0 auto 16px;
+  color:#d9ffe7; background:#205739; border:4px solid var(--green); box-shadow:6px 6px 0 #102d1e;
+  animation:lock-open .42s steps(5,end);
+}
+.lock-success-title{margin-bottom:9px; color:var(--green); font-size:11px;}
+.lock-success-copy{margin-bottom:16px; color:#dbe6ff; font-size:8px;}
+
+/* Power cut: three deterministic timing rings. Only the active marker moves;
+   locked circuits remain visible so a reload cannot hide prior progress. */
+.power-cut-warning{
+  margin-bottom:8px; padding:7px; color:#fff2c7; background:#654619;
+  border:2px solid var(--gold); font-size:8px; text-align:center; animation:power-live .8s steps(2,end) infinite;
+}
+.power-cut-instructions{margin:0 0 10px; color:#dbe6ff; font-size:8px; line-height:1.8; text-align:center;}
+.power-ring-stage{
+  display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; padding:12px;
+  background:repeating-linear-gradient(135deg,#0c1025 0 12px,#111733 12px 24px);
+  border:3px solid var(--dark); box-shadow:inset 0 0 0 2px #263268;
+}
+.power-ring{min-width:0; padding:8px 5px; background:#11162e; border:2px solid #29366f; transition:opacity .1s linear;}
+.power-ring-track{
+  position:relative; width:min(100%,118px); aspect-ratio:1; margin:0 auto 8px; overflow:hidden;
+  border:7px solid #34415a; border-radius:50%; background:
+    radial-gradient(circle,#202b46 0 31%,#10162a 32% 53%,#26314b 54% 58%,#0b0f1d 59% 100%);
+  box-shadow:inset 0 0 0 3px #101524,0 0 0 3px #0a0d18;
+}
+.power-ring-target{
+  position:absolute; inset:-2px; border-radius:50%;
+  transform:rotate(calc(var(--power-target-angle) - (var(--power-target-width) / 2)));
+  background:conic-gradient(var(--gold) 0 var(--power-target-width),transparent var(--power-target-width) 360deg);
+  -webkit-mask:radial-gradient(circle,transparent 0 64%,#000 65% 75%,transparent 76%);
+  mask:radial-gradient(circle,transparent 0 64%,#000 65% 75%,transparent 76%);
+  filter:drop-shadow(0 0 4px rgba(255,205,117,.8));
+}
+.power-ring-marker{
+  position:absolute; inset:0; z-index:2; transform:rotate(var(--power-ring-angle)); transform-origin:50% 50%;
+}
+.power-ring-marker::before{
+  content:""; position:absolute; left:50%; top:4px; width:6px; height:24px; transform:translateX(-50%);
+  background:#f5fbff; border:2px solid #6d83a6; box-shadow:0 0 6px #fff;
+}
+.power-ring-core{
+  position:absolute; left:50%; top:50%; width:22px; height:22px; transform:translate(-50%,-50%);
+  background:#8ba0b5; border:4px solid #27354a; border-radius:50%; box-shadow:inset 0 0 0 3px #c7d5df;
+}
+.power-ring-caption{display:flex; flex-direction:column; gap:4px; color:var(--grey); font-size:6px; text-align:center;}
+.power-ring-caption strong{color:#dbe6ff; font-size:7px;}
+.power-ring-queued{opacity:.45;}
+.power-ring-locked{border-color:var(--green);}
+.power-ring-locked .power-ring-caption strong{color:var(--green);}
+.power-ring-locked .power-ring-marker::before{background:var(--green); border-color:#183d29; box-shadow:0 0 7px var(--green);}
+.power-ring-missed{border-color:var(--red);}
+.power-ring-missed .power-ring-caption strong{color:#ff8da1;}
+.power-ring-missed .power-ring-marker::before{background:var(--red); border-color:#481923; box-shadow:0 0 7px var(--red);}
+.power-cut-progress{display:flex; justify-content:center; gap:7px; margin:10px 0 8px;}
+.power-cut-pip{display:block; width:28px; height:8px; background:#3c4560; border:2px solid #17204b;}
+.power-cut-pip-active{background:#f5fbff;}
+.power-cut-pip-locked{background:var(--green);}
+.power-cut-pip-missed{background:var(--red);}
+.power-cut-status{min-height:30px; padding:8px; color:var(--gold); background:var(--dark); border:2px solid var(--panel2); font-size:7px; line-height:1.8; text-align:center;}
+.power-cut-stop{margin-top:9px; background:#6a2634;}
+.power-cut-key-hint{margin-top:6px; color:var(--grey); font-size:6px; text-align:center;}
+.power-success .lock-success-mark{background:#172950; border-color:#87a9ff; box-shadow:6px 6px 0 #0a1025;}
+.power-success .lock-success-title{color:#9fe6ff;}
+
+/* Evidence Timeline: ordering board, keyboard/touch first (no drag and drop). */
+.timeline-list{list-style:none; margin:0 0 10px; padding:0; display:flex; flex-direction:column; gap:6px;}
+.timeline-card{
+  display:flex; align-items:center; gap:8px; padding:7px;
+  background:var(--dark); border:2px solid var(--panel2);
+}
+.timeline-rank{
+  flex:0 0 auto; width:20px; height:20px; display:flex; align-items:center; justify-content:center;
+  color:var(--gold); background:#131c3f; border:2px solid var(--panel2); font-size:8px;
+}
+.timeline-text{flex:1 1 auto; font-size:8px; line-height:1.9;}
+.timeline-moves{flex:0 0 auto; display:flex; gap:4px;}
+.btn.small.timeline-move{width:44px; min-width:44px; min-height:44px; padding:0; text-align:center; line-height:1;}
+.timeline-actions{display:flex; flex-direction:column; gap:7px;}
+.btn.small.timeline-decline{width:100%; min-height:44px; background:#2a2f45; box-shadow:0 4px 0 #12162a;}
+.timeline-decline:hover{background:#39405f;}
+.timeline-result .lock-success-mark{background:#14301f; border-color:#5bd48b; box-shadow:6px 6px 0 #08160e;}
+.timeline-result .lock-success-title{color:#8ef0b4;}
+.timeline-result-miss .lock-success-mark{background:#3a1520; border-color:#e07a90; box-shadow:6px 6px 0 #1c0910;}
+.timeline-result-miss .lock-success-title{color:#ffb3c1;}
+
+/* Contradiction Board: two columns of tappable cards, no drag and drop. */
+.contra-status{
+  margin-bottom:8px; padding:6px; text-align:center; font-size:8px;
+  color:var(--gold); background:#131c3f; border:2px solid var(--panel2);
+}
+.contra-columns{display:flex; gap:8px; margin-bottom:10px;}
+.contra-column{flex:1 1 0; min-width:0;}
+.contra-heading{margin:0 0 6px; font-size:8px; color:#9fb2ff; letter-spacing:1px;}
+.contra-list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px;}
+.btn.small.contra-card{
+  width:100%; min-height:48px; padding:7px; text-align:left; font-size:8px; line-height:1.8;
+  white-space:normal; word-break:break-word;
+}
+.btn.small.contra-card.contra-selected{background:#2f5d7a; box-shadow:0 4px 0 #1a3646; border-left:4px solid #7fc6e8;}
+.btn.small.contra-card.contra-done{background:#1e4a33; box-shadow:0 4px 0 #10281c; opacity:1;}
+.btn.small.contra-card.contra-done:disabled{opacity:.8;}
+@media (max-width:520px){ .contra-columns{flex-direction:column;} }
+
+/* Last-chance coin call after a failed covert action. */
+.coin-warning{
+  margin-bottom:8px; padding:7px; color:#ffdce2; background:#5e1f2c;
+  border:2px solid var(--red); font-size:8px; text-align:center; animation:coin-alert .65s steps(2,end) infinite;
+}
+.coin-instructions{color:var(--grey); font-size:8px; text-align:center;}
+.coin-stage{
+  position:relative; display:flex; align-items:center; justify-content:center; min-height:196px; margin:10px 0;
+  perspective:760px; perspective-origin:50% 46%; overflow:hidden;
+  background:radial-gradient(circle,#354b91 0,#151a39 48%,#0c1025 100%);
+  border:3px solid var(--dark); box-shadow:inset 0 0 0 2px var(--panel2);
+}
+/* A struck coin, not a token: two faces, a milled rim built from stacked discs,
+   and a tumble that comes at the camera instead of spinning in place. */
+.coin3d{
+  position:relative; width:112px; height:112px; transform-style:preserve-3d;
+  will-change:transform;
+}
+.coin-side{
+  position:absolute; inset:0; border-radius:50%; overflow:hidden; backface-visibility:hidden;
+  box-shadow:0 0 0 2px #7d4f1c;
+}
+.coin-side-heads{transform:translateZ(5px);}
+.coin-side-tails{transform:rotateX(180deg) translateZ(5px);}
+/* Hollow rings, not discs: a stack of solid discs would sit in front of the
+   faces at every angle except dead-on and hide the strike. The conic stripes
+   are the milling, and they only ever read at the edge — which is correct. */
+.coin-rim{
+  position:absolute; inset:0; border-radius:50%;
+  background:repeating-conic-gradient(from 0deg,#c98a3f 0 3deg,#8a5a24 3deg 6deg);
+  -webkit-mask:radial-gradient(circle,transparent 0 45%,#000 46%);
+  mask:radial-gradient(circle,transparent 0 45%,#000 46%);
+}
+.coin-art{display:block; width:100%; height:100%;}
+.coin-blank{fill:#c98a3f;}
+.coin-bevel{fill:#ffcd75;}
+.coin-beads{fill:none; stroke:#a8702c; stroke-width:1.4; stroke-dasharray:1.2 2.6;}
+.coin-relief{fill:#8a5a24;}
+.coin-relief-deep{fill:#6d4318;}
+.coin-relief-light{fill:#ffe7a3;}
+.coin-legend{fill:#6d4318; font-family:inherit; font-size:4.4px; letter-spacing:.35px;}
+.coin-legend-small{fill:#8a5a24; font-size:3.4px; letter-spacing:.5px;}
+.coin-shadow{
+  position:absolute; left:50%; bottom:16px; width:104px; height:12px; margin-left:-52px;
+  background:radial-gradient(ellipse,rgba(0,0,0,.55) 0,rgba(0,0,0,0) 70%); border-radius:50%;
+}
+.coin-shadow-idle{animation:coin-shadow-idle 2.6s ease-in-out infinite;}
+.coin-shadow-toss{animation:coin-shadow-toss 1.55s cubic-bezier(.2,.72,.24,1);}
+.coin3d-idle{animation:coin-tumble 2.6s linear infinite;}
+/* Landing rotation decides the visible face: a whole number of turns shows
+   heads, a half turn more shows tails. */
+.coin3d-toss.coin3d-lands-heads{animation:coin-toss-heads 1.55s cubic-bezier(.2,.72,.24,1);}
+.coin3d-toss.coin3d-lands-tails{animation:coin-toss-tails 1.55s cubic-bezier(.2,.72,.24,1);}
+.coin3d-toss.coin3d-lands-tails{transform:rotateX(180deg);} /* static fallback: reduced motion still lands right */
+.coin-choice{display:grid; grid-template-columns:1fr 1fr; gap:10px; border:0;}
+.coin-choice legend{width:100%; margin-bottom:7px; color:var(--gold); font-size:8px; text-align:center;}
+.coin-choice-button{min-height:56px;}
+.coin-result-card{
+  margin-bottom:12px; padding:11px; background:var(--dark); border:3px solid var(--panel2); text-align:center;
+}
+.coin-result-face{color:var(--gold); font-size:9px;}
+.coin-result-call{margin-top:4px; color:var(--grey); font-size:7px;}
+.coin-result-verdict{display:block; margin-top:10px; font-size:11px;}
+.coin-escaped .coin-result-verdict{color:var(--green);}
+.coin-caught .coin-result-verdict{color:#ff8da1;}
+.coin-escaped .coin-result-card{border-color:var(--green);}
+.coin-caught .coin-result-card{border-color:var(--red);}
+
+@keyframes action-enter{
+  from{opacity:0; transform:translateY(12px) scale(.98);}
+  to{opacity:1; transform:translateY(0) scale(1);}
+}
+@keyframes lock-open{
+  0%{opacity:0; transform:rotate(-4deg) scale(.6);}
+  65%{opacity:1; transform:rotate(2deg) scale(1.08);}
+  100%{transform:rotate(0) scale(1);}
+}
+/* Waiting on the call: the coin turns over slowly so both faces are known. */
+@keyframes coin-tumble{
+  from{transform:translateZ(-40px) rotateX(0);}
+  to{transform:translateZ(-40px) rotateX(-360deg);}
+}
+/* The toss: flicked up and away, then tumbling back toward the camera, hanging
+   close for a beat before it settles into the frame. */
+@keyframes coin-toss-heads{
+  0%{opacity:.35; transform:translateZ(-520px) translateY(6%) rotateX(0);}
+  18%{opacity:1;}
+  56%{transform:translateZ(120px) translateY(-9%) rotateX(-1260deg);}
+  80%{transform:translateZ(30px) translateY(3%) rotateX(-1710deg);}
+  100%{transform:translateZ(0) translateY(0) rotateX(-1800deg);}
+}
+@keyframes coin-toss-tails{
+  0%{opacity:.35; transform:translateZ(-520px) translateY(6%) rotateX(0);}
+  18%{opacity:1;}
+  56%{transform:translateZ(120px) translateY(-9%) rotateX(-1080deg);}
+  80%{transform:translateZ(30px) translateY(3%) rotateX(-1530deg);}
+  100%{transform:translateZ(0) translateY(0) rotateX(-1620deg);}
+}
+@keyframes coin-shadow-idle{
+  0%,100%{opacity:.5; transform:scale(1);}
+  50%{opacity:.35; transform:scale(.86);}
+}
+@keyframes coin-shadow-toss{
+  0%{opacity:0; transform:scale(.35);}
+  56%{opacity:.2; transform:scale(1.5);}
+  100%{opacity:.5; transform:scale(1);}
+}
+@keyframes coin-alert{0%,49%{filter:brightness(1);} 50%,100%{filter:brightness(1.35);}}
+@keyframes power-live{0%,49%{box-shadow:inset 0 0 0 0 rgba(255,205,117,0);} 50%,100%{box-shadow:inset 0 0 0 3px rgba(255,205,117,.25);}}
+
+@media (max-width:600px){
+  .action-overlay{
+    padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right))
+      max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));
+  }
+  .action-overlay .action-dialog{
+    max-height:calc(100dvh - max(16px,env(safe-area-inset-top)) - max(16px,env(safe-area-inset-bottom)));
+    padding:13px; border-width:3px;
+  }
+  .action-dialog h2{font-size:10px;}
+  .action-brief,.lock-instructions,.coin-instructions,.power-cut-instructions{font-size:8px; line-height:2;}
+  .lock-stage{min-height:150px;}
+  .lock-door-plate{width:190px; height:124px;}
+  .lock-cylinder{width:78px; height:78px; margin:-39px 0 0 -39px;}
+  .lock-pick{width:66px;}
+  .lock-range{height:52px;}
+  .lock-attempts{align-items:flex-start; flex-direction:column; gap:7px;}
+  .lock-attempt-pips{margin-left:0;}
+  .coin-stage{min-height:158px; perspective:600px;}
+  .coin3d{width:88px; height:88px;}
+  .coin-shadow{width:82px; margin-left:-41px; bottom:12px;}
+  .coin-choice{gap:7px;}
+  .coin-choice-button{min-height:52px; padding:8px 5px; text-align:center;}
+  .power-ring-stage{gap:5px; padding:7px;}
+  .power-ring{padding:6px 2px;}
+  .power-ring-track{width:min(100%,88px); border-width:5px;}
+  .power-ring-marker::before{top:2px; width:5px; height:18px;}
+  .power-ring-caption{font-size:5px;}
+  .power-ring-caption strong{font-size:6px;}
+  .skill-upgrade{min-height:48px;}
+}
+
+@media (max-width:360px){
+  .coin-choice{grid-template-columns:1fr;}
+  .action-kicker{font-size:6px;}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .shaking,.action-dialog,.lock-pick,.lock-success-mark,.coin-warning,.coin3d,.coin-shadow,.power-cut-warning{
+    animation:none!important; transition:none!important;
+  }
+  /* Without the toss the coin must still be readable and still land correctly:
+     the tails class carries its own static half-turn. */
+  .coin-shadow{opacity:.45;}
+}
+
+/* First-run walkthrough: same modal furniture as the action dialog, quieter. */
+.intro-dialog{max-width:440px;}
+.intro-body{margin:10px 0 0; color:var(--paper); font-size:8px; line-height:2.1;}
+.intro-pips{display:flex; justify-content:center; gap:6px; margin:14px 0 12px;}
+.intro-pip{width:9px; height:9px; background:var(--dark); border:2px solid var(--panel2);}
+.intro-pip-on{background:var(--gold); border-color:var(--gold);}
+.intro-actions{display:flex; flex-direction:column; gap:7px;}
+.btn.small.intro-skip{width:100%; min-height:44px; background:#2a2f45; box-shadow:0 4px 0 #12162a;}
+.intro-skip:hover{background:#39405f;}
+
+/* Lockpick: the plug turns with the pick, the whole cylinder shakes harder the
+   more you lean on it, and a sheared pick stays visible in the keyway. */
+.lock-plug{
+  position:absolute; inset:9px; border-radius:50%; background:#4a5a6d;
+  border:3px solid #263342; box-shadow:inset 0 0 0 3px #6b7d90;
+  transition:transform .12s steps(3,end);
+}
+.lock-pins{z-index:3;}
+.lock-strain-working .lock-cylinder{animation:lock-tremor .18s steps(2,end) infinite;}
+.lock-strain-high .lock-cylinder{animation:lock-tremor .12s steps(2,end) infinite; --tremor:2px;}
+.lock-strain-critical .lock-cylinder{animation:lock-tremor .07s steps(2,end) infinite; --tremor:3px;}
+@keyframes lock-tremor{
+  0%{transform:translate(calc(var(--tremor,1px) * -1),0);}
+  50%{transform:translate(var(--tremor,1px),calc(var(--tremor,1px) * -1));}
+  100%{transform:translate(0,var(--tremor,1px));}
+}
+.lock-stub{
+  position:absolute; left:50%; top:50%; width:16px; height:5px; margin:-2px 0 0 -2px;
+  background:#e0c88a; border:2px solid var(--dark); transform:rotate(18deg);
+}
+.lock-pick-broken{opacity:.55;}
+.lock-pick-broken .lock-pick-tip{background:var(--red);}
+/* Lockpick: tension gauge, straining pick and pins that lift with pressure. */
+.lock-pins{position:absolute; top:8px; left:50%; margin-left:-32px; display:flex; gap:6px; width:64px;}
+.lock-pin{
+  flex:1 1 0; height:18px; background:#8fa3c8; border:2px solid var(--dark);
+  transition:transform .12s steps(3,end);
+}
+.lock-feel-close .lock-pin{background:#7fe0a5;}
+.lock-feel-strain .lock-pin{background:#e08a9a;}
+.lock-readout{
+  margin-top:8px; text-align:center; font-size:7px; letter-spacing:1px; color:var(--grey);
+}
+.lock-strain-high .lock-readout{color:var(--gold);}
+.lock-strain-critical .lock-readout{color:#ff8da1; animation:coin-alert .5s steps(2,end) infinite;}
+.lock-gauge{height:12px; margin:6px 0 4px; background:var(--dark); border:2px solid var(--panel2);}
+.lock-gauge-fill{display:block; height:100%; background:var(--green); transition:width .1s linear;}
+.lock-strain-working .lock-gauge-fill{background:#8fd66b;}
+.lock-strain-high .lock-gauge-fill{background:var(--gold);}
+.lock-strain-critical .lock-gauge-fill{background:var(--red);}
+.lock-pick{transition:transform .12s steps(3,end);}
+.lock-pick-snapped{opacity:.4; filter:saturate(.2);}
+.lock-nudge{display:flex; gap:8px; margin:8px 0 10px;}
+.btn.small.lock-nudge-btn{flex:1 1 0; min-height:48px; text-align:center;}
+@media (prefers-reduced-motion:reduce){
+  .lock-pin,.lock-pick,.lock-plug,.lock-gauge-fill{transition:none!important;}
+  .lock-cylinder{animation:none!important;}
+}

@@ -1,7 +1,20 @@
 # FANCY OUTFITS — Project Handoff Document
 
-> Bu dosya `CLAUDE.md` olarak proje kökünde durduğu için Claude Code tarafından otomatik okunur.
+> Bu dosya `AGENTS.md` olarak proje kökünde durduğu için Codex tarafından otomatik okunur.
 > Amaç: bu projeye sıfırdan katılan bir geliştiricinin (insan veya AI) hiçbir bağlam kaybı olmadan devam edebilmesi.
+
+> **CURRENT CHECKPOINT — 2026-08-12:** Bu dosyanın aşağıdaki tarihsel gövdesi 2026-07-19'da
+> bayat kalmıştı; güncel ve git'te izlenen ayrıntılı handoff `CLAUDE.md`'dir. Hakim hafızası
+> v1.9.8/v1.9.13'te, ilk lockpick COVERT ACTION v1.9.16'da tamamlandı. v1.9.17'de ikinci
+> NimbusHost Power Cut, v1.9.18'de XP/level + SNEAKY/ENDURANCE sistemi; v1.9.19'da Fraud
+> fatigue slip + üç aşamalı identity pressure ve schema v14 tamamlandı. Due Fraud confrontation
+> sabah pasiflerinden önce açılır; persisted continuation seçim sonrası sabahı exact-once sürdürür.
+> Aktif v9/v10 minigame kayıtları legacy skill snapshot'ıyla board/toil/checkpoint değiştirmeden sürer.
+> Ortak güncel oturum/handoff kaydı için önce `DEV_LOGBOOK.md` okunmalıdır. Kullanıcının 2026-08-13
+> kararıyla gerçek sıradaki iş bağlamsal minigame hattı, ilk vertical slice **Evidence Timeline**'dır.
+> Mobil layout + Capacitor bunun ardından backlog'da kalır; sonra bağlamsal SFX ve Steam paketleme gelir.
+> Aşağıdaki “sıradaki: hakim hafızası” kayıtları
+> yalnız tarihsel bağlamdır ve aktif backlog sayılmaz.
 
 ---
 
@@ -34,7 +47,7 @@
 **Tamamlanan (v0.2, çalışıyor):**
 - 3 başlangıç senaryosu: The Fraud (diploma yok, özel expose kriz eventi), The Debtor (3 günde bir $2000 taksit, kaçırırsan game over), The Legacy (Influence kazançları ×1.25, Reputation kayıpları ×1.25).
 - Gün döngüsü: 75 sn timer, END DAY butonu, gün sonu özeti, deadline kontrolü.
-- 10 el yazması dava (3 tier: 0=ayak işi, 1=gerçek dava, 2=mahkeme); Redvale dosyasında 4. seçenek olarak ilk interaktif COVERT ACTION bulunur.
+- 9 el yazması dava (3 tier: 0=ayak işi, 1=gerçek dava, 2=mahkeme), her biri 3 seçenekli.
 - Başarı şansı motoru (`chance()`): base + Boldness ölçeklemesi + hakim modifierleri + saygı modifieri + rütbe baskısı.
 - Delayed response: seçim anında zar atılır, sonuç N gün sonra REPLY olarak açıklanır.
 - 4 hakim (temper / by-the-book statlı), mahkeme davalarında dosya üzerinde görünür.
@@ -59,7 +72,7 @@
 - **NPC ilişki sistemi** (GDD §5): 4 NPC (Dana Paulsen, Raquel Lane, Harold Gustavson, Katrina Bergman), her run'da Reliable/Brave/Lazy/Traitor traitleri rastgele dağıtılır (her birinden tam bir tane). Traitler GİZLİ başlar; ilk delege ediş veya kriz açığa çıkarır. İlişki −100..+100, "THE FLOOR" panelinde görünür.
 - **Delege etme** (rank≥1'de açılır): mahkeme dışı davalar bir NPC'ye verilir, zar ANINDA atılır, sonuç ertesi sabah gelir. Şans = 60 + rel/5 + trait modu (Reliable +25, Brave +10, Lazy −20, Traitor −5). Lazy fail'lerin %65'i "sessiz bırakma" (dosya deadline'ı yanmış halde masana döner); Traitor fail'i ekstra −4 REP.
 - **Krizlerde NPC etkisi:** rel<25 Traitor %40 ihtimalle pozisyonunu sızdırır (tüm seçenekler −8%), yoksa rel≥40 Brave arkanda durur (+8%). Overlay'de görünür, trait'i açığa çıkarır.
-- **Prosedürel dava üreticisi** (`casegen.js`): API YOK, ağ YOK — kullanıcının açık isteği ("Claude API key oyuna entegre olmasın"). 7 şablon × isim/rakam/ipucu havuzları; el yazması dava havuzu tükenince veya 3. günden sonra %40 ihtimalle devreye girer. Eski bug #3 (havuz tekrarı) böylece çözüldü.
+- **Prosedürel dava üreticisi** (`casegen.js`): API YOK, ağ YOK — kullanıcının açık isteği ("Codex API key oyuna entegre olmasın"). 7 şablon × isim/rakam/ipucu havuzları; el yazması 9 dava tükenince veya 3. günden sonra %40 ihtimalle devreye girer. Eski bug #3 (havuz tekrarı) böylece çözüldü.
 - **PAUSE butonu:** ekranı KAPATAN overlay — bilinçli: açık dosyayı bedava okuma süresi vermesin (çekirdek gerilim korunur).
 - **Ofis sahnesi v2 + karakter:** sol kapı, duvar saati, dosya dolabı, kitaplık, halı, çöp kutusu, jaluzi, masada kahve+dosyalar; masada OTURAN oyuncu karakteri (takım elbise rütbeyle güzelleşir — oyunun adı bu), gün bitince kalkıp kapıdan çıkar (`S.charAnim`, özet yürüyüşten sonra açılır), yeni günde içeri yürüyüp oturur.
 
@@ -97,7 +110,7 @@
 
 **v1.1 eklendi (2026-07-09, kullanıcı isteği):**
 - **4. senaryo "The Defector":** Snidely Fitch'ten transfer. `chance()`'te Fitch geçen dosyalara riskli seçeneklerde +8 (metin match: `/Snidely Fitch/`, parodi isim sabit olduğu için güvenli). 2 özel sabotaj krizi: `poisonfile` (gün≥2), `counteroffer` (gün≥4).
-- **Başarımlar (`achievements.js`, `fo_ach_v1`):** 11 adet, run'lar arası kalıcı, start ekranında listelenir (■/□). `unlock(id)` ilk açılışta true döner; engine `ach(id)` ile log+SFX.bell fanfarı basar. Kancalar: gameWin (win/realistic/nosafe/defector/boomerang/ironman/bold≥65), delegateCase (Traitor'a 5.), choose (bribeW≥3), cuma övgüsü, gün≥15. İleride Steamworks'e 1:1 map'lenecek.
+- **Başarımlar (`achievements.js`, `fo_ach_v1`):** 10 adet, run'lar arası kalıcı, start ekranında listelenir (■/□). `unlock(id)` ilk açılışta true döner; engine `ach(id)` ile log+SFX.bell fanfarı basar. Kancalar: gameWin (win/realistic/nosafe/defector/ironman/bold≥65), delegateCase (Traitor'a 5.), choose (bribeW≥3), cuma övgüsü, gün≥15. İleride Steamworks'e 1:1 map'lenecek.
 - **Oyun modları (`S.mode`, start ekranında seçilir):** standard / **ironman** (saveGame no-op — kayıt yok) / **endless** (gameWin ilk seferde `S.endlessWon=true` + "KEEP BILLING" özeti, run devam eder; nemesis rank 4'e çıkamaz; `recordRun` `S.runRecorded` ile tek sefer sayar) / **daily** (tarih hash'i `setSeed`'e verilir, senaryo tarihten seçilir, zorluk MEDIUM'a kilitli, `S.dailyDate`).
 - **Deterministik RNG (`utils.js`):** mulberry32 tabanlı `rand()/setSeed()/clearSeed()`. TÜM oyun mantığı artık `rand()` kullanır — `Math.random` SADECE `sound.js`'te kalır (ses jitter'ı deterministik akışı tüketmesin). Yeni kod yazarken bu kurala uy.
 - **Klavye kısayolları (App.jsx `handleKey`):** 1-4 seçenek seçer (dava + kriz; paran yetmeyen bribe yok sayılır), Space dosya erteler/özeti ilerletir, Esc panelleri kapatır. Seçenek metinleri numaralandı. Handler modül `S`'ini okur (stale closure yok), sadece engine fonksiyonu çağırır.
@@ -173,149 +186,38 @@
 - **A5:** "nosafe" günlük hedefi 2+ dosya ister (tek ayak işiyle trivial değildi).
 - **A7:** `bossAbove`/`buildDemand` artık `firedNames` filtreler (kovulan patron angarya/eve-gönderme yapamaz); `maybeImpressClient` başlık regex'i prefiks + " — ..." sonekini soyar (savaş başlıkları temiz okunur).
 
-**v1.9.2 eklendi (2026-07-12, kullanıcı isteği):** Topbar'da "FRI IN n" yerine haftanın günü (`WEEKDAYS[(day-1)%WEEK_LEN]` — gün 1 Pazartesi, gün 5 Cuma altın renkli). Salt kozmetik; cuma review'ı hâlâ `day%5===0`, hafta sonu kartı `(day-1)%5===0`. Topbar.jsx.
+**v1.9.17 eklendi (2026-08-12):** Aldergate/NimbusHost dosyasındaki üç dönen devre halkalı Power Cut COVERT ACTION tamamlandı. Başarı aynı dosyaya +12 evidence edge verir; tek miss deterministik coin-call'a gider. Save schema v10 board kimliği + halka fazı/elapsed/angle ilişkisini doğrular. 1.5h +8 FATIGUE.
 
-**v1.9.3 eklendi (2026-07-12, dış denetim sonrası doğrulanan çökme/kilit bugları + Windows):**
-- **NPC kovma çökmesi:** `dismissEmployee` artık kovulan NPC'nin aktif delege dosyalarını masaya geri veriyor (`c.delegated=null`) ÖNCE, sonra `S.npcs`'ten çıkarıyor; `resolveDelegated` ve `Inbox.jsx` null-guard'lı (`(...||{}).name||"a colleague"`).
-- **Boş roster favor çökmesi:** `spawnFavor` başında `if(!S.npcs.length) return`.
-- **Rakip savaş dosyası poach kilidi:** `rivalTick` hedef filtresine `&&!c.big` eklendi.
-- **Buy-in çift terfi:** `checkPromotion` while'ında rank 3'e ulaşınca `break` (2→3→4 tek adımda zincirlenmiyor; Name Partner ayrı bir tetikleme gerektiriyor).
-- **Windows donma:** `app.disableHardwareAcceleration()` (GPU sürücüsü boyanmayan pencere sorunu — kullanıcının Windows'taki arkadaşı "donup kalıyor" demişti); açılışta `fullscreen:true` yerine `win.maximize()` + `show:false`/`ready-to-show`; F11 fullscreen toggle, Esc çıkış. `electron/main.js`.
+**v1.9.18 eklendi (2026-08-12):** Sekiz level + deterministik XP, senaryo innate rankları, SNEAKY/ENDURANCE etkileri, StatsPanel training UI ve strict schema v12 migration tamamlandı. XP yalnız görünür terminal/reveal noktalarında yazılır; DAILY RNG tüketmez. SNEAKY iki board tipini ve bunları geç kariyerde yeniden sunabilen 12. prosedürel filing'i etkiler; ENDURANCE yalnız pozitif work-fatigue'ı azaltır, late-work cezasını azaltmaz. Aktif eski puzzle kayıtları grandfather edilir; ara schema-11 late-work checkpoint'i kayıpsız yükselir. Final soak: 720 kariyer, 342/342 replay, integrity 0; Standard winner median Lv5, Endless gün 30 median Lv7.
 
-**v1.9.4 eklendi (2026-07-12, denge&bütünlük turu — 1. parça):**
-- **Sıfır-saat reload exploit'i KAPANDI:** saat 0'ken reload artık overtime'ı atlamıyor — loadGame sonunda `if(!S.event&&S.hours<=0) checkClock()` prompt'u yeniden açıyor.
-- **İçerik eventleri reload'da kaybolmuyor:** saveGame/loadGame `event`'i saklıyor AMA sadece içerik eventleri (`id!=="overtime"&&id!=="latework"`); geçici saat promptları yeniden türetiliyor. `pendingChoice` hâlâ transient.
-- **Daily determinizmi:** `utils.js`'e `getRngState/setRngState` (mulberry cursor `_t` modül-scope); saveGame `rngState` yazıyor, loadGame daily'de `setRngState` (yoksa `setSeed(hash)`), diğer modlarda `clearSeed()`.
-- **Delayed/delegated hedef+FIRM:** endDay cb'de `newObjective()` artık resolveDelayed/Delegated'DEN ÖNCE çağrılıyor (sabah gelen cevap günün hedefine sayılsın); resolveDelayed'e tier≥1 için FIRM ±1 simetrisi eklendi.
-- **Fraud EXPOSED finali:** audit "do nothing" fail'ine `expose:true`; resolveCrisis'te `if(out.expose) gameOver("EXPOSED")`. Diğer audit fail'leri hâlâ sadece stat cezası.
+**v1.9.19 eklendi (2026-08-12):** Fraud günlük post-ENDURANCE FATIGUE peak'ini kaydeder ve gün sonunda tek kez 80/90/95/100 bandına göre `%0.5/%1.5/%3/%5` slip check yapar. Hit doğrudan game-over değildir; ertesi sabah cover kararı, ardından başarısız kararlarda alumni → bar mismatch → insurer proof zinciri gelir. Her aşamada nonlethal safe yol, yalnız final risky fail'de EXPOSED vardır. Due yüzleşme sabah pasiflerinden önce açılır ve seçim sonrası sabah exact-once sürer. THE SECRET UI, exact Info copy, soak telemetry ve strict schema v14 `fraudRisk`/pending/canonical-event/continuation doğrulaması tamamlandı; reload zinciri kaybetmez.
 
-**v1.9.5 eklendi (2026-08-07, denge turu — 2. parça):**
-- **"İkinci seçeneğe bas" kalıbı kırıldı:** `instantiateCase` deep-copy edilen temel seçenekleri seed'li Fisher–Yates (`shuffle`, utils.js) ile karıştırır; corrupt judge bribe'ı SONRADAN eklenir ve daima son sıradadır. Save mevcut görünen sırayı korur. `clients.js`/`npcs.js` random `sort()` kullanımları da Fisher–Yates'e geçti.
-- **Stil ekonomisi ayrıldı:** yalnız başarılı CASE ödüllerinde technical INF `×TECH_INF_MULT(.70)`, aggressive INF `×AGG_INF_MULT(1.25)`; mevcut `INF_EARN(.6)` ile tek geçişte ölçeklenir. Safe/neutral, fail, kriz ve delege ödülleri değişmez. Technical güven/REP yolu, aggressive hızlı terfi yoludur.
-- **Mesai tavanı:** günde `OVERTIME_LIMIT(2)` blok; ilk +2h/+12 FATIGUE, ikinci +2h/+18 (`OVERTIME_FATIGUE_STEP(6)`). Limitten sonra prompt yalnız eve git seçeneği verir; engine guard sahte/stale üçüncü çağrıyı da reddeder.
-- **Kahve tavanı:** `COFFEE_LIMIT(2)`; ilk −14, ikinci −8 FATIGUE, üçüncü satın alma strict no-op. Espresso dekoru yalnız fiyatı $40'a indirir, limiti kaldırmaz. UI aynı `canBuyCoffee()` guard'ını kullanır.
-- **Eski save güvenliği:** eksik `otToday`, `otHours/OVERTIME_HOURS` üzerinden türetilir; kayıtlı değer 0..2 aralığına clamp edilir.
-- **Kalıcı regresyon testi:** `npm test` (`scripts/v195-check.mjs`) shuffle/save/DAILY cursor, stil ödülleri, kahve+overtime guard/migration ve 5 senaryo × 4 mod başlangıcını kapsar.
+**v1.9.20 eklendi (2026-08-13):** Evidence Timeline — ayrı bir aksiyon seçeneği değil, riskli hamle seçildikten sonra `TIMELINE_TRIGGER`(%25) ile açılan hazırlık penceresi. Board run/case/timeline kimliğinden dağıtılır, paylaşılan RNG'yi tüketmez, çözülmüş açılmaz. 0.5h + 3 FATIGUE her sonuçta ödenir; doğru sıra yalnız hazırlanan seçeneğe +12, yanlış sıra −10 ve −2 REP. Schema v15 board'u kimlikten yeniden türeterek doğrular.
 
-**v1.9.6 eklendi (2026-08-07, bütünlük + güvenlik turu):**
-- **Client War yaşam döngüsü:** `endClientWar(client)` bütün bitiş/kayıp/deadline yollarını merkezileştirir; inbox, follow-up, açık dosya ve latework seçimini idempotent temizler. `reconcileClientWarState()` eski kayıtlardaki sahipsiz/çift taşıyıcıları load sırasında onarır; spawn günü müşterisi veya aktif mandate'i olmayan filing düşürülür.
-- **Versiyonlu save/migration:** payload `SAVE_SCHEMA_VERSION` + `savedAt` taşır; schema 0→1 migration'ı eksik modern alanları ve Client Book prospect havuzunu güvenli tamamlar. Yalnız `newState()` whitelist'i hydrate edilir; temel sayılar, koleksiyonlar, dava/option/outcome zincirleri, event, roster, rival ve Client War metadata doğrulanır. Gelecek sürüm, bozuk JSON ve geçersiz save ham hali korunarak Start ekranında ayrı gösterilir.
-- **Kayıt hata güvenliği:** quota/blocked/serialize/write hataları son sağlam slotu bozmadan kalıcı `AUTO-SAVE FAILED` banner'ı verir; başarılı sonraki save uyarıyı temizler. Slot silme iki aşamalı; silme başarısızsa restart/reload ve terminal `NEW GAME` eski run'ı diriltmez, aynı buton silmeyi yeniden dener. Legacy tek-save anahtarı ancak hedef kopya doğrulandıktan sonra silinir. Ironman bozuk/yeni/blocked slotu değiştirmeden başlayabilir.
-- **Büyüme sınırı:** diskte yalnız son `SAVE_LOG_LIMIT(200)` log ve `SAVE_ARCHIVE_LIMIT(200)` arşiv kaydı tutulur; `archiveTotal` tüm kariyer sayısını korur.
-- **Gün sonu checkpoint'i:** deadline/review/debt/gece statları yürüyüş animasyonundan ÖNCE serileştirilen `pendingSummary` ile kaydedilir. Animasyon sırasında reload özeti geri getirir ve `advanceDay()` yalnız bir kez çalışır.
-- **Toolchain/güvenlik:** Vite 7.3.6, plugin-react 5.2.0, Electron 43.3.0, esbuild 0.28.1, postcss 8.5.26; Node ≥22.12. `npm audit` 0 açık. Production CSP sıkı `script-src/connect-src 'self'`; yalnız Vite dev sunucusu Fast Refresh inline preamble'ı + loopback HMR WebSocket izni ekler. Electron popup, dış navigation ve tüm permission request'lerini reddeder; dev URL yalnız loopback host kabul eder.
-- **Kalıcı testler:** `npm test` artık schema/migration, 5000 kayıt sınırı, bozuk/gelecek/boş save koruması, quota/storage/serialize/remove arızaları, animasyonda reload ve Client War cleanup/reconciliation invariantlarını kapsar.
+**v1.9.21 eklendi (2026-08-13):** (a) `TIMELINE_EDGE_DECLINE=-4` — "GO IN COLD" saat/FATIGUE yakmaz ama hamlenin şansını düşürür; `validTimelineEdge` artık tam değer kümesi (`{+12,−10,−4}`) doğrular. (b) Timeline 5 prosedürel şablona yayıldı (geç dosyalama, iki versiyonlu rapor, backdated email, patent, guaranty); tarihler yalnız gövdede, kartlarda değil. (c) Safe rota fiyatlandırıldı, güvenilirliği değil: `SAFE_COASTING` (ardışık safe çözümlerde INF −1/basamak, BOLD −2/basamak, cap 4, riskli hamle sıfırlar — `S.safeStreak`, schema v16) + `SAFE_HOURS_MULT` 1.5→1.75. Karar paired 64-seed kohortlarla verildi; 2.0× saat gizli global zorluk artışı olduğu için reddedildi (`BALANCE_SOAK_REPORT.md` v19.21). Soak'ta `safe_legacy` kontrolü var.
 
-**v1.9.7 eklendi (2026-08-07, FIRM anlamı + senaryo finalleri):**
-- **Standard FIRM güveni:** `firmCondition()` FIRM'i CRITICAL/STRAINED/STABLE/THRIVING bantlarına ayırır. Yalnız Standard modda dava sonrası müşteri etkilenmesi, sabah prospect edinimi ve kayıp sonrası müşteri ayrılma oranlarını değiştirir; diğer modların mevcut eğrisi korunur.
-- **Terfi kapıları:** Standard rütbe geçişleri sırasıyla FIRM 40/45/50 ister; buy-in parası şart sağlanmadan kesilmez. Mevcut yüksek rütbeli kayıtlar geriye düşürülmez. FIRM<50 iken TURNAROUND PLAN 1.5 saat +6 FATIGUE karşılığında +10 FIRM verir, 5 gün cooldown taşır; erken otomatik batış eklenmedi.
-- **Delege simetrisi:** tier≥1 delege sonuçları kazanırsa +1, normal kaybederse −1 FIRM; Lazy sessiz bırakma henüz hüküm olmadığı için nötrdür.
-- **Özel finaller:** Defector ve Boomerang terminal kazanma/kaybetme ekranlarına senaryoya özgü kapanış satırları eklendi. Boomerang zaferi `RETURN TO SENDER` başarımını açar; toplam 11 başarım.
-- **Save schema v2 + testler:** `firmPlanDay` ve `firmGateHintRank` 1→2 migration'ıyla backfill edilir ve doğrulanır. `npm test` bant sınırlarını, oranları, mod izolasyonunu, terfi/buy-in guard'larını, turnaround maliyet-cooldown'unu, delege FIRM sonuçlarını ve beş senaryonun finallerini kapsar.
+**v1.9.22 eklendi (2026-08-13):** Contradiction Board — Timeline'ın tersi tasarım: dosyanın üzerinde gönüllü CASE PREP seçeneği (`style:"prep"`, `action.type:"contradiction"`), 1.5h + 6 FATIGUE peşin, tam chart +15 kenar, kısmi `floor(edge*found/total)`, sıfır → kenar yok + −2 BOLD. COVERT makinesi yeniden kullanıldı ama covert semantiği değil (coin call/yakalanma yok, ayrı `contraTry/W/L` sayaçları); `validOption` etiketi tipe göre zorlar. Board `runSeed|caseId|actionId` kimliğinden 3 ifade + 1 decoy çeker, paylaşılan RNG'yi tüketmez, `CONTRA_ATTEMPTS`(4) denemeyle sınırlıdır. Dava ÇÖZÜLMEZ — dosya masaya döner. Court dosyaları artık prep taşıyabilir, covert taşıyamaz. Hostlar: el yazması `court2` + prosedürel şablon 4 (%50). Schema v17 board'u kimlikten yeniden türeterek doğrular.
 
-**v1.9.8 eklendi (2026-08-08, hakim hafızası):**
-- **Stabil hakim kimliği + run hafızası:** 7 `JUDGES` kaydı sırası bozulmadan `id` ve deterministik iyi/kötü replik aldı. `S.judgeMemory`, katalog nesnelerini MUTATE ETMEDEN, ID başına görünme/stil/sonuç/son gün sayaçlarını tutar; yeni run'da sıfırlanır.
-- **Canlı ve tavanlı modifier:** aynı hakimde agresif geçmiş kazanım başına −5 / kayıp başına −6 (toplam min −8); teknik W +4 / L −3 (−6..+6); tekrar bribe −7 (min −8). Safe garanti %100 kalır ve eski kalıbı silmez. Başka hakim etkilenmez. `judgeMemoryModifier/Info` saf ve RNG tüketmez.
-- **Bilgi + replik UX'i:** CasePane ilk görünme veya önceki görünme/son stil/sonuç, son stile ve sonuca uyan hakime özel replik, W/L özeti ve tam canlı stil etkisini gösterir. Case Archive, gelecekteki duruşmalardan etkilenmemesi için duruşma anındaki `judgeMemory` metnini snapshot saklar; delayed dosya bu güvenli metni seçim anında `pending.judgeMemorySnapshot` içine dondurur. Info paneli ve GDD §7 güncellendi.
-- **Sonuç bütünlüğü:** instant sonuç archive'dan sonra tam bir kez hafızaya yazılır; delayed sonuç seçimde DEĞİL REPLY reveal'da yazılır (gizli `pending.win` oranlardan sızmaz). `choose()` stale/double-click guard'ı aynı davanın iki kez ödül/hafıza üretmesini engeller. Deadline kaçırma görünme sayılmaz.
-- **Save schema v3 + sert doğrulama:** 2→3 migration eksik `judgeMemory:{}` backfill eder; eski ID'siz açık hakim snapshot'ları kalıcı `LEGACY_JUDGE_IDS` isim→ID alias'ıyla çalışır. v3'te yalnız bilinen stabil ID güven kaynağıdır (çakışan isim ID'yi ezemez); isim/stat snapshot'ı güncel `JUDGES` kaydından yeniden kurulur. Memory sayaç/enums/son-stil-tutarlılığı/gün sınırı, option style enumu, canlı `judge:true`, pending/archive memory tipi ve delegated-court sahteciliği doğrulanır.
-- **DAILY/test:** replik, modifier, bilgi render ve memory update RNG cursor tüketmez. `npm test`; kimlik/quote, exact cap, same/other judge, safe, instant/delayed tek-yazım, delayed hearing snapshot'ı, non-empty memory save/reload, immutable archive, legacy ID fallback, malformed save ve aynı DAILY trace'i kapsar.
+**v1.9.23 eklendi (2026-08-18):** (a) Elektrik sabotajı kademeli zorlaştı — pencereler 514/360/248 ms yerine **677/330/182 ms**, 3. halka 132°/s. `POWER_CURVES`/`POWER_RULES=1`; eski eğri RULES 0 olarak korunur, save'de açık board dağıtıldığı kuralla yeniden türetilir. Schema v18 + `migrateV17ToV18`. UI: "CIRCUIT n · WARM-UP/STEADY/FAST". (b) İlk açılışta 4 kartlık walkthrough (`intro.js`, `IntroOverlay.jsx`, `fo_intro_v1`); `S.introStep` transient, `isPaused()`'a girer, save'e YAZILMAZ.
 
-**v1.9.9 eklendi (2026-08-08, deterministik kariyer soak + uzun-run bütünlüğü):**
-- **Headless kariyer laboratuvarı:** `scripts/soak-balance.mjs` gerçek public engine aksiyonlarını sürer; oyun RNG'si ile politika RNG'si ayrıdır. Beş temel politika + Endless `firm_stress`, provenance/source guard, canonical trace hash ve tek-seed replay modu vardır. `npm run test:soak` küçük, `npm run soak` varsayılan 64-seed matrisi çalıştırır.
-- **Doğrulanmış baseline:** 5 senaryo × Standard(40 gün) + Endless(50 gün), toplam 3.520 kariyer; 252/252 uç/şüpheli replay birebir aynı, 0 invariant ihlali. Technical Standard 315/320 win ve medyan gün 10 ile fazla baskın; pure Aggressive 10/320, exact max-chance 2/320. Normal Endless Technical 11.039 Name Partner sonrası günde 0 FIRM collapse. Detay ve A/B planı `BALANCE_SOAK_REPORT.md` içinde. Bu turda gameplay balance sabitleri DEĞİŞMEDİ.
-- **Save schema v4 / filing kimliği:** `S.caseSeq` prosedürel ID cursor'unu save/reload boyunca taşır; generated dava, nested appeal, Big Matter aşamaları ve lawsuit aynı persistent kaynaktan ID alır. 3→4 migration canlı/nested/archive ID'lerinden güvenli alt sınır türetir; unsafe veya mevcut ID'nin gerisindeki cursor, ID'siz canlı/generated yapı ve eksik `dueDay` reddedilir. Archive artık filing `id` saklar.
-- **Kritik bütünlük fixleri:** latework sonrası saat 0'da clamp (negatif saat save'i yok); sabah tüm delayed/delegated sonuçlarından sonra tek promotion check (Endless NP özet race'i yok); active event option kimliği strict guard (stale/double click yok); expired Lazy/missing-NPC işi yeniden canlanmak yerine deadline miss olur; stale NPC delegation no-op; 2h overtime hazard tam blok bileşiğini kullanır.
-- **Endless terminal/record sırası:** rank 3→4 sırasında FIRM collapse kazanım kaydından önce kontrol edilir. Endless'ın ilk NP kaydı run/win'i bir kez sayar; kariyer daha sonra uzadığında lifetime best day/rank güncellenmeye devam eder.
-- **Bounded inbox:** notification mesajları en yeni `INBOX_MESSAGE_LIMIT(80)` kayıtla sınırlı; canlı davalar ayrı korunur, eski save load sırasında onarılır. 3.520 koşuda maksimum tam 80, taşma 0.
-- **Regresyonlar:** gerçek latework zinciri, dual morning result, low-FIRM false win, lazy/missing deadline burn, procedural ID DAILY reload/migration, malformed schema4, stale event/overtime, message repair, Client War carrier ve Endless record idempotence kalıcı `npm test` kapsamındadır.
+**v1.9.24 eklendi (2026-08-18):** Kilit açma yeniden tasarlandı — açı seçmek yerine GERİLİM: `give`±`tolerance` bandında TURN açar, `breakAt` geçilirse pik kırılıp hak gider (TURN'süz), erken TURN de hakkı yakar. `LOCK_ATTEMPTS=1` (rank 0'da tek pik); SNEAKY eşiklerinde +1 pik, ayrıca band ve kırılma payı büyür. `lockFeel` dürüst geri bildirim (dead/shift/give/strain). UI: yükselen pimler, bükülen pik, strain okuması. Schema v19: `migrateV18ToV19` yarım kilidi düşürüp covert seçeneği harcanmamış olarak iade eder.
 
-**v1.9.10 eklendi (2026-08-08, ölçümlü progression A/B):**
-- **Exact INF attribution + yeni politikalar:** test-only probe pozitif INF'i `case/big_case/delayed/delegated/favor/objective/review/crisis/client_event/demand/story/weekend/rival/decor/other` kaynaklarına ayırır. Soak runner `mixed` görünür-bilgi kariyer botu, izole `firm_only_stress`, scenario/mode/policy/variant filtreleri ve variant-bazlı cohort raporu aldı. Production, experiment/probe set etmez.
-- **A/B kararı:** delegated INF ×.5 ve dağıtılmış reward kesintileri Technical rotayı hâlâ %100 / medyan gün 11'de bıraktı. Friday-only promotion süreyi 21 güne taşıdı ama 2 delege/gün ile %96,9 win kaldı. Friday promotion + `DELEGATE_CAP(1)` final 64-seed Standard kohortunda %69,4 win / medyan gün 21 / gün≤12 %0 verdi; beş senaryo Technical sonucu %65,6–73,4. Bu aday canlıya alındı; reward/zar/NPC oranları değişmedi.
-- **Terfi ritmi:** Influence eşiği artık yalnız promotion-ready yapar. Cuma end-of-day partner review kararının ertesi sabahı en fazla bir rütbe verilir. UI barı/info/log bunu açıklar; review tüketimi `S.promotionReviewDay`, tek-seferlik mesaj `S.promotionHintRank` ile save-stable'dır.
-- **Delegasyon UX/guard:** günde tek filing devredilir. CasePane `used/1` gösterir ve slot dolunca butonları disable eder; engine sahte/stale ikinci çağrıyı strict no-op tutar.
-- **Save schema v5 + doğrulama:** 4→5 migration iki promotion alanını backfill eder; gün/rank sınırları validate edilir. Reload tüketilmiş cuma kararını yeniden oynatamaz. Regresyon testi cadence, tek-review/tek-rank, save/reload ve handoff limitini kapsar.
-- **Final doğrulama:** paired Standard 1.280 kariyer / 96 replay ve Endless 1.920 kariyer / 201 replay; tüm replay'ler aynı, invariant ihlali 0. Ayrıntı `BALANCE_SOAK_REPORT.md` v19.10 ekinde.
-
-**v1.9.11 eklendi (2026-08-08, controlled-risk + Boomerang kök neden):**
-- **`bold_mixed` politika:** yalnız görünür şans bilgisini kullanır; REP/Boldness tamponuyla ölçülü aggressive shot alır, tehlikede safe/technical'a döner, deadline baskısında delege eder ve rival truce kullanır. Final 320 Standard kariyerde %9 aggressive seçim, %63,4 win, %14,4 FIRED; Technical %69,4 win/%5,6 FIRED. Risk rota yaşayabilir ama gerçekten daha tehlikelidir.
-- **Nedensel telemetry:** test-only balance probe artık oyuncu pozitif INF'inden ayrı rival `passive/failure` INF kaynağını bildirir. Soak delegated W/L, deadline sonucu, rival hamlesi, final NPC rel, aggressive visible-chance bandı ve her rütbenin `promotionReadyDay` medyanını toplar. Canonical replay snapshot v1.9.10 promotion review/hint state'ini de kapsar.
-- **Boomerang false positive fix'i (SADECE test modeli):** eski Mixed bot başlangıç rel−25 → görünür ~%55 delegasyon tahminini kendi %60 eşiğiyle reddedip 64 seedde 0 delege yapıyordu. Deadline baskısında Boomerang için %55'i kabul edince aynı corpus %21,9→%71,9 win, 4,30→1,20 miss, 0→14,23 delege/run oldu. Oyun senaryosu/NPC/REP/deadline sabiti DEĞİŞMEDİ.
-- **Şüpheli seed ikinci test:** `2874639110` eski modelde 0 delege+9 miss ile OUTPACED; yeni modelde 16 delege+0 miss ile gün21 Name Partner. Yeni trace iki tekrar `7d8a6193...74ac`, birebir aynı.
-- **Reddedilen reward A/B:** `AGG_INF_MULT` 1.25/1.50/1.75, 480 paired kariyerde aynı %59,4 win/gün21 verdi. Hook'un draw-time fx'i gerçekten değiştirdiği regression ile kanıtlandı; ek INF cuma beklerken 100 cap'inde kırpıldığı için gameplay constant'a alınmadı.
-- **Ana doğrulama:** 64 seed × 5 senaryo × Technical/Mixed/Bold Mixed = 960 kariyer, 79/79 replay, 0 invariant. Ayrıntı `BALANCE_SOAK_REPORT.md` v19.11 bölümünde.
-
-**v1.9.12 eklendi (2026-08-08, FIRM endgame A/B):**
-- **Canlı Name Partner operasyonu:** roster her sabah `ceil(headcount/10)` FIRM payroll yakar (başlangıç ~13 kişi → −2). Her personel %30 ihtimalle iş yapar; PERFORMANCE ile şans `50+impact×8`, win `+1`, loss `−2` FIRM. Collapse eşiği 15 değişmedi.
-- **Gerçek yönetim tradeoff'u:** zayıf personeli çıkarmak roster drift'ini ve 11→10 headcount eşiğinde payroll'u iyileştirebilir; kovma morali −2, NPC delegation kaybı ve kalıcı lawsuit heat'i aynen korunur.
-- **UI tutarlılığı:** yanlış `IMPACT n/day` metni `PERFORMANCE n · p% WIN` oldu. FIRM overlay headcount, sabah operating load, %30 activity ve exact `+1/−2` sonucu gösterir; NP özeti ilk payroll'u açıklar.
-- **Nedensel telemetry:** post-NP FIRM akışı kaynaklara ayrılır; roster work, raw/capped drift, employee-days, firing impact, lawsuit, cap'te kırpılan FIRM ve delta/gün raporlanır. `firm_manager` ile aynı docket'i kötü yöneten `firm_bad_manager` eşli kontrol eklendi.
-- **Final A/B:** 64 seed × 5 senaryo × 2 politika × old/new = 1.280 Endless kariyer. Eski model 7.400 iyi + 6.390 kötü yönetim post-NP gününde 0 collapse; yeni model iyi %3,4, kötü %12,5. FIRM-cap günü %53,7/%37,2→%4/%2. 132/132 replay, 0 invariant. Save schema değişmedi.
-
-**v1.9.13 eklendi (2026-08-09, hakim hafızası rolling A/B):**
-- **Rolling active recall:** lifetime hakim W/L sayaçları ve özel replikler korunur; canlı şans yalnız son 3 duruşmayı `×1/×.35/×.15` ağırlıkla kullanır. Safe veya farklı stil yeni pencereye girerek eski örüntüyü yumuşatır; safe hâlâ %100. Technical üç yakın win ile +6 cap kurabilir, davranış silinmez.
-- **Friday adayı reddedildi:** eski full-career, Friday half-life ve rolling aynı seed'lerde çalıştı. Friday daha düşük cap verdi ama oyuncu aksiyonundan bağımsız takvim uçurumu yarattı. Rolling final 640 Endless kariyer/14.185 duruşmada post-day20 tüm cap `%53,3→%24,9`, Technical +6 `%54,4→%26,8`, Aggressive −8 `%53,1→%13,8`; Technical NP `%75,6` ve medyan gün21 değişmedi.
-- **UI:** CasePane lifetime `CAREER` toplamıyla `ACTIVE RECALL` kuralını ayırır; bugünkü exact modifier görünür. Info paneli son üç duruşma davranışını açıklar. Archive snapshot ve delayed-result gizliliği korunur.
-- **Save schema v6:** ID başına en fazla 12 recent event persist edilir. 5→6 migration v3–v5 lifetime toplamlarını kaybetmez, yalnız son bilinen duruşmayı active recall seed'i yapar. Recent enum/sıra/gün/counter/tail/limit doğrulanır; bozuk v6 kayıt sessizce onarılmaz.
-- **Deterministik test:** ön A/B 960 kariyer + 261 replay; final paired 640 kariyer + 88 replay; hepsi birebir, integrity 0. `npm test` rolling exact matematik, bounded transcript, Friday kontrolü, v5 migration, malformed recent ve DAILY save/reload cursor'u kapsar.
-
-**v1.9.14 eklendi (2026-08-09, INF overflow / Exceptional Review):** Senior Partner'da 100 üstünde kırpılan pozitif INF, 36 puanlık görünür review momentum'una dönüşür. En az iki sabah, REP 30+, FIRM kapısı ve ordinary Friday önceliği korunur; save schema v7.
-
-**v1.9.15 eklendi (2026-08-09, Earned Final Warning):** Fatal agresif fail yalnız BOLD≥70, 3+ başarılı blöf ve `bluffW>bluffL` snapshot'ıyla run başına bir kez durdurulur; REP 28'e gelir, −15 BOLD ödenir. Instant/delayed/crisis tek semantik kullanır; save schema v8.
-
-**v1.9.16 eklendi (2026-08-11, interaktif aksiyon vertical slice):** Redvale dosyasına tek kullanımlık COVERT ACTION eklendi. Üç denemeli kilit açma başarıda aynı dosyanın risky legal seçeneklerine +12 kanıt avantajı verir; üç miss sonrası deterministik yazı-tura çağrısı kaçış/yakalanma sonucunu belirler. Aksiyon davayı otomatik kazandırmaz. Tüm dallar 1.5h +7 FATIGUE öder; caught dosyayı kayıp olarak arşivler. `minigames.js` shared RNG tüketmez; challenge save/load'da aynı faz/deneme/sonuçla sürer. Save schema v9 target/coin/phase/position/case marker/briefing ilişkisini yeniden türetip doğrular. Modal focus trap + inert background, 48–52px touch hedefi, safe-area ve reduced-motion desteği içerir.
-
-**v1.9.17 eklendi (2026-08-12, Power Cut):** Aldergate/NimbusHost dosyasına ikinci COVERT ACTION eklendi. Farklı hız/yön/hedefli üç dönen devre halkası amber pencere içinde sırayla durdurulur; tek miss güvenliği uyandırıp deterministik coin-call kaçışına geçer. Üç başarı patch ledger'ı çıkarıp aynı dosyanın risky legal seçeneklerine +12 verir; dava otomatik kazanılmaz. Tüm dallar 1.5h +8 FATIGUE öder. Board shared RNG tüketmez; background frame delta 80ms ile sınırlıdır. Save schema v10 aktif halka, her halkanın elapsed/angle/phase'i ve sabit board kimliğini cross-validate eder. Desktop ve kompakt modal UI tamamlandı.
-
-**v1.9.18 eklendi (2026-08-12, progression + skill):** Sekiz seviyeli bağımsız kariyer XP'si ve her level-up'ta bir skill point tamamlandı. Senaryo innate rankları: Fraud SNEAKY 2, Debtor ENDURANCE 2, Defector/Boomerang 1+1, Legacy 0+0. SNEAKY rank başına lock tolerance +1°, rank 2/5'te ek deneme, Power Cut'ta −%7 hız ve daha geniş pencere verir. ENDURANCE senaryo katsayısından sonra pozitif work-fatigue'ı rank başına %6 düşürür; rest/coffee/overtime/geceye sarkma/narrative cezalara dokunmaz. XP yalnız görünür terminal/reveal noktalarında tek kez yazılır: instant/delayed case, final delegated handback, COVERT completion ve gerçek crisis. Delayed seçim, action start/attempt, silent return, deadline, favor, chore ve alışveriş 0 XP'dir. StatsPanel accessible LEVEL/XP/point/rank/exact-effect UI içerir. Schema v12 progression invariantlarını ve versioned challenge skill snapshot'ını strict doğrular; aktif v9/v10 puzzle'ları legacy rules ile board/toil/checkpoint değiştirmeden sürer, ara v11 late-work checkpoint'i de kayıpsız yükselir. Geç kariyerde SNEAKY yatırımının ölü seçime dönüşmemesi için 12. prosedürel filing iki COVERT board tipinden birini tekrar sunabilir.
-
-**v1.9.19 eklendi (2026-08-12, Fraud fatigue slip + identity pressure):** Fraud senaryosu her pozitif işten sonra post-ENDURANCE günlük en yüksek FATIGUE'ı kaydeder; gün sonundaki tek check 80–89 `%0.5`, 90–94 `%1.5`, 95–99 `%3`, 100 `%5` kullanır. Kahve peak'i silmez; terminal gün ghost event yazmaz; reload reroll vermez. Hit doğrudan ölüm/stat cezası değil, ertesi oynanabilir sabaha cover-story event'i kuyruğa alır. Başarısız cover kararları `SUSPICION 0..3` üzerinden alumni/faculty → iki bar numarası → malpractice insurer diploma proof zincirini açar; yalnız final aşamada bilinçli risky fail `EXPOSED` yapar, her aşamada 100% nonlethal BOLD/INF maliyetli yol vardır. StatsPanel THE SECRET görünümü, Info copy'si, `fraud.js` saf model/builders ve soak fraud telemetry eklendi. Schema v14 `fraudRisk` exact state + pending kind/day + canonical aktif event + pre-morning continuation'ı strict doğrular; schema12/13 kayıtları migrate olur, açık legacy audit canonical grandfather edilir. Due confrontation sabah REP/INF decay, rival, reply ve roster'dan önce açılır; seçimden sonra sabah pipeline'ı reload-safe biçimde tam bir kez sürer.
-
-**v1.9.20 eklendi (2026-08-13, Evidence Timeline):** Ayrı bir COVERT seçenek DEĞİL — oyuncu riskli bir hamleyi seçtikten sonra `TIMELINE_TRIGGER`(%25) ile açılan hazırlık penceresi (`choose()` içinde latework onayından sonra, bribe tahsilatından ÖNCE). Board `hash(runSeed|caseId|timelineId)` kimliğinden dağıtılır (paylaşılan `rand()` tüketilmez), 7 olaylık havuzdan 4 (rank≥2'de 5) çekilir, çözülmüş açılmaz. Sürükle-bırak yok: kart başına ▲/▼ (44×44) + SUBMIT + GO IN COLD. Maliyet 0.5h + 3 FATIGUE (ENDURANCE'a tabi), sonuç fark etmez. Doğru sıra `c.timelineEdge` ile SADECE hazırlanan seçeneğe +12, yanlış sıra −10 ve −2 REP. Schema v15 + `validTimelineChallenge` board'u kimlikten yeniden türetip doğrular.
-
-**v1.9.21 eklendi (2026-08-13, kullanıcı isteği):**
-- **"GO IN COLD" artık bedelsiz değil:** `TIMELINE_EDGE_DECLINE=-4` — reddetmek saat/FATIGUE yakmaz ama commit edilen hamlenin şansını düşürür (fail'in −10'undan hafif, ki oynamak mantıklı kalsın). `validTimelineEdge` aralık yerine TAM DEĞER KÜMESİ (`{+12,−10,−4}`) doğrular.
-- **Timeline prosedürel şablonlara yayıldı:** `casegen.js`'te 5 şablon (geç dosyalama, iki versiyonlu rapor, backdated email, patent prior disclosure, guaranty/noter) kendi 7 olaylık kronolojisini taşır. Tarihler YALNIZ dava gövdesinde; kartlarda tarih yok (regresyon testi bunu zorlar). Üretilen isim/rakamlar olay metinlerine de girer.
-- **Safe rota fiyatlandırıldı, güvenilirliği DEĞİL:** safe hâlâ %100 (`chance()` erken dönüşü aynı). (a) **Coasting** — `S.safeStreak` (schema v16): tier≥1 dosyalarda ardışık her safe çözüm `SAFE_STREAK_INF_STEP`(1) az INF öder, `SAFE_STREAK_BOLD`(2) fazla BOLD yakar, cap 4; herhangi bir riskli hamle sıfırlar; errand/favor saymaz. (b) `SAFE_HOURS_MULT` 1.5 → **1.75**. Karar 64 seed × 5 senaryo × 4 politika paired kohortlarla verildi: A normal kariyerleri değiştirmiyor ama "hep sessizce kapat" kariyerinin INF'ini %32 düşürüyor; 2.0× saat gizli global zorluk artışı olduğu için REDDEDİLDİ (`BALANCE_SOAK_REPORT.md` v19.21). Soak'ta `safe_legacy` kontrol variant'ı var. UI: CasePane'de canlı `COASTING: -n INF, -n BOLD` etiketi + Info/DESK metni.
-
-**v1.9.22 eklendi (2026-08-13, kullanıcı isteği — Contradiction Board):**
-- **Gönüllü CASE PREP seçeneği** (`style:"prep"`, `action.type:"contradiction"`): Timeline'ın tersi tasarım — istemsiz/ucuz/küçük kenar yerine bilinçli seçim, 1.5h + 6 FATIGUE peşin, +15 kenar. COVERT makinesi (`o.action`, `beginActionChallenge`, save doğrulaması) yeniden kullanıldı ama covert semantiği DEĞİL: coin call yok, yakalanma yok, ayrı `contraTry/contraW/contraL` sayaçları. `validOption` etiketi tipe göre zorlar (contradiction→prep, lockpick/power_cut→covert).
-- **Board (`minigames.js`, saf):** `contradictionDeal` 6 çift + 3 decoy havuzundan kimlikle (`runSeed|caseId|actionId`) 3 ifade + 1 decoy çeker, exhibit sütununu deterministik Fisher–Yates'le karıştırır; paylaşılan `rand()` tüketilmez. İfade seç → exhibit seç; yanlış eşleşme `CONTRA_ATTEMPTS`(4) denemeden birini yakar; "CLOSE THE BINDER" erken çıkışta kanıtlananı saklar.
-- **Ödül:** tam chart `action.edge`(15); kısmi `floor(edge*found/total)`; sıfır → kenar yok, −2 BOLD. Kenar mevcut `c.covertEdge` alanına yazılır (dosyanın kanıt kenarı), not metni prep dilinde. **Dava çözülmez** — dosya inbox'ta kalır ve masaya geri açılır.
-- **Invariant değişikliği:** court dosyaları artık prep taşıyabilir (`validCase` gevşetildi), covert taşımaya devam edemez — duruşma gecesi exhibit hazırlamak mantıklı, hırsızlık değil.
-- **İçerik:** el yazması `court2` (Pemberton) 6 çelişki + 3 decoy taşır; prosedürel şablon 4 (tartışmalı vasiyet) %50 ihtimalle kendi board'unu taşır (üretilen isim/mekân ifadelere girer).
-- **Save schema v17:** `migrateV16ToV17` sayaçları backfill eder; `validContradictionChallenge` yapı/deneme/tur tutarlılığını ve bankaya yazılmış her çiftin gerçek çözüm çifti olduğunu doğrular; load'da board kimlikten yeniden türetilip karşılaştırılır. Soak botları aksiyon seçeneklerini bilinçli olarak seçmez (interaktif board'lar kendi testleriyle kapsanır).
-
-**v1.9.23 eklendi (2026-08-18, kullanıcı isteği):**
-- **Elektrik sabotajı kademeli zorlaştı:** üç halka neredeyse aynı zorluktaydı (durdurma penceresi 514/360/248 ms); yeni eğri kolay→orta→zor: **677/330/182 ms**, 3. halka 132°/s (eskiden 105). `POWER_CURVES` + `POWER_RULES=1`; hız tabanları `[56,88,120]`, tolerans `[20,13,9]`, jitter ve SNEAKY indirimi korundu (max SNEAKY'de 1439/778/466 ms). **RULES 0 (eski eğri) korunur**: save'de açık board dağıtıldığı eğriyle sürer; `createActionChallenge(...,powerRules)` ve save doğrulaması kayıttaki kurala göre yeniden türetir. Schema v18 + `migrateV17ToV18` (v17'deki açık board'a `rules:0`). UI'da halkalar "CIRCUIT n · WARM-UP/STEADY/FAST" etiketli. Soak botları covert board oynamadığı için A/B yerine deterministik testlerle (sıralama + `windows[2]>=150ms`) kilitlendi.
-- **İlk açılış walkthrough'u (`intro.js` + `IntroOverlay.jsx`):** dört kart (THE DESK / THE CLOCK / THE CHOICE / THE LADDER), `fo_intro_v1` bayrağıyla ömür boyu bir kez. `S.introStep` TRANSIENT: `isPaused()`'a girer, hem `saveGame` hem `hydrateSaveData` soyar — kariyer kaydına yazılmaz. Space/Enter ilerletir, Esc atlar; SKIP de görüldü sayılır; `loadGame` asla açmaz.
-
-**v1.9.24 eklendi (2026-08-18, kullanıcı isteği — kilit açma yeniden tasarlandı):**
-- **Açı yerine GERİLİM:** çubuğu ittikçe pik yüklenir. `give`±`tolerance` bandında TURN → açılır; `breakAt` geçilirse **pik kırılır ve hak gider** (TURN'e basmadan). Erken TURN de hakkı yakar. `lockFeel` dead→shift→give→strain dürüst geri bildirim verir; beceri bandda durmakta. `setLockTension` artık kayda yazan gerçek bir aksiyon (`pressLockTension`).
-- **Hak sayısı SNEAKY'ye bağlı:** `LOCK_ATTEMPTS=1` — rank 0'da TEK pik; SNEAKY eşiklerinde (2 ve 5) +1. SNEAKY ayrıca bandı (`LOCK_TOLERANCE=4`+rank) ve kırılma payını büyütür.
-- **Sinyal dürüst ama çözülemez:** `lockFeel` yakınlık bandı verir (dead/shift/close/strain), gerçek kazanan band `lockGives`'tır. Band kilit başına değişen bir erken uyarıyla başlar (`hintLead`, 0..21; sabit `LOCK_HINT_SPREAD=22`) ve kısa sürede biter (`hintTail` 1..3) — sabit bir "şu kadar daha it" stratejisi bütün kapıları açamaz. SPREAD sabit tutulur ki SNEAKY (bandı genişleterek) belirsizliği AZALTSIN.
-- **UI (Skyrim tadında):** göbek pikle birlikte döner (pimler dönmez, yükselir), gerilim arttıkça silindir üç kademeli titrer, SLACK/UNDER LOAD/STRAINING/ABOUT TO GO okuması ve renklenen gösterge. TÜM bu sinyaller **mutlak basınca** bağlıdır — gizli veriş noktasını sızdırmaz. 48px EASE OFF/PUSH. (Titreme transform kullandığı için `.lock-cylinder` ortalaması margin ile yapılır.)
-- **Kırılan pik kilitte kalır:** `brokeInLock` yalnız SON pik kırılınca true. Yazı-tura sonucu buna göre anlatılır (`COIN_TEXT`): parça kalırsa sabah çizik kilit bulunur ve koridor kamera kaydı istenir (yakalanmanın açıklaması); parça yoksa yakalanma koridordan geçen biriyle olur. Dava metinlerindeki `escape`/`caught` yalnız SONUCU anlatır, "nasıl" yazı-turanındır.
-- **Denge simülasyonla ayarlandı** (`scripts/locksim-report.mjs`): ilk sürüm %100 açılıyordu. Son ölçüm — öğrenen oyuncu %11.5 → %39.7 → %66.7 (SNEAKY 0/2/5), derin kumar SNEAKY 0'da %9.5 kırılma. Denge sabiti değiştirilecekse önce bu rapor koşulmalı.
-- **Save:** schema v19. Açı ve gerilim modelleri ortak geometri paylaşmadığı için `migrateV18ToV19` yarım kalmış lockpick challenge'ını DÜŞÜRÜR ve `actionInProgress` işaretini siler — covert seçenek harcanmamış olarak dosyaya döner. (Power Cut'taki RULES 0 grandfather yaklaşımı burada bilinçli olarak kullanılmadı: iki model + iki arayüz bakım maliyeti.)
-
-**Dış denetim notu (Codex, 2026-08-12):** Bayat/untracked `AGENTS.md` yüzünden gerçek checkpoint yanlışlıkla v1.9.1/hakim hafızası sanılmıştı. Hakim hafızası v1.9.8/v1.9.13'te bitmişti; gerçek yarım iş v1.9.16 sonrası Power Cut entegrasyonuydu. Yarım model/UI dosyaları korunup engine/content/save/CSS/test zinciri tamamlandı.
-
-**En son çalışılan konu (2026-08-18):** v1.9.21 `ea50a3894` ile pushlandı; ardından v1.9.22 (Contradiction Board, schema v17), v1.9.22.1 (gerçek madeni para yazı-tura) ve v1.9.23 (sabotaj zorluk eğrisi + ilk açılış walkthrough'u, schema v18) tamamlandı ve kullanıcının push'unu bekliyor. `npm test`, `npm run build`, `npm run test:soak` (replay 336/336, integrity 0) yeşil; tarayıcıda gerçek tıklamalarla doğrulandı. Güncel ortak handoff ve oturum günlüğü `DEV_LOGBOOK.md`'dir. Sıradaki kullanıcı-onaylı iş **mobil layout + Capacitor**; bağlamsal SFX, GitHub Pages demo ve Steam paketleme sonraki backlog'dur.
-
-**Aklında tut (kullanıcı onaylı bekleyenler):** mobil layout + Capacitor; bağlamsal SFX; Steam paketleme (electron-builder + steamworks.js).
+**En son çalışılan konu (2026-08-13):** v1.9.21 `ea50a3894` ile pushlandı; ardından v1.9.22
+(Contradiction Board, schema v17) tamamlandı ve kullanıcının push'unu bekliyor. `npm test`,
+`npm run build`, `npm run test:soak` (replay 336/336, integrity 0) yeşil. Güncel ortak handoff
+`DEV_LOGBOOK.md` içindedir. Sıradaki kullanıcı-onaylı iş: **mobil layout + Capacitor**. Bağlamsal
+SFX, GitHub Pages demo ve Steam paketleme sonraki backlog'dur.
 
 ---
 
 # 3. Tech Stack
 
-- **Framework:** React 18 + Vite 7 (ilk React/Vite kararı: 2026-07-05; Vite 7 güvenlik güncellemesi: 2026-08-07). JSX, ES modülli config (`vite.config.mjs`). Node ≥22.12.
+- **Framework:** React 18 + Vite 5 (karar: 2026-07-05, kullanıcı isteğiyle — önceki "tek dosya vanilla" kararının yerini aldı). JSX, ES modülleri.
 - **State:** Framework state kütüphanesi YOK. Tek global mutable obje `S` (`src/game/state.js`) + minimal store: engine `S`'i mutasyona uğratır, `notify()` çağırır; React `useSyncExternalStore` ile dinler (`useGame()` hook'u). Oyun mantığı React'ten tamamen bağımsız saf JS modülleri.
 - **Dış bağımlılık (runtime):** react, react-dom + Google Fonts'tan `Press Start 2P` (CSS `@import`; internet yoksa monospace fallback). Başka runtime bağımlılığı EKLENMEZ.
 - **Ses:** Web Audio API ile runtime sentez — hiçbir ses dosyası yok (`src/game/sound.js`).
 - **Grafik:** CSS (chunky border, scanline overlay) + ofis sahnesi için runtime üretilen inline SVG (`OfficeScene.jsx`). Hiçbir görsel asset dosyası yok.
-- **Build/deploy:** `npm run dev` (Vite dev server, tarayıcı), `npm run build` (statik `dist/` — GitHub Pages/itch.io'ya konabilir), `npm start` (build + Electron masaüstü penceresi, Steam hedefi). `vite.config.mjs`'te `base:'./'` — Electron `file://` ve Pages alt yolları için gerekli, bozma.
+- **Build/deploy:** `npm run dev` (Vite dev server, tarayıcı), `npm run build` (statik `dist/` — GitHub Pages/itch.io'ya konabilir), `npm start` (build + Electron masaüstü penceresi, Steam hedefi). `vite.config.js`'te `base:'./'` — Electron `file://` ve Pages alt yolları için gerekli, bozma.
 - **Steam yolu:** Electron wrapper `electron/main.js`. İleride: `electron-builder` ile exe/app paketleme + `steamworks.js` ile Steamworks entegrasyonu (henüz eklenmedi).
 
 ---
@@ -325,37 +227,29 @@
 ```
 fancy-outfits/
 ├── index.html                    ← Vite giriş HTML'i (sadece #root + main.jsx import)
-├── vite.config.mjs               ← Vite ayarı (react plugin, dev-only CSP dönüşümü, base:'./')
-├── package.json                  ← scripts: dev/build/test/test:soak/soak/preview/start
+├── vite.config.js                ← Vite ayarı (react plugin, base:'./')
+├── package.json                  ← scripts: dev / build / preview / start(=build+electron)
 ├── electron/main.js              ← Electron ana süreci: pencere açar, dist/index.html yükler
-├── scripts/
-│   ├── run-v195-check.cjs        ← browser-oriented modülleri Node regresyonu için bundle eder
-│   ├── v195-check.mjs            ← kalıcı engine/save/denge/bütünlük regresyonları
-│   ├── run-soak-balance.cjs      ← headless kariyer simülatörünü geçici bundle'da çalıştırır
-│   └── soak-balance.mjs          ← Standard/Endless matris, politika, metric, replay+provenance
 ├── src/
 │   ├── main.jsx                  ← React mount
 │   ├── App.jsx                   ← layout + overlay'lerin koşullu render'ı
 │   ├── styles.css                ← TÜM CSS (palet :root'ta, scanline, panel, paper, overlay)
 │   ├── game/                     ← OYUN MANTIĞI (React'ten bağımsız saf JS)
-│   │   ├── constants.js          ← RANKS, RANK_REQ, DAY_HOURS, STAKE_*, PRICES, save schema/limitleri
+│   │   ├── constants.js          ← RANKS, RANK_REQ, DAY_SECONDS, STAKE_*, PRICES, WEEK_*, SAVE/STATS_KEY
 │   │   ├── settings.js           ← global tercihler (dayLen/sfx/bgm/shake), run save'inden AYRI
 │   │   ├── state.js              ← S, newState(), store (subscribe/notify), nemesis/runStats
 │   │   ├── engine.js             ← apply(), chance(), akış + nemesis/terfi sahnesi/ledger/ayarlar
-│   │   ├── content.js            ← buildPool() 11 el yazması dava + 2 COVERT action, JUDGES(7), crises(), SCENARIOS
+│   │   ├── content.js            ← buildPool() 9 el yazması dava, JUDGES(7), crises(), SCENARIOS
 │   │   ├── casegen.js            ← PROSEDÜREL dava üreticisi (12 şablon, API'siz, offline)
 │   │   ├── clients.js            ← client book: 20 parodi marka, CLIENT_CAP, global event üretici
-│   │   ├── achievements.js       ← 11 başarım, localStorage (fo_ach_v1), unlock()
+│   │   ├── achievements.js       ← 10 başarım, localStorage (fo_ach_v1), unlock()
 │   │   ├── npcs.js               ← NPC roster, trait dağıtımı, delegationChance(), buildFavor()
 │   │   ├── sound.js              ← WebAudio sentez SFX + prosedürel ambiyans (settings'ten ses)
-│   │   ├── minigames.js          ← deterministik/saf lockpick + Power Cut + Timeline + Contradiction + coin modelleri
-│   │   ├── progression.js        ← saf XP/level/skill invariantları + SNEAKY/ENDURANCE modifierleri
-│   │   ├── fraud.js              ← Fraud suspicion/peak state, slip bandları, canonical identity eventleri
 │   │   ├── utils.js              ← clamp, rnd, hash, rand/setSeed (deterministik RNG — daily mod)
 │   │   └── useGame.js            ← React köprüsü (useSyncExternalStore hook'u)
 │   └── components/               ← UI (her panel/overlay ayrı dosya)
 │       ├── StartScreen.jsx       ← senaryo + zorluk seçimi, CONTINUE, FIRM RECORD
-│       ├── Topbar.jsx            ← logo, rütbe, gün+FRI, mesai saati+bar, SFX/BGM/i/SET/GO HOME
+│       ├── Topbar.jsx            ← logo, rütbe, gün+FRI, saat+bar, SFX/BGM/i/SET/PAUSE/END DAY
 │       ├── OfficeScene.jsx       ← piksel ofis SVG'si + karakter (otur/yürü/terfi sahnesi sceneRank)
 │       ├── Inbox.jsx             ← sol panel (dava/pending/delegated/msg/favor/chain)
 │       ├── CasePane.jsx          ← orta panel (dava + seçenekler + DELEGATE + dedektif + bribe)
@@ -365,13 +259,10 @@ fancy-outfits/
 │       ├── RosterOverlay.jsx     ← FIRM sekmesi: payroll, W/L, impact, FIRE/CALL A VOTE (NP endgame)
 │       ├── ArchiveOverlay.jsx    ← LOG sekmesi: dava arşivi (gün, seçim, sonuç, via etiketi)
 │       ├── EventOverlay.jsx      ← kriz ekranı (+ Traitor/Brave modifier satırı)
-│       ├── ActionMinigameOverlay.jsx ← blocking COVERT ACTION modalı + focus/inert yönetimi
-│       ├── minigames/            ← Lockpick, PowerCut, Timeline, Contradiction, CoinFlip bileşenleri
 │       └── SummaryOverlay.jsx    ← gün sonu / cuma review / game over / win + run ledger
 ├── FANCY_OUTFITS_GDD.md          ← Tasarım dokümanı (gelecek özelliklerin speci)
-├── BALANCE_SOAK_REPORT.md        ← v19.9 baseline + v19.10–v19.13 progression/risk/FIRM/memory A/B raporu
 ├── README.md                     ← GitHub vitrini + CHANGELOG (her versiyonda güncellenir — §6 kuralı)
-├── CLAUDE.md                     ← Bu dosya
+├── AGENTS.md                     ← Bu dosya
 ├── .gitignore                    ← node_modules/, dist/
 ├── dist/                         ← build çıktısı (git'e girmez)
 └── node_modules/                 ← (git'e girmez)
@@ -383,14 +274,14 @@ fancy-outfits/
 
 # 5. Architecture Explanation
 
-**State:** Tek mutable obje `S` (`src/game/state.js`, modül-scope, oyun başlayana dek `null`). `newState(scenario)` üretir. Başlıca alanlar:
-`scenario, mode, day, hours, fatigue, rank, rep, bold, inf, firm, money, debtDue, inbox[], pool[], followups[], clients[], npcs[], judgeMemory{}, caseSeq, archive[], logEntries[], over` + UI alanları `openCase, event, summary, pendingSummary, flash`.
-Save'e girmemesi gereken animasyon/overlay pointer'ları whitelist hydrate yaklaşımıyla soyulur; `caseSeq` ve DAILY `rngState` ise devamlılık için persist edilir.
+**State:** Tek mutable obje `S` (`src/game/state.js`, modül-scope, oyun başlayana dek `null`). `newState(scenario)` üretir. Alanlar:
+`scenario, day, secs, rank, rep, bold, inf, money, debtDue, inbox[], pool[], usedCrises[], openCase, dailyLog[], logEntries[], over` + UI alanları `infoOpen, event, summary, flash`.
+(Eski `timer` alanı engine'de modül değişkeni oldu; eski `paused` bayrağı KALDIRILDI — pause türetiliyor, aşağıda.)
 
 **Data flow (tek yön):**
 ```
 Kullanıcı tıklar → component, engine fonksiyonunu çağırır (choose/resolveCrisis/...)
-  → chance(o,c) ile % hesaplanır → utils.rand() zarı
+  → chance(o,c) ile % hesaplanır → Math.random() zarı
   → apply(fx) → S mutasyonu + log() + checkEndings()
   → checkPromotion() → notify() → useGame() abonesi tüm componentleri yeniden render eder
 ```
@@ -400,16 +291,15 @@ Kullanıcı tıklar → component, engine fonksiyonunu çağırır (choose/resol
 - Her S mutasyonundan sonra `notify()` çağrılır (eski `renderX()` çağrılarının karşılığı). Engine dışında S mutasyona uğratılmaz; componentler sadece okur.
 - XSS/escape: JSX zaten kaçış yapıyor, eski `esc()` kaldırıldı. `dangerouslySetInnerHTML` KULLANMA.
 
-**UI gating (türetilmiş):** `isPaused()` overlay/summary açıkken alttaki masa aksiyonlarını kapatır. Gerçek-zamanlı sayaç ve PAUSE butonu v1.5'te kaldırıldı; okuma bedava, yalnız iş yapmak `S.hours` tüketir.
+**Pause (türetilmiş):** `isPaused()` = `S.infoOpen || S.event || S.summary`. Herhangi bir overlay açıkken sayaç durur; ayrı bir bayrak tutulmaz. (Eski "info paneli özet ekranının pause'unu bozuyor" bug'ı bu tasarımla ortadan kalktı.)
 
-**Zaman/event sistemi:** gün 09:00→17:00 varsayılan 8 saatlik aksiyon bütçesidir. `optHours()` safe/technical/aggressive yaklaşım maliyetini hesaplar; `spendHours()` saati 0'da clamp eder ve fatigue ekler. Saat biterse `checkClock()` eve git/overtime event'i açar. `endDay()` deadline, objective, Friday review, debt, gece decay ve özeti checkpoint eder; `advanceDay()` ertesi sabah delayed/delegated sonuçlarını topluca çözer, tek promotion check yapar, follow-up ve yeni dosyaları doğurur, sonra roster/rival/event tick'lerini işletir.
+**Zaman/event sistemi:** `setInterval` (1 sn, engine'de) → `S.secs--` + `notify()`. Gün sonu `endDay()`:
+deadline kontrolü → özet (`S.summary`) → [devam butonuna basınca `dismissSummary()` → cb] gün +1, REP −1, delayed case'ler `resolveDelayed()`, `drawCases(1-2)`, %50 disrespect mesajı (REP<30 ise), %60 kriz (`S.event`).
 
-**Inbox item tipleri** aynı dizide flag'lerle ayrılır:
+**Inbox item 3 tipte olabilir** (aynı dizide, flag'le ayrılır):
 1. normal dava (tıklanır, `openCase` olur),
 2. `pending`'li dava (cevap bekliyor, tıklanamaz),
-3. `delegated` dosya (sabah sonucu bekler),
-4. `favor`, `chain` veya `big` özel filing,
-5. `msg:true` salt bilgi kartı (en yeni 80 bildirim; canlı filing'ler bu sınırdan etkilenmez).
+3. `msg:true` (salt bilgi kartı, REPLY'lar ve disrespect mesajları).
 
 **Delayed response tasarımı (önemli):** Zar SEÇİM ANINDA atılır (`c.pending={day, win, o}`), sonuç `resolveDelayed`'de sadece AÇIKLANIR. Bilinçli karar — state basit kalsın diye. Değiştirilecekse (ör. araya girme mekaniği) pending yapısı genişletilmeli.
 
@@ -495,7 +385,7 @@ if(S.scenario==="legacy"){
 
 - **Asset dosyası SIFIR.** Font CDN'den, sesler sentez, grafikler CSS+SVG.
 - **Grafik tarzı:** Piksel/retro. Font `Press Start 2P` (8-10px). Palet `:root`'ta: lacivert zeminler (`--bg #1a1c2c`, `--panel #29366f`), altın vurgu (`--gold #ffcd75`), yeşil=güvenli (`--green`), kırmızı=risk (`--red`), dava kağıdı krem (`--paper #f2e9d8`). CRT hissi için `body::after` scanline overlay. `image-rendering:pixelated` global.
-- **UI:** 3 sütun — INBOX (sol), CASE FILE/DESK (orta, kağıt görünümü), ASSOCIATE FILE (sağ: stat barları + log). Üstte topbar + ofis sahnesi bandı. Topbar duvar saatini, kalan kurgusal iş saatini ve gün bütçesi barını gösterir; gerçek zamanlı sayaç yoktur. Buton renk kodu: yeşil=safe, mavi=nötr/technical, kırmızı=aggressive/blöf. Her butonun altında küçük altın satırla bulanık oran, saat maliyeti ve stil etiketi görünür.
+- **UI:** 3 sütun — INBOX (sol), CASE FILE/DESK (orta, kağıt görünümü), ASSOCIATE FILE (sağ: stat barları + log). Üstte topbar + ofis sahnesi bandı. Topbar'da saatin yanında süre barı: gün ilerledikçe kısalır (altın → ≤30sn kehribar → ≤15sn kırmızı, saat rakamı da kırmızıya döner). Buton renk kodu: yeşil=safe, mavi=nötr, kırmızı=aggressive/blöf. Her butonun altında küçük altın satırla % ve etiketler.
 - **Animasyon:** `.flash` (HENDERED!/PROMOTED! pop), stat barı `width .3s`, karakter yürüyüşü (`char-leave/arrive` CSS keyframe), ekran sarsıntısı (`.shaking`, App'te fail'de replay, `settings.shake` gate). Başka animasyon sistemi yok, gerekmedikçe ekleme.
 - **Ses:** `SFX.{click,open,win,lose,promo,fired,bell,tick,send,crisis}` + prosedürel lo-fi ambiyans (v0.9: 4 akorluk Web Audio döngüsü + noise cızırtısı, `startAmbience/stopAmbience`). Topbar'da SFX ve BGM ayrı toggle'lar; BGM tercihi `localStorage`'da. Ses dosyası hâlâ SIFIR.
 
@@ -506,14 +396,14 @@ if(S.scenario==="legacy"){
 - **Player:** 5 stat. REP (başlangıç 50; <20 kovulma; her gece −1; <30 disrespect, >70 respect), BOLD (40; blöf şansını besler, safe seçenekler kemirir), INF (10; terfi para birimi), FIRM (62; firma sağlığı — NP iken <15 batış), MONEY ($1500, Debtor'da $3000).
 - **"Enemy" karşılığı:** Karşı taraf ayrı bir AI değil — zorluk `chance()` formülü + hakim statları + kriz eventleri üzerinden. Rakip firma Snidely Fitch flavor + bazı davaların konusu.
 - **Level karşılığı:** Rütbeler. `checkPromotion()`: `inf >= RANK_REQ[rank]` oldukça yüksel (while ile zincirleme terfi mümkün). Rütbe 4 = win. Tier-2 (mahkeme) davaları rank≥1'de havuza girer (`drawCases` filtresi).
-- **Combat karşılığı:** Dava çözümü — oku, seç, zar. Zar: deterministik oyun RNG'siyle `rand()*100 < chance(o,c)`; `Math.random` yalnız ses jitter'ında kullanılabilir.
+- **Combat karşılığı:** Dava çözümü — oku, seç, zar. Zar: `Math.random()*100 < chance(o,c)`.
 - **Progression:** Influence→rütbe→daha iyi ofis (görsel) + daha zor davalar (rank başı −2 şans) + daha büyük kriz maruziyeti.
 - **Physics:** YOK (bilinçli).
 - **Controls:** Fare/tık + klavye (v1.1): 1-4 seçenek, Space defer/özet ilerlet, Esc panel kapat.
 - **RNG kuralı (v1.1):** Oyun mantığında `Math.random` YASAK — `utils.js`'ten `rand()`/`rnd()` kullan (daily modun determinizmi buna bağlı). Tek istisna `sound.js`.
 - **Rakip (nemesis):** İsimli associate seninle yarışır; gece + senin fail'lerinden INF kazanır, önce Name Partner olursa `OUTPACED` game over (`nemesisGain`, engine.js).
-- **Ayarlar (`settings.js`):** run save'inden AYRI global tercihler (`fo_settings_v1`): dayLen 6/8/10 saat, sfx/bgm ses seviyesi, ekran sarsıntısı. Sound bunları okur.
-- **Ekonomi/zorluk sabitleri:** `DAY_HOURS=8` (+`TIER_HOURS=[1,2,3]`, `DELEGATE_HOURS=.5`, `OVERTIME_HOURS=2`, `OVERTIME_LIMIT=2`, `OVERTIME_FATIGUE=12`, `OVERTIME_FATIGUE_STEP=6`, `FATIGUE_REST=18`), `COFFEE_LIMIT=2` (`COFFEE_RELIEF=14`, `COFFEE_FALLOFF=6`), `REP_FIRED=20`, `DEADLINE_PENALTY=-9`, `RANK_REQ=[35,60,85,95]`, `INF_EARN=0.6`, `TECH_INF_MULT=.70`, `AGG_INF_MULT=1.25`, `INF_DECAY=[1,1,2,2,2]`, kriz olasılığı `.6`, gece REP çürümesi `-1`, Debtor taksiti `$2000/3 gün`, `STAKE_REWARD=[1,1.15,1.3,1.45,1.6]`, `STAKE_PENALTY=[1,1.3,1.6,1.9,2.2]`, `PRICES={suit:1200(×1.5 artar), detective:900, marv:600}`, `WEEK_LEN=5`, `REVIEW_GOOD=10`, `REVIEW_BAD=0`, `SAFE_HOURS_MULT=1.75`, `TECH_HOURS_MULT=1.25`, `SAFE_COASTING=true` (`SAFE_STREAK_CAP=4`, `SAFE_STREAK_BOLD=2`, `SAFE_STREAK_INF_STEP=1`).
+- **Ayarlar (`settings.js`):** run save'inden AYRI global tercihler (`fo_settings_v1`): dayLen 60/75/90, sfx/bgm ses seviyesi, ekran sarsıntısı. Sound bunları okur.
+- **Ekonomi/zorluk sabitleri:** `DAY_HOURS=8` (+`TIER_HOURS=[1,2,3]`, `DELEGATE_HOURS=.5`, `OVERTIME_HOURS=2`, `OVERTIME_FATIGUE=12`, `FATIGUE_REST=22`), `REP_FIRED=20`, `DEADLINE_PENALTY=-9`, `RANK_REQ=[35,60,85,95]`, `INF_EARN=0.6`, `INF_DECAY=[1,1,2,2,2]`, kriz olasılığı `.6`, gece REP çürümesi `-1`, Debtor taksiti `$2000/3 gün`, `STAKE_REWARD=[1,1.15,1.3,1.45,1.6]`, `STAKE_PENALTY=[1,1.3,1.6,1.9,2.2]`, `PRICES={suit:1200(×1.5 artar), detective:900, marv:600}`, `WEEK_LEN=5`, `REVIEW_GOOD=10`, `REVIEW_BAD=0`.
 - **Inventory:** Hâlâ yok ama para artık harcanabiliyor (EXPENSES: suit/Marv; dosya başına dedektif).
 
 ---
@@ -541,14 +431,12 @@ if(S.scenario==="legacy"){
 **Backlog (kullanıcının onayladığı sıradaki işler + bekleyenler; başlamadan sor):**
 - ~~Global eventler + Client list~~ — v1.3'te EKLENDİ (parodi isim kuralı korunuyor: yeni marka eklerken Abibas/Mike tarzında kal).
 - ~~Dava arşivi~~ — v1.4'te EKLENDİ (LOG butonu + günlük hedeflerle birlikte).
-- ~~**NPC hikâyeleri** — rel eşiklerinde tetiklenen mini-sahneler.~~ — v1.6'da EKLENDİ.
-- ~~**Rakiple etkileşim** — nemesis'e sabotaj/ittifak seçenekleri.~~ — v1.7'de EKLENDİ.
-- ~~**Hakim hafızası** — aynı hakime ikinci çıkışta geçmişi hatırlama ("geçen sefer blöf yaptın, −5").~~ — v1.9.8'de EKLENDİ.
-- ~~**Interaktif aksiyonlar:** Redvale lockpick + coin (v1.9.16), NimbusHost dönen halkalı elektrik sabotajı (v1.9.17).~~ — İKİ VERTICAL SLICE EKLENDİ.
-- ~~**Skill/level katmanı:** XP/level, senaryo innate rankları, SNEAKY/ENDURANCE, UI ve schema v12 migration.~~ — v1.9.18'de TAMAMLANDI.
-- ~~**Fraud fatigue slip-up + kimlik baskısı:** günlük peak bandları, cover kararı, üç aşama, schema v14.~~ — v1.9.19'da TAMAMLANDI.
-- ~~**Evidence Timeline** — riskli hamle sonrası kronoloji hazırlığı (v1.9.20), decline cezası + 5 prosedürel şablona yayılma + safe rota fiyatlandırması (v1.9.21).~~ — TAMAMLANDI.
-- ~~**Contradiction Board** — ifade/belge eşleyip sınırlı denemeyle çelişki bulma.~~ — v1.9.22'de EKLENDİ (gönüllü CASE PREP seçeneği, schema v17).
+- ~~**NPC hikâyeleri**~~ — v1.6'da EKLENDİ.
+- ~~**Rakiple etkileşim**~~ — v1.7'de EKLENDİ.
+- ~~**Hakim hafızası**~~ — v1.9.8'de eklendi, v1.9.13'te rolling last-3 modele geçirildi.
+- ~~**İki COVERT ACTION vertical slice**~~ — Redvale lockpick v1.9.16 + NimbusHost Power Cut v1.9.17.
+- ~~**Skill/level:** XP/level, innate senaryo rankları, SNEAKY/ENDURANCE, UI ve schema v12.~~ — v1.9.18'de TAMAMLANDI.
+- ~~**Fraud fatigue slip + identity pressure:** daily peak bandları, cover kararı, üç aşama, schema v14.~~ — v1.9.19'da TAMAMLANDI.
 - **Mobil yayın** — önce mobil layout geçişi (3 sütun → sekmeli görünüm, 44px dokunma hedefleri, safe-area, visibilitychange pause), sonra **Capacitor** sarmalama (Electron'un mobil karşılığı; oyun mantığına dokunulmaz). iOS'ta localStorage yerine Capacitor Preferences. (ONAYLANDI, yukarıdakilerden sonra)
 - ~~4. senaryo, başarımlar, oyun modları, klavye kısayolları~~ — v1.1'de EKLENDİ.
 - **GitHub Pages demo yayını** — `dist/`i yayınlayan tek workflow; oyun linkle paylaşılabilir olur.
@@ -561,7 +449,7 @@ if(S.scenario==="legacy"){
 
 | Karar | Gerekçe | Değiştirilebilir mi? |
 |---|---|---|
-| ~~Tek dosya, vanilla JS~~ → **React 18 + Vite 7** (React geçişi 2026-07-05; Vite 7 güncellemesi 2026-08-07) | Kullanıcı Steam hedefiyle birlikte "reacte geçir, dışarıdan bakan neyin nerede olduğunu anlasın" dedi; mantık `src/game/` (saf JS), UI `src/components/` olarak ayrıldı. Vite 7 güncel güvenlik/toolchain tabanı | Kullanıcı kararı; geri dönüş yok. Eski tek dosya sürüm git geçmişinde (commit "v2") |
+| ~~Tek dosya, vanilla JS~~ → **React 18 + Vite 7** (React 2026-07-05; Vite güvenlik güncellemesi 2026-08-07) | Kullanıcı Steam hedefiyle birlikte "reacte geçir, dışarıdan bakan neyin nerede olduğunu anlasın" dedi; mantık `src/game/` (saf JS), UI `src/components/` olarak ayrıldı | Kullanıcı kararı; geri dönüş yok. Eski tek dosya sürüm git geçmişinde (commit "v2") |
 | State: mutable `S` + notify() store, Redux/Zustand yok | Oyun mantığı 1:1 port edildi, denge riski sıfırlandı; ekstra bağımlılık yasağı sürüyor | Yeni state kütüphanesi eklenmez |
 | Oyun dili İngilizce | Kullanıcının açık kararı ("dili ingilizce olsun") | Sorulmadan değiştirme |
 | Web deploy = `npm run build` çıktısı (`dist/`) | Vite girişi kök `index.html`; Pages'e artık dist atılır | Koru |
@@ -575,7 +463,7 @@ if(S.scenario==="legacy"){
 | Rep<30 cezası −12 / Rep>70 bonusu +5 | Saygı sistemi kullanıcı isteği; sayılar ilk tahmin | Tuning serbest |
 | Denenip vazgeçilen: yok | İlk fikir seti doğrudan uygulandı; kesilen tek şey v1 kapsam kısıtlarıydı (NPC/delege/AI/multiplayer sonraya) | — |
 | Steam dağıtımı için Electron wrapper (2026-07-05) | Kullanıcı Steam'e çıkmak istiyor; dil/engine değiştirmek yerine web oyununu Electron'a sarma seçildi (Tauri ve Godot/Unity portu elendi). Electron `dist/` build'ini yükler | Wrapper detayları (pencere boyutu vs.) serbest |
-| Dava üretimi PROSEDÜREL, LLM/API DEĞİL (v0.4) | Kullanıcının açık isteği: "Claude API key oyunun içerisinde entegre olmasın", oyun her makinede offline üretsin | Kullanıcı istemeden AI üretimine dönme |
+| Dava üretimi PROSEDÜREL, LLM/API DEĞİL (v0.4) | Kullanıcının açık isteği: "Codex API key oyunun içerisinde entegre olmasın", oyun her makinede offline üretsin | Kullanıcı istemeden AI üretimine dönme |
 | NPC traitleri gizli başlar, her run'da 4 traitin her birinden bir tane | Keşif oynanışı + her run'da "Traitor kim?" gerilimi | Tuning serbest; gizlilik mekaniği korunmalı |
 | ~~PAUSE ekranı masayı kapatır~~ → v1.5'te PAUSE tamamen kaldırıldı | Gerçek zamanlı sayaç gidince pause anlamsızlaştı; okuma baskısının yerini saat-bütçesi aldı | v1.5 kullanıcı kararı |
 | Zaman = aksiyon bütçesi, gerçek zamanlı sayaç DEĞİL (v1.5) | Kullanıcının açık isteği: kurgusal 8 saatlik mesai, iş başına saat maliyeti, mesai+yorgunluk döngüsü | Kullanıcı kararı; maliyet/yorgunluk sayıları tuning serbest |
@@ -585,13 +473,13 @@ if(S.scenario==="legacy"){
 
 ---
 
-# 12. Claude Code Startup Instructions
+# 12. Codex Startup Instructions
 
 Sen bu projeye yeni katılan geliştiricisin. Şunları bilmelisin:
 
-1. İlk olarak `DEV_LOGBOOK.md` dosyasını oku; güncel checkpoint, aktif iş ve iki araç arasındaki çalışma protokolü oradadır. Proje `fancy-outfits/` klasöründe; React 18 + Vite 7 (Node ≥22.12). Oyun mantığı `src/game/` (saf JS, React'ten bağımsız), UI `src/components/`. `FANCY_OUTFITS_GDD.md` gelecek özelliklerin spec'i, bu `CLAUDE.md` tam bağlam.
+1. Proje `fancy-outfits/` klasöründe; React 18 + Vite 7. Oyun mantığı `src/game/` (saf JS, React'ten bağımsız), UI `src/components/`. Güncel handoff `CLAUDE.md`; `FANCY_OUTFITS_GDD.md` tasarım spec'i.
 2. Çalıştırmak: `npm run dev` (tarayıcı), `npm start` (Electron/Steam hedefi). Her değişiklikten sonra `npm run build` ile doğrula, davranışı tarayıcıda elle test et.
-3. Dokunmadan önce oku: `src/game/engine.js` içinde `chance()` (denge), `apply()` (tüm stat mutasyonu buradan) ve `endDay()` (gün akışı); dava JSON şeması (CLAUDE.md §7, gerçek veri `src/game/content.js`).
+3. Dokunmadan önce oku: `src/game/engine.js` içinde `chance()` (denge), `apply()` (tüm stat mutasyonu buradan) ve `endDay()` (gün akışı); dava JSON şeması (AGENTS.md §7, gerçek veri `src/game/content.js`).
 4. Kırmızı çizgiler: yeni runtime bağımlılığı/asset dosyası ekleme; oyun metinlerine "Suits/Papers Please" yazma; safe-vs-bluff çekirdek gerilimini bozma; `apply()`'ı bypass etme; `src/game/` ↔ `src/components/` katman ayrımını bozma; oyun dili İngilizce kalır, kullanıcıyla Türkçe konuşulur.
-5. İlk iş adayları: §10'daki kalan buglar (#3, #4) ve kullanıcıya §10'daki özellik listesinden hangisini istediğini sormak. Muhtemel cevap NPC ilişki sistemi (spec: GDD §5) — ama başlamadan onay al.
+5. Gerçek sıradaki iş kullanıcı onaylı **mobil layout + Capacitor**. Hakim hafızası, progression, Fraud identity pressure, Evidence Timeline ve Contradiction Board TAMAMLANDI — yeniden yazma. Her oturuma `DEV_LOGBOOK.md`'nin en üstteki kaydıyla başla; bu dosya özet, o dosya güncel checkpoint.
 6. Kod stili: `src/game/` kompakt (tek satır guard'lar, ternary'ler), tuning sabitleri `constants.js`'te; componentler sade JSX.

@@ -37,6 +37,9 @@ globalThis.clearInterval = () => {};
 
 (async () => {
   const utils = await import("../src/game/utils.js");
+  const minigames = await import("../src/game/minigames.js");
+  const progression = await import("../src/game/progression.js");
+  const fraud = await import("../src/game/fraud.js");
   const state = await import("../src/game/state.js");
   const engine = await import("../src/game/engine.js");
   const constants = await import("../src/game/constants.js");
@@ -44,6 +47,7 @@ globalThis.clearInterval = () => {};
   const npcs = await import("../src/game/npcs.js");
   const content = await import("../src/game/content.js");
   const casegen = await import("../src/game/casegen.js");
+  const intro = await import("../src/game/intro.js");
   const { settings } = await import("../src/game/settings.js");
   settings.sfx = 0;
   settings.bgm = 0;
@@ -68,6 +72,55 @@ globalThis.clearInterval = () => {};
     engine.startGame(mode === "daily" ? null : "fraud", "easy", mode);
     return state.S;
   };
+  const liveRedvale = () => {
+    const raw = content.buildPool().find(c => c.id === "redvale");
+    const c = engine.instantiateCase(raw);
+    const o = c.opts.find(option => option.action?.id === "redvale_archive_lock");
+    Object.assign(state.S, { inbox: [c], openCase: c, event: null, summary: null, pendingSummary: null,
+      hours: 2, fatigue: 0, clients: [], nemesis: null, objective: null });
+    return { c, o };
+  };
+  const livePowerCut = () => {
+    const raw = content.buildPool().find(c => c.id === "breach");
+    const c = engine.instantiateCase(raw);
+    const o = c.opts.find(option => option.action?.id === "breach_service_power");
+    Object.assign(state.S, { inbox: [c], openCase: c, event: null, summary: null, pendingSummary: null,
+      hours: 2, fatigue: 0, clients: [], nemesis: null, objective: null });
+    return { c, o };
+  };
+  const missTension = () => 0; // the cylinder never gives at zero pressure
+  const oppositeFace = face => face === "heads" ? "tails" : "heads";
+  const exhaustLock = () => { // turn with no pressure until every pick is spent
+    for (let i = 0; i < 10 && state.S.actionChallenge?.phase === "lockpick"; i++) {
+      engine.setLockTension(missTension());
+      engine.attemptLockpick();
+    }
+  };
+  const directedPowerMs = ring => {
+    const degrees = ring.direction === 1
+      ? (ring.target - ring.angle + 360) % 360
+      : (ring.angle - ring.target + 360) % 360;
+    return degrees / ring.speed * 1000;
+  };
+  const alignPower = challenge => {
+    let next = challenge;
+    let remaining = directedPowerMs(next.rings[next.activeRing]);
+    while (remaining > 0.0001) {
+      const step = Math.min(minigames.POWER_FRAME_CAP_MS, remaining);
+      next = minigames.advancePowerCut(next, step);
+      remaining -= step;
+    }
+    return next;
+  };
+  const alignLivePower = () => {
+    let remaining = directedPowerMs(state.S.actionChallenge.rings[state.S.actionChallenge.activeRing]);
+    while (remaining > 0.0001) {
+      const step = Math.min(minigames.POWER_FRAME_CAP_MS, remaining);
+      engine.advancePowerCutFrame(step);
+      remaining -= step;
+    }
+  };
+  let validPowerActionRaw = null;
 
   // Fisher-Yates stays immutable and deterministic under a seeded run.
   const source = ["A", "B", "C", "D"];
@@ -94,6 +147,473 @@ globalThis.clearInterval = () => {};
   const traits2 = npcs.buildNpcs().map(npc => npc.trait);
   assert.deepEqual(clients1, clients2);
   assert.deepEqual(traits1, traits2);
+
+  // Interactive action puzzles derive from stable identities without touching
+  // the shared DAILY cursor. Skill lives in the player's input, not a hidden die.
+  utils.setSeed(0x12345678);
+  const puzzleCursor = utils.getRngState();
+  const puzzleArgs = { runSeed: 123, caseId: "covert1", actionId: "breakin", cost: 1.5, toil: 7, lateExtra: 0 };
+  const LOCK_BREAK_TEST = ch => ch.breakAt;
+  const puzzle1 = minigames.createLockpickChallenge(puzzleArgs);
+  const puzzle2 = minigames.createLockpickChallenge(puzzleArgs);
+  assert.deepEqual(puzzle1, puzzle2);
+  assert.equal(puzzle1.coinFace, "heads");
+  assert.equal(utils.getRngState(), puzzleCursor);
+  // A beginner gets exactly one pick; SNEAKY is the only thing that buys more.
+  assert.equal(puzzle1.maxAttempts, 1, "the first level picks a lock with one shot");
+  assert.ok(puzzle1.breakAt > puzzle1.give + puzzle1.tolerance, "there is real slack before the pick snaps");
+  assert.equal(puzzle1.tension, 0);
+  // Leaning into the give zone and turning opens it.
+  const tensedPuzzle = minigames.pressLockTension(puzzle1, puzzle1.give);
+  assert.deepEqual([tensedPuzzle.tension, tensedPuzzle.phase, tensedPuzzle.attemptsLeft], [puzzle1.give, "lockpick", 1]);
+  assert.equal(minigames.lockGives(tensedPuzzle), true, "the cylinder really does turn here");
+  assert.equal(minigames.lockFeel(tensedPuzzle), "close", "and the hand feels it");
+  // The warning band is deliberately wider than the zone and starts a different
+  // distance early on every lock, so no fixed nudge can solve every door.
+  const leads = new Set();
+  for (let i = 0; i < 60; i++) leads.add(minigames.createLockpickChallenge({ ...puzzleArgs, caseId: "lead" + i }).hintLead);
+  assert.ok(leads.size > 8, "locks lie about being close by varying amounts");
+  const lyingLock = minigames.createLockpickChallenge({ ...puzzleArgs, caseId: "lead3" });
+  if (lyingLock.hintLead > lyingLock.tolerance)
+    assert.equal(minigames.lockFeel(lyingLock, lyingLock.give - lyingLock.tolerance - lyingLock.hintLead), "close",
+      "the hint starts before the zone");
+  assert.equal(minigames.lockGives(lyingLock, lyingLock.give - lyingLock.tolerance - lyingLock.hintLead),
+    lyingLock.hintLead === 0, "but feeling close is not the same as being right");
+  const solvedPuzzle = minigames.tryLockpick(tensedPuzzle);
+  assert.deepEqual([solvedPuzzle.phase, solvedPuzzle.turn, solvedPuzzle.attemptsLeft, solvedPuzzle.tension],
+    ["lock_success", 1, 1, puzzle1.give]);
+  // Pushing past what the pick takes ends the attempt on its own — no turn needed.
+  const snappedPuzzle = minigames.pressLockTension(puzzle1, puzzle1.breakAt);
+  assert.deepEqual([snappedPuzzle.phase, snappedPuzzle.attemptsLeft, snappedPuzzle.snapped, snappedPuzzle.tension],
+    ["coin_call", 0, true, 0], "one pick, one snap, straight to the coin");
+  assert.match(snappedPuzzle.feedback, /shears off/i);
+  assert.equal(snappedPuzzle.brokeInLock, true, "the last pick leaves half itself in the keyway");
+  // A snap with spares left is recoverable: you pull the stub and start again.
+  const sparePick = minigames.createLockpickChallenge({ ...puzzleArgs, attemptBonus: 1 });
+  const firstSnap = minigames.pressLockTension(sparePick, sparePick.breakAt);
+  assert.deepEqual([firstSnap.phase, firstSnap.snapped, firstSnap.brokeInLock], ["lockpick", true, false],
+    "only the final pick leaves evidence behind");
+  // The coin narrates the failure you actually had: a sheared pick is physical
+  // evidence, a lock that simply refused is only a matter of who walks past.
+  const brokenCaught = minigames.callCoin(snappedPuzzle, snappedPuzzle.coinFace === "heads" ? "tails" : "heads");
+  assert.match(brokenCaught.feedback, /keyway|tape/i, "a fragment left behind is what gets reviewed");
+  const brokenAway = minigames.callCoin(snappedPuzzle, snappedPuzzle.coinFace);
+  assert.match(brokenAway.feedback, /tweezers|comes free/i, "calling it right gets the stub back out");
+  // Turning too early spends the pick just the same.
+  const earlyPuzzle = minigames.tryLockpick(minigames.pressLockTension(puzzle1, Math.max(0, puzzle1.give - puzzle1.tolerance - 6)));
+  assert.deepEqual([earlyPuzzle.phase, earlyPuzzle.attemptsLeft], ["coin_call", 0]);
+  assert.equal(earlyPuzzle.brokeInLock, false, "a lock that simply refused leaves nothing behind");
+  const quietCaught = minigames.callCoin(earlyPuzzle, earlyPuzzle.coinFace === "heads" ? "tails" : "heads");
+  assert.match(quietCaught.feedback, /corridor/i, "so getting caught is about who walks past");
+  // Trained hands get more picks AND more room before the snap.
+  const trained = minigames.createLockpickChallenge({ ...puzzleArgs, toleranceBonus: 5, attemptBonus: 2 });
+  assert.equal(trained.maxAttempts, 3, "SNEAKY buys extra picks");
+  assert.ok(trained.tolerance > puzzle1.tolerance && trained.breakAt > puzzle1.breakAt,
+    "and a wider give zone with more slack before it snaps");
+  let failedPuzzle = trained;
+  for (let i = 0; i < 3; i++) failedPuzzle = minigames.pressLockTension(failedPuzzle, LOCK_BREAK_TEST(failedPuzzle));
+  assert.deepEqual([failedPuzzle.phase, failedPuzzle.turn, failedPuzzle.attemptsLeft], ["coin_call", 3, 0]);
+  assert.equal(minigames.callCoin(failedPuzzle, failedPuzzle.coinFace).escaped, true);
+  assert.equal(minigames.callCoin(failedPuzzle, oppositeFace(failedPuzzle.coinFace)).escaped, false);
+  assert.equal(utils.getRngState(), puzzleCursor);
+
+  const powerArgs = { runSeed: 123, caseId: "covert2", actionId: "blackout", cost: 1.5, toil: 8, lateExtra: 0 };
+  const power1 = minigames.createPowerCutChallenge(powerArgs);
+  const power2 = minigames.createPowerCutChallenge(powerArgs);
+  assert.deepEqual(power1, power2);
+  assert.equal(power1.rings.length, minigames.POWER_RING_COUNT);
+  assert.ok(power1.rings.every(ring => minigames.powerAngleDistance(ring.angle, ring.target) > ring.tolerance));
+  assert.equal(minigames.powerAngleDistance(359, 1), 2, "power windows wrap cleanly through zero degrees");
+  const cappedPower = minigames.advancePowerCut(power1, 1000);
+  assert.equal(cappedPower.rings[0].elapsedMs, minigames.POWER_FRAME_CAP_MS);
+  assert.equal(cappedPower.rings[0].angle, minigames.powerAngleAt(cappedPower.rings[0]));
+  let solvedPower = power1;
+  for (let ring = 0; ring < minigames.POWER_RING_COUNT; ring++) {
+    solvedPower = alignPower(solvedPower);
+    assert.ok(minigames.powerAngleDistance(
+      solvedPower.rings[solvedPower.activeRing].angle,
+      solvedPower.rings[solvedPower.activeRing].target
+    ) <= solvedPower.rings[solvedPower.activeRing].tolerance);
+    solvedPower = minigames.stopPowerCut(solvedPower);
+  }
+  assert.deepEqual([solvedPower.phase, solvedPower.turn, solvedPower.rings.every(ring => ring.phase === "locked")],
+    ["power_success", minigames.POWER_RING_COUNT, true]);
+  const failedPower = minigames.stopPowerCut(power1);
+  assert.deepEqual([failedPower.phase, failedPower.turn, failedPower.missesLeft], ["coin_call", 1, 0]);
+  assert.equal(minigames.callCoin(failedPower, failedPower.coinFace).escaped, true);
+  assert.equal(minigames.callCoin(failedPower, oppositeFace(failedPower.coinFace)).escaped, false);
+  const sneakyPower = minigames.createPowerCutChallenge({ ...powerArgs, sneaky: 100 });
+  assert.ok(sneakyPower.rings.every((ring, index) => ring.speed < power1.rings[index].speed&&ring.tolerance>power1.rings[index].tolerance));
+  assert.equal(utils.getRngState(), puzzleCursor, "power timing must not consume the shared DAILY cursor");
+
+  // v1.9.18 character progression is pure, bounded and scenario-aware. Innate
+  // ranks never consume earned points, while every level-up grants exactly one.
+  const progressionScenarios = ["fraud", "debtor", "legacy", "defector", "boomerang"];
+  const innateByScenario = {
+    fraud:{sneaky:2,endurance:0}, debtor:{sneaky:0,endurance:2}, legacy:{sneaky:0,endurance:0},
+    defector:{sneaky:1,endurance:1}, boomerang:{sneaky:1,endurance:1},
+  };
+  for (const scenario of progressionScenarios) {
+    const career = progression.createProgression(scenario);
+    assert.deepEqual(career.skills, innateByScenario[scenario]);
+    assert.equal(progression.progressionValidationError(career, scenario), null);
+  }
+  assert.deepEqual(progression.XP_THRESHOLDS, [0,50,120,210,320,450,600,780]);
+  assert.deepEqual(progression.XP_THRESHOLDS.map(progression.levelForXp), [1,2,3,4,5,6,7,8]);
+  const twoLevels = progression.addXp(progression.createProgression("fraud"), 120);
+  assert.deepEqual([twoLevels.progression.xp,twoLevels.progression.level,twoLevels.progression.skillPoints,
+    twoLevels.levelsGained,twoLevels.pointsGained], [120,3,2,2,2]);
+  const oneSpent = progression.allocateSkill(twoLevels.progression,"endurance");
+  assert.equal(oneSpent.spent,true);
+  assert.deepEqual([oneSpent.progression.skillPoints,oneSpent.progression.skills.sneaky,
+    oneSpent.progression.skills.endurance],[1,2,1]);
+  assert.equal(progression.allocateSkill(oneSpent.progression,"unknown").progression,oneSpent.progression,
+    "invalid allocation preserves identity");
+  assert.equal(progression.progressionValidationError({...oneSpent.progression,extra:true},"fraud"),"invalid_keys");
+  assert.equal(progression.progressionValidationError({...oneSpent.progression,level:4},"fraud"),"xp_level_mismatch");
+  assert.equal(progression.progressionValidationError({...oneSpent.progression,skillPoints:0},"fraud"),"skill_point_mismatch");
+
+  const sneakyRanks = [0,2,5].map(rank=>progression.sneakyModifiers({skills:{sneaky:rank,endurance:0}}));
+  assert.deepEqual(sneakyRanks.map(m=>[m.powerScore,m.lockToleranceBonus,m.lockAttemptBonus,m.ringSpeedMultiplier]),
+    [[0,0,0,1],[40,2,1,.86],[100,5,2,.65]]);
+  const expectedPowerSpeeds=[[62,91,132],[53.3,78.3,113.5],[40.3,59.1,85.8]];
+  // The three circuits are a climb, not three of the same ring: each one spins
+  // faster through a narrower window, at every SNEAKY rank.
+  const stopWindowMs=ring=>2*ring.tolerance/ring.speed*1000;
+  for (const [modIndex,mod] of sneakyRanks.entries()) {
+    const lock=minigames.createLockpickChallenge({...puzzleArgs,toleranceBonus:mod.lockToleranceBonus,attemptBonus:mod.lockAttemptBonus});
+    const power=minigames.createPowerCutChallenge({...powerArgs,sneaky:mod.powerScore});
+    // One pick at rank 0, one more at each SNEAKY attempt threshold.
+    assert.deepEqual([lock.tolerance,lock.maxAttempts],[4+mod.lockToleranceBonus,1+mod.lockAttemptBonus]);
+    assert.deepEqual(power.rings.map(ring=>ring.speed),expectedPowerSpeeds[modIndex]);
+    const speeds=power.rings.map(ring=>ring.speed), windows=power.rings.map(stopWindowMs);
+    assert.ok(speeds[0]<speeds[1]&&speeds[1]<speeds[2],"each circuit spins faster than the last");
+    assert.ok(windows[0]>windows[1]&&windows[1]>windows[2],"and gives less room to stop it");
+    assert.ok(windows[2]>=150,"the hard circuit stays humanly stoppable");
+    assert.equal(power.rules,minigames.POWER_RULES);
+  }
+  // A board dealt under the old curve keeps it, so an update cannot rewrite a
+  // puzzle someone is halfway through.
+  const legacyBoard=minigames.createPowerCutChallenge({...powerArgs,sneaky:0,rules:0});
+  assert.deepEqual(legacyBoard.rings.map(ring=>ring.speed),[70,100,105]);
+  assert.equal(legacyBoard.rules,0);
+  assert.equal(progression.enduranceFatigueMultiplier(progression.createProgression("fraud"),"fraud"),1);
+  assert.equal(progression.enduranceFatigueMultiplier(progression.createProgression("debtor"),"debtor"),.792);
+  const maxLegacy={...progression.createProgression("legacy"),skills:{sneaky:0,endurance:5}};
+  assert.equal(progression.enduranceFatigueMultiplier(maxLegacy,"legacy"),.805);
+  assert.equal(progression.applyEnduranceToWorkFatigue(10,maxLegacy,"legacy"),8);
+  assert.equal(progression.applyEnduranceToWorkFatigue(-10,maxLegacy,"legacy"),-10,
+    "rest and narrative recovery bypass ENDURANCE");
+  assert.equal(utils.getRngState(), puzzleCursor, "progression math must not consume the shared DAILY cursor");
+
+  // v1.9.19 Fraud identity pressure is rare, banded, persistent and never an
+  // instant random game-over. Event builders are deterministic save authority.
+  assert.deepEqual([79,80,89,90,94,95,99,100].map(fraud.fraudSlipChance),
+    [0,.005,.005,.015,.015,.03,.03,.05]);
+  const cleanSecret=fraud.createFraudRisk("fraud");
+  assert.equal(cleanSecret.morningPhase,"idle");
+  assert.equal(fraud.createFraudRisk("debtor"),null);
+  assert.equal(fraud.fraudRiskValidationError(cleanSecret,"fraud",1),null);
+  assert.equal(fraud.fraudRiskV1ValidationError(fraud.createFraudRiskV1("fraud"),"fraud",1),null);
+  assert.equal(fraud.fraudRiskValidationError({...cleanSecret,dailyPeak:101},"fraud",1),"daily-peak");
+  const firstSlip={...cleanSecret,slipCount:1};
+  const slipEvent1=fraud.buildFraudSlipEvent(firstSlip);
+  assert.deepEqual(fraud.buildFraudSlipEvent(firstSlip),slipEvent1);
+  assert.ok(slipEvent1.opts.every(option=>option.ok.fraud&&!option.ok.expose),
+    "the random fatigue slip itself cannot expose the player");
+  const finalInquiry=fraud.buildFraudInquiryEvent({...cleanSecret,suspicion:3});
+  assert.equal(finalInquiry.opts[0].base,100,"the final inquiry always retains a guaranteed survival route");
+  assert.ok(finalInquiry.opts.slice(1).every(option=>option.fail.expose===true),
+    "only chosen risky failures at the final inquiry expose the Fraud");
+
+  // A day's highest reached fatigue—not the first threshold crossing or the
+  // post-coffee value—drives exactly one end-of-day roll. Force a known hit.
+  fresh();
+  let forcedSlipSeed=0;
+  for(let seed=1;seed<100000&&!forcedSlipSeed;seed++){
+    utils.setSeed(seed);
+    if(utils.rand()<fraud.fraudSlipChance(100)) forcedSlipSeed=seed;
+  }
+  assert.ok(forcedSlipSeed,"a deterministic 5% fixture seed exists");
+  Object.assign(state.S,{inbox:[],openCase:null,event:null,objective:null,hours:0,fatigue:72,clients:[],nemesis:null});
+  state.S.fraudRisk.dailyPeak=100;
+  utils.setSeed(forcedSlipSeed);
+  engine.endDay();
+  assert.deepEqual([state.S.fraudRisk.lastCheckDay,state.S.fraudRisk.slipCount,state.S.fraudRisk.pendingKind,state.S.fraudRisk.pendingDay],
+    [1,1,"slip",2]);
+  assert.match(state.S.summary.lines.join(" "),/question is waiting tomorrow/i);
+  assert.equal(engine.inspectSave(1).status,"ready","the rolled day checkpoint is resumable");
+  assert.equal(engine.loadGame(1),true);
+  assert.deepEqual([state.S.fraudRisk.lastCheckDay,state.S.fraudRisk.slipCount,state.S.fraudRisk.pendingKind,state.S.fraudRisk.pendingDay],
+    [1,1,"slip",2],"reloading the day summary cannot reroll the slip");
+  engine.dismissSummary();
+  assert.deepEqual([state.S.event.fraudKind,state.S.event.fraudStage,state.S.fraudRisk.pendingDay,state.S.fraudRisk.morningPhase],
+    ["slip",0,0,"resume"]);
+  assert.equal(engine.inspectSave(1).status,"ready","the pre-morning confrontation checkpoint is resumable");
+  assert.equal(engine.loadGame(1),true);
+  assert.deepEqual([state.S.event.fraudKind,state.S.fraudRisk.morningPhase],["slip","resume"],
+    "reload preserves the exact morning continuation marker");
+  const safeSlip=state.S.event.opts.find(option=>option.safe);
+  const xpBeforeSecret=state.S.progression.xp;
+  engine.resolveCrisis(safeSlip);
+  assert.deepEqual([state.S.fraudRisk.suspicion,state.S.fraudRisk.pendingKind,state.S.fraudRisk.pendingDay,
+    state.S.fraudRisk.morningPhase,state.S.progression.xp,state.S.rep],
+    [1,"inquiry",3,"idle",xpBeforeSecret,49],
+    "safe cover story survives, schedules stage one, resumes morning exactly once and cannot farm crisis XP");
+  const repAfterMorning=state.S.rep;
+  engine.resolveCrisis(safeSlip);
+  assert.equal(state.S.rep,repAfterMorning,"a stale Fraud click cannot replay the morning pipeline");
+  Object.assign(state.S,{inbox:[],event:null,objective:null,hours:8,fatigue:0});
+  engine.endDay(); engine.dismissSummary();
+  assert.deepEqual([state.S.event.fraudKind,state.S.event.fraudStage],["inquiry",1]);
+  const activeFraudSave=JSON.parse(storage.get(`${constants.SAVE_KEY}_s1`));
+  const tamperedFraudEvent=JSON.parse(JSON.stringify(activeFraudSave));
+  tamperedFraudEvent.event.body+=" forged";
+  storage.set(`${constants.SAVE_KEY}_s2`,JSON.stringify(tamperedFraudEvent));
+  assert.equal(engine.inspectSave(2).status,"invalid","active identity events are canonical save authority");
+  const safeInquiry=state.S.event.opts.find(option=>option.safe);
+  engine.resolveCrisis(safeInquiry);
+  assert.deepEqual([state.S.fraudRisk.suspicion,state.S.fraudRisk.contained],[0,1]);
+
+  fresh();
+  Object.assign(state.S,{rep:20,firm:15,event:null,summary:null});
+  Object.assign(state.S.fraudRisk,{slipCount:1,suspicion:0,pendingKind:null,pendingDay:0});
+  state.S.event=fraud.buildFraudSlipEvent(state.S.fraudRisk);
+  engine.resolveCrisis(state.S.event.opts.find(option=>option.safe));
+  assert.equal(state.S.over,false,"the initial slip's guaranteed cover story must survive at the firing floor");
+
+  // Every guaranteed identity route is nonlethal even at the ordinary firing
+  // and ENDLESS collapse floors. Only a deliberately chosen final-stage risky
+  // failure may end the career as EXPOSED.
+  for(const stage of [1,2,3]){
+    fresh();
+    Object.assign(state.S,{rep:20,firm:15,event:null,summary:null,rank:4,endlessWon:true,mode:"endless"});
+    Object.assign(state.S.fraudRisk,{suspicion:stage,pendingKind:null,pendingDay:0});
+    state.S.event=fraud.buildFraudInquiryEvent(state.S.fraudRisk);
+    engine.resolveCrisis(state.S.event.opts.find(option=>option.safe));
+    assert.equal(state.S.over,false,`stage ${stage} guaranteed route must survive at both terminal floors`);
+  }
+  fresh();
+  Object.assign(state.S,{rep:20,firm:15,event:null,summary:null,rank:4,endlessWon:true,mode:"endless"});
+  Object.assign(state.S.fraudRisk,{suspicion:3,pendingKind:null,pendingDay:0});
+  state.S.event=fraud.buildFraudInquiryEvent(state.S.fraudRisk);
+  const exposedPlay=state.S.event.opts.find(option=>option.style==="technical");
+  exposedPlay.base=-1000; // in-memory forced failure; canonical save authority remains untouched
+  utils.setSeed(1);
+  engine.resolveCrisis(exposedPlay);
+  assert.match(state.S.summary.title,/GAME OVER: EXPOSED/);
+
+  // An otherwise lethal deadline closes the career before the rare roll; no
+  // unanswered/ghost slip is recorded in a terminal run.
+  fresh();
+  const fraudDeadlineDoomed=engine.instantiateCase(template());
+  fraudDeadlineDoomed.dueDay=state.S.day;
+  Object.assign(state.S,{rep:20,inbox:[fraudDeadlineDoomed],openCase:null,event:null,objective:null,hours:0,fatigue:100,clients:[],nemesis:null});
+  Object.assign(state.S.fraudRisk,{dailyPeak:100,lastCheckDay:0,slipCount:0,pendingKind:null,pendingDay:0});
+  engine.endDay();
+  assert.equal(state.S.over,true);
+  assert.deepEqual([state.S.fraudRisk.slipCount,state.S.fraudRisk.pendingKind,state.S.fraudRisk.pendingDay],[0,null,0]);
+
+  fresh();
+  assert.equal(content.crises().some(event=>event.id==="audit"),false,
+    "the old independent credentials audit cannot bypass the staged fatigue gate");
+
+  // A due confrontation preempts every ordinary morning passive—even the
+  // promotion review. Resolving it resumes the morning exactly once, after
+  // which a Name Partner summary may open normally.
+  fresh();
+  Object.assign(state.S,{day:5,rank:3,inf:100,firm:60,mode:"endless",endlessWon:false,
+    seniorPartnerDay:3,inbox:[],openCase:null,event:null,summary:null,objective:null,hours:0,clients:[],nemesis:null});
+  Object.assign(state.S.fraudRisk,{slipCount:1,suspicion:0,pendingKind:"slip",pendingDay:6,lastCheckDay:5,dailyPeak:0});
+  engine.endDay();
+  engine.dismissSummary();
+  assert.equal(state.S.summary,null);
+  assert.deepEqual([state.S.event.fraudKind,state.S.event.fraudStage,state.S.fraudRisk.morningPhase],
+    ["slip",0,"resume"],"identity pressure is the first playable morning checkpoint");
+  assert.equal(engine.inspectSave(1).status,"ready");
+  const promotionMorningSafe=state.S.event.opts.find(option=>option.safe);
+  engine.resolveCrisis(promotionMorningSafe);
+  assert.match(state.S.summary.title,/NAME PARTNER/);
+  assert.deepEqual([state.S.fraudRisk.pendingKind,state.S.fraudRisk.pendingDay,state.S.fraudRisk.morningPhase],
+    ["inquiry",7,"idle"]);
+  assert.equal(engine.inspectSave(1).status,"ready","promotion after the confrontation remains resumable");
+  engine.dismissSummary();
+  assert.equal(state.S.event,null,"tomorrow's follow-up cannot open a day early");
+
+  // At the firing floor, the queued question is still shown before ordinary
+  // overnight REP decay. The random hit never kills unseen; the normal career
+  // rule may run only after the player has made the guaranteed cover choice.
+  fresh();
+  Object.assign(state.S,{rep:20,inbox:[],openCase:null,event:null,summary:null,objective:null,hours:0,clients:[],nemesis:null});
+  Object.assign(state.S.fraudRisk,{slipCount:1,suspicion:0,pendingKind:"slip",pendingDay:2,lastCheckDay:1,dailyPeak:0});
+  engine.endDay(); engine.dismissSummary();
+  assert.deepEqual([state.S.over,state.S.rep,state.S.event.fraudKind,state.S.fraudRisk.morningPhase],
+    [false,20,"slip","resume"],"the cover decision must precede lethal morning decay");
+  engine.resolveCrisis(state.S.event.opts.find(option=>option.safe));
+  assert.equal(state.S.over,true);
+  assert.match(state.S.summary.title,/GAME OVER: FIRED/);
+
+  // Schema 13 active events were already playable checkpoints, not interrupted
+  // mornings. Migrating one must therefore preserve the scene without replaying
+  // morning decay/results after its choice.
+  fresh();
+  Object.assign(state.S.fraudRisk,{slipCount:1,suspicion:0,pendingKind:null,pendingDay:0,morningPhase:"complete"});
+  state.S.event=fraud.buildFraudSlipEvent(state.S.fraudRisk);
+  engine.saveGame();
+  const schema13Active=JSON.parse(storage.get(`${constants.SAVE_KEY}_s1`));
+  schema13Active.schemaVersion=13;
+  schema13Active.fraudRisk={...schema13Active.fraudRisk,version:1};
+  delete schema13Active.fraudRisk.morningPhase;
+  storage.set(`${constants.SAVE_KEY}_s2`,JSON.stringify(schema13Active));
+  const schema13ActiveInfo=engine.inspectSave(2);
+  assert.equal(schema13ActiveInfo.status,"ready");
+  assert.equal(schema13ActiveInfo.save.fraudRisk.morningPhase,"complete");
+  assert.equal(engine.loadGame(2),true);
+  const schema13Rep=state.S.rep;
+  engine.resolveCrisis(state.S.event.opts.find(option=>option.safe));
+  assert.equal(state.S.rep,schema13Rep,"a migrated schema 13 active event must not replay morning passives");
+  storage.delete(`${constants.SAVE_KEY}_s2`);
+
+  engine.setSlot(1);
+  fresh();
+  const schema13Fraud=JSON.parse(storage.get(`${constants.SAVE_KEY}_s1`));
+  schema13Fraud.schemaVersion=13;
+  schema13Fraud.fraudRisk={...schema13Fraud.fraudRisk,version:1};
+  delete schema13Fraud.fraudRisk.morningPhase;
+  storage.set(`${constants.SAVE_KEY}_s2`,JSON.stringify(schema13Fraud));
+  const schema13FraudInfo=engine.inspectSave(2);
+  assert.equal(schema13FraudInfo.status,"ready");
+  assert.deepEqual(schema13FraudInfo.save.fraudRisk,fraud.createFraudRisk("fraud"),
+    "schema 13 identity state upgrades without inventing a morning continuation");
+  const schema12Fraud=JSON.parse(storage.get(`${constants.SAVE_KEY}_s1`));
+  schema12Fraud.schemaVersion=12;
+  schema12Fraud.event=null;
+  delete schema12Fraud.fraudRisk;
+  storage.set(`${constants.SAVE_KEY}_s2`,JSON.stringify(schema12Fraud));
+  const schema12FraudInfo=engine.inspectSave(2);
+  assert.equal(schema12FraudInfo.status,"ready");
+  assert.deepEqual(schema12FraudInfo.save.fraudRisk,fraud.createFraudRisk("fraud"),
+    "schema 12 careers begin identity pressure from a clean, deterministic baseline");
+  storage.delete(`${constants.SAVE_KEY}_s2`);
+
+  // Allocation persists, is idempotent, and does not advance DAILY's shared
+  // RNG cursor. An active COVERT ACTION freezes both skill ranks until it ends.
+  fresh("daily");
+  state.S.progression=progression.addXp(progression.createProgression(state.S.scenario),50).progression;
+  const allocationCursor=utils.getRngState();
+  const allocationBefore=clone=>JSON.parse(JSON.stringify(clone));
+  assert.equal(engine.spendSkillPoint("endurance"),true);
+  assert.equal(utils.getRngState(),allocationCursor);
+  const allocatedCareer=allocationBefore(state.S.progression);
+  assert.equal(engine.spendSkillPoint("unknown"),false);
+  assert.deepEqual(state.S.progression,allocatedCareer);
+  assert.equal(engine.loadGame(1),true);
+  assert.deepEqual(state.S.progression,allocatedCareer,"an allocated rank survives reload");
+  let guardedAction=liveRedvale();
+  const actionSkillCursor=utils.getRngState();
+  engine.choose(guardedAction.c,guardedAction.o);
+  const frozenProgression=allocationBefore(state.S.progression);
+  assert.equal(engine.spendSkillPoint("sneaky"),false);
+  assert.deepEqual(state.S.progression,frozenProgression);
+  assert.deepEqual(state.S.actionChallenge.skillSnapshot,{rulesVersion:1,
+    sneaky:frozenProgression.skills.sneaky,endurance:frozenProgression.skills.endurance});
+  assert.equal(utils.getRngState(),actionSkillCursor);
+
+  // XP is written once at terminal/reveal points: immediate matters now,
+  // delayed matters at REPLY, and delegated work only on the final handback.
+  fresh();
+  let xpCase=engine.instantiateCase(template());
+  Object.assign(state.S,{inbox:[xpCase],openCase:xpCase,event:null,objective:null,hours:8,clients:[],nemesis:null});
+  const xpTech=xpCase.opts.find(option=>option.style==="technical");
+  engine.choose(xpCase,xpTech);
+  assert.equal(state.S.progression.xp,progression.CASE_XP.win[1]);
+  engine.choose(xpCase,xpTech);
+  assert.equal(state.S.progression.xp,progression.CASE_XP.win[1],"stale case clicks cannot duplicate XP");
+
+  fresh();
+  const progressionDelayedRaw=template();
+  progressionDelayedRaw.opts.find(option=>option.style==="technical").delay=1;
+  xpCase=engine.instantiateCase(progressionDelayedRaw);
+  Object.assign(state.S,{inbox:[xpCase],openCase:xpCase,event:null,objective:null,hours:8,clients:[],nemesis:null});
+  engine.choose(xpCase,xpCase.opts.find(option=>option.style==="technical"));
+  assert.equal(state.S.progression.xp,0,"a hidden delayed result cannot leak through XP");
+  engine.endDay(); engine.dismissSummary();
+  assert.equal(state.S.progression.xp,progression.CASE_XP.win[1]);
+  engine.saveGame(); engine.loadGame(1);
+  assert.equal(state.S.progression.xp,progression.CASE_XP.win[1],"a revealed reply cannot replay XP on reload");
+
+  fresh();
+  xpCase=engine.instantiateCase(template());
+  xpCase.delegated={npc:state.S.npcs[0].id,day:2,win:true,silent:false};
+  Object.assign(state.S,{rank:1,inbox:[xpCase],openCase:null,event:null,objective:null,hours:8,clients:[],nemesis:null});
+  engine.endDay(); engine.dismissSummary();
+  assert.equal(state.S.progression.xp,progression.DELEGATED_XP.win[1]);
+
+  fresh();
+  xpCase=engine.instantiateCase(template());
+  xpCase.delegated={npc:state.S.npcs[0].id,day:2,win:false,silent:true};
+  Object.assign(state.S,{rank:1,inbox:[xpCase],openCase:null,event:null,objective:null,hours:8,clients:[],nemesis:null});
+  engine.endDay(); engine.dismissSummary();
+  assert.equal(state.S.progression.xp,0,"a silently returned delegated file grants no XP");
+
+  fresh("daily");
+  const crisisOption={text:"Hold the line",base:100,safe:true,ok:{fx:{},txt:"held"},fail:{fx:{},txt:"fell"}};
+  state.S.event={id:"test_crisis",title:"TEST CRISIS",body:"test",opts:[crisisOption]};
+  const crisisCursor=utils.getRngState();
+  engine.resolveCrisis(crisisOption);
+  assert.equal(state.S.progression.xp,progression.CRISIS_XP.safe);
+  const crisisXp=state.S.progression.xp, cursorAfterCrisis=utils.getRngState();
+  engine.resolveCrisis(crisisOption);
+  assert.deepEqual([state.S.progression.xp,utils.getRngState()],[crisisXp,cursorAfterCrisis]);
+  assert.notEqual(cursorAfterCrisis,crisisCursor,"only the crisis outcome roll—not the XP award—advances DAILY RNG");
+
+  // ENDURANCE applies exactly once to positive work fatigue. It does not
+  // discount overtime, recovery or other explicit narrative consequences.
+  engine.startGame("debtor","easy","standard");
+  xpCase=engine.instantiateCase(template());
+  Object.assign(state.S,{inbox:[xpCase],openCase:xpCase,event:null,objective:null,hours:8,fatigue:0,clients:[],nemesis:null});
+  engine.choose(xpCase,xpCase.opts.find(option=>option.style==="technical"));
+  assert.equal(state.S.fatigue,4,"Debtor's innate ENDURANCE turns 5 work fatigue into 4 once");
+  const debtorOvertime={text:"Overtime",base:100,safe:true,ot:true,ok:{fx:{},txt:""}};
+  Object.assign(state.S,{hours:0,fatigue:0,event:{id:"overtime",title:"QUITTING TIME",body:"test",opts:[debtorOvertime]}});
+  engine.resolveCrisis(debtorOvertime);
+  assert.equal(state.S.fatigue,constants.OVERTIME_FATIGUE,"overtime is a narrative penalty, not ENDURANCE work fatigue");
+
+  engine.startGame("debtor","easy","standard");
+  xpCase=engine.instantiateCase(template());
+  Object.assign(state.S,{inbox:[xpCase],openCase:xpCase,event:null,objective:null,hours:1,fatigue:0,clients:[],nemesis:null});
+  engine.choose(xpCase,xpCase.opts.find(option=>option.style==="technical"),true);
+  assert.equal(state.S.fatigue,12,
+    "ENDURANCE reduces the 5 work fatigue to 4 but leaves all 8 late-work fatigue intact");
+
+  engine.startGame("debtor","easy","standard");
+  const lateRedvale=liveRedvale();
+  state.S.hours=.5;
+  engine.choose(lateRedvale.c,lateRedvale.o,true);
+  assert.deepEqual([state.S.actionChallenge.lateExtra,state.S.actionChallenge.toil],[5,11],
+    "COVERT ENDURANCE reduces only its 7 work fatigue; the 5 late-work fatigue remains explicit");
+  assert.equal(engine.inspectSave(1).status,"ready","late COVERT fatigue re-derives under the current schema");
+  const schema11Late=JSON.parse(storage.get(`${constants.SAVE_KEY}_s1`));
+  schema11Late.schemaVersion=11;
+  schema11Late.actionChallenge.toil=progression.applyEnduranceToWorkFatigue(
+    7+schema11Late.actionChallenge.lateExtra,
+    {skills:schema11Late.actionChallenge.skillSnapshot},
+    "debtor",
+  );
+  assert.equal(schema11Late.actionChallenge.toil,10,"schema 11 briefly discounted late-work fatigue");
+  storage.set(`${constants.SAVE_KEY}_s2`,JSON.stringify(schema11Late));
+  const schema11LateInfo=engine.inspectSave(2);
+  assert.equal(schema11LateInfo.status,"ready","schema 11 late COVERT checkpoints migrate without loss");
+  assert.equal(schema11LateInfo.needsUpgrade,true);
+  assert.equal(schema11LateInfo.save.schemaVersion,constants.SAVE_SCHEMA_VERSION);
+  // v1.9.24 replaced the lockpick's angle with tension. The two models share no
+  // geometry, so an in-progress PICK is handed back whole rather than converted:
+  // the challenge is dropped and the covert option returns to the file, unspent.
+  assert.equal(schema11LateInfo.save.actionChallenge,null,"a legacy pick in progress is not half-converted");
+  const handedBack=schema11LateInfo.save.inbox.find(c=>c.id==="redvale");
+  assert.equal(handedBack.actionInProgress,undefined,"and its case is no longer stuck mid-attempt");
+  assert.equal(handedBack.opts.some(o=>o.action?.type==="lockpick"),true,"the option is still there to spend");
+  storage.delete(`${constants.SAVE_KEY}_s2`);
 
   // Base options shuffle without mutating source content; INF scales once by style.
   fresh();
@@ -340,6 +860,53 @@ globalThis.clearInterval = () => {};
   assert.ok(generatedAppeal, "the seeded generator should expose at least one follow-up appeal");
   assert.match(generatedAppeal.id, /^appeal\d+$/);
 
+  // Earned SNEAKY points remain useful after the two hand-written early
+  // actions: the procedural docket can surface either COVERT board again.
+  fresh("daily");
+  utils.setSeed(2052);
+  const generatedCovertTypes=new Set(), generatedPrepTypes=new Set();
+  for(let i=0;i<1000&&(generatedCovertTypes.size<2||!generatedPrepTypes.size);i++){
+    for(const option of casegen.genCase().opts){
+      if(!option.action) continue;
+      if(option.action.type==="contradiction") generatedPrepTypes.add(option.style);
+      else generatedCovertTypes.add(option.action.type);
+    }
+  }
+  assert.deepEqual([...generatedCovertTypes].sort(),["lockpick","power_cut"]);
+  // Prep boards ride the same machinery but must never be labelled covert.
+  assert.deepEqual([...generatedPrepTypes],["prep"],"the procedural docket also offers contradiction prep");
+
+  // The chronology feature cannot live on one hand-written file: the templates
+  // whose bodies already carry dates must offer it too, with the dates in the
+  // BODY and never on the cards — otherwise the board solves itself.
+  fresh("daily");
+  utils.setSeed(2053);
+  const generatedTimelines = new Map();
+  for (let i = 0; i < 1500 && generatedTimelines.size < 5; i++) {
+    const filing = casegen.genCase();
+    if (filing.timeline) generatedTimelines.set(filing.timeline.id, filing);
+  }
+  assert.equal(generatedTimelines.size, 5, "five procedural templates carry an authored chronology");
+  const datePattern = /\b(january|february|march|april|may|june|july|august|september|october|november|december|\d{1,2}:\d{2})\b/i;
+  for (const [id, filing] of generatedTimelines) {
+    const { events, title, body } = filing.timeline;
+    assert.ok(events.length >= 6 && events.length <= 12, id + " offers a deep enough pool to vary between runs");
+    assert.equal(new Set(events.map(e => e.id)).size, events.length, id + " has unique event ids");
+    assert.deepEqual(events.map(e => e.at), events.map((_, index) => index + 1), id + " ranks its events 1..n");
+    assert.ok(title.length > 0 && body.length > 0, id + " briefs the player");
+    assert.ok(datePattern.test(filing.body), id + " puts its dates in the case file");
+    for (const event of events)
+      assert.ok(!datePattern.test(event.text), id + "/" + event.id + " must not hand the answer to the card");
+    // A risky play on a generated file really does open the prep window.
+    const c = engine.instantiateCase(filing);
+    const risky = c.opts.find(option => !option.safe && !option.action);
+    assert.equal(engine.timelineEligible(c, risky), true, id + " opens prep on a risky play");
+    const board = minigames.createTimelineChallenge({ runSeed: 7, caseId: c.id, optionIndex: c.opts.indexOf(risky),
+      timelineId: id, events, count: constants.TIMELINE_CARDS, cost: constants.TIMELINE_HOURS, toil: 3, lateExtra: 0 });
+    assert.equal(board.cards.length, constants.TIMELINE_CARDS);
+    assert.notDeepEqual(board.order, board.solution, id + " never deals a solved board");
+  }
+
   // Delayed court outcomes remain secret until REPLY. A save/reload preserves
   // the rolled result and RNG cursor; reveal records memory exactly once.
   fresh("daily");
@@ -515,6 +1082,199 @@ globalThis.clearInterval = () => {};
     resolved: state.S.today.resolved,
   }, afterOneShot);
 
+  // COVERT ACTION success survives reload without rerolling, grants evidence
+  // rather than an automatic case win, and consumes its option exactly once.
+  fresh("daily");
+  let redvale = liveRedvale();
+  // A beginner only gets one pick, so train SNEAKY before testing a mid-attempt
+  // reload — the extra picks are exactly what the skill buys.
+  let trainedProgression = progression.addXp(state.S.progression, 120).progression;
+  trainedProgression = progression.allocateSkill(trainedProgression, "sneaky").progression;
+  trainedProgression = progression.allocateSkill(trainedProgression, "sneaky").progression;
+  state.S.progression = trainedProgression;
+  const trainedXpBase = state.S.progression.xp;
+  utils.setSeed(0x2468ace0);
+  const actionCursor = utils.getRngState();
+  const legalOption = redvale.c.opts.find(option => !option.action);
+  engine.choose(redvale.c, redvale.o);
+  const trainedAttempts = state.S.actionChallenge.maxAttempts;
+  assert.ok(trainedAttempts >= 2, "trained hands carry spare picks");
+  assert.equal(utils.getRngState(), actionCursor);
+  assert.equal(state.S.runStats.covertTry, 1);
+  assert.deepEqual(state.S.actionChallenge.skillSnapshot,{rulesVersion:1,
+    sneaky:state.S.progression.skills.sneaky,endurance:state.S.progression.skills.endurance});
+  assert.deepEqual([state.S.actionChallenge.tolerance,state.S.actionChallenge.maxAttempts],
+    [4+state.S.progression.skills.sneaky,1+(state.S.progression.skills.sneaky>=2?1:0)+(state.S.progression.skills.sneaky>=5?1:0)]);
+  assert.equal(engine.isPaused(), true);
+  const blockedSnapshot = JSON.stringify({ challenge: state.S.actionChallenge, stats: state.S.runStats, hours: state.S.hours });
+  engine.choose(redvale.c, legalOption);
+  assert.equal(JSON.stringify({ challenge: state.S.actionChallenge, stats: state.S.runStats, hours: state.S.hours }), blockedSnapshot);
+  engine.setLockTension(missTension());
+  engine.attemptLockpick();
+  const savedChallenge = JSON.parse(JSON.stringify(state.S.actionChallenge));
+  const cursorAfterMiss = utils.getRngState();
+  assert.deepEqual([savedChallenge.phase, savedChallenge.attemptsLeft, savedChallenge.turn],
+    ["lockpick", trainedAttempts - 1, 1]);
+  assert.equal(engine.loadGame(1), true);
+  assert.deepEqual(state.S.actionChallenge, savedChallenge);
+  assert.equal(utils.getRngState(), cursorAfterMiss);
+  assert.equal(state.S.runStats.covertTry, 1);
+  const loadedRedvale = state.S.inbox.find(c => c.id === "redvale");
+  assert.equal(loadedRedvale.actionInProgress, "redvale_archive_lock");
+  assert.equal(loadedRedvale.opts[state.S.actionChallenge.optionIndex].action.id, "redvale_archive_lock");
+  engine.setLockTension(state.S.actionChallenge.give);
+  engine.attemptLockpick();
+  assert.equal(state.S.actionChallenge.phase, "lock_success");
+  engine.completeActionChallenge();
+  assert.equal(utils.getRngState(), cursorAfterMiss);
+  assert.equal(state.S.actionChallenge, null);
+  assert.equal(loadedRedvale.covertEdge, 12);
+  assert.match(loadedRedvale.covertNote, /ARCHIVE INDEX/);
+  assert.equal(loadedRedvale.opts.some(option => option.action), false);
+  assert.equal(loadedRedvale.actionInProgress, undefined);
+  assert.deepEqual([state.S.hours, state.S.fatigue, state.S.bold], [.5, 7, 43]);
+  assert.deepEqual([state.S.runStats.covertTry, state.S.runStats.covertW,
+    state.S.runStats.covertEscape, state.S.runStats.covertCaught], [1, 1, 0, 0]);
+  assert.equal(state.S.progression.xp,trainedXpBase+progression.COVERT_XP.success);
+  assert.deepEqual([state.S.today.resolved, state.S.archiveTotal], [0, 0]);
+  const successOnce = JSON.stringify({ hours: state.S.hours, fatigue: state.S.fatigue, bold: state.S.bold,
+    stats: state.S.runStats, opts: loadedRedvale.opts, edge: loadedRedvale.covertEdge });
+  engine.completeActionChallenge();
+  engine.choose(redvale.c, redvale.o); // stale pre-reload references
+  assert.equal(JSON.stringify({ hours: state.S.hours, fatigue: state.S.fatigue, bold: state.S.bold,
+    stats: state.S.runStats, opts: loadedRedvale.opts, edge: loadedRedvale.covertEdge }), successOnce);
+  engine.saveGame();
+  assert.equal(engine.loadGame(1), true);
+  assert.equal(state.S.inbox.find(c => c.id === "redvale").opts.some(option => option.action), false);
+
+  // A broken pick gets one deterministic coin call. Calling it correctly
+  // escapes but loses the route; a wrong call poisons and archives the case.
+  fresh();
+  redvale = liveRedvale();
+  engine.choose(redvale.c, redvale.o);
+  exhaustLock();
+  assert.equal(state.S.actionChallenge.phase, "coin_call");
+  engine.callActionCoin(state.S.actionChallenge.coinFace);
+  assert.deepEqual([state.S.actionChallenge.phase, state.S.actionChallenge.escaped], ["coin_result", true]);
+  engine.completeActionChallenge();
+  assert.equal(state.S.inbox.includes(redvale.c), true);
+  assert.equal(state.S.openCase, redvale.c);
+  assert.equal(redvale.c.opts.some(option => option.action), false);
+  assert.equal(redvale.c.covertEdge, undefined);
+  assert.deepEqual([state.S.hours, state.S.fatigue, state.S.bold], [.5, 7, 38]);
+  assert.deepEqual([state.S.runStats.covertTry, state.S.runStats.covertW,
+    state.S.runStats.covertEscape, state.S.runStats.covertCaught], [1, 0, 1, 0]);
+  assert.equal(state.S.progression.xp,progression.COVERT_XP.escape);
+  assert.deepEqual([state.S.today.resolved, state.S.archiveTotal], [0, 0]);
+
+  fresh();
+  redvale = liveRedvale();
+  engine.choose(redvale.c, redvale.o);
+  exhaustLock();
+  const wrongCall = oppositeFace(state.S.actionChallenge.coinFace);
+  engine.callActionCoin(wrongCall);
+  assert.deepEqual([state.S.actionChallenge.phase, state.S.actionChallenge.escaped], ["coin_result", false]);
+  engine.completeActionChallenge();
+  assert.equal(state.S.inbox.includes(redvale.c), false);
+  assert.equal(state.S.openCase, null);
+  assert.deepEqual([state.S.rep, state.S.bold, state.S.firm, state.S.hours, state.S.fatigue], [32, 35, 56, .5, 7]);
+  assert.deepEqual([state.S.runStats.covertTry, state.S.runStats.covertW,
+    state.S.runStats.covertEscape, state.S.runStats.covertCaught], [1, 0, 0, 1]);
+  assert.equal(state.S.progression.xp,progression.COVERT_XP.caught);
+  assert.equal(state.S.today.resolved, 1);
+  assert.equal(state.S.archiveTotal, 1);
+  assert.deepEqual({ id: state.S.archive[0].id, win: state.S.archive[0].win, via: state.S.archive[0].via },
+    { id: "redvale", win: false, via: "covert action — caught" });
+  const caughtOnce = JSON.stringify({ rep: state.S.rep, bold: state.S.bold, firm: state.S.firm,
+    hours: state.S.hours, fatigue: state.S.fatigue, stats: state.S.runStats, archive: state.S.archive });
+  engine.completeActionChallenge();
+  engine.callActionCoin(wrongCall);
+  engine.attemptLockpick();
+  assert.equal(JSON.stringify({ rep: state.S.rep, bold: state.S.bold, firm: state.S.firm,
+    hours: state.S.hours, fatigue: state.S.fatigue, stats: state.S.runStats, archive: state.S.archive }), caughtOnce);
+
+  // The second COVERT ACTION uses live timing rings but the same one-shot,
+  // evidence-not-auto-win and strict-resume engine contract as the lockpick.
+  fresh("daily");
+  let powerCut = livePowerCut();
+  utils.setSeed(0x13579bdf);
+  const powerCursor = utils.getRngState();
+  engine.choose(powerCut.c, powerCut.o);
+  assert.deepEqual([state.S.actionChallenge.type, state.S.actionChallenge.phase, state.S.actionChallenge.activeRing],
+    ["power_cut", "power_cut", 0]);
+  assert.deepEqual(state.S.actionChallenge.skillSnapshot,{rulesVersion:1,
+    sneaky:state.S.progression.skills.sneaky,endurance:state.S.progression.skills.endurance});
+  assert.equal(state.S.actionChallenge.sneaky,state.S.progression.skills.sneaky*20);
+  assert.equal(utils.getRngState(), powerCursor);
+  alignLivePower();
+  engine.stopPowerRing();
+  assert.deepEqual([state.S.actionChallenge.phase, state.S.actionChallenge.activeRing, state.S.actionChallenge.turn],
+    ["power_cut", 1, 1]);
+  validPowerActionRaw = JSON.parse(storage.get(`${constants.SAVE_KEY}_s1`));
+  const savedPower = JSON.parse(JSON.stringify(state.S.actionChallenge));
+  assert.equal(engine.loadGame(1), true);
+  assert.deepEqual(state.S.actionChallenge, savedPower, "a locked circuit and the next live marker resume exactly");
+  assert.equal(utils.getRngState(), powerCursor);
+  while (state.S.actionChallenge.phase === "power_cut") {
+    alignLivePower();
+    engine.stopPowerRing();
+  }
+  assert.equal(state.S.actionChallenge.phase, "power_success");
+  engine.completeActionChallenge();
+  const loadedPowerCase = state.S.inbox.find(c => c.id === "breach");
+  assert.equal(state.S.actionChallenge, null);
+  assert.equal(loadedPowerCase.covertEdge, 12);
+  assert.match(loadedPowerCase.covertNote, /PATCH LEDGER/);
+  assert.equal(loadedPowerCase.opts.some(option => option.action), false);
+  assert.deepEqual([state.S.hours, state.S.fatigue, state.S.bold], [.5, 8, 44]);
+  assert.deepEqual([state.S.runStats.covertTry, state.S.runStats.covertW,
+    state.S.runStats.covertEscape, state.S.runStats.covertCaught], [1, 1, 0, 0]);
+  assert.equal(state.S.progression.xp,progression.COVERT_XP.success);
+  assert.deepEqual([state.S.today.resolved, state.S.archiveTotal], [0, 0]);
+  assert.equal(utils.getRngState(), powerCursor);
+
+  fresh();
+  powerCut = livePowerCut();
+  engine.choose(powerCut.c, powerCut.o);
+  engine.stopPowerRing(); // every board starts outside its target window
+  assert.equal(state.S.actionChallenge.phase, "coin_call");
+  engine.callActionCoin(state.S.actionChallenge.coinFace);
+  engine.completeActionChallenge();
+  assert.equal(state.S.inbox.includes(powerCut.c), true);
+  assert.equal(powerCut.c.opts.some(option => option.action), false);
+  assert.equal(powerCut.c.covertEdge, undefined);
+  assert.deepEqual([state.S.hours, state.S.fatigue, state.S.bold], [.5, 8, 38]);
+  assert.deepEqual([state.S.runStats.covertTry, state.S.runStats.covertW,
+    state.S.runStats.covertEscape, state.S.runStats.covertCaught], [1, 0, 1, 0]);
+  assert.equal(state.S.progression.xp,progression.COVERT_XP.escape);
+
+  // v1.9.23 sharpened the circuits. A career that is mid-sabotage when the
+  // update lands keeps the board it was dealt instead of losing the slot.
+  fresh();
+  powerCut = livePowerCut();
+  engine.choose(powerCut.c, powerCut.o);
+  engine.saveGame();
+  const rawSharpened = JSON.parse(localStorage.getItem(constants.SAVE_KEY + "_s1"));
+  assert.equal(rawSharpened.actionChallenge.rules, minigames.POWER_RULES);
+  const legacyCircuits = JSON.parse(JSON.stringify(rawSharpened));
+  legacyCircuits.schemaVersion = 17;
+  delete legacyCircuits.actionChallenge.rules;
+  const savedPowerScore = progression.sneakyModifiers({ skills: { sneaky: rawSharpened.actionChallenge.skillSnapshot.sneaky, endurance: 0 } }).powerScore;
+  legacyCircuits.actionChallenge.rings = minigames
+    .createPowerCutChallenge({ runSeed: rawSharpened.seed, caseId: rawSharpened.actionChallenge.caseId,
+      actionId: rawSharpened.actionChallenge.actionId, cost: 1.5, toil: 8, lateExtra: 0,
+      sneaky: savedPowerScore, rules: 0 }).rings;
+  localStorage.setItem(constants.SAVE_KEY + "_s1", JSON.stringify(legacyCircuits));
+  assert.equal(engine.loadGame(1), true, "a v17 sabotage in progress migrates instead of being rejected");
+  assert.equal(state.S.actionChallenge.rules, 0, "and keeps the curve it was dealt");
+  assert.deepEqual(state.S.actionChallenge.rings.map(r => r.speed), legacyCircuits.actionChallenge.rings.map(r => r.speed));
+  // A legacy board cannot be re-labelled as a modern one to smuggle easier rings in.
+  const forgedRules = JSON.parse(JSON.stringify(legacyCircuits));
+  forgedRules.schemaVersion = constants.SAVE_SCHEMA_VERSION;
+  forgedRules.actionChallenge.rules = minigames.POWER_RULES;
+  localStorage.setItem(constants.SAVE_KEY + "_s1", JSON.stringify(forgedRules));
+  assert.equal(engine.loadGame(1), false, "old rings claiming the new curve are rejected");
+
   // At 80 FATIGUE the per-hour hazard is 30%: a two-hour overtime block must
   // use the compounded 51% risk, not a single-hour 30% roll.
   let compoundedSeed = null;
@@ -669,6 +1429,27 @@ globalThis.clearInterval = () => {};
   assert.equal(v7Info.status,"ready");
   assert.equal(v7Info.needsUpgrade,true);
   assert.equal(v7Info.save.finalWarningUsed,false,"older careers receive one unused Final Warning after migration");
+  const v8Raw=clone(readyBase);
+  v8Raw.schemaVersion=8;
+  v8Raw.actionChallenge={fake:true}; // v8 could not legitimately own an interactive action
+  for(const key of ["covertTry","covertW","covertEscape","covertCaught"]) delete v8Raw.runStats[key];
+  const v8Marked=v8Raw.inbox.find(c=>!c.msg);
+  if(v8Marked) v8Marked.actionInProgress="forged_pre_feature_marker";
+  storage.set(`${constants.SAVE_KEY}_s2`,JSON.stringify(v8Raw));
+  const v8Info=engine.inspectSave(2);
+  assert.equal(v8Info.status,"ready");
+  assert.equal(v8Info.needsUpgrade,true);
+  assert.equal(v8Info.save.actionChallenge,null);
+  assert.deepEqual([v8Info.save.runStats.covertTry,v8Info.save.runStats.covertW,
+    v8Info.save.runStats.covertEscape,v8Info.save.runStats.covertCaught],[0,0,0,0]);
+  assert.equal(v8Info.save.inbox.some(c=>c.actionInProgress!=null),false);
+  const v9Raw=clone(readyBase);
+  v9Raw.schemaVersion=9;
+  storage.set(`${constants.SAVE_KEY}_s2`,JSON.stringify(v9Raw));
+  const v9Info=engine.inspectSave(2);
+  assert.equal(v9Info.status,"ready");
+  assert.equal(v9Info.needsUpgrade,true);
+  assert.equal(v9Info.save.schemaVersion,constants.SAVE_SCHEMA_VERSION,"v9 lockpick careers migrate without losing state");
   const v6SeniorRaw=clone(readyBase);
   Object.assign(v6SeniorRaw,{schemaVersion:6,day:17,rank:3,inf:100,reviewMomentum:99,
     seniorPartnerDay:1,exceptionalReviewDay:16,exceptionalReviewHinted:true});
@@ -776,6 +1557,172 @@ globalThis.clearInterval = () => {};
   const badPendingSnapshot = { ...template(), tier: 2, judge: clone(content.JUDGES[0]), dueDay: 3 };
   badPendingSnapshot.pending = { day: 2, win: true, o: clone(badPendingSnapshot.opts[0]), judgeMemorySnapshot: 7 };
   const missingDueDay = template();
+  fresh("daily");
+  redvale=liveRedvale();
+  engine.choose(redvale.c,redvale.o);
+  engine.setLockTension(missTension());
+  engine.attemptLockpick();
+  const validActionRaw=JSON.parse(storage.get(saveKey));
+  assert.equal(engine.inspectSave(1).status,"ready");
+  const v9ActiveLockRaw=clone(validActionRaw);
+  v9ActiveLockRaw.schemaVersion=9;
+  delete v9ActiveLockRaw.progression;
+  delete v9ActiveLockRaw.actionChallenge.skillSnapshot;
+  Object.assign(v9ActiveLockRaw.actionChallenge,{tolerance:10,maxAttempts:3,attemptsLeft:2,toil:7});
+  storage.set(`${constants.SAVE_KEY}_s2`,JSON.stringify(v9ActiveLockRaw));
+  const v9ActiveLockInfo=engine.inspectSave(2);
+  assert.equal(v9ActiveLockInfo.status,"ready");
+  assert.equal(v9ActiveLockInfo.needsUpgrade,true);
+  // The tension rewrite (v1.9.24) shares no geometry with the old angle dial,
+  // so an ancient in-progress pick is handed back rather than converted: the
+  // career loads, the challenge is gone and the covert option is spendable.
+  assert.equal(v9ActiveLockInfo.save.actionChallenge,null,
+    "v9 careers do not resume a lockpick built on rules that no longer exist");
+  const v9HandedBack=v9ActiveLockInfo.save.inbox.find(c=>c.id==="redvale");
+  assert.equal(v9HandedBack.actionInProgress,undefined);
+  assert.equal(engine.loadGame(2),true);
+  const v9Case=state.S.inbox.find(c=>c.id==="redvale");
+  const v9Action=v9Case.opts.find(o=>o.action?.type==="lockpick");
+  assert.ok(v9Action,"the covert option survives the hand-back");
+  state.S.hours=2; state.S.event=null;
+  engine.choose(v9Case,v9Action);
+  assert.equal(state.S.actionChallenge.phase,"lockpick","and can be started fresh under the new rules");
+  engine.setLockTension(state.S.actionChallenge.give);
+  engine.attemptLockpick();
+  engine.completeActionChallenge();
+  assert.equal(state.S.actionChallenge,null,"the re-picked lock completes normally");
+  engine.setSlot(1);
+
+  // Schema 10 predates progression. Every scenario receives only its innate
+  // baseline—never retroactive XP—and active puzzles keep their exact old rules.
+  for (const scenario of progressionScenarios) {
+    const v10Baseline=clone(readyBase);
+    Object.assign(v10Baseline,{schemaVersion:10,scenario,actionChallenge:null});
+    delete v10Baseline.progression;
+    v10Baseline.inbox=v10Baseline.inbox.map(c=>{
+      if(!c||c.actionInProgress==null) return c;
+      const repaired={...c}; delete repaired.actionInProgress; return repaired;
+    });
+    storage.set(`${constants.SAVE_KEY}_s2`,JSON.stringify(v10Baseline));
+    const baselineInfo=engine.inspectSave(2);
+    assert.equal(baselineInfo.status,"ready",`schema 10 ${scenario} career migrates`);
+    assert.deepEqual(baselineInfo.save.progression,progression.createProgression(scenario));
+  }
+
+  assert.ok(validPowerActionRaw,"the integrated power-cut save fixture was captured");
+  const v10PowerRaw=clone(validPowerActionRaw);
+  const currentPower=v10PowerRaw.actionChallenge;
+  const currentPowerCase=v10PowerRaw.inbox.find(c=>c.id==="breach");
+  const currentPowerOption=currentPowerCase.opts[currentPower.optionIndex];
+  const legacyPowerToil=Math.round(currentPower.cost*2)+(currentPowerOption.action.fatigue||0)+currentPower.lateExtra;
+  let legacyPower=minigames.createPowerCutChallenge({runSeed:currentPower.runSeed,caseId:currentPower.caseId,
+    actionId:currentPower.actionId,cost:currentPower.cost,toil:legacyPowerToil,lateExtra:currentPower.lateExtra,sneaky:0});
+  legacyPower=minigames.stopPowerCut(alignPower(legacyPower));
+  v10PowerRaw.actionChallenge={...legacyPower,optionIndex:currentPower.optionIndex,startedDay:currentPower.startedDay,
+    hoursBefore:currentPower.hoursBefore,caseTitle:currentPower.caseTitle,actionTitle:currentPower.actionTitle,body:currentPower.body};
+  v10PowerRaw.schemaVersion=10;
+  delete v10PowerRaw.progression;
+  storage.set(`${constants.SAVE_KEY}_s2`,JSON.stringify(v10PowerRaw));
+  const v10PowerInfo=engine.inspectSave(2);
+  assert.equal(v10PowerInfo.status,"ready");
+  assert.deepEqual(v10PowerInfo.save.actionChallenge.skillSnapshot,{rulesVersion:0,sneaky:0,endurance:0});
+  assert.deepEqual(v10PowerInfo.save.actionChallenge.rings,legacyPower.rings,
+    "a schema 10 locked circuit resumes at the exact timing checkpoint");
+  assert.deepEqual([v10PowerInfo.save.actionChallenge.phase,v10PowerInfo.save.actionChallenge.activeRing,
+    v10PowerInfo.save.actionChallenge.turn],["power_cut",1,1]);
+  assert.equal(engine.loadGame(2),true);
+  while(state.S.actionChallenge?.phase==="power_cut"){
+    alignLivePower(); engine.stopPowerRing();
+  }
+  engine.completeActionChallenge();
+  assert.equal(state.S.actionChallenge,null,"the grandfathered Power Cut remains completable");
+  engine.setSlot(1);
+
+  const v10ForgedSneaky=clone(v10PowerRaw);
+  v10ForgedSneaky.actionChallenge.sneaky=1;
+  storage.set(`${constants.SAVE_KEY}_s2`,JSON.stringify(v10ForgedSneaky));
+  assert.equal(engine.inspectSave(2).status,"invalid","schema 10 cannot inject pre-progression SNEAKY");
+  const v9ForgedPower=clone(v10PowerRaw);
+  v9ForgedPower.schemaVersion=9;
+  storage.set(`${constants.SAVE_KEY}_s2`,JSON.stringify(v9ForgedPower));
+  assert.equal(engine.inspectSave(2).status,"invalid","schema 9 predates Power Cut entirely");
+
+  const alteredAction=mutate=>{
+    const raw=clone(validActionRaw); mutate(raw,raw.actionChallenge,raw.inbox.find(c=>c.id==="redvale"));
+    return {raw:JSON.stringify(raw),status:"invalid"};
+  };
+  const alteredPowerAction=mutate=>{
+    const raw=clone(validPowerActionRaw); mutate(raw,raw.actionChallenge,raw.inbox.find(c=>c.id==="breach"));
+    return {raw:JSON.stringify(raw),status:"invalid"};
+  };
+  const actionInvalidRaws=[
+    alteredAction((raw,ch)=>{ ch.phase="retry"; }),
+    alteredAction((raw,ch)=>{ ch.target=ch.target===minigames.LOCK_MAX?ch.target-1:ch.target+1; }),
+    alteredAction((raw,ch)=>{ ch.coinFace=oppositeFace(ch.coinFace); }),
+    alteredAction((raw,ch)=>{ ch.attemptsLeft=ch.maxAttempts; }),
+    alteredAction((raw,ch)=>{ ch.runSeed=(ch.runSeed+1)>>>0; }),
+    alteredAction((raw,ch)=>{ ch.optionIndex=(ch.optionIndex+1)%raw.inbox.find(c=>c.id==="redvale").opts.length; }),
+    alteredAction((raw,ch)=>{ raw.inbox=raw.inbox.filter(c=>c.id!==ch.caseId); }),
+    alteredAction((raw,ch,c)=>{ c.actionInProgress="wrong_action"; }),
+    alteredAction((raw,ch,c)=>{ raw.actionChallenge=null; c.actionInProgress=ch.actionId; }),
+    alteredAction((raw,ch)=>{ ch.phase="lock_success"; ch.attemptsLeft=ch.maxAttempts;
+      ch.turn=1; ch.tension=0; }),
+    alteredAction((raw,ch)=>{ ch.phase="coin_call"; ch.attemptsLeft=0;
+      ch.turn=ch.maxAttempts; ch.tension=ch.give; }),
+    alteredAction((raw,ch)=>{ ch.tension=ch.breakAt; }), // a pick resting past its snap point
+    alteredAction((raw,ch)=>{ ch.breakAt=ch.give; }),    // no slack at all
+    alteredAction((raw,ch)=>{ ch.phase="coin_result"; ch.attemptsLeft=0; ch.turn=ch.maxAttempts;
+      ch.coinCall=ch.coinFace; ch.escaped=false; }),
+    alteredAction((raw,ch)=>{ ch.actionTitle="A FORGED BRIEFING"; }),
+    alteredAction((raw,ch)=>{ delete ch.skillSnapshot; }),
+    alteredAction((raw,ch)=>{ ch.skillSnapshot.extra=true; }),
+    alteredAction((raw,ch)=>{ ch.skillSnapshot.rulesVersion=2; }),
+    alteredAction((raw,ch)=>{ ch.skillSnapshot.sneaky+=.5; }),
+    alteredAction((raw,ch)=>{ ch.skillSnapshot.sneaky=(ch.skillSnapshot.sneaky+1)%(progression.MAX_SKILL+1); }),
+    alteredAction((raw,ch)=>{ ch.skillSnapshot={rulesVersion:0,sneaky:1,endurance:0}; }),
+    alteredAction((raw,ch)=>{ ch.toil++; }),
+  ];
+  const powerActionInvalidRaws=[
+    alteredPowerAction((raw,ch)=>{ ch.sneaky=1; }),
+    alteredPowerAction((raw,ch)=>{ ch.rings[0].startAngle=(ch.rings[0].startAngle+1)%360; }),
+    alteredPowerAction((raw,ch)=>{ ch.rings[0].target=(ch.rings[0].target+1)%360; }),
+    alteredPowerAction((raw,ch)=>{ ch.rings[0].speed+=1; }),
+    alteredPowerAction((raw,ch)=>{ ch.rings[1].angle=(ch.rings[1].angle+1)%360; }),
+    alteredPowerAction((raw,ch)=>{ ch.rings[1].elapsedMs=-1; }),
+    alteredPowerAction((raw,ch)=>{ ch.activeRing=0; }),
+    alteredPowerAction((raw,ch)=>{ ch.phase="power_success"; }),
+    alteredPowerAction((raw,ch)=>{ ch.rings[1].phase="locked"; }),
+    alteredPowerAction((raw,ch,c)=>{ c.opts[ch.optionIndex].action.type="lockpick"; }),
+  ];
+  const alteredProgression=mutate=>{
+    const raw=clone(readyBase); mutate(raw.progression,raw);
+    return {raw:JSON.stringify(raw),status:"invalid"};
+  };
+  const progressionInvalidRaws=[
+    alteredProgression(p=>{ p.version++; }),
+    alteredProgression(p=>{ p.xp=50; }),
+    alteredProgression(p=>{ p.skillPoints=1; }),
+    alteredProgression(p=>{ p.skills.sneaky=1; }),
+    alteredProgression(p=>{ p.skills.extra=0; }),
+    alteredProgression(p=>{ p.extra=true; }),
+  ];
+  const duplicatePendingRaw=clone(readyBase);
+  const duplicatePending=clone(template());
+  duplicatePending.id="duplicate_pending"; duplicatePending.dueDay=2;
+  duplicatePending.pending={day:2,win:true,o:clone(duplicatePending.opts[0])};
+  duplicatePendingRaw.inbox=[duplicatePending,clone(duplicatePending)];
+  const duplicateDelegatedRaw=clone(readyBase);
+  const duplicateDelegated=clone(template());
+  duplicateDelegated.id="duplicate_delegated"; duplicateDelegated.dueDay=2;
+  duplicateDelegated.delegated={day:2,npc:"dana",win:true,silent:false};
+  duplicateDelegatedRaw.inbox=[duplicateDelegated,clone(duplicateDelegated)];
+  const duplicateFollowupRaw=clone(readyBase);
+  const duplicateFollowup=clone(template()); duplicateFollowup.id="duplicate_followup";
+  duplicateFollowupRaw.followups=[{day:3,case:duplicateFollowup},{day:4,case:clone(duplicateFollowup)}];
+  const collidingFollowupRaw=clone(readyBase);
+  const collidingLive=clone(template()); collidingLive.id="live_and_queued"; collidingLive.dueDay=3;
+  const collidingQueued=clone(template()); collidingQueued.id=collidingLive.id;
+  collidingFollowupRaw.inbox=[collidingLive]; collidingFollowupRaw.followups=[{day:4,case:collidingQueued}];
   const invalidRaws = [
     { raw: "{", status: "corrupt" },
     { raw: "", status: "corrupt" },
@@ -840,6 +1787,13 @@ globalThis.clearInterval = () => {};
     { raw: JSON.stringify({ ...clone(readyBase), inbox: [sentinelCourt] }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), inbox: [badPendingSnapshot] }), status: "invalid" },
     { raw: JSON.stringify({ ...clone(readyBase), archive: [{ day: 1, title: "BAD MEMORY", judgeMemory: 7 }] }), status: "invalid" },
+    { raw: JSON.stringify(duplicatePendingRaw), status: "invalid" },
+    { raw: JSON.stringify(duplicateDelegatedRaw), status: "invalid" },
+    { raw: JSON.stringify(duplicateFollowupRaw), status: "invalid" },
+    { raw: JSON.stringify(collidingFollowupRaw), status: "invalid" },
+    ...progressionInvalidRaws,
+    ...actionInvalidRaws,
+    ...powerActionInvalidRaws,
   ];
   for (const { raw, status } of invalidRaws) {
     storage.set(`${constants.SAVE_KEY}_s2`, raw);
@@ -1569,13 +2523,484 @@ globalThis.clearInterval = () => {};
     assert.ok(state.S.summary.lines.every(line => typeof line === "string"));
   }
 
+  // ---------- EVIDENCE TIMELINE (v1.9.20) ----------
+  // The board is dealt from a run/case identity, never from the shared stream.
+  const timelineArgs = { runSeed: 0x51a7d, caseId: "depo", optionIndex: 1, timelineId: "vance_expense_chronology",
+    events: content.buildPool().find(c => c.id === "depo").timeline.events, count: 4, cost: .5, toil: 6, lateExtra: 0 };
+  const boardA = minigames.createTimelineChallenge(timelineArgs);
+  const boardB = minigames.createTimelineChallenge(timelineArgs);
+  assert.deepEqual(boardA, boardB, "the same identity always deals the same chronology");
+  assert.equal(boardA.cards.length, 4);
+  assert.notDeepEqual(boardA.order, boardA.solution, "a board never opens already solved");
+  assert.deepEqual([...boardA.order].sort(), [...boardA.solution].sort());
+  const otherRun = minigames.createTimelineChallenge({ ...timelineArgs, runSeed: 0x51a7e });
+  assert.notDeepEqual(otherRun.cards.map(c => c.id).concat(otherRun.order),
+    boardA.cards.map(c => c.id).concat(boardA.order), "a different run asks a different chronology");
+  // Solving is pure ordering: solution order wins, anything else scores partial.
+  const solvedBoard = minigames.submitTimeline({ ...boardA, order: [...boardA.solution] });
+  assert.deepEqual([solvedBoard.phase, solvedBoard.correct], ["timeline_success", boardA.solution.length]);
+  const wrongBoard = minigames.submitTimeline({ ...boardA, order: [...boardA.solution].reverse() });
+  assert.equal(wrongBoard.phase, "timeline_fail");
+  assert.ok(wrongBoard.correct < boardA.solution.length);
+  const moved = minigames.moveTimelineCard(boardA, boardA.order[1], -1);
+  assert.deepEqual(moved.order.slice(0, 2), [boardA.order[1], boardA.order[0]]);
+  assert.deepEqual(minigames.moveTimelineCard(boardA, boardA.order[0], -1).order, boardA.order, "the top card cannot rise");
+
+  const liveDepo = (optionStyle = "technical") => {
+    const raw = content.buildPool().find(c => c.id === "depo");
+    const c = engine.instantiateCase(raw);
+    const o = c.opts.find(option => option.style === optionStyle);
+    Object.assign(state.S, { inbox: [c], openCase: c, event: null, summary: null, pendingSummary: null,
+      hours: 4, fatigue: 0, clients: [], nemesis: null, objective: null });
+    return { c, o };
+  };
+  const forceTimeline = () => { utils.setSeed(1); for (let i = 0; i < 400; i++) { const cursor = utils.getRngState();
+    if (utils.rand() * 100 < constants.TIMELINE_TRIGGER) { utils.setRngState(cursor); return true; } } return false; };
+
+  // A prep window opens on a risky play, costs its half hour, and — crucially —
+  // resolves the SAME play afterwards instead of becoming a separate action.
+  fresh("daily");
+  let depo = liveDepo();
+  assert.equal(engine.timelineEligible(depo.c, depo.o), true);
+  assert.equal(engine.timelineEligible(depo.c, depo.c.opts.find(o => o.safe)), false, "safe plays never trigger prep");
+  assert.ok(forceTimeline());
+  engine.choose(depo.c, depo.o);
+  assert.equal(state.S.actionChallenge?.type, "timeline");
+  assert.equal(engine.isPaused(), true);
+  assert.equal(state.S.hours, 4, "the prep hour is billed at completion, not at deal time");
+  assert.equal(depo.c.timelineDone, true, "the offer is spent even if the run reloads mid-puzzle");
+  // A stale second click resolves nothing twice.
+  const midSnapshot = JSON.stringify({ ch: state.S.actionChallenge, hours: state.S.hours, inbox: state.S.inbox.length });
+  engine.choose(depo.c, depo.o);
+  engine.choose(depo.c, depo.c.opts.find(o => o.safe));
+  assert.equal(JSON.stringify({ ch: state.S.actionChallenge, hours: state.S.hours, inbox: state.S.inbox.length }), midSnapshot);
+  // Mid-puzzle reload restores the exact board and cursor.
+  const orderedMid = minigames.moveTimelineCard(state.S.actionChallenge, state.S.actionChallenge.order[2], -1);
+  engine.moveTimelineEvent(state.S.actionChallenge.order[2], -1);
+  assert.deepEqual(state.S.actionChallenge.order, orderedMid.order);
+  const savedTimeline = JSON.parse(JSON.stringify(state.S.actionChallenge));
+  const timelineCursor = utils.getRngState();
+  assert.equal(engine.loadGame(1), true);
+  assert.deepEqual(state.S.actionChallenge, savedTimeline, "a mid-puzzle reload keeps the same chronology");
+  assert.equal(utils.getRngState(), timelineCursor, "restoring a board consumes no shared randomness");
+  const reloadedDepo = state.S.inbox.find(c => c.id === "depo");
+  assert.equal(reloadedDepo.timelineInProgress, "vance_expense_chronology");
+
+  // Solving it raises exactly that option's odds, then the play resolves.
+  const solvedOrder = [...state.S.actionChallenge.solution];
+  for (let i = 0; i < solvedOrder.length; i++) {
+    let guard = 0;
+    while (state.S.actionChallenge.order[i] !== solvedOrder[i] && guard++ < 12)
+      engine.moveTimelineEvent(solvedOrder[i], -1);
+  }
+  const riskyOption = reloadedDepo.opts[state.S.actionChallenge.optionIndex];
+  const baseOdds = engine.chance(riskyOption, reloadedDepo);
+  engine.submitTimelineOrder();
+  assert.equal(state.S.actionChallenge.phase, "timeline_success");
+  assert.equal(engine.chance(riskyOption, reloadedDepo), baseOdds, "odds only move once the prep is banked");
+  const hoursBeforeBank = state.S.hours, playCost = engine.optHours(reloadedDepo, riskyOption);
+  engine.completeActionChallenge();
+  assert.equal(state.S.actionChallenge, null);
+  assert.equal(state.S.runStats.timelineW, 1);
+  assert.equal(state.S.hours, hoursBeforeBank - constants.TIMELINE_HOURS - playCost, "prep and the play both bill their hours");
+  assert.equal(state.S.inbox.some(c => c.id === "depo"), false, "the committed play resolves after the prep");
+
+  // A muddled chronology costs odds plus a light mark — never the case itself.
+  fresh("daily");
+  depo = liveDepo("aggressive");
+  assert.ok(forceTimeline());
+  engine.choose(depo.c, depo.o);
+  const wrongOrder = [...state.S.actionChallenge.solution].reverse();
+  for (let i = 0; i < wrongOrder.length; i++) {
+    let guard = 0;
+    while (state.S.actionChallenge.order[i] !== wrongOrder[i] && guard++ < 12)
+      engine.moveTimelineEvent(wrongOrder[i], -1);
+  }
+  const repBeforeMiss = state.S.rep;
+  engine.submitTimelineOrder();
+  assert.equal(state.S.actionChallenge.phase, "timeline_fail");
+  const missedCase = state.S.inbox.find(c => c.id === "depo");
+  const missedOption = missedCase.opts[state.S.actionChallenge.optionIndex];
+  const oddsBeforeMiss = engine.chance(missedOption, missedCase);
+  engine.completeActionChallenge();
+  assert.equal(state.S.runStats.timelineL, 1);
+  // The mark itself is light; the rest of any drop belongs to the play that followed.
+  assert.ok(state.S.rep <= repBeforeMiss + constants.TIMELINE_FAIL_REP, "a wobbly chronology leaves a light mark");
+  assert.ok(state.S.logEntries.some(e => /MUDDLED CHRONOLOGY/.test(e.txt)), "the miss is reported to the player");
+  assert.ok(!state.S.over, "a failed chronology never ends the run");
+  assert.equal(oddsBeforeMiss > 0, true);
+
+  // Declining costs no hour and no fatigue, but going in cold is not free: the
+  // committed play carries a light penalty, lighter than a muddled chronology.
+  fresh("daily");
+  depo = liveDepo();
+  assert.ok(forceTimeline());
+  const hoursBeforeDecline = state.S.hours, fatigueBeforeDecline = state.S.fatigue;
+  const declinedCost = engine.optHours(depo.c, depo.o), declinedIndex = depo.c.opts.indexOf(depo.o);
+  engine.choose(depo.c, depo.o);
+  assert.equal(state.S.actionChallenge?.phase, "timeline");
+  engine.declineTimelineChallenge();
+  assert.equal(state.S.actionChallenge, null);
+  assert.equal(state.S.hours, hoursBeforeDecline - declinedCost, "declining bills the play's own hours, never the prep's");
+  // ENDURANCE can only soften work fatigue, so the play's own raw cost is the ceiling.
+  assert.ok(state.S.fatigue <= fatigueBeforeDecline + declinedCost * 2, "declining adds no prep fatigue");
+  assert.deepEqual(depo.c.timelineEdge, { optionIndex: declinedIndex, value: constants.TIMELINE_EDGE_DECLINE },
+    "going in cold stamps its own penalty on the committed play");
+  const coldOdds = engine.chance(depo.o, depo.c);
+  delete depo.c.timelineEdge;
+  assert.equal(coldOdds - engine.chance(depo.o, depo.c), constants.TIMELINE_EDGE_DECLINE, "the cold play argues at lower odds");
+  depo.c.timelineEdge = { optionIndex: declinedIndex, value: constants.TIMELINE_EDGE_DECLINE };
+  assert.ok(constants.TIMELINE_EDGE_DECLINE < 0 && constants.TIMELINE_EDGE_DECLINE > constants.TIMELINE_EDGE_LOSS,
+    "skipping the board must sting less than botching it, or nobody would ever play");
+  assert.ok(state.S.logEntries.some(e => /go in cold/i.test(e.txt)), "the player is told what going in cold costs");
+  assert.equal(state.S.inbox.some(c => c.id === "depo"), false, "declining still resolves the committed play");
+
+  // ---- Pricing the safe route without touching its 100% reliability ----
+  // Both levers ship OFF: the soak measures them as paired cohorts first.
+  const coastFile = index => {
+    const c = engine.instantiateCase({ id: "coast" + index, tier: 1, title: "CASE: quiet settlement " + index, deadline: 3,
+      body: "A file that can be settled or argued.",
+      opts: [
+        { text: "Settle quietly.", base: 100, safe: true, ok: { fx: { inf: 8, bold: -3 }, txt: "Settled." } },
+        { text: "Argue the technical read.", base: 100, style: "technical",
+          ok: { fx: { inf: 8 }, txt: "Won." }, fail: { fx: { rep: -4 }, txt: "Lost." } }] });
+    state.S.inbox = [c]; state.S.openCase = c; state.S.hours = 40; state.S.event = null;
+    return c;
+  };
+  const playFile = (index, wantSafe) => {
+    const c = coastFile(index), o = c.opts.find(option => !!option.safe === wantSafe);
+    const before = { inf: state.S.inf, bold: state.S.bold };
+    engine.choose(c, o);
+    return { inf: state.S.inf - before.inf, bold: state.S.bold - before.bold };
+  };
+
+  // The pre-v1.9.21 rules are still reachable as a soak control: no coasting.
+  engine.setBalanceExperiment({ safeCoasting: false });
+  fresh("standard");
+  const legacyFirst = playFile(1, true), legacySecond = playFile(2, true);
+  assert.deepEqual(legacySecond, legacyFirst, "the legacy control pays every safe play in full");
+  assert.equal(state.S.safeStreak, 0, "a disabled lever writes no streak into the save");
+
+  engine.setBalanceExperiment(null);
+  assert.equal(constants.SAFE_COASTING, true, "the shipped rules price a coasting career");
+  fresh("standard");
+  const coastFirst = playFile(1, true);
+  assert.equal(state.S.safeStreak, 1, "the first quiet settlement is free and starts the streak");
+  const coastSecond = playFile(2, true);
+  assert.ok(coastSecond.inf < coastFirst.inf, "the second settlement in a row returns less Influence");
+  assert.equal(coastSecond.bold - coastFirst.bold, -constants.SAFE_STREAK_BOLD, "and drains more Boldness");
+  assert.ok(state.S.logEntries.some(e => /COASTING/.test(e.txt)), "the player is told why the payoff shrank");
+  assert.equal(state.S.safeStreak, 2);
+  playFile(3, false);
+  assert.equal(state.S.safeStreak, 0, "taking a risk clears the coasting record");
+  const coastAfterRisk = playFile(4, true);
+  assert.deepEqual(coastAfterRisk, coastFirst, "and the next safe play is paid in full again");
+  // Errands and favors are not career choices: they never build the streak.
+  const errand = engine.instantiateCase({ id: "coast_errand", tier: 0, title: "MEMO: coffee", deadline: 1, body: "Not billable.",
+    opts: [{ text: "Do it.", base: 100, safe: true, ok: { fx: { inf: 2 }, txt: "Done." } }] });
+  state.S.inbox = [errand]; state.S.hours = 40;
+  engine.choose(errand, errand.opts[0]);
+  assert.equal(state.S.safeStreak, 1, "an errand neither builds nor breaks the streak");
+
+  // Lever C is pure clock pressure and never touches the dice.
+  const hoursCase = coastFile(9), hoursSafe = hoursCase.opts.find(o => o.safe);
+  const shippedHours = engine.optHours(hoursCase, hoursSafe);
+  engine.setBalanceExperiment({ safeHoursMult: 2 });
+  assert.ok(engine.optHours(hoursCase, hoursSafe) > shippedHours, "the hours lever slows careful play down");
+  assert.equal(engine.chance(hoursSafe, hoursCase), 100, "neither lever ever makes a safe play fail");
+  engine.setBalanceExperiment(null);
+  assert.equal(engine.optHours(hoursCase, hoursSafe), shippedHours, "production keeps the shipped 1.5x");
+
+  // v15 careers migrate forward with a clean streak; an impossible one is refused.
+  fresh("standard");
+  engine.saveGame();
+  const rawStreak = JSON.parse(localStorage.getItem(constants.SAVE_KEY + "_s1"));
+  assert.equal(rawStreak.schemaVersion, constants.SAVE_SCHEMA_VERSION);
+  const legacyStreak = { ...rawStreak, schemaVersion: 15 };
+  delete legacyStreak.safeStreak;
+  localStorage.setItem(constants.SAVE_KEY + "_s1", JSON.stringify(legacyStreak));
+  assert.equal(engine.loadGame(1), true, "a v15 career migrates to the streak schema");
+  assert.equal(state.S.safeStreak, 0);
+  localStorage.setItem(constants.SAVE_KEY + "_s1", JSON.stringify({ ...rawStreak, safeStreak: constants.SAFE_STREAK_CAP + 1 }));
+  assert.equal(engine.loadGame(1), false, "a streak longer than the cap is rejected");
+
+  // The edge is scoped to the prepped option and cannot leak onto the others.
+  fresh("standard");
+  depo = liveDepo();
+  const scopedIndex = depo.c.opts.indexOf(depo.o);
+  depo.c.timelineEdge = { optionIndex: scopedIndex, value: constants.TIMELINE_EDGE_WIN };
+  const otherRisky = depo.c.opts.find((o, i) => i !== scopedIndex && !o.safe && !o.action);
+  const withEdge = engine.chance(depo.o, depo.c);
+  delete depo.c.timelineEdge;
+  assert.equal(withEdge - engine.chance(depo.o, depo.c), constants.TIMELINE_EDGE_WIN);
+  depo.c.timelineEdge = { optionIndex: scopedIndex, value: constants.TIMELINE_EDGE_WIN };
+  const otherWith = engine.chance(otherRisky, depo.c);
+  delete depo.c.timelineEdge;
+  assert.equal(otherWith, engine.chance(otherRisky, depo.c), "another option on the same file gains nothing");
+
+  // Tampering: a forged win, a shrunken board and an orphan marker are rejected.
+  fresh("daily");
+  depo = liveDepo();
+  assert.ok(forceTimeline());
+  engine.choose(depo.c, depo.o);
+  engine.saveGame();
+  const rawTimelineSave = JSON.parse(localStorage.getItem(constants.SAVE_KEY + "_s1"));
+  assert.equal(rawTimelineSave.schemaVersion, constants.SAVE_SCHEMA_VERSION);
+  const rejects = (mutate, label) => {
+    const copy = JSON.parse(JSON.stringify(rawTimelineSave));
+    mutate(copy);
+    localStorage.setItem(constants.SAVE_KEY + "_s1", JSON.stringify(copy));
+    assert.equal(engine.loadGame(1), false, label);
+    localStorage.setItem(constants.SAVE_KEY + "_s1", JSON.stringify(rawTimelineSave));
+  };
+  rejects(c => { c.actionChallenge.phase = "timeline_success"; c.actionChallenge.correct = c.actionChallenge.cards.length; },
+    "a forged solved board is rejected");
+  rejects(c => { c.actionChallenge.cards = c.actionChallenge.cards.slice(0, 2);
+    c.actionChallenge.order = c.actionChallenge.order.slice(0, 2); c.actionChallenge.solution = c.actionChallenge.solution.slice(0, 2); },
+    "a shrunken board is rejected");
+  rejects(c => { c.actionChallenge.solution = [...c.actionChallenge.order]; }, "a rewritten solution is rejected");
+  rejects(c => { c.actionChallenge = null; }, "an orphan timeline marker is rejected");
+  rejects(c => { const depoCase = c.inbox.find(x => x.id === "depo"); delete depoCase.timelineInProgress; },
+    "a challenge without its case marker is rejected");
+  rejects(c => { c.inbox.find(x => x.id === "depo").timelineEdge = { optionIndex: 1, value: -7 }; },
+    "an edge value the game never stamps is rejected");
+  rejects(c => { c.inbox.find(x => x.id === "depo").timelineEdge = { optionIndex: 1, value: constants.TIMELINE_EDGE_WIN + 1 }; },
+    "an inflated edge is rejected");
+  assert.equal(engine.loadGame(1), true, "the untouched save still loads");
+
+  // v14 careers migrate forward and never look mid-puzzle.
+  const legacyTimeline = JSON.parse(JSON.stringify(rawTimelineSave));
+  legacyTimeline.schemaVersion = 14;
+  legacyTimeline.actionChallenge = null;
+  delete legacyTimeline.runStats.timelineW;
+  delete legacyTimeline.runStats.timelineL;
+  const legacyDepo = legacyTimeline.inbox.find(c => c.id === "depo");
+  legacyDepo.timelineInProgress = "vance_expense_chronology";
+  legacyDepo.timelineDone = true;
+  localStorage.setItem(constants.SAVE_KEY + "_s1", JSON.stringify(legacyTimeline));
+  assert.equal(engine.loadGame(1), true, "a v14 career migrates to the timeline schema");
+  assert.deepEqual([state.S.runStats.timelineW, state.S.runStats.timelineL], [0, 0]);
+  assert.equal(state.S.inbox.find(c => c.id === "depo").timelineInProgress, undefined,
+    "migration clears any stale mid-puzzle marker");
+  assert.equal(state.S.actionChallenge, null);
+
+  // ---- CONTRADICTION BOARD (v1.9.22) ----
+  // Voluntary prep, not a covert job: no coin call, no getting caught, and the
+  // chart never resolves the file — it only arms the legal play you still owe.
+  const livePemberton = () => {
+    const raw = content.buildPool().find(c => c.id === "court2");
+    const c = engine.instantiateCase(raw);
+    const o = c.opts.find(option => option.action?.type === "contradiction");
+    Object.assign(state.S, { inbox: [c], openCase: c, event: null, summary: null, pendingSummary: null,
+      hours: 6, fatigue: 0, clients: [], nemesis: null, objective: null });
+    return { c, o };
+  };
+  const solveContradiction = () => {
+    for (const pair of [...state.S.actionChallenge.solution]) {
+      if (!state.S.actionChallenge || state.S.actionChallenge.phase !== "contradiction") break;
+      engine.selectContradictionCard(pair.statement);
+      engine.pinContradiction(pair.document);
+    }
+  };
+
+  // The deal is identity-derived: stable per run/case, different in another run,
+  // and it never reads the shared gameplay RNG.
+  const contraArgs = { runSeed: 0x9a31c, caseId: "court2", actionId: "pemberton_contradictions",
+    cost: 1.5, toil: 9, lateExtra: 0,
+    pairs: content.buildPool().find(c => c.id === "court2").opts.find(o => o.action).action.pairs,
+    decoys: content.buildPool().find(c => c.id === "court2").opts.find(o => o.action).action.decoys };
+  const contraA = minigames.createContradictionChallenge(contraArgs);
+  const contraB = minigames.createContradictionChallenge(contraArgs);
+  assert.deepEqual(contraA, contraB, "the same run deals the same board");
+  const contraOther = minigames.createContradictionChallenge({ ...contraArgs, runSeed: 0x9a31d });
+  assert.notDeepEqual(contraOther.statements.map(s => s.id), contraA.statements.map(s => s.id),
+    "another career is asked a different set");
+  assert.equal(contraA.statements.length, minigames.CONTRA_STATEMENTS);
+  assert.equal(contraA.documents.length, minigames.CONTRA_STATEMENTS + minigames.CONTRA_DECOYS,
+    "one exhibit on the board contradicts nothing");
+  assert.notDeepEqual(contraA.documents.map(d => d.id), contraA.solution.map(pair => pair.document),
+    "the exhibit column is not the answer key in order");
+  assert.equal(new Set(contraA.documents.map(d => d.id)).size, contraA.documents.length, "no exhibit is listed twice");
+
+  fresh("daily");
+  let pemberton = livePemberton();
+  assert.ok(pemberton.o, "a court file may carry prep work even though it cannot carry a burglary");
+  const contraCursor = utils.getRngState();
+  engine.choose(pemberton.c, pemberton.o);
+  assert.equal(utils.getRngState(), contraCursor, "dealing the board consumes no shared randomness");
+  assert.equal(state.S.actionChallenge?.type, "contradiction");
+  assert.equal(state.S.hours, 6, "the prep hours are billed at completion, not at deal time");
+  assert.equal(pemberton.c.actionInProgress, "pemberton_contradictions");
+  assert.equal(state.S.runStats.contraTry, 1);
+
+  // Mid-board reload restores the exact position.
+  engine.selectContradictionCard(state.S.actionChallenge.solution[0].statement);
+  const midContra = JSON.parse(JSON.stringify(state.S.actionChallenge));
+  assert.equal(engine.loadGame(1), true);
+  assert.deepEqual(state.S.actionChallenge, midContra, "a mid-board reload keeps the same exhibits");
+
+  // A wrong pin burns an attempt; the right one banks a contradiction.
+  const wrongDoc = state.S.actionChallenge.documents
+    .find(d => !state.S.actionChallenge.solution.some(pair => pair.document === d.id));
+  const attemptsBefore = state.S.actionChallenge.attemptsLeft;
+  engine.pinContradiction(wrongDoc.id);
+  assert.equal(state.S.actionChallenge.attemptsLeft, attemptsBefore - 1, "a decoy costs credibility");
+  assert.equal(state.S.actionChallenge.matched.length, 0);
+  assert.equal(state.S.actionChallenge.selected, null, "a miss clears the selection");
+  solveContradiction();
+  assert.equal(state.S.actionChallenge.phase, "contradiction_success");
+
+  const pembertonLive = state.S.inbox.find(c => c.id === "court2");
+  const risky = pembertonLive.opts.find(o => o.style === "technical");
+  const hoursBeforeChart = state.S.hours;
+  engine.completeActionChallenge();
+  assert.equal(state.S.actionChallenge, null);
+  assert.equal(state.S.runStats.contraW, 1);
+  assert.equal(pembertonLive.covertEdge, 15, "a finished chart arms this file's risky legal plays");
+  // Measure the edge at one instant: the prep also spends hours and adds
+  // fatigue, so comparing odds across the completion would measure both.
+  const withChart = engine.chance(risky, pembertonLive);
+  delete pembertonLive.covertEdge;
+  const withoutChart = engine.chance(risky, pembertonLive);
+  pembertonLive.covertEdge = 15;
+  assert.equal(withChart, Math.min(95, withoutChart + 15), "the edge feeds the same odds ceiling as every other bonus");
+  assert.equal(state.S.hours, hoursBeforeChart - 1.5, "prep bills its hours either way");
+  assert.ok(state.S.inbox.includes(pembertonLive), "the case still has to be argued");
+  assert.equal(state.S.openCase, pembertonLive, "and it comes back to the desk");
+  assert.equal(pembertonLive.opts.some(o => o.action), false, "one sitting per file");
+
+  // Closing the binder early banks a proportional edge, never the full one.
+  fresh("daily");
+  pemberton = livePemberton();
+  engine.choose(pemberton.c, pemberton.o);
+  const partialTotal = state.S.actionChallenge.solution.length;
+  engine.selectContradictionCard(state.S.actionChallenge.solution[0].statement);
+  engine.pinContradiction(state.S.actionChallenge.solution[0].document);
+  engine.closeContradictionBoard();
+  assert.equal(state.S.actionChallenge.phase, "contradiction_fail");
+  engine.completeActionChallenge();
+  const partialCase = state.S.inbox.find(c => c.id === "court2");
+  assert.equal(partialCase.covertEdge, Math.floor(15 * 1 / partialTotal), "a partial chart proves partially");
+  assert.ok(partialCase.covertEdge > 0 && partialCase.covertEdge < 15);
+  assert.equal(state.S.runStats.contraL, 1);
+  assert.ok(!state.S.over, "a failed chart never ends a career");
+
+  // Running out of attempts with nothing proven costs the hours and no edge.
+  fresh("daily");
+  pemberton = livePemberton();
+  engine.choose(pemberton.c, pemberton.o);
+  let guard = 0;
+  while (state.S.actionChallenge.phase === "contradiction" && guard++ < 20) {
+    const ch = state.S.actionChallenge;
+    const decoy = ch.documents.find(d => !ch.solution.some(pair => pair.document === d.id));
+    engine.selectContradictionCard(ch.statements.find(s => !ch.matched.some(m => m.statement === s.id)).id);
+    engine.pinContradiction(decoy.id);
+  }
+  assert.equal(state.S.actionChallenge.phase, "contradiction_fail");
+  assert.equal(state.S.actionChallenge.attemptsLeft, 0);
+  const hoursBeforeMiss = state.S.hours;
+  engine.completeActionChallenge();
+  const missedChart = state.S.inbox.find(c => c.id === "court2");
+  assert.equal(missedChart.covertEdge, undefined, "nothing proven, nothing gained");
+  assert.equal(state.S.hours, hoursBeforeMiss - 1.5, "the wasted afternoon is still billed");
+  assert.ok(state.S.inbox.includes(missedChart), "and the hearing still has to happen");
+
+  // Stale clicks resolve nothing twice.
+  fresh("daily");
+  pemberton = livePemberton();
+  engine.choose(pemberton.c, pemberton.o);
+  const staleSnapshot = JSON.stringify(state.S.actionChallenge);
+  engine.choose(pemberton.c, pemberton.o);
+  engine.pinContradiction(state.S.actionChallenge.documents[0].id); // nothing selected yet
+  engine.selectContradictionCard("not_a_statement");
+  assert.equal(JSON.stringify(state.S.actionChallenge), staleSnapshot);
+
+  // Tampering: a forged chart, a rewritten board and an orphan marker are refused.
+  engine.saveGame();
+  const rawContra = JSON.parse(localStorage.getItem(constants.SAVE_KEY + "_s1"));
+  const rejectsContra = (mutate, label) => {
+    const copy = JSON.parse(JSON.stringify(rawContra));
+    mutate(copy);
+    localStorage.setItem(constants.SAVE_KEY + "_s1", JSON.stringify(copy));
+    assert.equal(engine.loadGame(1), false, label);
+    localStorage.setItem(constants.SAVE_KEY + "_s1", JSON.stringify(rawContra));
+  };
+  rejectsContra(c => { c.actionChallenge.phase = "contradiction_success";
+    c.actionChallenge.matched = [...c.actionChallenge.solution]; }, "a forged finished chart is rejected");
+  rejectsContra(c => { c.actionChallenge.matched = [{ statement: c.actionChallenge.statements[0].id, document: "doc_invented" }]; },
+    "an invented contradiction is rejected");
+  // Rotating the key is guaranteed to differ from the real deal, whatever the
+  // board happened to shuffle into.
+  rejectsContra(c => { const key = c.actionChallenge.solution;
+    c.actionChallenge.solution = key.map((pair, i) => ({ statement: pair.statement, document: key[(i + 1) % key.length].document })); },
+    "a rewritten answer key is rejected");
+  rejectsContra(c => { c.actionChallenge.attemptsLeft = c.actionChallenge.maxAttempts + 3; }, "extra attempts are rejected");
+  rejectsContra(c => { c.actionChallenge.documents = c.actionChallenge.documents.slice(0, 2); }, "a shrunken board is rejected");
+  rejectsContra(c => { c.actionChallenge = null; }, "an orphan prep marker is rejected");
+  assert.equal(engine.loadGame(1), true, "the untouched prep save still loads");
+
+  // v16 careers migrate forward: no board, fresh counters, nothing else moved.
+  const legacyContra = JSON.parse(JSON.stringify(rawContra));
+  legacyContra.schemaVersion = 16;
+  legacyContra.actionChallenge = null;
+  delete legacyContra.runStats.contraTry;
+  delete legacyContra.runStats.contraW;
+  delete legacyContra.runStats.contraL;
+  const legacyPemberton = legacyContra.inbox.find(c => c.id === "court2");
+  delete legacyPemberton.actionInProgress;
+  localStorage.setItem(constants.SAVE_KEY + "_s1", JSON.stringify(legacyContra));
+  assert.equal(engine.loadGame(1), true, "a v16 career migrates to the contradiction schema");
+  assert.deepEqual([state.S.runStats.contraTry, state.S.runStats.contraW, state.S.runStats.contraL], [0, 0, 0]);
+
+  // A judged file still cannot carry a burglary.
+  const burglaryCourt = content.buildPool().find(c => c.id === "court2");
+  const covertOnCourt = JSON.parse(JSON.stringify(content.buildPool().find(c => c.id === "redvale").opts.find(o => o.action)));
+  fresh("daily");
+  state.S.inbox = [engine.instantiateCase({ ...burglaryCourt, opts: [...burglaryCourt.opts, covertOnCourt] })];
+  assert.equal(engine.saveGame(), true);
+  assert.equal(engine.loadGame(1), false, "a covert action on a court file is still refused");
+
+  // ---- First-run walkthrough (v1.9.23) ----
+  // Four cards on the very first career, never again, and never inside a save.
+  intro.resetIntro();
+  fresh("standard");
+  assert.equal(state.S.introStep, 0, "a brand new player gets the walkthrough");
+  assert.equal(engine.isPaused(), true, "the desk is gated while it is open");
+  for (let i = 1; i < intro.INTRO_STEPS.length; i++) {
+    engine.advanceIntro();
+    assert.equal(state.S.introStep, i);
+  }
+  engine.advanceIntro();
+  assert.equal(state.S.introStep, null, "the last card closes it");
+  assert.equal(engine.isPaused(), false, "and hands the desk back");
+  assert.equal(intro.introSeen(), true);
+  fresh("standard");
+  assert.equal(state.S.introStep, null, "a second career never shows it again");
+
+  // Skipping counts as seen, and the pointer is never written into a slot.
+  intro.resetIntro();
+  fresh("standard");
+  assert.equal(state.S.introStep, 0);
+  engine.saveGame();
+  assert.equal(JSON.parse(localStorage.getItem(constants.SAVE_KEY + "_s1")).introStep, undefined,
+    "the walkthrough pointer is transient");
+  engine.closeIntro();
+  assert.equal(intro.introSeen(), true, "skipping still counts as seen");
+  assert.equal(engine.loadGame(1), true);
+  assert.equal(state.S.introStep, null, "reloading a career never reopens it");
+  assert.ok(intro.INTRO_STEPS.every(step => step.title && step.body), "every card says something");
+
   // Production CSP has no loopback WebSocket escape hatch; Vite adds it only in dev.
   const indexHtml = readFileSync("index.html", "utf8");
   const viteConfig = readFileSync("vite.config.mjs", "utf8");
+  const appSource = readFileSync("src/App.jsx", "utf8");
   assert.match(indexHtml, /connect-src 'self';/);
   assert.doesNotMatch(indexHtml, /ws:\/\/(?:localhost|127\.0\.0\.1|\[::1\])/);
   assert.match(viteConfig, /ws:\/\/localhost:\*/);
   assert.match(viteConfig, /script-src 'self' 'unsafe-inline'/);
+  assert.ok(appSource.indexOf("if(S.actionChallenge) return")>=0&&
+    appSource.indexOf("if(S.actionChallenge) return")<appSource.indexOf("if(S.summary)"),
+    "the minigame must own keyboard input before case/event shortcuts run");
 
   // Smoke every supported scenario/mode combination.
   engine.setBalanceExperiment(null);
@@ -1590,7 +3015,7 @@ globalThis.clearInterval = () => {};
     }
   }
 
-  console.log("v1.9.5–v1.9.15 checks passed: balance experiments, Final Warning, Friday/Exceptional Review promotions, delegation cap, strict saves, procedural IDs, long-run integrity, FIRM payroll, rolling judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
+  console.log("v1.9.5–v1.9.24 checks passed: lockpick tension/snap (one pick at rank 0, SNEAKY buys more, legacy hand-back), first-run walkthrough, sharpened sabotage circuits (curve/legacy boards/v18), Contradiction Board prep (deal/attempts/partial/tamper/v17), Evidence Timeline prep + cold-entry penalty (deal/reload/tamper/migration/scope), safe-route pricing (coasting/hours/v16), Fraud identity pressure/morning continuation, progression/skills, lockpick/Power Cut minigames, balance experiments, Final Warning, Friday/Exceptional Review promotions, delegation cap, strict saves/migrations, procedural IDs, long-run integrity, FIRM payroll, rolling judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;

@@ -3,9 +3,10 @@
 import { useEffect, useRef } from "react";
 import { useGame } from "./game/useGame.js";
 import { S } from "./game/state.js";
-import { choose, deferCase, resolveCrisis, dismissSummary,
+import { choose, deferCase, resolveCrisis, dismissSummary, advanceIntro, closeIntro,
          closeSettings, closeInfo, closeRoster, closeArchive, dismissSaveError } from "./game/engine.js";
 import StartScreen from "./components/StartScreen.jsx";
+import IntroOverlay from "./components/IntroOverlay.jsx";
 import Topbar from "./components/Topbar.jsx";
 import OfficeScene from "./components/OfficeScene.jsx";
 import Inbox from "./components/Inbox.jsx";
@@ -17,6 +18,7 @@ import RosterOverlay from "./components/RosterOverlay.jsx";
 import ArchiveOverlay from "./components/ArchiveOverlay.jsx";
 import EventOverlay from "./components/EventOverlay.jsx";
 import SummaryOverlay from "./components/SummaryOverlay.jsx";
+import ActionMinigameOverlay from "./components/ActionMinigameOverlay.jsx";
 
 /* keyboard shortcuts: 1-4 pick an option, Space/Esc defers or closes.
    Reads the live module S (not a stale render snapshot) and only calls
@@ -24,6 +26,12 @@ import SummaryOverlay from "./components/SummaryOverlay.jsx";
 function handleKey(e){
   if(!S||e.repeat) return;
   const k=e.key, i="1234".indexOf(k);
+  if(S.introStep!=null){ // the walkthrough owns input until it is done
+    if(k===" "||k==="Enter"){ e.preventDefault(); advanceIntro(); }
+    else if(k==="Escape") closeIntro();
+    return;
+  }
+  if(S.actionChallenge) return; // the minigame owns focus and keyboard input
   if(S.summary){ if(k===" "||k==="Enter"){ e.preventDefault(); dismissSummary(); } return; }
   if(S.event){ if(i>=0&&S.event.opts[i]) resolveCrisis(S.event.opts[i]); return; }
   if(S.settingsOpen){ if(k==="Escape") closeSettings(); return; }
@@ -70,7 +78,9 @@ export default function App(){
       {S.archiveOpen && <ArchiveOverlay />}
       {S.infoOpen && <InfoOverlay />}
       {S.event && <EventOverlay ev={S.event} />}
+      {S.actionChallenge && <ActionMinigameOverlay />}
       {S.summary && <SummaryOverlay sum={S.summary} />}
+      {S.introStep!=null && <IntroOverlay />}
       {S.flash && <div className="flash" key={S.flash.id}>{S.flash.txt}</div>}
     </div>
   );

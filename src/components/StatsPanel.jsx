@@ -5,7 +5,8 @@ import { CLIENT_CAP } from "../game/clients.js";
 import { SCENARIOS } from "../game/content.js";
 import { buySuit, bribeMarv, buyCoffee, buyDecor, coffeeRelief, coffeeCost, canBuyCoffee, payBuyIn, objectiveInfo, hazardPerHour,
          rivalSabotage, rivalTruce, rivalAlly, rivalMoveReady, rivalOdds, displayPct,
-         firmCondition, promotionFirmRequirement, exceptionalReviewInfo, finalWarningInfo, canPitchTurnaround, pitchTurnaround } from "../game/engine.js";
+         firmCondition, promotionFirmRequirement, exceptionalReviewInfo, finalWarningInfo, canPitchTurnaround, pitchTurnaround,
+         playerProgressionInfo, playerFraudRiskInfo, spendSkillPoint } from "../game/engine.js";
 
 const pp=v=>(v>0?"+":"")+Math.round(v*100)+"pp";
 
@@ -14,6 +15,8 @@ export default function StatsPanel(){
   const bars=[["REPUTATION",S.rep,"#38b764"],["BOLDNESS",S.bold,"#b13e53"],["INFLUENCE",S.inf,"#ffcd75"],["FIRM",S.firm,"#4d73e8"],["FATIGUE",S.fatigue,"#b06ad9"]];
   const obj=objectiveInfo();
   const firm=firmCondition(), nextFirm=promotionFirmRequirement(), exceptional=exceptionalReviewInfo(), warning=finalWarningInfo();
+  const training=playerProgressionInfo();
+  const fraud=playerFraudRiskInfo();
   return (
     <div id="stats" className="panel">
       <h2>ASSOCIATE FILE</h2>
@@ -39,6 +42,92 @@ export default function StatsPanel(){
             </div>);
         })}
       </div>
+      {fraud && (
+        <section className="fraud-risk" aria-labelledby="fraud-risk-heading">
+          <h2 id="fraud-risk-heading" style={{marginTop:10}}>THE SECRET</h2>
+          <div className="statrow">
+            <div className="lbl">
+              <span>SUSPICION · {S.event?.fraudKind==="slip"?"SLIP LIVE":fraud.label}</span>
+              <span>{fraud.suspicion}/{fraud.max}</span>
+            </div>
+            <div
+              className="bar"
+              role="progressbar"
+              aria-label="Identity suspicion"
+              aria-valuemin={0}
+              aria-valuemax={fraud.max}
+              aria-valuenow={fraud.suspicion}
+              aria-valuetext={`${fraud.label}, ${fraud.suspicion} of ${fraud.max}`}
+            >
+              <div className="fill" style={{width:(fraud.suspicion/fraud.max*100)+"%",background:"var(--red)"}}/>
+            </div>
+          </div>
+          <div className="kv" style={{color:fraud.pendingDay?"var(--red)":"var(--grey)"}}>
+            {fraud.pendingDay
+              ? (fraud.pendingKind==="slip"?"FATIGUE SLIP":"FOLLOW-UP")+" DUE DAY "+fraud.pendingDay
+              : S.event?.fraudKind
+                ? (S.event.fraudKind==="slip"?"FATIGUE SLIP":"IDENTITY INQUIRY")+
+                  (fraud.morningPhase==="resume"?" — MORNING PAUSED UNTIL YOUR ANSWER":" — CHOOSE YOUR ANSWER")
+                : fraud.checkedToday
+                  ? "TODAY'S SLIP CHECK SPENT"
+                  : fraud.slipChance>0
+                    ? fraud.slipChancePct+"% END-OF-DAY SLIP CHECK · PEAK "+Math.max(fraud.dailyPeak,S.fatigue)+" FATIGUE"
+                    : "DORMANT · SLIP CHECK BEGINS AT 80 FATIGUE"}
+          </div>
+          <div className="tagline">One end-of-day check uses the highest fatigue reached while working. A random slip cannot expose you; failed cover-ups raise suspicion and schedule an identity inquiry. Slips: {fraud.slipCount} · contained: {fraud.contained}.</div>
+        </section>
+      )}
+      {training && (
+        <section className="training" aria-labelledby="training-heading">
+          <h2 id="training-heading" style={{marginTop:10}}>TRAINING</h2>
+          <div className="statrow">
+            <div className="lbl">
+              <span>LEVEL {training.level}</span>
+              <span>{training.atCap?training.xp+" XP · MAX":training.xp+" / "+training.nextLevelXp+" XP"}</span>
+            </div>
+            <div
+              className="bar"
+              role="progressbar"
+              aria-label="Character experience"
+              aria-valuemin={training.atCap?0:training.levelFloorXp}
+              aria-valuemax={training.atCap?training.xp:training.nextLevelXp}
+              aria-valuenow={training.xp}
+              aria-valuetext={training.atCap?"Maximum level":training.xpToNext+" XP to level "+training.nextLevel}
+            >
+              <div className="fill" style={{width:(training.progress*100)+"%",background:"var(--gold)"}}/>
+            </div>
+          </div>
+          <div className="kv">
+            {training.atCap?"MAX LEVEL":training.xpToNext+" XP TO LEVEL "+training.nextLevel}
+            {" · SKILL POINTS: "+training.skillPoints}
+          </div>
+          {training.skillPoints>0 && (
+            <div className="skill-ready" role="status" aria-live="polite" aria-atomic="true">
+              {training.skillPoints} SKILL POINT{training.skillPoints===1?"":"S"} READY — CHOOSE AN UPGRADE.
+            </div>
+          )}
+          {training.skills.map(skill=>(
+            <div className="npcrow skill-row" key={skill.id}>
+              <div className="lblrow">
+                <span>{skill.name}</span>
+                <span>{skill.rank>=5?"MAX 5/5":"RANK "+skill.rank+"/5"}{skill.innate?" · "+skill.innate+" INNATE":""}</span>
+              </div>
+              <div className="tagline">{skill.currentText}</div>
+              {skill.canUpgrade && (
+                <button
+                  className="btn small spend skill-upgrade"
+                  type="button"
+                  aria-label={`Spend one skill point on ${skill.name}, rank ${skill.rank} to ${skill.rank+1}`}
+                  onClick={()=>spendSkillPoint(skill.id)}
+                >
+                  SPEND 1 POINT · {skill.name} {skill.rank} → {skill.rank+1}
+                  <span className="chance">{skill.nextText}</span>
+                </button>
+              )}
+            </div>
+          ))}
+        </section>
+      )}
       {warning && (
         <div className="npcrow" style={{marginTop:8}}>
           <div className="lblrow">

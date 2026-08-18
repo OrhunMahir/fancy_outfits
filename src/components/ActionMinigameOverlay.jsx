@@ -7,6 +7,28 @@ import PowerCutMinigame from "./minigames/PowerCutMinigame.jsx";
 import TimelineMinigame from "./minigames/TimelineMinigame.jsx";
 import ContradictionMinigame from "./minigames/ContradictionMinigame.jsx";
 import ObjectionMinigame from "./minigames/ObjectionMinigame.jsx";
+import RedactionMinigame from "./minigames/RedactionMinigame.jsx";
+
+/* The production has two opposite failures, and the panel names which one. */
+function RedactionResultPanel({challenge}){
+  const buttonRef=useRef(null);
+  const clean=challenge.leaked===0&&challenge.over===0;
+
+  useEffect(()=>{ buttonRef.current?.focus(); },[]);
+
+  return (
+    <div className={`action-game lock-success timeline-result${clean?"":" timeline-result-miss"}`}>
+      <div className="lock-success-mark" aria-hidden="true">{challenge.leaked}/{challenge.over}</div>
+      <h3 className="lock-success-title">
+        {clean?"PRIVILEGE HELD":challenge.leaked?"THEY HAVE YOUR FILE":"OVER-REDACTED"}
+      </h3>
+      <p className="lock-success-copy">{challenge.feedback}</p>
+      <button ref={buttonRef} className="btn safe action-primary lock-continue" type="button" onClick={completeActionChallenge}>
+        BACK TO THE FILE
+      </button>
+    </div>
+  );
+}
 
 /* A hearing has no getaway either: the record simply reads how it reads. */
 function ObjectionResultPanel({challenge}){
@@ -158,8 +180,11 @@ export default function ActionMinigameOverlay(){
   const timeline=challenge.type==="timeline";
   const contradiction=challenge.type==="contradiction";
   const objection=challenge.type==="objection";
+  const redaction=challenge.type==="redaction";
   let game=null;
-  if(challenge.phase==="objection") game=<ObjectionMinigame challenge={challenge} />;
+  if(challenge.phase==="redaction") game=<RedactionMinigame challenge={challenge} />;
+  else if(challenge.phase==="redaction_done") game=<RedactionResultPanel challenge={challenge} />;
+  else if(challenge.phase==="objection") game=<ObjectionMinigame challenge={challenge} />;
   else if(challenge.phase==="objection_done") game=<ObjectionResultPanel challenge={challenge} />;
   else if(challenge.phase==="contradiction") game=<ContradictionMinigame challenge={challenge} />;
   else if(challenge.phase==="contradiction_success"||challenge.phase==="contradiction_fail")
@@ -184,7 +209,7 @@ export default function ActionMinigameOverlay(){
         onKeyDown={trapFocus}
       >
         <div className="action-kicker">
-          {timeline?"CASE PREP · EVIDENCE TIMELINE":contradiction?"CASE PREP · CONTRADICTION BOARD":objection?"IN SESSION · THE RECORD":"COVERT ACTION"}
+          {timeline?"CASE PREP · EVIDENCE TIMELINE":contradiction?"CASE PREP · CONTRADICTION BOARD":objection?"IN SESSION · THE RECORD":redaction?"CASE PREP · PRIVILEGE REVIEW":"COVERT ACTION"}
         </div>
         <h2 id="action-challenge-title">{challenge.actionTitle||"AFTER HOURS"}</h2>
         <p id="action-challenge-body" className="action-brief">

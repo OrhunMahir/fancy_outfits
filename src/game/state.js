@@ -63,7 +63,7 @@ export function newState(scenario,difficulty){
     marvBribes:0, // Marv remembers who pays — his lines and gifts depend on it
     // per-run ledger for the end-of-run breakdown
     runStats:{safe:0,bluffW:0,bluffL:0,techW:0,techL:0,covertTry:0,covertW:0,covertEscape:0,covertCaught:0,timelineW:0,timelineL:0,
-      contraTry:0,contraW:0,contraL:0,objW:0,objL:0,
+      contraTry:0,contraW:0,contraL:0,objW:0,objL:0,redactW:0,redactL:0,
       deleg:{},bribeTry:0,bribeW:0,favorHelp:0,favorNo:0,miss:0,crises:0,fired:0},
     // daily objective ("close 2 files today") + per-day counters feeding it
     objective:null, today:{resolved:0,wins:0,safeUsed:0,aggWin:0,delegated:0,moneyGained:0},

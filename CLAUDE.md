@@ -308,6 +308,12 @@
 - **Save schema v20:** `migrateV19ToV20` sayaçları backfill eder; `validObjectionChallenge` her ruling'in gerçekten geçmiş bir soruya ait olduğunu, sustained/overruled/missed sayaçlarının transkriptten yeniden türetildiğini ve load'da board'un kimlikten yeniden üretilip karşılaştırıldığını zorunlu kılar. Soak botu duruşmayı oynar (aksi halde 159 integrity hatası veriyordu — yakalandı ve düzeltildi).
 - **İçerik:** el yazması `court1` (Halcyon) 10 satırlık sorgu taşır (leading/hearsay/assumes facts/speculation/argumentative).
 
+**v1.9.25 (2) eklendi (2026-08-18, kullanıcı isteği — PRIVILEGE REVIEW):**
+- **İki taraflı hata board'u:** gönüllü CASE PREP (`action.type:"redaction"`), 1.5h + 6 FATIGUE, 8 sayfalık üretim demeti. İmtiyazlı sayfa karartılmazsa **sızıntı**, sıradan kayıt karartılırsa **belge gizleme**. Hiçbir şey yapmamak nötr DEĞİL — birinci başarısızlıktır.
+- **Farklı para birimleri:** sızıntı `covertEdge`'i sızan oranla −10'a kadar indirir (bu yüzden `covertEdge` alt sınırı 0 → `REDACT_EDGE_FLOOR`); aşırı karartma REP −2/sayfa ve `REDACT_OVER_SANCTION`(2) sayfada −2 FIRM + mahkeme yaptırımı logu getirir.
+- **İçerik tuzakları:** müvekkilin PR ajansına yazıp seni cc'lediği mail (üçüncü taraf imtiyazı kırar) ve ücret tarifesi imtiyazlı DEĞİL; kendi strateji notun ve müvekkilin hukuki görüş talebi imtiyazlı.
+- **Save schema v21** + `migrateV20ToV21`; `validRedactionChallenge` skorun sayfalardan yeniden türetildiğini, load'da demetin kimlikten yeniden üretilip karşılaştırıldığını zorunlu kılar.
+
 **Dış denetim notu (Codex, 2026-08-12):** Bayat/untracked `AGENTS.md` yüzünden gerçek checkpoint yanlışlıkla v1.9.1/hakim hafızası sanılmıştı. Hakim hafızası v1.9.8/v1.9.13'te bitmişti; gerçek yarım iş v1.9.16 sonrası Power Cut entegrasyonuydu. Yarım model/UI dosyaları korunup engine/content/save/CSS/test zinciri tamamlandı.
 
 **En son çalışılan konu (2026-08-18):** v1.9.21 `ea50a3894` ile pushlandı; ardından v1.9.22 (Contradiction Board, schema v17), v1.9.22.1 (gerçek madeni para yazı-tura) ve v1.9.23 (sabotaj zorluk eğrisi + ilk açılış walkthrough'u, schema v18) tamamlandı ve kullanıcının push'unu bekliyor. `npm test`, `npm run build`, `npm run test:soak` (replay 336/336, integrity 0) yeşil; tarayıcıda gerçek tıklamalarla doğrulandı. Güncel ortak handoff ve oturum günlüğü `DEV_LOGBOOK.md`'dir. Sıradaki kullanıcı-onaylı iş **mobil layout + Capacitor**; bağlamsal SFX, GitHub Pages demo ve Steam paketleme sonraki backlog'dur.

@@ -2784,6 +2784,128 @@ globalThis.clearInterval = () => {};
     "migration clears any stale mid-puzzle marker");
   assert.equal(state.S.actionChallenge, null);
 
+  // ---- PRIVILEGE REVIEW (v1.9.25) ----
+  // The only board where doing nothing is already one of the two failures.
+  const liveKessler = () => {
+    const raw = content.buildPool().find(c => c.id === "nda");
+    const c = engine.instantiateCase(raw);
+    const o = c.opts.find(option => option.action?.type === "redaction");
+    Object.assign(state.S, { inbox: [c], openCase: c, event: null, summary: null, pendingSummary: null,
+      hours: 6, fatigue: 0, clients: [], nemesis: null, objective: null, rep: 60 });
+    return { c, o };
+  };
+
+  fresh("daily");
+  let kessler = liveKessler();
+  assert.ok(kessler.o, "the production is a deliberate option, not a random window");
+  assert.equal(kessler.o.style, "prep", "and it is prep work, never covert");
+  const redactCursor = utils.getRngState();
+  engine.choose(kessler.c, kessler.o);
+  assert.equal(utils.getRngState(), redactCursor, "dealing the bundle consumes no shared randomness");
+  const bundle = state.S.actionChallenge;
+  assert.equal(bundle.type, "redaction");
+  assert.ok(bundle.pages.some(p => p.priv) && bundle.pages.some(p => !p.priv),
+    "a bundle you cannot get wrong in both directions is not this board");
+  assert.equal(state.S.hours, 6, "the review bills its hours at the end");
+
+  // A clean production: black out exactly the privileged pages.
+  for (const page of bundle.pages) if (page.priv) engine.markRedaction(page.id);
+  engine.produceRedaction();
+  assert.deepEqual([state.S.actionChallenge.leaked, state.S.actionChallenge.over], [0, 0]);
+  const cleanCase = state.S.inbox.find(c => c.id === "nda");
+  const cleanRisky = cleanCase.opts.find(o => o.style === "technical");
+  const repBeforeClean = state.S.rep;
+  engine.completeActionChallenge();
+  assert.equal(state.S.runStats.redactW, 1);
+  assert.equal(cleanCase.covertEdge, constants.REDACT_EDGE_FULL, "holding privilege arms the file");
+  assert.equal(state.S.rep, repBeforeClean, "and costs nothing but the hours");
+  assert.equal(state.S.hours, 6 - constants.REDACT_HOURS);
+  assert.ok(state.S.inbox.includes(cleanCase), "the case still has to be argued");
+  assert.equal(cleanCase.opts.some(o => o.action), false, "one production per file");
+  const withPrivilege = engine.chance(cleanRisky, cleanCase);
+  delete cleanCase.covertEdge;
+  assert.equal(withPrivilege, Math.min(95, engine.chance(cleanRisky, cleanCase) + constants.REDACT_EDGE_FULL));
+
+  // Producing everything hands your own strategy over: the edge goes NEGATIVE.
+  fresh("daily");
+  kessler = liveKessler();
+  engine.choose(kessler.c, kessler.o);
+  const leakBoard = state.S.actionChallenge;
+  const privCount = leakBoard.pages.filter(p => p.priv).length;
+  engine.produceRedaction();
+  assert.deepEqual([state.S.actionChallenge.leaked, state.S.actionChallenge.over], [privCount, 0]);
+  const leakedCase = state.S.inbox.find(c => c.id === "nda");
+  engine.completeActionChallenge();
+  assert.equal(state.S.runStats.redactL, 1);
+  assert.ok(leakedCase.covertEdge < 0, "your own file in their hands argues against you");
+  assert.ok(leakedCase.covertEdge >= constants.REDACT_EDGE_FLOOR, "but never past the floor");
+  const leakedRisky = leakedCase.opts.find(o => o.style === "technical");
+  const withLeak = engine.chance(leakedRisky, leakedCase);
+  const bankedLeak = leakedCase.covertEdge;
+  delete leakedCase.covertEdge;
+  assert.ok(withLeak < engine.chance(leakedRisky, leakedCase), "and the odds actually drop");
+  leakedCase.covertEdge = bankedLeak;
+
+  // Blacking out everything is the OTHER failure: the court sanctions it.
+  fresh("daily");
+  kessler = liveKessler();
+  engine.choose(kessler.c, kessler.o);
+  const overBoard = state.S.actionChallenge;
+  for (const page of overBoard.pages) engine.markRedaction(page.id);
+  engine.produceRedaction();
+  const overCount = overBoard.pages.filter(p => !p.priv).length;
+  assert.deepEqual([state.S.actionChallenge.leaked, state.S.actionChallenge.over], [0, overCount]);
+  const repBeforeSanction = state.S.rep, firmBeforeSanction = state.S.firm;
+  engine.completeActionChallenge();
+  assert.ok(state.S.rep < repBeforeSanction, "over-redaction is not caution, it is obstruction");
+  assert.ok(state.S.firm < firmBeforeSanction, "and the firm eats the sanction");
+  assert.ok(state.S.logEntries.some(e => /SANCTIONED/.test(e.txt)));
+
+  // Toggling is free and reversible until you send it.
+  fresh("daily");
+  kessler = liveKessler();
+  engine.choose(kessler.c, kessler.o);
+  const toggleId = state.S.actionChallenge.pages[0].id;
+  engine.markRedaction(toggleId);
+  assert.equal(state.S.actionChallenge.marked.includes(toggleId), true);
+  engine.markRedaction(toggleId);
+  assert.equal(state.S.actionChallenge.marked.includes(toggleId), false);
+  engine.markRedaction("not_a_page");
+  assert.deepEqual(state.S.actionChallenge.marked, []);
+
+  // Reload keeps the bundle and the marks; a forged score is refused.
+  engine.markRedaction(toggleId);
+  engine.saveGame();
+  const midBundle = JSON.parse(JSON.stringify(state.S.actionChallenge));
+  assert.equal(engine.loadGame(1), true, "a production survives a reload");
+  assert.deepEqual(state.S.actionChallenge, midBundle);
+  const rawBundle = JSON.parse(localStorage.getItem(constants.SAVE_KEY + "_s1"));
+  const rejectsBundle = (mutate, label) => {
+    const copy = JSON.parse(JSON.stringify(rawBundle));
+    mutate(copy);
+    localStorage.setItem(constants.SAVE_KEY + "_s1", JSON.stringify(copy));
+    assert.equal(engine.loadGame(1), false, label);
+    localStorage.setItem(constants.SAVE_KEY + "_s1", JSON.stringify(rawBundle));
+  };
+  rejectsBundle(c => { c.actionChallenge.phase = "redaction_done"; c.actionChallenge.leaked = 0; c.actionChallenge.over = 0; },
+    "a produced bundle whose score does not match its marks is rejected");
+  rejectsBundle(c => { c.actionChallenge.pages[0].priv = !c.actionChallenge.pages[0].priv; },
+    "a re-labelled page is rejected");
+  rejectsBundle(c => { c.actionChallenge.marked = ["not_a_page"]; }, "a mark on nothing is rejected");
+  assert.equal(engine.loadGame(1), true, "the untouched bundle still loads");
+
+  // v20 careers migrate forward with fresh counters.
+  const legacyBundle = JSON.parse(JSON.stringify(rawBundle));
+  legacyBundle.schemaVersion = 20;
+  legacyBundle.actionChallenge = null;
+  delete legacyBundle.runStats.redactW;
+  delete legacyBundle.runStats.redactL;
+  const legacyNda = legacyBundle.inbox.find(c => c.id === "nda");
+  delete legacyNda.actionInProgress;
+  localStorage.setItem(constants.SAVE_KEY + "_s1", JSON.stringify(legacyBundle));
+  assert.equal(engine.loadGame(1), true, "a v20 career migrates to the privilege schema");
+  assert.deepEqual([state.S.runStats.redactW, state.S.runStats.redactL], [0, 0]);
+
   // ---- OBJECTION (v1.9.25) ----
   // A timing board inside a hearing: it moves the play you already committed
   // to, and the judge on the bench prices a frivolous objection.
@@ -3148,7 +3270,7 @@ globalThis.clearInterval = () => {};
     }
   }
 
-  console.log("v1.9.5–v1.9.25 checks passed: objection window (transcript/strict bench/reload/tamper/v20), lockpick tension/snap (one pick at rank 0, SNEAKY buys more, legacy hand-back), first-run walkthrough, sharpened sabotage circuits (curve/legacy boards/v18), Contradiction Board prep (deal/attempts/partial/tamper/v17), Evidence Timeline prep + cold-entry penalty (deal/reload/tamper/migration/scope), safe-route pricing (coasting/hours/v16), Fraud identity pressure/morning continuation, progression/skills, lockpick/Power Cut minigames, balance experiments, Final Warning, Friday/Exceptional Review promotions, delegation cap, strict saves/migrations, procedural IDs, long-run integrity, FIRM payroll, rolling judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
+  console.log("v1.9.5–v1.9.25 checks passed: privilege review (two-sided failure/sanction/reload/tamper/v21), objection window (transcript/strict bench/reload/tamper/v20), lockpick tension/snap (one pick at rank 0, SNEAKY buys more, legacy hand-back), first-run walkthrough, sharpened sabotage circuits (curve/legacy boards/v18), Contradiction Board prep (deal/attempts/partial/tamper/v17), Evidence Timeline prep + cold-entry penalty (deal/reload/tamper/migration/scope), safe-route pricing (coasting/hours/v16), Fraud identity pressure/morning continuation, progression/skills, lockpick/Power Cut minigames, balance experiments, Final Warning, Friday/Exceptional Review promotions, delegation cap, strict saves/migrations, procedural IDs, long-run integrity, FIRM payroll, rolling judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;

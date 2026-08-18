@@ -19,14 +19,17 @@ import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DELEGATE_CAP, DAY_HOURS, TIER_HOU
          TIMELINE_TRIGGER, TIMELINE_CARDS, TIMELINE_CARDS_SENIOR, TIMELINE_SENIOR_RANK,
          TIMELINE_EDGE_WIN, TIMELINE_EDGE_LOSS, TIMELINE_EDGE_DECLINE, TIMELINE_FAIL_REP, TIMELINE_HOURS, TIMELINE_FATIGUE,
          OBJECTION_TRIGGER, OBJECTION_LINES, OBJECTION_WINDOW_MS, OBJECTION_EDGE_WIN, OBJECTION_EDGE_LOSS,
-         OBJECTION_HOURS, OBJECTION_FATIGUE, OBJECTION_STRICT_BOOK } from "./constants.js";
+         OBJECTION_HOURS, OBJECTION_FATIGUE, OBJECTION_STRICT_BOOK,
+         REDACT_LINES, REDACT_EDGE_FULL, REDACT_EDGE_FLOOR,
+         REDACT_OVER_REP, REDACT_OVER_SANCTION, REDACT_HOURS, REDACT_FATIGUE } from "./constants.js";
 import { clamp, rnd, rand, shuffle, hash, setSeed, clearSeed, getRngState, setRngState } from "./utils.js";
 import { LOCK_MIN, LOCK_MAX, LOCK_HINT_SPREAD, POWER_RING_COUNT, POWER_RULES, POWER_FRAME_CAP_MS, createLockpickChallenge, clampLockTension, pressLockTension, tryLockpick, callCoin,
          createPowerCutChallenge, advancePowerCut, stopPowerCut, powerAngleAt, powerAngleDistance,
          createTimelineChallenge, moveTimelineCard, submitTimeline,
          CONTRA_ATTEMPTS, CONTRA_STATEMENTS, createContradictionChallenge, selectContradictionStatement,
          pairContradiction, concedeContradiction,
-         createObjectionChallenge, advanceObjection, raiseObjection, objectionScore } from "./minigames.js";
+         createObjectionChallenge, advanceObjection, raiseObjection, objectionScore,
+         createRedactionChallenge, toggleRedaction, produceDocuments } from "./minigames.js";
 import { SFX, startAmbience, stopAmbience, applyBgmVolume } from "./sound.js";
 import { settings, setSetting } from "./settings.js";
 import { buildPool, JUDGES, crises, SCENARIOS, buildWeekend } from "./content.js";
@@ -522,7 +525,9 @@ export function chance(o,c){
   }
   if(c&&c.crisisMod&&!o.safe) p+=c.crisisMod.v; // a Traitor leaked / a Brave ally shields (GDD §5-6)
   if(c&&c.dossier&&!o.safe) p+=12;              // detective's dossier on this file
-  if(c&&c.covertEdge&&!o.safe) p+=c.covertEdge;  // evidence recovered through a completed COVERT ACTION
+  // the file's evidence edge: recovered documents, a finished chart — or, after
+  // a leaky production, the other side reading your own privileged strategy
+  if(c&&c.covertEdge&&!o.safe) p+=c.covertEdge;
   // an EVIDENCE TIMELINE only moves the play it was prepped for, never the whole file
   if(c&&c.timelineEdge&&!o.safe&&c.opts.indexOf(o)===c.timelineEdge.optionIndex) p+=c.timelineEdge.value;
   // how the hearing itself went: objections sustained or frivolous
@@ -1192,7 +1197,10 @@ function createActionChallenge(action,args,skillSnapshot=legacySkillSnapshot(),p
   const snapshot={...skillSnapshot};
   const rank=snapshot.rulesVersion===1?clamp(Math.trunc(Number(snapshot.sneaky)||0),0,MAX_SKILL):0;
   const skill=sneakyModifiers({skills:{sneaky:rank}});
-  const challenge=action.type==="contradiction"
+  const challenge=action.type==="redaction"
+    // Reviewing your own bundle is billable hours, not burglary: no SNEAKY.
+    ?createRedactionChallenge({...args,pages:action.pages,count:Math.min(REDACT_LINES,(action.pages||[]).length)})
+    :action.type==="contradiction"
     // Reading exhibits is lawyering, not burglary: SNEAKY buys nothing here.
     ?createContradictionChallenge({...args,pairs:action.pairs,decoys:action.decoys})
     :action.type==="power_cut"
@@ -1218,11 +1226,11 @@ function beginActionChallenge(c,o,cost){
     optionIndex, startedDay:S.day, hoursBefore, caseTitle:c.title,
     actionTitle:action.title, body:action.body,
   };
-  const prep=action.type==="contradiction";
+  const prep=["contradiction","redaction"].includes(action.type);
   if(prep) S.runStats.contraTry++; else S.runStats.covertTry++;
   S.openCase=null;
   if(prep) SFX.open(); else SFX.crisis();
-  log((prep?"CONTRADICTION BOARD: ":"COVERT ACTION STARTED: ")+action.title+" ("+cost+"h committed)","sys");
+  log((prep?"CASE PREP: ":"COVERT ACTION STARTED: ")+action.title+" ("+cost+"h committed)","sys");
   saveGame(); notify();
 }
 
@@ -1327,6 +1335,72 @@ function completeTimelineChallenge(ch){
 
 /* Leaning on the pick can end the attempt by itself, so unlike the old angle
    slider this is a real move: it persists and can snap. */
+/* ---------- REDACTION ----------
+   A voluntary prep option with two opposite failures. Hand privileged pages to
+   the other side and they argue your own strategy back at you; black out
+   ordinary records and the court sanctions the firm for it. */
+const redactionOpen=ch=>!!ch&&ch.type==="redaction"&&ch.phase==="redaction";
+
+export function markRedaction(pageId){
+  const ch=S&&S.actionChallenge;
+  if(!redactionOpen(ch)||!actionRefs(ch)) return;
+  S.actionChallenge=toggleRedaction(ch,pageId);
+  SFX.click();
+  saveGame(); notify();
+}
+
+export function produceRedaction(){
+  const ch=S&&S.actionChallenge;
+  if(!redactionOpen(ch)||!actionRefs(ch)) return;
+  const next=produceDocuments(ch);
+  S.actionChallenge=next;
+  if(next.leaked===0&&next.over===0) SFX.open(); else { SFX.lose(); doShake(); }
+  saveGame(); notify();
+}
+
+function completeRedactionChallenge(ch){
+  const refs=actionRefs(ch);
+  S.actionChallenge=null;
+  if(!refs){
+    log("PRIVILEGE REVIEW CANCELLED: the underlying file could not be verified.","bad");
+    saveGame(); notify(); return;
+  }
+  const {c,o,action}=refs;
+  delete c.actionInProgress;
+  c.opts=c.opts.filter(option=>option!==o); // one production per file
+  const clean=ch.leaked===0&&ch.over===0;
+  const privileged=Math.max(1,ch.pages.filter(p=>p.priv).length);
+  const edge=clamp(Math.round(REDACT_EDGE_FULL-(ch.leaked/privileged)*(REDACT_EDGE_FULL-REDACT_EDGE_FLOOR)),
+    REDACT_EDGE_FLOOR,REDACT_EDGE_FULL);
+  const out=clean?action.success:(ch.leaked?action.miss:action.partial);
+
+  if(clean) S.runStats.redactW++; else S.runStats.redactL++;
+  // The edge can go NEGATIVE here: a leaked bundle is the other side reading
+  // your case. It replaces rather than maxes, because it is your own doing.
+  c.covertEdge=edge;
+  c.covertNote=clean
+    ?"PRIVILEGE HELD (+"+edge+"% on this file's risky plays)"
+    :edge>=0
+    ?"PARTIAL PRODUCTION — "+ch.leaked+" privileged page(s) out (+"+edge+"%)"
+    :"YOUR OWN FILE, IN THEIR HANDS ("+edge+"% on this file's risky plays)";
+  if(clean){ SFX.win(); log("["+c.title+"] "+out.txt,"good"); }
+  else { SFX.lose(); log("["+c.title+"] "+out.txt,"bad"); }
+  apply(out.fx,false,"case");
+  if(ch.over){
+    apply({rep:REDACT_OVER_REP*ch.over},false,"case");
+    if(ch.over>=REDACT_OVER_SANCTION){
+      apply({firm:-2},false,"case");
+      log("SANCTIONED: the court orders the bundle re-produced unredacted. The firm eats the costs.","bad");
+    }
+  }
+  if(!S.over) S.openCase=c; // the legal play is still yours to make
+
+  spendHours(ch.cost,ch.toil,true);
+  if(!S.over&&fatigueCheck(ch.cost)) return;
+  if(!S.over){ maybeDemand(); checkClock(); }
+  saveGame(); notify();
+}
+
 /* ---------- OBJECTION ----------
    Fires inside a hearing, after you commit to a risky play on a court file.
    It cannot win or lose the case: it moves THAT play, and the judge on the
@@ -1547,6 +1621,10 @@ export function completeActionChallenge(){
   }
   if(ch&&ch.type==="contradiction"){
     if(["contradiction_success","contradiction_fail"].includes(ch.phase)) completeContradictionChallenge(ch);
+    return;
+  }
+  if(ch&&ch.type==="redaction"){
+    if(ch.phase==="redaction_done") completeRedactionChallenge(ch);
     return;
   }
   if(!ch||!["lock_success","power_success","coin_result"].includes(ch.phase)) return;
@@ -2067,6 +2145,7 @@ function ledger(){
     "Case prep: "+r.timelineW+" chronologies locked / "+r.timelineL+" muddled · "+
       r.contraTry+" contradiction charts ("+r.contraW+" complete)",
     "On your feet: "+r.objW+" hearings argued clean / "+r.objL+" that read badly",
+    "Productions: "+r.redactW+" clean / "+r.redactL+" that cost you something",
     "Final Warning: "+(S.finalWarningUsed?"SPENT":"unused"),
     "Bribes offered: "+r.bribeTry+(r.bribeTry?" ("+r.bribeW+" taken)":""),
     "Favors: "+r.favorHelp+" helped · "+r.favorNo+" declined"+
@@ -2256,14 +2335,29 @@ const validContradictionCards=a=>{
   }
   return true;
 };
-const validAction=a=>validActionBase(a)&&(a.type==="contradiction"
+const validRedactionPages=a=>{
+  if(!Array.isArray(a.pages)||a.pages.length<4||a.pages.length>20) return false;
+  const ids=new Set();
+  let priv=0,plain=0;
+  for(const p of a.pages){
+    if(!p||typeof p!=="object"||typeof p.id!=="string"||!p.id||typeof p.text!=="string") return false;
+    if(p.priv!=null&&typeof p.priv!=="boolean") return false;
+    if(ids.has(p.id)) return false;
+    ids.add(p.id);
+    if(p.priv) priv++; else plain++;
+  }
+  return priv>0&&plain>0; // a bundle you cannot get wrong twice is not this board
+};
+const validAction=a=>validActionBase(a)&&(a.type==="redaction"
+  ?validRedactionPages(a)&&[a.success,a.partial,a.miss].every(out=>validOutcome(out,0)&&out.next==null)
+  :a.type==="contradiction"
   ?validContradictionCards(a)&&[a.success,a.partial,a.miss].every(out=>validOutcome(out,0)&&out.next==null)
   :["lockpick","power_cut"].includes(a.type)&&[a.success,a.escape,a.caught].every(out=>validOutcome(out,0)&&out.next==null));
 function validOption(o,depth){
   if(!plain(o)||typeof o.text!=="string") return false;
   // Covert jobs and honest prep both suspend the desk, but they are not the same
   // kind of choice and must not borrow each other's label.
-  if(o.action) return o.style===(o.action.type==="contradiction"?"prep":"covert")&&
+  if(o.action) return o.style===(["contradiction","redaction"].includes(o.action.type)?"prep":"covert")&&
     validAction(o.action)&&o.base==null&&o.ok==null&&o.fail==null;
   if(!Number.isFinite(o.base)||!validOutcome(o.ok,depth)) return false;
   if(o.style!=null&&!["technical","aggressive","bribe","neutral"].includes(o.style)) return false;
@@ -2317,7 +2411,7 @@ function validTimelineEdge(edge,opts){
 function validCase(c,depth=0){
   return depth<=8&&plain(c)&&typeof c.id==="string"&&c.id.length>0&&typeof c.title==="string"&&typeof c.body==="string"&&validJudge(c.judge)&&
     Array.isArray(c.opts)&&c.opts.length>0&&validBig(c.big)&&c.opts.every(o=>validOption(o,depth))&&
-    (c.covertEdge==null||(Number.isFinite(c.covertEdge)&&c.covertEdge>=0&&c.covertEdge<=30))&&
+    (c.covertEdge==null||(Number.isFinite(c.covertEdge)&&c.covertEdge>=REDACT_EDGE_FLOOR&&c.covertEdge<=30))&&
     (c.covertNote==null||typeof c.covertNote==="string")&&(c.actionInProgress==null||typeof c.actionInProgress==="string")&&
     validObjectionData(c.objection)&&(c.objectionDone==null||typeof c.objectionDone==="boolean")&&
     (c.objectionInProgress==null||typeof c.objectionInProgress==="string")&&validHearingEdge(c.hearingEdge,c.opts)&&
@@ -2326,7 +2420,7 @@ function validCase(c,depth=0){
     (c.timelineInProgress==null||typeof c.timelineInProgress==="string")&&validTimelineEdge(c.timelineEdge,c.opts)&&
     // A burglary during a court appearance never made sense; preparing exhibits
     // for one is exactly what the night before a hearing is for.
-    (!c.judge||c.opts.every(o=>!o.action||o.action.type==="contradiction"))&&
+    (!c.judge||c.opts.every(o=>!o.action||["contradiction","redaction"].includes(o.action.type)))&&
     (!c.big||c.opts.every(o=>o.delay==null&&!o.action)); // Client War has its own lifecycle; no delayed/action options
 }
 
@@ -2396,7 +2490,7 @@ function backfillMissingCaseIds(d){
 class SaveDataError extends Error{ constructor(code,message){ super(message); this.code=code; } }
 const ensureArray=(d,key)=>{ if(d[key]==null) d[key]=[]; };
 const RUN_COUNTER_KEYS=["safe","bluffW","bluffL","techW","techL","covertTry","covertW","covertEscape","covertCaught",
-  "timelineW","timelineL","contraTry","contraW","contraL","objW","objL","bribeTry","bribeW","favorHelp","favorNo","miss","crises","fired"];
+  "timelineW","timelineL","contraTry","contraW","contraL","objW","objL","redactW","redactL","redactW","redactL","bribeTry","bribeW","favorHelp","favorNo","miss","crises","fired"];
 const TODAY_COUNTER_KEYS=["resolved","wins","safeUsed","aggWin","delegated","moneyGained"];
 const nonNegativeInt=v=>Number.isSafeInteger(v)&&v>=0;
 const validCounters=(v,keys)=>plain(v)&&keys.every(k=>nonNegativeInt(v[k]));
@@ -2613,7 +2707,10 @@ const migrateV19ToV20=raw=>{
   d.runStats=backfillCounters(d.runStats,RUN_COUNTER_KEYS);
   return d;
 };
-const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6,6:migrateV6ToV7,7:migrateV7ToV8,8:migrateV8ToV9,9:migrateV9ToV10,10:migrateV10ToV11,11:migrateV11ToV12,12:migrateV12ToV13,13:migrateV13ToV14,14:migrateV14ToV15,15:migrateV15ToV16,16:migrateV16ToV17,17:migrateV17ToV18,18:migrateV18ToV19,19:migrateV19ToV20};
+/* v20 -> v21 adds the privilege review. Older careers carry no bundle. */
+/* v20 -> v21 adds the privilege review. Older careers carry no bundle. */
+const migrateV20ToV21=raw=>({...raw,schemaVersion:21,runStats:backfillCounters(raw.runStats,RUN_COUNTER_KEYS)});
+const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6,6:migrateV6ToV7,7:migrateV7ToV8,8:migrateV8ToV9,9:migrateV9ToV10,10:migrateV10ToV11,11:migrateV11ToV12,12:migrateV12ToV13,13:migrateV13ToV14,14:migrateV14ToV15,15:migrateV15ToV16,16:migrateV16ToV17,17:migrateV17ToV18,18:migrateV18ToV19,19:migrateV19ToV20,20:migrateV20ToV21};
 
 const JUDGE_MEMORY_COUNTERS=["seen","aggressiveW","aggressiveL","technicalW","technicalL","bribeW","bribeL","safe","neutralW","neutralL"];
 function validJudgeMemory(memory,day){
@@ -2778,6 +2875,22 @@ function validContradictionChallenge(ch,day){
   if(ch.phase==="contradiction_fail"&&ch.matched.length===size) return false; // a finished chart is a success, not a miss
   return ch.coinCall==null&&ch.escaped==null;
 }
+const REDACTION_PHASES=new Set(["redaction","redaction_done"]);
+function validRedactionChallenge(ch,day){
+  if(!validActionChallengeBase(ch,day,REDACTION_PHASES)||ch.type!=="redaction") return false;
+  if(!Array.isArray(ch.pages)||ch.pages.length<2||ch.pages.length>20||!Array.isArray(ch.marked)) return false;
+  if(ch.pages.some(p=>!plain(p)||typeof p.id!=="string"||!p.id||typeof p.text!=="string"||typeof p.priv!=="boolean")) return false;
+  const ids=ch.pages.map(p=>p.id);
+  if(new Set(ids).size!==ids.length) return false;
+  if(new Set(ch.marked).size!==ch.marked.length||ch.marked.some(id=>!ids.includes(id))) return false;
+  if(!nonNegativeInt(ch.turn)||!nonNegativeInt(ch.leaked)||!nonNegativeInt(ch.over)) return false;
+  const marked=new Set(ch.marked);
+  const leaked=ch.pages.filter(p=>p.priv&&!marked.has(p.id)).length;
+  const over=ch.pages.filter(p=>!p.priv&&marked.has(p.id)).length;
+  // an unproduced bundle has no score yet; a produced one must match its marks
+  if(ch.phase==="redaction") return ch.leaked===0&&ch.over===0&&ch.coinCall==null&&ch.escaped==null;
+  return ch.leaked===leaked&&ch.over===over&&ch.coinCall==null&&ch.escaped==null;
+}
 const OBJECTION_PHASES=new Set(["objection","objection_done"]);
 function validObjectionChallenge(ch,day){
   if(!validActionChallengeBase(ch,day,OBJECTION_PHASES)||ch.type!=="objection"||typeof ch.confirmedLate!=="boolean") return false;
@@ -2813,7 +2926,8 @@ function validActionChallenge(ch,day,progression){
   const valid=ch&&ch.type==="lockpick"?validLockChallenge(ch,day):ch&&ch.type==="power_cut"?validPowerChallenge(ch,day):
     ch&&ch.type==="timeline"?validTimelineChallenge(ch,day):
     ch&&ch.type==="contradiction"?validContradictionChallenge(ch,day):
-    ch&&ch.type==="objection"?validObjectionChallenge(ch,day):false;
+    ch&&ch.type==="objection"?validObjectionChallenge(ch,day):
+    ch&&ch.type==="redaction"?validRedactionChallenge(ch,day):false;
   if(!valid) return false;
   if(ch.skillSnapshot.rulesVersion===1) return ch.skillSnapshot.sneaky===getSkillRank(progression,"sneaky")&&
     ch.skillSnapshot.endurance===getSkillRank(progression,"endurance");
@@ -2966,6 +3080,9 @@ function migrateSaveData(raw){
       throw new SaveDataError("invalid","The saved COVERT ACTION outcome was altered.");
     if(ch.type==="lockpick"&&(ch.target!==expected.target||ch.tolerance!==expected.tolerance||ch.maxAttempts!==expected.maxAttempts))
       throw new SaveDataError("invalid","The saved lock position was altered.");
+    if(ch.type==="redaction"&&(ch.pages.length!==expected.pages.length||
+      ch.pages.some((p,index)=>p.id!==expected.pages[index].id||p.text!==expected.pages[index].text||p.priv!==expected.pages[index].priv)))
+      throw new SaveDataError("invalid","The saved production bundle was altered.");
     if(ch.type==="contradiction"&&(ch.statements.length!==expected.statements.length||ch.documents.length!==expected.documents.length||
       ch.statements.some((s,index)=>s.id!==expected.statements[index].id||s.text!==expected.statements[index].text)||
       ch.documents.some((d,index)=>d.id!==expected.documents[index].id||d.text!==expected.documents[index].text)||

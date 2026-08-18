@@ -276,6 +276,76 @@ export function submitTimeline(challenge){
   };
 }
 
+/* ---------- REDACTION ----------
+   Two ways to be wrong, and they are not the same wrong. A privileged line you
+   hand over is read by the other side; an ordinary record you black out is
+   obstruction, and the court has opinions about that. Doing nothing fails in
+   the first direction, so there is no safe default. */
+export function redactionDeal(pages,count,identity){
+  const pool=(Array.isArray(pages)?pages:[]).filter(p=>p&&typeof p.id==="string");
+  const drawn=pool
+    .map((page,index)=>({page,index,key:hash(`${identity}|page|${page.id}`)}))
+    .sort((a,b)=>a.key-b.key||a.index-b.index)
+    .slice(0,Math.max(2,Math.min(pool.length,Math.trunc(Number(count))||0)))
+    .sort((a,b)=>a.index-b.index)
+    .map(entry=>({id:entry.page.id,text:String(entry.page.text||""),priv:!!entry.page.priv}));
+  // A bundle with nothing privileged (or nothing ordinary) is not a decision.
+  return drawn.some(p=>p.priv)&&drawn.some(p=>!p.priv)?drawn:pool.slice(0,Math.max(2,drawn.length));
+}
+
+export function createRedactionChallenge({runSeed,caseId,optionIndex,actionId,pages,count,cost,toil,lateExtra}){
+  const identity=`${runSeed}|${caseId}|${actionId}`;
+  return {
+    type:"redaction",
+    phase:"redaction",
+    runSeed,
+    caseId,
+    actionId,
+    optionIndex,
+    cost,
+    toil,
+    lateExtra,
+    pages:redactionDeal(pages,count,identity),
+    marked:[],
+    leaked:0,
+    over:0,
+    turn:0,
+    feedback:"Black out what is privileged. Nothing else.",
+    coinFace:hash(`${identity}|coin`)%2===0?"heads":"tails", // unused; keeps one challenge shape
+  };
+}
+
+export function toggleRedaction(challenge,pageId){
+  if(challenge.phase!=="redaction") return {...challenge};
+  if(!challenge.pages.some(p=>p.id===pageId)) return {...challenge};
+  const marked=challenge.marked.includes(pageId)
+    ?challenge.marked.filter(id=>id!==pageId)
+    :[...challenge.marked,pageId];
+  return {...challenge,marked,turn:(challenge.turn||0)+1,
+    feedback:marked.includes(pageId)?"Blacked out.":"Restored."};
+}
+
+export function produceDocuments(challenge){
+  if(challenge.phase!=="redaction") return {...challenge};
+  const marked=new Set(challenge.marked);
+  const leaked=challenge.pages.filter(p=>p.priv&&!marked.has(p.id)).length;
+  const over=challenge.pages.filter(p=>!p.priv&&marked.has(p.id)).length;
+  return {
+    ...challenge,
+    phase:"redaction_done",
+    leaked,
+    over,
+    turn:(challenge.turn||0)+1,
+    feedback:leaked===0&&over===0
+      ?"Clean production. Everything privileged is black, everything else is legible."
+      :leaked&&over
+      ?`${leaked} privileged page(s) went out and ${over} ordinary record(s) came back black.`
+      :leaked
+      ?`${leaked} privileged page(s) went out with the rest.`
+      :`${over} ordinary record(s) came back black. Opposing counsel will file about it.`,
+  };
+}
+
 /* ---------- OBJECTION ----------
    The transcript moves whether you do or not. Improper questions stand for a
    beat and then they are answered — and an answer on the record cannot be

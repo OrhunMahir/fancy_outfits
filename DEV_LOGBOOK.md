@@ -18,6 +18,61 @@ Her çalışma oturumunda:
 
 ---
 
+## 2026-08-18 — Claude: OBJECTION + PRIVILEGE REVIEW (v1.9.25)
+
+### Git checkpoint
+
+- Branch: `objection` (kullanıcı `main`'e merge sonrası açtı), base commit `3d5da494f`
+  (itiraz board'u commit edildi, redaksiyon commit bekliyor).
+- `minigames` → `main` merge'ü `da60d28cc` ile indi.
+
+### 1 — OBJECTION (duruşmanın içinde zamanlama)
+
+Detay CLAUDE.md v1.9.25 girdisinde. Özet: court dosyasında riskli hamleye commit edince %30 ile
+açılır, sorgu satırları 2600ms ayakta durur, sustained/overruled/missed skoru `c.hearingEdge`'e
+(−10..+12) yazılır. `judge.book>=60` ise yersiz itiraz iki kat. `judgeMemory`'ye BİLİNÇLİ yazılmaz.
+
+**Soak bunu yakaladı:** board istemsiz açıldığı için headless bot tanımadı ve **159 integrity
+hatası** verdi. Bota duruşmayı oynattım (satır satır frame yakarak), replay tekrar temiz.
+
+### 2 — PRIVILEGE REVIEW (iki taraflı hata)
+
+- Gönüllü CASE PREP seçeneği (`style:"prep"`, `action.type:"redaction"`), 1.5h + 6 FATIGUE.
+- Havuzdan 8 sayfa çekilir; imtiyazlı olanlar karartılmalı, sıradan iş kayıtları karartılmamalı.
+  Tuzaklar bilinçli: müvekkilin PR ajansına yazıp seni cc'lediği mail (üçüncü taraf imtiyazı kırar)
+  ve engagement letter'ın ücret tarifesi.
+- **İki başarısızlık iki farklı para birimiyle ödenir:** sızdırma dosyanın ŞANSINI düşürür
+  (`covertEdge` sızan oranla −10'a kadar iner; `covertEdge` alt sınırı bu yüzden 0 → −10 yapıldı),
+  aşırı karartma ise REP (−2/sayfa) ve 2+ sayfada mahkeme yaptırımı (−2 FIRM) getirir. Hiçbir şey
+  yapmamak nötr değil — birinci başarısızlığın ta kendisi.
+- Doğrulanan davranış (tarayıcı): temiz üretim +15 "PRIVILEGE HELD"; her şeyi karartmak −12 REP
+  −2 FIRM + "SANCTIONED: the court orders the bundle re-produced unredacted"; hiç dokunmamak
+  3 sızıntı → −10 kenar, "YOUR OWN FILE, IN THEIR HANDS", şans −10.
+
+### Kesinti kazası ve temizliği
+
+Oturum ortasında iki kez "Try again" tetiklendi ve aynı yamalar iki kez uygulandı: `engine.js`'te
+REDACTION bloğu, validation bloğu, completion routing'i, save cross-check'i ve migration satırı
+çiftlendi; `state.js`'te sayaçlar iki kez eklendi. Hepsi tespit edilip tekilleştirildi
+(`grep -c` ile doğrulandı). Ders: bu dosyalarda idempotent olmayan `replace(anchor, block+anchor)`
+kalıbı tekrar çalıştırılırsa sessizce çiftler.
+
+### Testler
+
+- `npm test` yeşil: itiraz (transkript/strict bench/reload/6 tamper/v20 migration) + redaksiyon
+  (iki taraflı skor/yaptırım/reload/tamper/v21 migration).
+- `npm run build` yeşil. `npm run test:soak` → replay 344/344, integrity 0.
+- Tarayıcı: itirazda overruled→sustained zinciri gerçek tıklamalarla, redaksiyonda üç sonuç yolu da
+  doğrulandı.
+
+### Sıradaki kesin adım
+
+Kullanıcı kararı: 3. board (parçalanmış belge) **önerilmedi** — Timeline'ın sıralama fiilinin
+mekânsal kopyası olurdu. Kullanıcı isterse yapılır, istemezse backlog'da kalır. Ondan sonra sırada
+**mobil layout + Capacitor** var.
+
+---
+
 ## 2026-08-18 — Claude: lockpick rebuilt as tension + snap (v1.9.24)
 
 ### Git checkpoint

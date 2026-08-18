@@ -109,8 +109,20 @@ export const OBJECTION_EDGE_WIN=12;        // a clean sheet is worth as much as 
 export const OBJECTION_EDGE_LOSS=-10;
 export const OBJECTION_HOURS=.5, OBJECTION_FATIGUE=3;
 export const OBJECTION_STRICT_BOOK=60;     // above this the judge doubles the cost of a frivolous objection
+// REDACTION: the only board where you can fail in two opposite directions.
+// Leave privileged material in and opposing counsel reads your strategy; black
+// out ordinary business records and the court calls it obstruction. Doing
+// nothing is not neutral here — it is the first kind of failure.
+export const REDACT_LINES=8;           // pages drawn from the authored bundle
+export const REDACT_EDGE_FULL=15;      // a clean production is worth as much as a full chart
+// The edge scales with the bundle you were actually dealt: hold everything and
+// it is worth the full edge, hand over every privileged page and it bottoms out.
+export const REDACT_EDGE_FLOOR=-10;
+export const REDACT_OVER_REP=-2;       // per ordinary record blacked out
+export const REDACT_OVER_SANCTION=2;   // this many over-redactions and the court sanctions the firm
+export const REDACT_HOURS=1.5, REDACT_FATIGUE=6;
 // The storage key stays stable; ordered migrations use the embedded schema.
-export const SAVE_SCHEMA_VERSION=20;
+export const SAVE_SCHEMA_VERSION=21;
 export const SAVE_LOG_LIMIT=200, SAVE_ARCHIVE_LIMIT=200;
 export const INBOX_MESSAGE_LIMIT=80; // notifications are history, not permanent case files
 export const SAVE_KEY="fo_save_v1";

@@ -50,7 +50,26 @@ export function buildPool(){
     opts:[
       {text:"Settle quietly. Client pays, moves on.",base:100,safe:true,ok:{fx:{bold:-4,inf:2,money:300},txt:"Settled. Cheap-ish. Nobody's impressed, nobody's fired."}},
       {text:"Move to void the NDA — no signing authority.",base:78,style:"technical",delay:2,ok:{fx:{rep:8,inf:7,money:1200},txt:"The NDA is VOID. Opposing counsel visibly ages five years."},fail:{fx:{rep:-5},txt:"They produce a ratification memo. Ouch. Should've dug deeper."}},
-      {text:"Bluff: threaten a defamation countersuit.",base:35,boldW:3,style:"aggressive",delay:1,ok:{fx:{bold:6,inf:5,money:800},txt:"They fold. Your bluff had absolutely no legal basis. Beautiful."},fail:{fx:{rep:-10,bold:-2},txt:"They call the bluff and read your empty threat aloud in a meeting."}}]});
+      {text:"Bluff: threaten a defamation countersuit.",base:35,boldW:3,style:"aggressive",delay:1,ok:{fx:{bold:6,inf:5,money:800},txt:"They fold. Your bluff had absolutely no legal basis. Beautiful."},fail:{fx:{rep:-10,bold:-2},txt:"They call the bluff and read your empty threat aloud in a meeting."}},
+      {text:"CASE PREP: run the privilege review before production.",style:"prep",
+        action:{id:"kessler_privilege",type:"redaction",title:"THE KESSLER PRODUCTION",
+          body:"Opposing counsel's request covers this whole bundle and it goes out tonight. Black out what is privileged — legal advice between you and the client, and your own work product. Nothing else. A third party on the thread breaks privilege, and blacking out an ordinary business record is not caution, it is obstruction.",
+          hours:1.5,fatigue:6,edge:15,
+          edgeText:"PRIVILEGE HELD (+15% on this file's risky plays)",
+          pages:[
+            {id:"advice",text:"Kessler's GC to you: 'What is our exposure if we terminate early?'",priv:true},
+            {id:"memo",text:"Your own memo: three arguments, ranked, with the weak one circled",priv:true},
+            {id:"strategy",text:"Your note to the file on which witness not to call",priv:true},
+            {id:"invoice",text:"A vendor invoice for the March shipment"},
+            {id:"minutes",text:"Board minutes approving the supply contract"},
+            {id:"pr",text:"Kessler's CEO to their PR agency, copying you: 'how do we spin this?'"},
+            {id:"log",text:"Warehouse log with the delivery dates"},
+            {id:"hr",text:"An HR complaint about the loading dock, unrelated to any of this"},
+            {id:"draft",text:"The unsigned first draft of the NDA"},
+            {id:"retainer",text:"Your engagement letter's fee schedule"}],
+          success:{fx:{bold:2},txt:"The bundle goes out with the black bars exactly where they belong. They learn nothing they did not already have."},
+          partial:{fx:{},txt:"You get most of it right. The parts you over-black will be argued about, but nothing of yours went out."},
+          miss:{fx:{},txt:"Somewhere in that stack, your own assessment of your own case is now in their hands."}}}]});
   P.push({id:"depo",tier:1,title:"CASE: Vance deposition prep",deadline:3,
     body:"Depose the CFO of Vance Industries. His lawyer is a screamer from Snidely Fitch, but the binder's dates don't shout — they just sit there. February 2nd: Vance retains a consulting outfit whose only employee is the CFO's brother-in-law. March 3rd: the Q3 expense report is signed. March 11th: the auditors send formal notice. March 12th: the CFO emails the controller, 'make Q3 read clean'. March 14th: $2M moves from facilities to consulting. March 19th: a second, tidier version of that same Q3 report is signed. April 2nd: the brother-in-law resigns. Two versions, one audit, and only one order that makes sense.",
     timeline:{id:"vance_expense_chronology",title:"THE VANCE CHRONOLOGY",

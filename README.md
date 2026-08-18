@@ -30,6 +30,20 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.25 — Objections, and the black marker *(2026-08-18)*
+- **OBJECTION:** the first timing board that happens in a courtroom instead of a stairwell. Commit to
+  a risky play at a hearing and opposing counsel's examination starts scrolling. Object while an
+  improper question is standing and it is struck; let it stand too long and the answer is on the
+  record; object to a clean question and the bench remembers — twice as expensively in front of a
+  by-the-book judge. A clean record argues at +12%, a bad one down to −10%.
+- **PRIVILEGE REVIEW:** the first board you can fail in two opposite directions. Black out the
+  privileged pages before the bundle goes out — legal advice and your own work product — and nothing
+  else. Hand a privileged page over and opposing counsel reads your own assessment of your case;
+  black out an ordinary business record and the court calls it obstruction and sanctions the firm.
+  Producing the bundle untouched is not the safe option: it is the first failure.
+- **The traps are the lesson:** a client email that copies their PR agency is not privileged, and
+  neither is your fee schedule. The case file tells you the rule; the bundle asks whether you read it.
+
 ### v19.24 — The lock fights back *(2026-08-18)*
 - **Picking a lock is now about pressure, not a number:** lean on the pick and the cylinder loads
   up. Stop where it wants to turn and the lock opens; turn too early and the attempt is wasted;

@@ -19,7 +19,7 @@ import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DELEGATE_CAP, DAY_HOURS, TIER_HOU
          TIMELINE_TRIGGER, TIMELINE_CARDS, TIMELINE_CARDS_SENIOR, TIMELINE_SENIOR_RANK,
          TIMELINE_EDGE_WIN, TIMELINE_EDGE_LOSS, TIMELINE_EDGE_DECLINE, TIMELINE_FAIL_REP, TIMELINE_HOURS, TIMELINE_FATIGUE } from "./constants.js";
 import { clamp, rnd, rand, shuffle, hash, setSeed, clearSeed, getRngState, setRngState } from "./utils.js";
-import { LOCK_MIN, LOCK_MAX, POWER_RING_COUNT, POWER_RULES, createLockpickChallenge, clampLockTension, pressLockTension, tryLockpick, callCoin,
+import { LOCK_MIN, LOCK_MAX, LOCK_HINT_SPREAD, POWER_RING_COUNT, POWER_RULES, createLockpickChallenge, clampLockTension, pressLockTension, tryLockpick, callCoin,
          createPowerCutChallenge, advancePowerCut, stopPowerCut, powerAngleAt, powerAngleDistance,
          createTimelineChallenge, moveTimelineCard, submitTimeline,
          CONTRA_ATTEMPTS, CONTRA_STATEMENTS, createContradictionChallenge, selectContradictionStatement,
@@ -2546,7 +2546,11 @@ function validLockChallenge(ch,day){
     !Number.isInteger(ch.tension)||ch.tension<LOCK_MIN||ch.tension>LOCK_MAX||
     !Number.isFinite(ch.tolerance)||ch.tolerance<1||ch.tolerance>30||
     !Number.isInteger(ch.breakAt)||ch.breakAt<=ch.give+ch.tolerance||ch.breakAt>LOCK_MAX||
-    typeof ch.snapped!=="boolean"||
+    !Number.isInteger(ch.hintLead)||ch.hintLead<0||ch.hintLead>=LOCK_HINT_SPREAD||
+    !Number.isInteger(ch.hintTail)||ch.hintTail<1||ch.hintTail>3||
+    typeof ch.snapped!=="boolean"||typeof ch.brokeInLock!=="boolean"||
+    // a fragment can only exist once the last pick is gone
+    (ch.brokeInLock&&(ch.attemptsLeft!==0||!ch.snapped))||
     !nonNegativeInt(ch.maxAttempts)||ch.maxAttempts<1||ch.maxAttempts>10||
     !nonNegativeInt(ch.attemptsLeft)||ch.attemptsLeft>ch.maxAttempts||!nonNegativeInt(ch.turn)||ch.turn>ch.maxAttempts) return false;
   if(ch.phase==="lockpick"&&ch.attemptsLeft<1) return false;

@@ -11,7 +11,11 @@ export const POWER_FRAME_CAP_MS=80;
 
 const LOCK_TOLERANCE=4;     // half-width of the give zone before SNEAKY widens it
 const LOCK_ATTEMPTS=1;      // SNEAKY is the only thing that buys more picks
-const LOCK_BREAK_MARGIN=5;  // minimum slack between the give zone and the snap
+const LOCK_BREAK_MARGIN=2;  // minimum slack between the give zone and the snap
+/* How badly a lock can lie about being close. Deliberately a CONSTANT: SNEAKY
+   widens the zone you are hunting, so the same spread of uncertainty covers a
+   bigger share of it — training reduces doubt instead of scaling with it. */
+export const LOCK_HINT_SPREAD=22;
 const POWER_MISSES=1;
 
 const normalizeAngle=value=>{
@@ -44,7 +48,13 @@ export function createLockpickChallenge({runSeed,caseId,actionId,cost,toil,lateE
   const maxAttempts=Math.max(1,Math.min(10,LOCK_ATTEMPTS+Math.trunc(Number(attemptBonus)||0)));
   const give=28+(hash(`${identity}|give`)%45); // the cylinder yields somewhere in 28..72
   // A steadier hand also breaks fewer picks, so SNEAKY widens the slack too.
-  const breakAt=Math.min(LOCK_MAX,give+tolerance+LOCK_BREAK_MARGIN+(hash(`${identity}|break`)%6)+bonus);
+  const breakAt=Math.min(LOCK_MAX,give+tolerance+LOCK_BREAK_MARGIN+(hash(`${identity}|break`)%4)+bonus);
+  /* Every lock announces itself early, and by a different amount: hintLead is
+     how far BEFORE the real zone it starts to feel close, hintTail how briefly
+     it still feels close after. So "it feels close" tells you the zone is
+     somewhere near — never where — and guessing the lead is the minigame. */
+  const hintLead=hash(`${identity}|lead`)%LOCK_HINT_SPREAD; // wider than any zone: no fixed nudge can cover it
+  const hintTail=1+(hash(`${identity}|tail`)%3);
   return {
     type:"lockpick",
     phase:"lockpick",
@@ -57,30 +67,41 @@ export function createLockpickChallenge({runSeed,caseId,actionId,cost,toil,lateE
     give,
     tolerance,
     breakAt,
+    hintLead,
+    hintTail,
     maxAttempts,
     attemptsLeft:maxAttempts,
     tension:0,
     snapped:false,
+    brokeInLock:false,
     turn:0,
     feedback:"Lean on the pick. Stop when the cylinder wants to turn.",
     coinFace:hash(`${identity}|coin`)%2===0?"heads":"tails",
   };
 }
 
-/* What the hand can honestly feel. The give zone reports itself truthfully —
-   the skill is stopping there instead of pushing one notch further. */
+/* What the hand can honestly feel — proximity, never the answer. The "close"
+   band is wider than the zone that actually opens the lock and is padded by a
+   different amount on every lock, so feeling it is an invitation to gamble
+   rather than a solution. Whether the true zone is behind you or still ahead
+   is exactly what you are paying a pick to find out. */
 export function lockFeel(challenge,tension=challenge?.tension){
   const t=Number(tension)||0, give=Number(challenge?.give)||0, tol=Number(challenge?.tolerance)||0;
-  if(t>give+tol) return "strain";
-  if(t>=give-tol) return "give";
-  if(t>=give-tol*3) return "shift";
+  const lead=Number(challenge?.hintLead)||0, tail=Number(challenge?.hintTail)||0;
+  const low=give-tol-lead, high=give+tol+tail;
+  if(t>high) return "strain";
+  if(t>=low) return "close";
+  if(t>=low-(tol+lead+4)) return "shift";
   return "dead";
 }
+// Whether the cylinder actually turns — never shown, only felt in hindsight.
+export const lockGives=(challenge,tension=challenge?.tension)=>
+  Math.abs((Number(tension)||0)-(Number(challenge?.give)||0))<=(Number(challenge?.tolerance)||0);
 const FEEL_TEXT={
   dead:"The pins sit dead. Nothing is moving yet.",
   shift:"Something shifts deep in the cylinder.",
-  give:"The cylinder wants to turn. Right here.",
-  strain:"The pick bows. This is more than it will take.",
+  close:"The cylinder is close to giving. Somewhere right around here.",
+  strain:"The pick bows. You have gone past whatever it wanted.",
 };
 
 export function clampLockTension(value){
@@ -104,10 +125,13 @@ export function pressLockTension(challenge,value){
     attemptsLeft,
     tension:0,
     snapped:true,
+    // Only the LAST pick leaves evidence: with spares you can pull the stub out
+    // and start again. Break the final one and half of it stays in the keyway.
+    brokeInLock:attemptsLeft===0,
     turn:(challenge.turn||0)+1,
     feedback:attemptsLeft===0
-      ?"The pick snaps off in the keyway. Call the coin and try to get away."
-      :"The pick snaps. You bend another one straight and start over.",
+      ?"The pick shears off. Half of it is still in the keyway, and it is not coming out by hand."
+      :"The pick snaps. You work the stub free and bend another one straight.",
   };
 }
 
@@ -116,7 +140,7 @@ export function tryLockpick(challenge){
   const turn=(challenge.turn||0)+1;
   const tension=clampLockTension(challenge.tension);
 
-  if(Math.abs(tension-challenge.give)<=challenge.tolerance){
+  if(lockGives(challenge,tension)){
     return {...challenge,phase:"lock_success",tension,turn,snapped:false,
       feedback:"The pins settle in a row. The lock opens."};
   }
@@ -128,27 +152,44 @@ export function tryLockpick(challenge){
     attemptsLeft,
     tension:0,
     snapped:false,
+    brokeInLock:false,
     turn,
     feedback:attemptsLeft===0
-      ?"The cylinder holds and the pick gives out. Call the coin and try to get away."
+      ?"The cylinder will not go. You pocket the pick — the noise, though, has been going on a while."
       :"Not enough. The cylinder rolls back and you start the pressure again.",
   };
 }
 
 /* The last-chance coin after a failed covert action. Its face was fixed when
    the board was dealt, so calling it can never be re-rolled by a reload. */
+/* What the coin decides depends on HOW the job went wrong. A sheared pick
+   leaves physical evidence: heads you fish the stub out, tails it stays in the
+   keyway and someone pulls the tape in the morning. A lock that simply refused
+   leaves nothing behind — there the risk is only who walks past. */
+const COIN_TEXT={
+  power:{
+    win:"You called it. The guard checks the wrong stairwell and you slip away.",
+    lose:"Wrong call. Security finds you under the emergency lights, hand still on the panel.",
+  },
+  broken:{
+    win:"You called it. Two minutes with the tweezers and the stub comes free — the cabinet keeps its secret.",
+    lose:"Wrong call. The stub stays in the keyway. Facilities finds a scored lock at seven, the building manager asks for the corridor tape, and your badge is on it.",
+  },
+  quiet:{
+    win:"You called it. Someone walks the corridor, keys jingling, and turns off one door early.",
+    lose:"Wrong call. A paralegal comes down the corridor for the printer and finds you crouched at a cabinet that is not yours.",
+  },
+};
 export function callCoin(challenge,call){
   const coinCall=String(call).toLowerCase()==="heads"?"heads":"tails";
   const escaped=coinCall===challenge.coinFace;
-  const power=challenge.type==="power_cut";
+  const mode=challenge.type==="power_cut"?"power":challenge.brokeInLock?"broken":"quiet";
   return {
     ...challenge,
     phase:"coin_result",
     coinCall,
     escaped,
-    feedback:escaped
-      ?(power?"You called it. The guard checks the wrong stairwell and you slip away.":"You called it. Footsteps pass and you slip away.")
-      :(power?"Wrong call. Security catches you under the emergency lights.":"Wrong call. Security catches you at the door."),
+    feedback:COIN_TEXT[mode][escaped?"win":"lose"],
   };
 }
 

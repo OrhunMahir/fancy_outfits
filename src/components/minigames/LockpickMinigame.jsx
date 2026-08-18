@@ -3,8 +3,9 @@ import { attemptLockpick, setLockTension } from "../../game/engine.js";
 import { LOCK_MAX, LOCK_STEP, lockFeel } from "../../game/minigames.js";
 
 const remainingLabel=attemptsLeft=>attemptsLeft===1?"1 PICK LEFT":`${Math.max(0,attemptsLeft)} PICKS LEFT`;
-// Strain is what the hand feels through the pick — it tracks pressure, not the
-// hidden give point, so the gauge never leaks where the cylinder yields.
+/* Strain is what the hand feels through the pick: it tracks pressure, never the
+   hidden give point, so neither the readout nor the shake can be read as a
+   solution. The lock gets angrier the harder you lean on it — that is all. */
 const strainOf=tension=>tension>=78?"critical":tension>=55?"high":tension>=30?"working":"slack";
 const STRAIN_LABEL={slack:"SLACK",working:"UNDER LOAD",high:"STRAINING",critical:"ABOUT TO GO"};
 
@@ -15,6 +16,8 @@ export default function LockpickMinigame({challenge}){
   const tension=Number.isFinite(challenge.tension)?challenge.tension:0;
   const feel=lockFeel(challenge,tension);
   const strain=strainOf(tension);
+  // The plug turns with the pick, the way a real cylinder does under tension.
+  const plug=Math.round(tension*0.75);
   const pins=[0,1,2,3,4];
 
   useEffect(()=>{ rangeRef.current?.focus(); },[]);
@@ -22,7 +25,8 @@ export default function LockpickMinigame({challenge}){
   return (
     <div className={`action-game lock-game lock-feel-${feel} lock-strain-${strain}`}>
       <div className="lock-instructions">
-        Lean on the pick until the cylinder gives — then turn it. Push past what the pick will take and it snaps.
+        Lean on the pick until it feels close, then judge when to turn. The lock warns you early — how early is
+        its secret. Push past what the pick will take and it shears off in the keyway.
       </div>
 
       <div className="lock-stage" aria-hidden="true">
@@ -30,22 +34,24 @@ export default function LockpickMinigame({challenge}){
           <div className="lock-cylinder">
             <div className="lock-pins">
               {pins.map(i=>(
-                <span key={i} className="lock-pin" style={{transform:`translateY(${-Math.min(18,tension*0.22-i*1.6)}px)`}} />
+                <span key={i} className="lock-pin"
+                      style={{transform:`translateY(${-Math.min(18,Math.max(0,tension*0.22-i*1.6))}px)`}} />
               ))}
             </div>
-            <div className="lock-keyway" />
-            <div className={"lock-pick"+(challenge.snapped?" lock-pick-snapped":"")}
-                 style={{transform:`rotate(${tension*0.22}deg) translateY(${tension*0.06}px)`}}>
+            <div className="lock-plug" style={{transform:`rotate(${plug}deg)`}}>
+              <div className="lock-keyway" />
+              {challenge.brokeInLock && <span className="lock-stub" />}
+            </div>
+            <div className={"lock-pick"+(challenge.brokeInLock?" lock-pick-broken":"")}
+                 style={{transform:`rotate(${plug*0.8}deg) translateY(${tension*0.05}px)`}}>
               <span className="lock-pick-tip" />
             </div>
           </div>
-          <div className="lock-readout">{STRAIN_LABEL[strain]}</div>
+          <div className="lock-readout">{challenge.brokeInLock?"PICK SHEARED":STRAIN_LABEL[strain]}</div>
         </div>
       </div>
 
-      <label className="lock-control-label" htmlFor="action-lock-tension">
-        TENSION
-      </label>
+      <label className="lock-control-label" htmlFor="action-lock-tension">TENSION</label>
       <input
         ref={rangeRef}
         id="action-lock-tension"

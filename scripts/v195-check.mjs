@@ -166,7 +166,19 @@ globalThis.clearInterval = () => {};
   // Leaning into the give zone and turning opens it.
   const tensedPuzzle = minigames.pressLockTension(puzzle1, puzzle1.give);
   assert.deepEqual([tensedPuzzle.tension, tensedPuzzle.phase, tensedPuzzle.attemptsLeft], [puzzle1.give, "lockpick", 1]);
-  assert.equal(minigames.lockFeel(tensedPuzzle), "give", "the hand can feel the cylinder yield");
+  assert.equal(minigames.lockGives(tensedPuzzle), true, "the cylinder really does turn here");
+  assert.equal(minigames.lockFeel(tensedPuzzle), "close", "and the hand feels it");
+  // The warning band is deliberately wider than the zone and starts a different
+  // distance early on every lock, so no fixed nudge can solve every door.
+  const leads = new Set();
+  for (let i = 0; i < 60; i++) leads.add(minigames.createLockpickChallenge({ ...puzzleArgs, caseId: "lead" + i }).hintLead);
+  assert.ok(leads.size > 8, "locks lie about being close by varying amounts");
+  const lyingLock = minigames.createLockpickChallenge({ ...puzzleArgs, caseId: "lead3" });
+  if (lyingLock.hintLead > lyingLock.tolerance)
+    assert.equal(minigames.lockFeel(lyingLock, lyingLock.give - lyingLock.tolerance - lyingLock.hintLead), "close",
+      "the hint starts before the zone");
+  assert.equal(minigames.lockGives(lyingLock, lyingLock.give - lyingLock.tolerance - lyingLock.hintLead),
+    lyingLock.hintLead === 0, "but feeling close is not the same as being right");
   const solvedPuzzle = minigames.tryLockpick(tensedPuzzle);
   assert.deepEqual([solvedPuzzle.phase, solvedPuzzle.turn, solvedPuzzle.attemptsLeft, solvedPuzzle.tension],
     ["lock_success", 1, 1, puzzle1.give]);
@@ -174,10 +186,25 @@ globalThis.clearInterval = () => {};
   const snappedPuzzle = minigames.pressLockTension(puzzle1, puzzle1.breakAt);
   assert.deepEqual([snappedPuzzle.phase, snappedPuzzle.attemptsLeft, snappedPuzzle.snapped, snappedPuzzle.tension],
     ["coin_call", 0, true, 0], "one pick, one snap, straight to the coin");
-  assert.match(snappedPuzzle.feedback, /snaps/i);
+  assert.match(snappedPuzzle.feedback, /shears off/i);
+  assert.equal(snappedPuzzle.brokeInLock, true, "the last pick leaves half itself in the keyway");
+  // A snap with spares left is recoverable: you pull the stub and start again.
+  const sparePick = minigames.createLockpickChallenge({ ...puzzleArgs, attemptBonus: 1 });
+  const firstSnap = minigames.pressLockTension(sparePick, sparePick.breakAt);
+  assert.deepEqual([firstSnap.phase, firstSnap.snapped, firstSnap.brokeInLock], ["lockpick", true, false],
+    "only the final pick leaves evidence behind");
+  // The coin narrates the failure you actually had: a sheared pick is physical
+  // evidence, a lock that simply refused is only a matter of who walks past.
+  const brokenCaught = minigames.callCoin(snappedPuzzle, snappedPuzzle.coinFace === "heads" ? "tails" : "heads");
+  assert.match(brokenCaught.feedback, /keyway|tape/i, "a fragment left behind is what gets reviewed");
+  const brokenAway = minigames.callCoin(snappedPuzzle, snappedPuzzle.coinFace);
+  assert.match(brokenAway.feedback, /tweezers|comes free/i, "calling it right gets the stub back out");
   // Turning too early spends the pick just the same.
   const earlyPuzzle = minigames.tryLockpick(minigames.pressLockTension(puzzle1, Math.max(0, puzzle1.give - puzzle1.tolerance - 6)));
   assert.deepEqual([earlyPuzzle.phase, earlyPuzzle.attemptsLeft], ["coin_call", 0]);
+  assert.equal(earlyPuzzle.brokeInLock, false, "a lock that simply refused leaves nothing behind");
+  const quietCaught = minigames.callCoin(earlyPuzzle, earlyPuzzle.coinFace === "heads" ? "tails" : "heads");
+  assert.match(quietCaught.feedback, /corridor/i, "so getting caught is about who walks past");
   // Trained hands get more picks AND more room before the snap.
   const trained = minigames.createLockpickChallenge({ ...puzzleArgs, toleranceBonus: 5, attemptBonus: 2 });
   assert.equal(trained.maxAttempts, 3, "SNEAKY buys extra picks");

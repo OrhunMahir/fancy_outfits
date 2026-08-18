@@ -51,6 +51,33 @@ Yenisi **gerilim**: çubuğu ittikçe pikap kilide yüklenir.
 SNEAKY hem fazladan pik veriyor hem bandı genişletiyor hem de kırılma payını büyütüyor — yatırım
 üç yerden birden hissediliyor.
 
+### Simülasyonla yapılan denge turu (kullanıcı "simülasyonla göster" dedi)
+
+İlk uygulama **fazla affediciydi** ve bunu ancak simülasyon gösterdi: gerçek modeli süren botlarla
+500 kilit oynattığımda dikkatli oyuncu **%100** açıyordu, aceleci bile. İki kök neden:
+
+1. "silindir dönmek istiyor" uyarısı TAM olarak kazanan bandı işaret ediyordu → risk yok.
+2. kırılmaya kalan pay (5-10) adım boyundan (3) büyüktü → bir tık fazla itmek asla kırmıyordu.
+
+Düzeltme: uyarı artık **erken ve değişken** başlıyor (`hintLead`, kilit başına 0..21 birim; sabit
+`LOCK_HINT_SPREAD=22` — SNEAKY'ye bağlı DEĞİL, yoksa yatırım belirsizliği büyütürdü), kısa sürede
+bitiyor (`hintTail` 1..3) ve `LOCK_BREAK_MARGIN` 5→2'ye indi. `lockFeel` artık yakınlık söylüyor,
+cevabı değil; gerçek band `lockGives` ile ayrıldı.
+
+Ölçüm sonucu (600 kilit/hücre, `scripts/locksim-report.mjs`):
+
+| oyuncu alışkanlığı | SNEAKY 0 (1 pik) | SNEAKY 2 (2 pik) | SNEAKY 5 (3 pik) |
+|---|---|---|---|
+| ilk sinyalde çevir (ürkek) | %11.5 | %11.5 | %11.5 |
+| +2 tık sonra çevir | %40.2 | %39.7 | %39.7 |
+| +4 tık derin kumar | %44.0 | %60.2 | %66.7 |
+| **öğrenen** (0, +2, +4…) | %11.5 | %39.7 | %66.7 |
+
+Derin kumar SNEAKY 0'da koşuların %9.5'inde pikin kırılmasıyla bitiyor; ürkek oyuncu hiç kırmıyor
+ama nadiren açıyor. Yani ödünleşim gerçek. Fazladan pikler ancak oyuncu denemeler arası
+DAVRANIŞINI değiştirirse işe yarıyor — "öğrenen" satırı bunu gösteriyor; sabit strateji güden bot
+ikinci pikte aynı hatayı tekrarlıyor. Bu bilinçli: kilit ezberlenmiyor, okunuyor.
+
 ### Görsel
 
 Kilit silindiri artık gerilimle **yükselen pimler**, yüklendikçe bükülen pik, SLACK → UNDER LOAD →
@@ -75,10 +102,35 @@ bütün olarak iade edilir ve yeniden açılabilir" garantisine bıraktı.
   yakması, SNEAKY'nin pik/band/pay üçlüsünü birden büyütmesi, "kırılma noktasının ötesinde duran
   pik" ve "payı sıfırlanmış kilit" save tamper'ları, v9/v11 iade yolu.
 - `npm run build` ve `npm run test:soak` (replay 336/336, integrity 0) yeşil.
+- `scripts/locksim-report.mjs` (yeni): gerçek modülü süren, oynanabilirlik ölçen headless bot
+  raporu. `node scripts/locksim-report.mjs` ile tekrar koşulabilir; denge ayarı yapılacaksa önce
+  buna bakılmalı.
 - Tarayıcı: gerilimi 63'e kadar itip STRAINING/kırmızı pimleri gördüm, EASE OFF ile banda dönüp
   TURN ile açtım (+12 kanıt kenarı, seçenek dosyadan düştü); ayrı bir kilitte `breakAt`'e itip tek
   pikin kırılmasını ve doğrudan coin call'a düşmesini doğruladım. Konsol temiz.
 - İçerik metni de güncellendi: "three quiet attempts" artık yalan olurdu.
+
+### Skyrim tadında ikinci tur (kullanıcı isteği)
+
+- **Göbek pikle birlikte dönüyor:** gerilim arttıkça `.lock-plug` (keyway ile birlikte) 0.75°/birim
+  döner, pik aynı açıyla keyway'in içinde durur. Pimler DÖNMEZ — onlar gövdeye ait, sadece
+  yükselirler; ilk denemede pimleri de döndürmüştüm, yanlış görünüyordu.
+- **Zorladıkça titriyor:** `.lock-cylinder` üç kademeli `lock-tremor` animasyonu alır
+  (working/high/critical). Titreme **mutlak basınca** bağlı, gizli veriş noktasına değil — yoksa
+  görsel efekt bulmacayı çözerdi. Titreme transform kullandığı için silindirin ortalaması
+  `translate(-50%,-50%)`'ten margin'e taşındı (ilk denemede kilit köşeye kaçtı, ekran görüntüsünde
+  yakalandı).
+- **Kırılan pik kilitte kalıyor:** `brokeInLock` — yalnız SON pik kırılınca true (yedek varken
+  stub'ı çıkarıp devam edersin). Keyway'de görünür bir kırık parça çizilir, okuma "PICK SHEARED"
+  olur.
+- **Yazı-tura artık başarısızlık türünü anlatıyor** (`COIN_TEXT`): parça kaldıysa tura = cımbızla
+  çıkarırsın, yazı = parça kalır, sabah facilities çizik kilidi bulur, bina yöneticisi koridor
+  kaydını ister ve kayıtta sen varsın. Parça yoksa (kilit basitçe dönmediyse) yakalanma sebebi
+  koridordan geçen bir paralegal olur. Ekran başlığı da buna göre değişiyor
+  ("HALF A PICK IN THE KEYWAY" / "FOOTSTEPS IN THE HALL") ve sonuç "STUB RECOVERED" /
+  "THE LOCK KEEPS THE EVIDENCE" diyor.
+- Dava metinlerindeki `escape`/`caught` yazıları **sonuca** odaklanacak şekilde yeniden yazıldı;
+  "nasıl yakalandın" artık yazı-turanın işi, yoksa iki anlatı çelişiyordu.
 
 ### Sıradaki kesin adım
 

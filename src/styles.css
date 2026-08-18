@@ -199,8 +199,9 @@ h2{font-size:10px; color:var(--gold); margin-bottom:10px; border-bottom:2px soli
 .lock-door-plate::before{left:8px; top:7px;}
 .lock-door-plate::after{right:8px; bottom:7px;}
 .lock-cylinder{
-  position:absolute; left:50%; top:50%; width:92px; height:92px;
-  transform:translate(-50%,-50%); border:7px solid #222c39; border-radius:50%;
+  /* centred with margins, never a transform: the tremor animation owns transform */
+  position:absolute; left:50%; top:50%; width:92px; height:92px; margin:-46px 0 0 -46px;
+  border:7px solid #222c39; border-radius:50%;
   background:repeating-radial-gradient(circle,#9aadb7 0 8px,#778b99 9px 15px);
   box-shadow:inset 0 0 0 5px #b7c7cf,0 0 0 4px #151c26;
 }
@@ -480,7 +481,7 @@ h2{font-size:10px; color:var(--gold); margin-bottom:10px; border-bottom:2px soli
   .action-brief,.lock-instructions,.coin-instructions,.power-cut-instructions{font-size:8px; line-height:2;}
   .lock-stage{min-height:150px;}
   .lock-door-plate{width:190px; height:124px;}
-  .lock-cylinder{width:78px; height:78px;}
+  .lock-cylinder{width:78px; height:78px; margin:-39px 0 0 -39px;}
   .lock-pick{width:66px;}
   .lock-range{height:52px;}
   .lock-attempts{align-items:flex-start; flex-direction:column; gap:7px;}
@@ -523,13 +524,35 @@ h2{font-size:10px; color:var(--gold); margin-bottom:10px; border-bottom:2px soli
 .btn.small.intro-skip{width:100%; min-height:44px; background:#2a2f45; box-shadow:0 4px 0 #12162a;}
 .intro-skip:hover{background:#39405f;}
 
+/* Lockpick: the plug turns with the pick, the whole cylinder shakes harder the
+   more you lean on it, and a sheared pick stays visible in the keyway. */
+.lock-plug{
+  position:absolute; inset:9px; border-radius:50%; background:#4a5a6d;
+  border:3px solid #263342; box-shadow:inset 0 0 0 3px #6b7d90;
+  transition:transform .12s steps(3,end);
+}
+.lock-pins{z-index:3;}
+.lock-strain-working .lock-cylinder{animation:lock-tremor .18s steps(2,end) infinite;}
+.lock-strain-high .lock-cylinder{animation:lock-tremor .12s steps(2,end) infinite; --tremor:2px;}
+.lock-strain-critical .lock-cylinder{animation:lock-tremor .07s steps(2,end) infinite; --tremor:3px;}
+@keyframes lock-tremor{
+  0%{transform:translate(calc(var(--tremor,1px) * -1),0);}
+  50%{transform:translate(var(--tremor,1px),calc(var(--tremor,1px) * -1));}
+  100%{transform:translate(0,var(--tremor,1px));}
+}
+.lock-stub{
+  position:absolute; left:50%; top:50%; width:16px; height:5px; margin:-2px 0 0 -2px;
+  background:#e0c88a; border:2px solid var(--dark); transform:rotate(18deg);
+}
+.lock-pick-broken{opacity:.55;}
+.lock-pick-broken .lock-pick-tip{background:var(--red);}
 /* Lockpick: tension gauge, straining pick and pins that lift with pressure. */
 .lock-pins{position:absolute; top:8px; left:50%; margin-left:-32px; display:flex; gap:6px; width:64px;}
 .lock-pin{
   flex:1 1 0; height:18px; background:#8fa3c8; border:2px solid var(--dark);
   transition:transform .12s steps(3,end);
 }
-.lock-feel-give .lock-pin{background:#7fe0a5;}
+.lock-feel-close .lock-pin{background:#7fe0a5;}
 .lock-feel-strain .lock-pin{background:#e08a9a;}
 .lock-readout{
   margin-top:8px; text-align:center; font-size:7px; letter-spacing:1px; color:var(--grey);
@@ -546,5 +569,6 @@ h2{font-size:10px; color:var(--gold); margin-bottom:10px; border-bottom:2px soli
 .lock-nudge{display:flex; gap:8px; margin:8px 0 10px;}
 .btn.small.lock-nudge-btn{flex:1 1 0; min-height:48px; text-align:center;}
 @media (prefers-reduced-motion:reduce){
-  .lock-pin,.lock-pick,.lock-gauge-fill{transition:none!important;}
+  .lock-pin,.lock-pick,.lock-plug,.lock-gauge-fill{transition:none!important;}
+  .lock-cylinder{animation:none!important;}
 }

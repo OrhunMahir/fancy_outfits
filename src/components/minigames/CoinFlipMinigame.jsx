@@ -78,6 +78,7 @@ export default function CoinFlipMinigame({challenge}){
   const continueRef=useRef(null);
   const isResult=challenge.phase==="coin_result";
   const power=challenge.type==="power_cut";
+  const broken=!!challenge.brokeInLock; // a sheared pick is evidence, not just noise
   const face=faceLabel(challenge.coinFace);
   const call=faceLabel(challenge.coinCall);
 
@@ -89,11 +90,15 @@ export default function CoinFlipMinigame({challenge}){
   if(!isResult){
     return (
       <div className="action-game coin-game coin-call">
-        <div className="coin-warning">{power?"THE SECURITY PANEL FLASHES":"FOOTSTEPS IN THE HALL"}</div>
+        <div className="coin-warning">
+          {power?"THE SECURITY PANEL FLASHES":broken?"HALF A PICK IN THE KEYWAY":"FOOTSTEPS IN THE HALL"}
+        </div>
         <p className="coin-instructions">
           {power
             ? "The contacts arced and the night guard heard it. Call the coin before it lands—one side gets you out."
-            : "The lock made too much noise. Call the coin before it lands—one side gets you out."}
+            : broken
+            ? "The stub is wedged where anyone can see it, and a scored lock gets reported. Call the coin: one side says you work it free before you go."
+            : "The cylinder never turned and you have been at it too long. Call the coin before it lands—one side gets you out."}
         </p>
         <div className="coin-stage" aria-hidden="true">
           <div className="coin-shadow coin-shadow-idle" />
@@ -131,7 +136,9 @@ export default function CoinFlipMinigame({challenge}){
         <div className="coin-result-face">THE COIN SHOWS {face||"—"}</div>
         <div className="coin-result-call">YOU CALLED {call||"—"}</div>
         <strong className="coin-result-verdict">
-          {challenge.escaped?"YOU GOT AWAY":"CAUGHT IN THE ACT"}
+          {challenge.escaped
+            ? (broken?"STUB RECOVERED":"YOU GOT AWAY")
+            : (broken?"THE LOCK KEEPS THE EVIDENCE":"CAUGHT IN THE ACT")}
         </strong>
       </div>
       <button

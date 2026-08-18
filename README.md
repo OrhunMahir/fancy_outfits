@@ -37,8 +37,13 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 - **One pick to start with.** A beginner gets exactly one, so the first covert job is genuinely
   tense. SNEAKY is the only thing that buys more: it adds picks, widens the zone where the cylinder
   gives, and leaves more slack before the steel goes.
-- **You can feel it through the pick:** rising pins, a bowing pick and a strain readout that runs
-  from SLACK to ABOUT TO GO. The gauge reads pressure, never the hidden give point.
+- **You can feel it through the pick:** the plug turns with the pick as you load it, the pins lift,
+  the whole cylinder shakes harder the more you lean on it, and a strain readout runs from SLACK to
+  ABOUT TO GO. Every one of those signals reads pressure, never the hidden give point.
+- **A sheared pick stays in the keyway** — and that changes the story. The coin then decides whether
+  you work the stub free or leave it: leave it, and facilities finds a scored lock in the morning,
+  the building manager pulls the corridor tape and your badge is on it. Fail without breaking
+  anything and getting caught is simply a matter of who walks past.
 - **A pick already in progress is handed back, not converted:** careers saved mid-attempt under the
   old model load normally with the covert option unspent.
 

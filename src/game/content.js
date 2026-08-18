@@ -43,8 +43,8 @@ export function buildPool(){
           hours:1.5,fatigue:4,edge:12,
           edgeText:"ARCHIVE INDEX RECOVERED (+12% on this file's risky legal plays)",
           success:{fx:{bold:3},txt:"The cabinet opens. Six box numbers, six dates, one silent photograph. You still need a legal move — now you have the missing index."},
-          escape:{fx:{bold:-2},txt:"The paperclip snaps, but your coin call buys enough silence to leave unseen. The archive stays shut and this route is gone."},
-          caught:{fx:{rep:-18,firm:-6,bold:-5},txt:"Security finds you beside Fitch's open cabinet. Redvale's case is poisoned, the partners get a midnight call, and your badge photo becomes an exhibit."}}}]});
+          escape:{fx:{bold:-2},txt:"You leave the way you came in and nobody files anything. The archive stays shut, though, and this route is gone."},
+          caught:{fx:{rep:-18,firm:-6,bold:-5},txt:"By morning it is a written complaint with your name in it. Redvale's case is poisoned, the partners get the call before their coffee, and your badge photo becomes an exhibit."}}}]});
   P.push({id:"nda",tier:1,title:"CASE: Kessler NDA breach",deadline:3,
     body:"Client Kessler Corp is being sued for breaching an NDA. Reading the file: the NDA was signed by a Vice President of the counterparty who — per exhibit C — had NO signing authority under their own bylaws. Opposing counsel hasn't noticed.",
     opts:[

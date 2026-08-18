@@ -197,8 +197,8 @@ const TEMPLATES=[
     hours:1.5,fatigue:4,edge:12,
     edgeText:"BACKUP MANIFEST RECOVERED (+12% on this file's risky legal plays)",
     success:{fx:{bold:3},txt:"The lock yields. You photograph a manifest proving the backup survived. The filing still needs a legal answer — now it has teeth."},
-    escape:{fx:{bold:-2},txt:"The pick folds, but your coin call gets you past the returning clerk. The manifest stays caged and this route is gone."},
-    caught:{fx:{rep:-18,firm:-6,bold:-5},txt:"The clerk returns early. By sunrise, your badge photo and paperclip have exhibit stickers."}
+    escape:{fx:{bold:-2},txt:"You are back in the corridor before the clerk finishes his cigarette. The manifest stays caged and this route is gone."},
+    caught:{fx:{rep:-18,firm:-6,bold:-5},txt:"By sunrise your badge photo has an exhibit sticker on it, and so does what you left behind."}
   }:{
     id:"generated_backup_power",type,title:"THE BACKUP SWITCHROOM",
     body:"Three live bypass contacts feed the cold-storage rack. Land every marker inside its amber window before the transfer alarm reaches the security desk.",

@@ -276,6 +276,108 @@ export function submitTimeline(challenge){
   };
 }
 
+/* ---------- OBJECTION ----------
+   The transcript moves whether you do or not. Improper questions stand for a
+   beat and then they are answered — and an answer on the record cannot be
+   unheard. Objecting to a clean question is worse than saying nothing, because
+   the judge is sitting right there. Like every board, the deal comes from a
+   run/case identity; only the timing is yours. */
+export function objectionDeal(lines,count,identity){
+  const pool=(Array.isArray(lines)?lines:[]).filter(l=>l&&typeof l.id==="string");
+  const size=Math.max(2,Math.min(pool.length,Math.trunc(Number(count))||0));
+  const drawn=pool
+    .map((line,index)=>({line,index,key:hash(`${identity}|line|${line.id}`)}))
+    .sort((a,b)=>a.key-b.key||a.index-b.index)
+    .slice(0,size)
+    // keep the authored order so the transcript still reads like a transcript
+    .sort((a,b)=>a.index-b.index)
+    .map(entry=>({id:entry.line.id,text:String(entry.line.text||""),
+      bad:!!entry.line.bad,tag:String(entry.line.tag||"")}));
+  return drawn;
+}
+
+export function createObjectionChallenge({runSeed,caseId,optionIndex,objectionId,lines,count,cost,toil,lateExtra,windowMs,strict}){
+  const identity=`${runSeed}|${caseId}|${objectionId}`;
+  return {
+    type:"objection",
+    phase:"objection",
+    runSeed,
+    caseId,
+    actionId:objectionId,
+    optionIndex,
+    cost,
+    toil,
+    lateExtra,
+    lines:objectionDeal(lines,count,identity),
+    index:0,
+    elapsedMs:0,
+    windowMs,
+    strict:!!strict,
+    ruled:[],
+    sustained:0,
+    overruled:0,
+    missed:0,
+    turn:0,
+    feedback:"Opposing counsel is asking. Object before the answer lands.",
+    coinFace:hash(`${identity}|coin`)%2===0?"heads":"tails", // unused; keeps one challenge shape
+  };
+}
+
+const objectionSettled=ch=>ch.index>=ch.lines.length;
+const objectionResult=ch=>({
+  ...ch,
+  phase:objectionSettled(ch)?"objection_done":"objection",
+  elapsedMs:objectionSettled(ch)?0:ch.elapsedMs,
+});
+
+/* The clock only moves while the board is open; a question left standing past
+   its window is answered, and a missed improper question is on the record. */
+export function advanceObjection(challenge,deltaMs){
+  if(challenge.phase!=="objection") return {...challenge};
+  const step=Math.max(0,Math.min(POWER_FRAME_CAP_MS,Number(deltaMs)||0));
+  let elapsed=(challenge.elapsedMs||0)+step;
+  if(elapsed<challenge.windowMs) return {...challenge,elapsedMs:elapsed};
+  const line=challenge.lines[challenge.index];
+  const missed=challenge.missed+(line&&line.bad?1:0);
+  return objectionResult({
+    ...challenge,
+    index:challenge.index+1,
+    elapsedMs:0,
+    missed,
+    feedback:line&&line.bad
+      ?"Answered. That one is on the record now."
+      :"Answered. Nothing objectionable in it.",
+  });
+}
+
+export function raiseObjection(challenge){
+  if(challenge.phase!=="objection") return {...challenge};
+  const line=challenge.lines[challenge.index];
+  if(!line) return {...challenge};
+  const good=!!line.bad;
+  return objectionResult({
+    ...challenge,
+    index:challenge.index+1,
+    elapsedMs:0,
+    turn:(challenge.turn||0)+1,
+    ruled:[...challenge.ruled,{id:line.id,sustained:good}],
+    sustained:challenge.sustained+(good?1:0),
+    overruled:challenge.overruled+(good?0:1),
+    feedback:good
+      ?`Sustained — ${line.tag||"improper"}. The question is struck.`
+      :"Overruled. There was nothing wrong with that question, counsel.",
+  });
+}
+
+/* Frivolous objections cost double in front of a by-the-book judge: the score
+   is the hearing's, not the puzzle's. */
+export function objectionScore(challenge){
+  const bad=challenge.lines.filter(l=>l.bad).length;
+  const penalty=challenge.overruled*(challenge.strict?2:1);
+  const net=challenge.sustained-penalty-challenge.missed;
+  return {bad,net,sustained:challenge.sustained,overruled:challenge.overruled,missed:challenge.missed};
+}
+
 /* ---------- CONTRADICTION BOARD ----------
    Honest legal prep, not a covert job: pin each sworn statement to the exhibit
    that makes it impossible. Attempts are limited, one exhibit on the board

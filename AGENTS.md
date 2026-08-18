@@ -439,6 +439,12 @@ if(S.scenario==="legacy"){
 - ~~**Fraud fatigue slip + identity pressure:** daily peak bandları, cover kararı, üç aşama, schema v14.~~ — v1.9.19'da TAMAMLANDI.
 - **Mobil yayın** — önce mobil layout geçişi (3 sütun → sekmeli görünüm, 44px dokunma hedefleri, safe-area, visibilitychange pause), sonra **Capacitor** sarmalama (Electron'un mobil karşılığı; oyun mantığına dokunulmaz). iOS'ta localStorage yerine Capacitor Preferences. (ONAYLANDI, yukarıdakilerden sonra)
 - ~~4. senaryo, başarımlar, oyun modları, klavye kısayolları~~ — v1.1'de EKLENDİ.
+- **Barodan atılma / critical failure (kullanıcı fikri, 2026-08-18 — ŞİMDİ YAPILMAYACAK):** yasadışı
+  tarafı abartmanın ayrı bir sonu olsun. Örnekler: redaksiyonda kasten fazla karartmak (belge gizleme),
+  üst üste covert'ta yakalanmak, sahte delil. Eşiği geçince baro disiplin süreci → **barodan atılma =
+  run biter** (mevcut FIRED/OUTPACED/EXPOSED/FIRM COLLAPSE gibi ayrı bir terminal). Tasarım soruları
+  sonraya: eşik tek sayaç mı yoksa "ağır ihlal" listesi mi, uyarı aşaması olacak mı (Final Warning
+  benzeri), Fraud senaryosunun EXPOSED'ıyla çakışır mı. Kullanıcı "sonra düşünürüz" dedi.
 - **GitHub Pages demo yayını** — `dist/`i yayınlayan tek workflow; oyun linkle paylaşılabilir olur.
 - **Steam paketleme:** `electron-builder` (.exe/.app) + `steamworks.js` (achievements — `achievements.js` 1:1 map'lenmeye hazır).
 - **Multiplayer** (en son; server ister, GDD §11).

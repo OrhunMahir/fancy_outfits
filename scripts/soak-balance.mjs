@@ -810,6 +810,26 @@ function driveRun(tuple, horizon, { captureTrace = false } = {}) {
       // the solved and muddled branches need long-run coverage.
       if (S.actionChallenge) {
         const ch = S.actionChallenge;
+        if (ch.type === "objection") {
+          // The transcript runs on a clock the bot has to burn through frame by
+          // frame, exactly like a player watching a question stand.
+          metrics.objectionPlayed = (metrics.objectionPlayed || 0) + 1;
+          runAction(run, "objection window", () => {
+            let guard = 0;
+            while (state.S.actionChallenge && state.S.actionChallenge.phase === "objection" && guard++ < 400) {
+              const board = state.S.actionChallenge, line = board.lines[board.index];
+              const objects = line && line.bad ? run.policyRng() < .75 : run.policyRng() < .08;
+              if (objects) { engine.raiseObjectionNow(); continue; }
+              const before = board.index;
+              let frames = 0;
+              while (state.S.actionChallenge && state.S.actionChallenge.phase === "objection" &&
+                state.S.actionChallenge.index === before && frames++ < 200) engine.advanceObjectionFrame(80);
+            }
+          });
+          if (state.S.actionChallenge && state.S.actionChallenge.phase === "objection_done")
+            runAction(run, "objection complete", () => engine.completeActionChallenge());
+          continue;
+        }
         if (ch.type !== "timeline") throw new Error("unhandled action challenge: " + ch.type);
         if (ch.phase === "timeline") {
           if (run.policyRng() < .5) { runAction(run, "timeline decline", () => engine.declineTimelineChallenge()); continue; }

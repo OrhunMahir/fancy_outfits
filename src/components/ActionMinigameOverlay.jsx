@@ -6,6 +6,29 @@ import LockpickMinigame from "./minigames/LockpickMinigame.jsx";
 import PowerCutMinigame from "./minigames/PowerCutMinigame.jsx";
 import TimelineMinigame from "./minigames/TimelineMinigame.jsx";
 import ContradictionMinigame from "./minigames/ContradictionMinigame.jsx";
+import ObjectionMinigame from "./minigames/ObjectionMinigame.jsx";
+
+/* A hearing has no getaway either: the record simply reads how it reads. */
+function ObjectionResultPanel({challenge}){
+  const buttonRef=useRef(null);
+  const bad=challenge.lines.filter(l=>l.bad).length;
+  const clean=challenge.overruled===0&&challenge.missed===0;
+
+  useEffect(()=>{ buttonRef.current?.focus(); },[]);
+
+  return (
+    <div className={`action-game lock-success timeline-result${clean?"":" timeline-result-miss"}`}>
+      <div className="lock-success-mark" aria-hidden="true">{challenge.sustained}/{bad}</div>
+      <h3 className="lock-success-title">{clean?"THE RECORD IS CLEAN":"THE RECORD STANDS"}</h3>
+      <p className="lock-success-copy">
+        {challenge.missed} answered · {challenge.overruled} overruled{challenge.strict&&challenge.overruled?" (the bench is strict)":""}
+      </p>
+      <button ref={buttonRef} className="btn safe action-primary lock-continue" type="button" onClick={completeActionChallenge}>
+        BACK TO THE ARGUMENT
+      </button>
+    </div>
+  );
+}
 
 /* Prep work has no getaway: the chart either holds, holds partly, or doesn't. */
 function ContradictionResultPanel({challenge}){
@@ -134,8 +157,11 @@ export default function ActionMinigameOverlay(){
 
   const timeline=challenge.type==="timeline";
   const contradiction=challenge.type==="contradiction";
+  const objection=challenge.type==="objection";
   let game=null;
-  if(challenge.phase==="contradiction") game=<ContradictionMinigame challenge={challenge} />;
+  if(challenge.phase==="objection") game=<ObjectionMinigame challenge={challenge} />;
+  else if(challenge.phase==="objection_done") game=<ObjectionResultPanel challenge={challenge} />;
+  else if(challenge.phase==="contradiction") game=<ContradictionMinigame challenge={challenge} />;
   else if(challenge.phase==="contradiction_success"||challenge.phase==="contradiction_fail")
     game=<ContradictionResultPanel challenge={challenge} />;
   else if(challenge.phase==="timeline") game=<TimelineMinigame challenge={challenge} />;
@@ -158,7 +184,7 @@ export default function ActionMinigameOverlay(){
         onKeyDown={trapFocus}
       >
         <div className="action-kicker">
-          {timeline?"CASE PREP · EVIDENCE TIMELINE":contradiction?"CASE PREP · CONTRADICTION BOARD":"COVERT ACTION"}
+          {timeline?"CASE PREP · EVIDENCE TIMELINE":contradiction?"CASE PREP · CONTRADICTION BOARD":objection?"IN SESSION · THE RECORD":"COVERT ACTION"}
         </div>
         <h2 id="action-challenge-title">{challenge.actionTitle||"AFTER HOURS"}</h2>
         <p id="action-challenge-body" className="action-brief">

@@ -300,6 +300,14 @@
 - **Denge simülasyonla ayarlandı** (`scripts/locksim-report.mjs`): ilk sürüm %100 açılıyordu. Son ölçüm — öğrenen oyuncu %11.5 → %39.7 → %66.7 (SNEAKY 0/2/5), derin kumar SNEAKY 0'da %9.5 kırılma. Denge sabiti değiştirilecekse önce bu rapor koşulmalı.
 - **Save:** schema v19. Açı ve gerilim modelleri ortak geometri paylaşmadığı için `migrateV18ToV19` yarım kalmış lockpick challenge'ını DÜŞÜRÜR ve `actionInProgress` işaretini siler — covert seçenek harcanmamış olarak dosyaya döner. (Power Cut'taki RULES 0 grandfather yaklaşımı burada bilinçli olarak kullanılmadı: iki model + iki arayüz bakım maliyeti.)
 
+**v1.9.25 eklendi (2026-08-18, kullanıcı isteği — OBJECTION):**
+- **Duruşmanın İÇİNDE açılan zamanlama board'u:** court dosyasında riskli bir hamleye commit ettikten sonra `OBJECTION_TRIGGER`(%30) ile açılır (Timeline'dan ÖNCE denenir; ikisi aynı hamlede çakışmaz). Karşı tarafın sorguları `OBJECTION_WINDOW_MS`(2600) boyunca ayakta durur; süre dolarsa cevap kayda girer.
+- **Üç sonuç:** hatalı soruya itiraz → sustained; temiz soruya itiraz → overruled; hatalı soruyu kaçırma → answered. Skor `sustained − overruled×(strict?2:1) − missed`; kenar `clamp(12×net/bad, −10, +12)` ile `c.hearingEdge`'e yazılır (yalnız o seçeneğe, `chance()` içinde). Negatifse −2 REP.
+- **Hakim bağlantısı:** `judge.book >= OBJECTION_STRICT_BOOK(60)` ise yersiz itiraz iki katı maliyetli. `judgeMemory`'ye BİLİNÇLİ olarak yazılmaz — doğrulanmış bir sistemi bozmamak için; bağlantı hakimin stat'ı üzerinden kurulur.
+- **Model saf** (`objectionDeal`/`advanceObjection`/`raiseObjection`/`objectionScore`): 10 satırlık havuzdan kimlikle 6 çekilir, yazıldığı sıra korunur, paylaşılan RNG tüketilmez (tetikleme zarı hariç). Frame döngüsü Power Cut kalıbı (80ms cap, lokal repaint).
+- **Save schema v20:** `migrateV19ToV20` sayaçları backfill eder; `validObjectionChallenge` her ruling'in gerçekten geçmiş bir soruya ait olduğunu, sustained/overruled/missed sayaçlarının transkriptten yeniden türetildiğini ve load'da board'un kimlikten yeniden üretilip karşılaştırıldığını zorunlu kılar. Soak botu duruşmayı oynar (aksi halde 159 integrity hatası veriyordu — yakalandı ve düzeltildi).
+- **İçerik:** el yazması `court1` (Halcyon) 10 satırlık sorgu taşır (leading/hearsay/assumes facts/speculation/argumentative).
+
 **Dış denetim notu (Codex, 2026-08-12):** Bayat/untracked `AGENTS.md` yüzünden gerçek checkpoint yanlışlıkla v1.9.1/hakim hafızası sanılmıştı. Hakim hafızası v1.9.8/v1.9.13'te bitmişti; gerçek yarım iş v1.9.16 sonrası Power Cut entegrasyonuydu. Yarım model/UI dosyaları korunup engine/content/save/CSS/test zinciri tamamlandı.
 
 **En son çalışılan konu (2026-08-18):** v1.9.21 `ea50a3894` ile pushlandı; ardından v1.9.22 (Contradiction Board, schema v17), v1.9.22.1 (gerçek madeni para yazı-tura) ve v1.9.23 (sabotaj zorluk eğrisi + ilk açılış walkthrough'u, schema v18) tamamlandı ve kullanıcının push'unu bekliyor. `npm test`, `npm run build`, `npm run test:soak` (replay 336/336, integrity 0) yeşil; tarayıcıda gerçek tıklamalarla doğrulandı. Güncel ortak handoff ve oturum günlüğü `DEV_LOGBOOK.md`'dir. Sıradaki kullanıcı-onaylı iş **mobil layout + Capacitor**; bağlamsal SFX, GitHub Pages demo ve Steam paketleme sonraki backlog'dur.
@@ -551,6 +559,12 @@ if(S.scenario==="legacy"){
 - ~~**Contradiction Board** — ifade/belge eşleyip sınırlı denemeyle çelişki bulma.~~ — v1.9.22'de EKLENDİ (gönüllü CASE PREP seçeneği, schema v17).
 - **Mobil yayın** — önce mobil layout geçişi (3 sütun → sekmeli görünüm, 44px dokunma hedefleri, safe-area, visibilitychange pause), sonra **Capacitor** sarmalama (Electron'un mobil karşılığı; oyun mantığına dokunulmaz). iOS'ta localStorage yerine Capacitor Preferences. (ONAYLANDI, yukarıdakilerden sonra)
 - ~~4. senaryo, başarımlar, oyun modları, klavye kısayolları~~ — v1.1'de EKLENDİ.
+- **Barodan atılma / critical failure (kullanıcı fikri, 2026-08-18 — ŞİMDİ YAPILMAYACAK):** yasadışı
+  tarafı abartmanın ayrı bir sonu olsun. Örnekler: redaksiyonda kasten fazla karartmak (belge gizleme),
+  üst üste covert'ta yakalanmak, sahte delil. Eşiği geçince baro disiplin süreci → **barodan atılma =
+  run biter** (mevcut FIRED/OUTPACED/EXPOSED/FIRM COLLAPSE gibi ayrı bir terminal). Tasarım soruları
+  sonraya: eşik tek sayaç mı yoksa "ağır ihlal" listesi mi, uyarı aşaması olacak mı (Final Warning
+  benzeri), Fraud senaryosunun EXPOSED'ıyla çakışır mı. Kullanıcı "sonra düşünürüz" dedi.
 - **GitHub Pages demo yayını** — `dist/`i yayınlayan tek workflow; oyun linkle paylaşılabilir olur.
 - **Steam paketleme:** `electron-builder` (.exe/.app) + `steamworks.js` (achievements — `achievements.js` 1:1 map'lenmeye hazır).
 - **Multiplayer** (en son; server ister, GDD §11).

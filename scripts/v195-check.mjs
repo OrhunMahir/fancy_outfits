@@ -2784,6 +2784,139 @@ globalThis.clearInterval = () => {};
     "migration clears any stale mid-puzzle marker");
   assert.equal(state.S.actionChallenge, null);
 
+  // ---- OBJECTION (v1.9.25) ----
+  // A timing board inside a hearing: it moves the play you already committed
+  // to, and the judge on the bench prices a frivolous objection.
+  const liveHalcyon = () => {
+    const raw = content.buildPool().find(c => c.id === "court1");
+    const c = engine.instantiateCase(raw);
+    const o = c.opts.find(option => option.style === "technical");
+    Object.assign(state.S, { inbox: [c], openCase: c, event: null, summary: null, pendingSummary: null,
+      hours: 6, fatigue: 0, clients: [], nemesis: null, objective: null });
+    return { c, o };
+  };
+  const forceObjection = () => { utils.setSeed(1); for (let i = 0; i < 400; i++) { const cursor = utils.getRngState();
+    if (utils.rand() * 100 < constants.OBJECTION_TRIGGER) { utils.setRngState(cursor); return true; } } return false; };
+  const runTranscript = decide => {
+    let guard = 0;
+    while (state.S.actionChallenge?.phase === "objection" && guard++ < 200) {
+      const board = state.S.actionChallenge, line = board.lines[board.index];
+      if (decide(line)) { engine.raiseObjectionNow(); continue; }
+      const before = board.index;
+      let frames = 0;
+      while (state.S.actionChallenge?.phase === "objection" && state.S.actionChallenge.index === before && frames++ < 120)
+        engine.advanceObjectionFrame(constants.OBJECTION_WINDOW_MS);
+    }
+  };
+
+  fresh("daily");
+  let halcyon = liveHalcyon();
+  assert.equal(engine.objectionEligible(halcyon.c, halcyon.o), true, "a risky play in court can open the window");
+  assert.equal(engine.objectionEligible(halcyon.c, halcyon.c.opts.find(o => o.safe)), false,
+    "conceding the motion never puts you on your feet");
+  const objectionCursor = utils.getRngState();
+  assert.ok(forceObjection());
+  engine.choose(halcyon.c, halcyon.o);
+  assert.equal(state.S.actionChallenge?.type, "objection");
+  assert.equal(state.S.hours, 6, "the hearing bills its hours at the end, like every board");
+  assert.notEqual(utils.getRngState(), objectionCursor, "the trigger roll uses the shared die");
+  const dealt = state.S.actionChallenge.lines;
+  assert.ok(dealt.length >= 2 && dealt.some(l => l.bad), "a transcript always has something to object to");
+  assert.deepEqual(dealt.map(l => l.id), [...dealt].map(l => l.id), "the transcript keeps its authored order");
+
+  // A clean hearing: object to every improper question, stay silent otherwise.
+  runTranscript(line => !!line?.bad);
+  assert.equal(state.S.actionChallenge.phase, "objection_done");
+  const cleanBoard = state.S.actionChallenge;
+  assert.deepEqual([cleanBoard.overruled, cleanBoard.missed], [0, 0]);
+  const argued = state.S.inbox.find(c => c.id === "court1");
+  const arguedOption = argued.opts[cleanBoard.optionIndex];
+  engine.completeActionChallenge();
+  assert.equal(state.S.runStats.objW, 1);
+  assert.deepEqual(argued.hearingEdge, { optionIndex: cleanBoard.optionIndex, value: constants.OBJECTION_EDGE_WIN },
+    "a clean record is worth the full edge");
+  // Measured at one instant: the hearing also spends hours and fatigue, so
+  // comparing across completion would measure those too.
+  const withRecord = engine.chance(arguedOption, argued);
+  const bankedEdge = argued.hearingEdge;
+  delete argued.hearingEdge;
+  assert.equal(withRecord, Math.min(95, engine.chance(arguedOption, argued) + constants.OBJECTION_EDGE_WIN));
+  argued.hearingEdge = bankedEdge;
+  assert.equal(state.S.inbox.some(c => c.id === "court1"), false, "and the argument resolves after it");
+
+  // Saying nothing puts every improper question on the record.
+  fresh("daily");
+  halcyon = liveHalcyon();
+  assert.ok(forceObjection());
+  engine.choose(halcyon.c, halcyon.o);
+  const silentCase = state.S.inbox.find(c => c.id === "court1");
+  runTranscript(() => false);
+  const silent = state.S.actionChallenge;
+  assert.ok(silent.missed > 0 && silent.sustained === 0);
+  const repBeforeSilence = state.S.rep;
+  engine.completeActionChallenge();
+  assert.ok(silentCase.hearingEdge.value < 0, "an answered record argues worse");
+  assert.ok(silentCase.hearingEdge.value >= constants.OBJECTION_EDGE_LOSS, "but never worse than the floor");
+  assert.ok(state.S.rep <= repBeforeSilence, "and it leaves a light mark");
+  assert.equal(state.S.runStats.objL, 1);
+
+  // Objecting to everything is its own kind of failure, and a strict bench doubles it.
+  fresh("daily");
+  halcyon = liveHalcyon();
+  halcyon.c.judge = { ...halcyon.c.judge, book: constants.OBJECTION_STRICT_BOOK + 10 };
+  assert.ok(forceObjection());
+  engine.choose(halcyon.c, halcyon.o);
+  assert.equal(state.S.actionChallenge.strict, true, "a by-the-book judge is flagged on the board");
+  runTranscript(() => true);
+  const spam = state.S.actionChallenge;
+  const spammed = state.S.inbox.find(c => c.id === "court1"); // the play resolves on completion
+  assert.ok(spam.overruled > 0);
+  engine.completeActionChallenge();
+  assert.ok(spammed.hearingEdge.value < constants.OBJECTION_EDGE_WIN, "shouting at every question is not skill");
+
+  // Mid-hearing reload keeps the exact question and clock.
+  fresh("daily");
+  halcyon = liveHalcyon();
+  assert.ok(forceObjection());
+  engine.choose(halcyon.c, halcyon.o);
+  engine.raiseObjectionNow();
+  engine.advanceObjectionFrame(80);
+  const midHearing = JSON.parse(JSON.stringify(state.S.actionChallenge));
+  engine.saveGame();
+  assert.equal(engine.loadGame(1), true, "a hearing survives a reload");
+  assert.deepEqual(state.S.actionChallenge, midHearing);
+  const rawHearing = JSON.parse(localStorage.getItem(constants.SAVE_KEY + "_s1"));
+  const rejectsHearing = (mutate, label) => {
+    const copy = JSON.parse(JSON.stringify(rawHearing));
+    mutate(copy);
+    localStorage.setItem(constants.SAVE_KEY + "_s1", JSON.stringify(copy));
+    assert.equal(engine.loadGame(1), false, label);
+    localStorage.setItem(constants.SAVE_KEY + "_s1", JSON.stringify(rawHearing));
+  };
+  rejectsHearing(c => { c.actionChallenge.sustained += 2; }, "a forged sustained count is rejected");
+  rejectsHearing(c => { c.actionChallenge.ruled = c.actionChallenge.lines.map(l => ({ id: l.id, sustained: true })); },
+    "rulings on questions that have not been asked are rejected");
+  rejectsHearing(c => { c.actionChallenge.missed = 0; c.actionChallenge.index = c.actionChallenge.lines.length; },
+    "skipping to the end without a record is rejected");
+  rejectsHearing(c => { c.actionChallenge.lines[0].bad = !c.actionChallenge.lines[0].bad; },
+    "a rewritten transcript is rejected");
+  rejectsHearing(c => { c.actionChallenge = null; }, "an orphan hearing marker is rejected");
+  rejectsHearing(c => { c.inbox.find(x => x.id === "court1").hearingEdge = { optionIndex: 1, value: 40 }; },
+    "an inflated hearing edge is rejected");
+  assert.equal(engine.loadGame(1), true, "the untouched hearing still loads");
+
+  // v19 careers migrate forward with fresh counters and no transcript.
+  const legacyHearing = JSON.parse(JSON.stringify(rawHearing));
+  legacyHearing.schemaVersion = 19;
+  legacyHearing.actionChallenge = null;
+  delete legacyHearing.runStats.objW;
+  delete legacyHearing.runStats.objL;
+  const legacyCourt1 = legacyHearing.inbox.find(c => c.id === "court1");
+  delete legacyCourt1.objectionInProgress;
+  localStorage.setItem(constants.SAVE_KEY + "_s1", JSON.stringify(legacyHearing));
+  assert.equal(engine.loadGame(1), true, "a v19 career migrates to the objection schema");
+  assert.deepEqual([state.S.runStats.objW, state.S.runStats.objL], [0, 0]);
+
   // ---- CONTRADICTION BOARD (v1.9.22) ----
   // Voluntary prep, not a covert job: no coin call, no getting caught, and the
   // chart never resolves the file — it only arms the legal play you still owe.
@@ -3015,7 +3148,7 @@ globalThis.clearInterval = () => {};
     }
   }
 
-  console.log("v1.9.5–v1.9.24 checks passed: lockpick tension/snap (one pick at rank 0, SNEAKY buys more, legacy hand-back), first-run walkthrough, sharpened sabotage circuits (curve/legacy boards/v18), Contradiction Board prep (deal/attempts/partial/tamper/v17), Evidence Timeline prep + cold-entry penalty (deal/reload/tamper/migration/scope), safe-route pricing (coasting/hours/v16), Fraud identity pressure/morning continuation, progression/skills, lockpick/Power Cut minigames, balance experiments, Final Warning, Friday/Exceptional Review promotions, delegation cap, strict saves/migrations, procedural IDs, long-run integrity, FIRM payroll, rolling judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
+  console.log("v1.9.5–v1.9.25 checks passed: objection window (transcript/strict bench/reload/tamper/v20), lockpick tension/snap (one pick at rank 0, SNEAKY buys more, legacy hand-back), first-run walkthrough, sharpened sabotage circuits (curve/legacy boards/v18), Contradiction Board prep (deal/attempts/partial/tamper/v17), Evidence Timeline prep + cold-entry penalty (deal/reload/tamper/migration/scope), safe-route pricing (coasting/hours/v16), Fraud identity pressure/morning continuation, progression/skills, lockpick/Power Cut minigames, balance experiments, Final Warning, Friday/Exceptional Review promotions, delegation cap, strict saves/migrations, procedural IDs, long-run integrity, FIRM payroll, rolling judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;

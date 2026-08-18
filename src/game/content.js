@@ -68,8 +68,21 @@ export function buildPool(){
       {text:"Walk him into contradicting the two reports.",base:70,style:"technical",ok:{fx:{rep:7,inf:6,money:900},txt:"'So which signature is yours?' Silence. Checkmate."},fail:{fx:{rep:-6},txt:"He lawyered up mid-sentence. The screamer screamed. You blinked."}},
       {text:"Slam the reports on the table. Theater.",base:40,boldW:3,style:"aggressive",ok:{fx:{bold:7,inf:6,money:700},txt:"He cracks on camera. The clip circulates the firm. You've been promoted in spirit."},fail:{fx:{rep:-9},txt:"He calmly explains the discrepancy. You slammed paper for nothing."}}]});
   P.push({id:"court1",tier:2,title:"COURT: Halcyon v. Kessler (motion day)",deadline:4,
-    body:"Argue a motion to dismiss. Halcyon's complaint was filed one day AFTER the statute of limitations expired — but they'll argue 'equitable tolling' because their CEO was hospitalized. Sympathy vs. calendar math.",
+    body:"Argue a motion to dismiss. Halcyon's complaint was filed one day AFTER the statute of limitations expired — but they'll argue 'equitable tolling' because their CEO was hospitalized. Sympathy vs. calendar math. Their counsel has your client's operations manager on the stand first, and his questions have a habit of answering themselves.",
     judge:true,
+    objection:{id:"halcyon_examination",title:"HALCYON'S EXAMINATION",
+      body:"Opposing counsel is walking your operations manager through the timeline. Some of these questions are not questions. Object before the answer lands — and only when there is something to object to, because the bench is right there.",
+      lines:[
+        {id:"q1",text:"'You are the operations manager at Kessler, correct?'"},
+        {id:"q2",text:"'And you would agree the filing was late only on a technicality, wouldn't you?'",bad:true,tag:"leading"},
+        {id:"q3",text:"'What date did you receive the notice?'"},
+        {id:"q4",text:"'Your colleague told me the CEO was hospitalised. Is that right?'",bad:true,tag:"hearsay"},
+        {id:"q5",text:"'Describe the notice you received.'"},
+        {id:"q6",text:"'Why did your company decide to hide the delay from the court?'",bad:true,tag:"assumes facts not in evidence"},
+        {id:"q7",text:"'Do you recall the meeting on the fourth?'"},
+        {id:"q8",text:"'What do you suppose your CEO was thinking that morning?'",bad:true,tag:"calls for speculation"},
+        {id:"q9",text:"'Is this the report you signed?'"},
+        {id:"q10",text:"'You are not a very careful man, are you?'",bad:true,tag:"argumentative"}]},
     opts:[
       {text:"Consent to proceed on merits. Play it safe.",base:100,safe:true,ok:{fx:{bold:-3,inf:2},txt:"Motion withdrawn. Trial ahead. The safe road is long."}},
       {text:"Argue the deadline is the deadline. Cold math.",base:65,style:"technical",

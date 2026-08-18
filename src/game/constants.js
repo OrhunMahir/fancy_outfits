@@ -98,8 +98,19 @@ export const TIMELINE_EDGE_LOSS=-10;       // muddled chronology: -10%
 export const TIMELINE_EDGE_DECLINE=-4;     // walked in unprepared: lighter than a miss, never free
 export const TIMELINE_FAIL_REP=-2;         // a light mark, never a lost case
 export const TIMELINE_HOURS=.5, TIMELINE_FATIGUE=3; // prep costs, paid either way
+// OBJECTION: the only timing board that happens inside a hearing rather than a
+// break-in. Improper questions scroll past; catching them helps the play you
+// already committed to, and objecting to clean questions burns credibility with
+// the judge on the bench. A strict, by-the-book judge punishes that harder.
+export const OBJECTION_TRIGGER=30;         // % chance on a risky play in court
+export const OBJECTION_LINES=6;            // questions drawn from the authored transcript
+export const OBJECTION_WINDOW_MS=2600;     // how long each question stands before it is answered
+export const OBJECTION_EDGE_WIN=12;        // a clean sheet is worth as much as an exact chronology
+export const OBJECTION_EDGE_LOSS=-10;
+export const OBJECTION_HOURS=.5, OBJECTION_FATIGUE=3;
+export const OBJECTION_STRICT_BOOK=60;     // above this the judge doubles the cost of a frivolous objection
 // The storage key stays stable; ordered migrations use the embedded schema.
-export const SAVE_SCHEMA_VERSION=19;
+export const SAVE_SCHEMA_VERSION=20;
 export const SAVE_LOG_LIMIT=200, SAVE_ARCHIVE_LIMIT=200;
 export const INBOX_MESSAGE_LIMIT=80; // notifications are history, not permanent case files
 export const SAVE_KEY="fo_save_v1";

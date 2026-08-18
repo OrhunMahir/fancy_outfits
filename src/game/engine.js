@@ -17,13 +17,16 @@ import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DELEGATE_CAP, DAY_HOURS, TIER_HOU
          FIRM_PLAN_GAIN, FIRM_PLAN_HOURS, FIRM_PLAN_FATIGUE, FIRM_PLAN_COOLDOWN,
          FIRE_HEAT, FIRE_HEAT_SENIOR, HEAT_DECAY, HEAT_MIN,
          TIMELINE_TRIGGER, TIMELINE_CARDS, TIMELINE_CARDS_SENIOR, TIMELINE_SENIOR_RANK,
-         TIMELINE_EDGE_WIN, TIMELINE_EDGE_LOSS, TIMELINE_EDGE_DECLINE, TIMELINE_FAIL_REP, TIMELINE_HOURS, TIMELINE_FATIGUE } from "./constants.js";
+         TIMELINE_EDGE_WIN, TIMELINE_EDGE_LOSS, TIMELINE_EDGE_DECLINE, TIMELINE_FAIL_REP, TIMELINE_HOURS, TIMELINE_FATIGUE,
+         OBJECTION_TRIGGER, OBJECTION_LINES, OBJECTION_WINDOW_MS, OBJECTION_EDGE_WIN, OBJECTION_EDGE_LOSS,
+         OBJECTION_HOURS, OBJECTION_FATIGUE, OBJECTION_STRICT_BOOK } from "./constants.js";
 import { clamp, rnd, rand, shuffle, hash, setSeed, clearSeed, getRngState, setRngState } from "./utils.js";
-import { LOCK_MIN, LOCK_MAX, LOCK_HINT_SPREAD, POWER_RING_COUNT, POWER_RULES, createLockpickChallenge, clampLockTension, pressLockTension, tryLockpick, callCoin,
+import { LOCK_MIN, LOCK_MAX, LOCK_HINT_SPREAD, POWER_RING_COUNT, POWER_RULES, POWER_FRAME_CAP_MS, createLockpickChallenge, clampLockTension, pressLockTension, tryLockpick, callCoin,
          createPowerCutChallenge, advancePowerCut, stopPowerCut, powerAngleAt, powerAngleDistance,
          createTimelineChallenge, moveTimelineCard, submitTimeline,
          CONTRA_ATTEMPTS, CONTRA_STATEMENTS, createContradictionChallenge, selectContradictionStatement,
-         pairContradiction, concedeContradiction } from "./minigames.js";
+         pairContradiction, concedeContradiction,
+         createObjectionChallenge, advanceObjection, raiseObjection, objectionScore } from "./minigames.js";
 import { SFX, startAmbience, stopAmbience, applyBgmVolume } from "./sound.js";
 import { settings, setSetting } from "./settings.js";
 import { buildPool, JUDGES, crises, SCENARIOS, buildWeekend } from "./content.js";
@@ -522,6 +525,8 @@ export function chance(o,c){
   if(c&&c.covertEdge&&!o.safe) p+=c.covertEdge;  // evidence recovered through a completed COVERT ACTION
   // an EVIDENCE TIMELINE only moves the play it was prepped for, never the whole file
   if(c&&c.timelineEdge&&!o.safe&&c.opts.indexOf(o)===c.timelineEdge.optionIndex) p+=c.timelineEdge.value;
+  // how the hearing itself went: objections sustained or frivolous
+  if(c&&c.hearingEdge&&!o.safe&&c.opts.indexOf(o)===c.hearingEdge.optionIndex) p+=c.hearingEdge.value;
   if(c&&c.tampered&&!o.safe) p-=6;              // the rival reordered these pages
   // the Defector knows Snidely Fitch's playbook
   if(S.scenario==="defector"&&!o.safe&&c&&/Snidely Fitch/.test((c.body||"")+(c.title||""))) p+=8;
@@ -1322,6 +1327,90 @@ function completeTimelineChallenge(ch){
 
 /* Leaning on the pick can end the attempt by itself, so unlike the old angle
    slider this is a real move: it persists and can snap. */
+/* ---------- OBJECTION ----------
+   Fires inside a hearing, after you commit to a risky play on a court file.
+   It cannot win or lose the case: it moves THAT play, and the judge on the
+   bench decides how expensive a frivolous objection is. */
+export const objectionEligible=(c,o)=>!!(c&&o&&!c.msg&&!c.favor&&c.judge&&!c.objectionDone&&!c.objectionInProgress&&
+  !o.safe&&!o.action&&plain(c.objection)&&typeof c.objection.id==="string"&&
+  Array.isArray(c.objection.lines)&&c.objection.lines.length>=2);
+
+function objectionRefs(ch=S&&S.actionChallenge){
+  if(!S||!ch||ch.type!=="objection") return null;
+  const c=S.inbox.find(item=>!item.msg&&item.id===ch.caseId);
+  const o=c&&c.opts[ch.optionIndex];
+  return c&&o&&!o.safe&&!o.action&&plain(c.objection)&&c.objection.id===ch.actionId?{c,o}:null;
+}
+
+function beginObjectionChallenge(c,o,confirmedLate){
+  const optionIndex=c.opts.indexOf(o);
+  if(optionIndex<0||c.objectionInProgress||S.actionChallenge) return false;
+  const skillSnapshot=currentSkillSnapshot();
+  const toil=workFatigue(OBJECTION_FATIGUE,snapshotProgression(skillSnapshot),S.scenario);
+  c.objectionDone=true;              // one hearing, one chance at it
+  c.objectionInProgress=c.objection.id;
+  S.actionChallenge={
+    ...createObjectionChallenge({runSeed:S.seed,caseId:c.id,optionIndex,objectionId:c.objection.id,
+      lines:c.objection.lines,count:Math.min(OBJECTION_LINES,c.objection.lines.length),
+      cost:OBJECTION_HOURS,toil,lateExtra:0,windowMs:OBJECTION_WINDOW_MS,
+      strict:(c.judge&&c.judge.book||0)>=OBJECTION_STRICT_BOOK}),
+    skillSnapshot, optionIndex, startedDay:S.day, hoursBefore:S.hours, confirmedLate:!!confirmedLate,
+    caseTitle:c.title, actionTitle:c.objection.title, body:c.objection.body,
+  };
+  S.openCase=null;
+  SFX.crisis();
+  log("OBJECTION WINDOW: "+c.objection.title,"sys");
+  saveGame(); notify();
+  return true;
+}
+
+/* The transcript runs on the component's frame loop; like the Power Cut board
+   it repaints locally instead of rebuilding the whole desk at 60fps. */
+export function advanceObjectionFrame(deltaMs){
+  const ch=S&&S.actionChallenge;
+  if(!ch||ch.phase!=="objection"||!objectionRefs(ch)) return null;
+  S.actionChallenge=advanceObjection(ch,deltaMs);
+  if(S.actionChallenge.phase==="objection_done"){ SFX.click(); saveGame(); notify(); }
+  return S.actionChallenge;
+}
+
+export function raiseObjectionNow(){
+  const ch=S&&S.actionChallenge;
+  if(!ch||ch.phase!=="objection"||!objectionRefs(ch)) return;
+  const next=raiseObjection(ch);
+  S.actionChallenge=next;
+  if(next.ruled.length>ch.ruled.length&&next.ruled.at(-1).sustained) SFX.open(); else SFX.lose();
+  saveGame(); notify();
+}
+
+function completeObjectionChallenge(ch){
+  const refs=objectionRefs(ch);
+  S.actionChallenge=null;
+  if(!refs){
+    log("OBJECTION WINDOW CLOSED: the underlying file could not be verified.","bad");
+    saveGame(); notify(); return;
+  }
+  const {c,o}=refs;
+  delete c.objectionInProgress;
+  const {bad,net,sustained,overruled,missed}=objectionScore(ch);
+  const value=clamp(Math.round(OBJECTION_EDGE_WIN*net/Math.max(1,bad)),OBJECTION_EDGE_LOSS,OBJECTION_EDGE_WIN);
+  c.hearingEdge={optionIndex:ch.optionIndex,value};
+  if(value>0){
+    S.runStats.objW++;
+    SFX.win();
+    log("THE RECORD IS CLEAN: "+sustained+"/"+bad+" sustained"+(overruled?", "+overruled+" overruled":"")+
+      ". (+"+value+"% on this play)","good");
+  } else {
+    S.runStats.objL++;
+    doShake();
+    log("THE RECORD IS NOT: "+missed+" answered, "+overruled+" overruled. ("+value+"% on this play)","bad");
+    if(value<0) apply({rep:TIMELINE_FAIL_REP},false,"case");
+  }
+  spendHours(ch.cost,ch.toil,true);
+  if(S.over||fatigueCheck(ch.cost)){ saveGame(); notify(); return; }
+  choose(c,o,ch.confirmedLate,true);
+}
+
 export function setLockTension(value){
   const ch=S&&S.actionChallenge;
   if(!ch||ch.phase!=="lockpick"||!actionRefs(ch)) return;
@@ -1452,6 +1541,10 @@ export function completeActionChallenge(){
     if(["timeline_success","timeline_fail"].includes(ch.phase)) completeTimelineChallenge(ch);
     return;
   }
+  if(ch&&ch.type==="objection"){
+    if(ch.phase==="objection_done") completeObjectionChallenge(ch);
+    return;
+  }
   if(ch&&ch.type==="contradiction"){
     if(["contradiction_success","contradiction_fail"].includes(ch.phase)) completeContradictionChallenge(ch);
     return;
@@ -1523,6 +1616,7 @@ export function choose(c,o,confirmedLate,timelinePrepped){
   }
   // A rare prep window opens BEFORE any money changes hands: resuming this play
   // after the challenge must not charge a bribe (or anything else) twice.
+  if(!timelinePrepped&&objectionEligible(c,o)&&rand()*100<OBJECTION_TRIGGER&&beginObjectionChallenge(c,o,confirmedLate)) return;
   if(!timelinePrepped&&timelineEligible(c,o)&&rand()*100<TIMELINE_TRIGGER&&beginTimelineChallenge(c,o,confirmedLate)) return;
   if(o.bribe){ // the golf money leaves your account win or lose
     if(S.money<o.bribe){ log("You can't afford the judge's 'green fees'.","bad"); notify(); return; }
@@ -1972,6 +2066,7 @@ function ledger(){
     "Covert actions: "+r.covertTry+" attempted · "+r.covertW+" opened · "+r.covertEscape+" escaped · "+r.covertCaught+" caught",
     "Case prep: "+r.timelineW+" chronologies locked / "+r.timelineL+" muddled · "+
       r.contraTry+" contradiction charts ("+r.contraW+" complete)",
+    "On your feet: "+r.objW+" hearings argued clean / "+r.objL+" that read badly",
     "Final Warning: "+(S.finalWarningUsed?"SPENT":"unused"),
     "Bribes offered: "+r.bribeTry+(r.bribeTry?" ("+r.bribeW+" taken)":""),
     "Favors: "+r.favorHelp+" helped · "+r.favorNo+" declined"+
@@ -2189,6 +2284,28 @@ function validTimelineData(t){
   }
   return true;
 }
+function validObjectionData(t){
+  if(t==null) return true;
+  if(!plain(t)||typeof t.id!=="string"||!t.id||typeof t.title!=="string"||typeof t.body!=="string") return false;
+  if(!Array.isArray(t.lines)||t.lines.length<2||t.lines.length>20) return false;
+  const ids=new Set();
+  let bad=0;
+  for(const l of t.lines){
+    if(!plain(l)||typeof l.id!=="string"||!l.id||typeof l.text!=="string") return false;
+    if(l.bad!=null&&typeof l.bad!=="boolean") return false;
+    if(l.tag!=null&&typeof l.tag!=="string") return false;
+    if(ids.has(l.id)) return false;
+    ids.add(l.id);
+    if(l.bad) bad++;
+  }
+  return bad>0; // a transcript with nothing to object to is not a board
+}
+// The hearing edge is scored, not chosen from a fixed set, so it is bounded.
+function validHearingEdge(edge,opts){
+  if(edge==null) return true;
+  return plain(edge)&&nonNegativeInt(edge.optionIndex)&&edge.optionIndex<(opts||[]).length&&
+    Number.isInteger(edge.value)&&edge.value>=OBJECTION_EDGE_LOSS&&edge.value<=OBJECTION_EDGE_WIN;
+}
 const TIMELINE_EDGE_VALUES=new Set([TIMELINE_EDGE_WIN,TIMELINE_EDGE_LOSS,TIMELINE_EDGE_DECLINE]);
 function validTimelineEdge(edge,opts){
   if(edge==null) return true;
@@ -2202,6 +2319,9 @@ function validCase(c,depth=0){
     Array.isArray(c.opts)&&c.opts.length>0&&validBig(c.big)&&c.opts.every(o=>validOption(o,depth))&&
     (c.covertEdge==null||(Number.isFinite(c.covertEdge)&&c.covertEdge>=0&&c.covertEdge<=30))&&
     (c.covertNote==null||typeof c.covertNote==="string")&&(c.actionInProgress==null||typeof c.actionInProgress==="string")&&
+    validObjectionData(c.objection)&&(c.objectionDone==null||typeof c.objectionDone==="boolean")&&
+    (c.objectionInProgress==null||typeof c.objectionInProgress==="string")&&validHearingEdge(c.hearingEdge,c.opts)&&
+    (!c.objection||!!c.judge)&&
     validTimelineData(c.timeline)&&(c.timelineDone==null||typeof c.timelineDone==="boolean")&&
     (c.timelineInProgress==null||typeof c.timelineInProgress==="string")&&validTimelineEdge(c.timelineEdge,c.opts)&&
     // A burglary during a court appearance never made sense; preparing exhibits
@@ -2276,7 +2396,7 @@ function backfillMissingCaseIds(d){
 class SaveDataError extends Error{ constructor(code,message){ super(message); this.code=code; } }
 const ensureArray=(d,key)=>{ if(d[key]==null) d[key]=[]; };
 const RUN_COUNTER_KEYS=["safe","bluffW","bluffL","techW","techL","covertTry","covertW","covertEscape","covertCaught",
-  "timelineW","timelineL","contraTry","contraW","contraL","bribeTry","bribeW","favorHelp","favorNo","miss","crises","fired"];
+  "timelineW","timelineL","contraTry","contraW","contraL","objW","objL","bribeTry","bribeW","favorHelp","favorNo","miss","crises","fired"];
 const TODAY_COUNTER_KEYS=["resolved","wins","safeUsed","aggWin","delegated","moneyGained"];
 const nonNegativeInt=v=>Number.isSafeInteger(v)&&v>=0;
 const validCounters=(v,keys)=>plain(v)&&keys.every(k=>nonNegativeInt(v[k]));
@@ -2486,7 +2606,14 @@ const migrateV18ToV19=raw=>{
   }
   return d;
 };
-const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6,6:migrateV6ToV7,7:migrateV7ToV8,8:migrateV8ToV9,9:migrateV9ToV10,10:migrateV10ToV11,11:migrateV11ToV12,12:migrateV12ToV13,13:migrateV13ToV14,14:migrateV14ToV15,15:migrateV15ToV16,16:migrateV16ToV17,17:migrateV17ToV18,18:migrateV18ToV19};
+/* v19 -> v20 adds the OBJECTION window. Older careers carry no transcript and
+   no counters; a hearing cannot have been in progress under the old rules. */
+const migrateV19ToV20=raw=>{
+  const d={...raw,schemaVersion:20};
+  d.runStats=backfillCounters(d.runStats,RUN_COUNTER_KEYS);
+  return d;
+};
+const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6,6:migrateV6ToV7,7:migrateV7ToV8,8:migrateV8ToV9,9:migrateV9ToV10,10:migrateV10ToV11,11:migrateV11ToV12,12:migrateV12ToV13,13:migrateV13ToV14,14:migrateV14ToV15,15:migrateV15ToV16,16:migrateV16ToV17,17:migrateV17ToV18,18:migrateV18ToV19,19:migrateV19ToV20};
 
 const JUDGE_MEMORY_COUNTERS=["seen","aggressiveW","aggressiveL","technicalW","technicalL","bribeW","bribeL","safe","neutralW","neutralL"];
 function validJudgeMemory(memory,day){
@@ -2651,10 +2778,42 @@ function validContradictionChallenge(ch,day){
   if(ch.phase==="contradiction_fail"&&ch.matched.length===size) return false; // a finished chart is a success, not a miss
   return ch.coinCall==null&&ch.escaped==null;
 }
+const OBJECTION_PHASES=new Set(["objection","objection_done"]);
+function validObjectionChallenge(ch,day){
+  if(!validActionChallengeBase(ch,day,OBJECTION_PHASES)||ch.type!=="objection"||typeof ch.confirmedLate!=="boolean") return false;
+  if(!Array.isArray(ch.lines)||ch.lines.length<2||ch.lines.length>20||!Array.isArray(ch.ruled)) return false;
+  if(ch.lines.some(l=>!plain(l)||typeof l.id!=="string"||!l.id||typeof l.text!=="string"||
+    typeof l.bad!=="boolean"||typeof l.tag!=="string")) return false;
+  const ids=ch.lines.map(l=>l.id);
+  if(new Set(ids).size!==ids.length) return false;
+  if(!Number.isInteger(ch.index)||ch.index<0||ch.index>ch.lines.length) return false;
+  if(!Number.isFinite(ch.elapsedMs)||ch.elapsedMs<0||ch.elapsedMs>=ch.windowMs+POWER_FRAME_CAP_MS) return false;
+  if(!Number.isFinite(ch.windowMs)||ch.windowMs<200||ch.windowMs>60000||typeof ch.strict!=="boolean") return false;
+  for(const key of ["sustained","overruled","missed","turn"]) if(!nonNegativeInt(ch[key])) return false;
+  // every ruling must belong to a question that has already gone by, exactly once
+  const seen=new Set();
+  let sustained=0,overruled=0;
+  for(const r of ch.ruled){
+    if(!plain(r)||typeof r.sustained!=="boolean") return false;
+    const at=ids.indexOf(r.id);
+    if(at<0||at>=ch.index||seen.has(r.id)) return false;
+    seen.add(r.id);
+    if(r.sustained!==!!ch.lines[at].bad) return false;
+    if(r.sustained) sustained++; else overruled++;
+  }
+  if(ch.sustained!==sustained||ch.overruled!==overruled||ch.turn!==ch.ruled.length) return false;
+  // and every improper question that passed unruled is counted as missed
+  const missed=ch.lines.slice(0,ch.index).filter((l,i)=>l.bad&&!seen.has(ids[i])).length;
+  if(ch.missed!==missed) return false;
+  if(ch.phase==="objection"&&ch.index>=ch.lines.length) return false;
+  if(ch.phase==="objection_done"&&(ch.index!==ch.lines.length||ch.elapsedMs!==0)) return false;
+  return ch.coinCall==null&&ch.escaped==null;
+}
 function validActionChallenge(ch,day,progression){
   const valid=ch&&ch.type==="lockpick"?validLockChallenge(ch,day):ch&&ch.type==="power_cut"?validPowerChallenge(ch,day):
     ch&&ch.type==="timeline"?validTimelineChallenge(ch,day):
-    ch&&ch.type==="contradiction"?validContradictionChallenge(ch,day):false;
+    ch&&ch.type==="contradiction"?validContradictionChallenge(ch,day):
+    ch&&ch.type==="objection"?validObjectionChallenge(ch,day):false;
   if(!valid) return false;
   if(ch.skillSnapshot.rulesVersion===1) return ch.skillSnapshot.sneaky===getSkillRank(progression,"sneaky")&&
     ch.skillSnapshot.endurance===getSkillRank(progression,"endurance");
@@ -2741,6 +2900,30 @@ function migrateSaveData(raw){
     throw new SaveDataError("invalid","The saved inbox contains a duplicate filing.");
   const actionMarked=d.inbox.filter(c=>!c.msg&&c.actionInProgress!=null);
   const timelineMarked=d.inbox.filter(c=>!c.msg&&c.timelineInProgress!=null);
+  const objectionMarked=d.inbox.filter(c=>!c.msg&&c.objectionInProgress!=null);
+  const openObjection=d.actionChallenge&&d.actionChallenge.type==="objection"?d.actionChallenge:null;
+  if(objectionMarked.length>1||(objectionMarked.length===1)!==!!openObjection)
+    throw new SaveDataError("invalid","A case is stuck inside a missing OBJECTION window.");
+  if(openObjection){
+    const ch=openObjection;
+    const c=d.inbox.find(item=>!item.msg&&item.id===ch.caseId);
+    const o=c&&c.opts[ch.optionIndex];
+    if(!c||c.objectionInProgress!==ch.actionId||c.objectionDone!==true||!o||o.safe||o.action||
+      !plain(c.objection)||c.objection.id!==ch.actionId||!c.judge)
+      throw new SaveDataError("invalid","The saved OBJECTION window no longer matches its case file.");
+    const expectedToil=workFatigue(OBJECTION_FATIGUE,snapshotProgression(ch.skillSnapshot),d.scenario);
+    const expected=createObjectionChallenge({runSeed:d.seed,caseId:c.id,optionIndex:ch.optionIndex,
+      objectionId:c.objection.id,lines:c.objection.lines,
+      count:Math.min(OBJECTION_LINES,c.objection.lines.length),cost:OBJECTION_HOURS,toil:expectedToil,
+      lateExtra:0,windowMs:OBJECTION_WINDOW_MS,strict:(c.judge&&c.judge.book||0)>=OBJECTION_STRICT_BOOK});
+    if(ch.runSeed!==d.seed||ch.startedDay!==d.day||d.hours!==ch.hoursBefore||ch.cost!==OBJECTION_HOURS||
+      ch.toil!==expectedToil||ch.lateExtra!==0||ch.windowMs!==expected.windowMs||ch.strict!==expected.strict||
+      ch.lines.length!==expected.lines.length||
+      ch.lines.some((l,i)=>l.id!==expected.lines[i].id||l.text!==expected.lines[i].text||l.bad!==expected.lines[i].bad))
+      throw new SaveDataError("invalid","The saved OBJECTION transcript was altered.");
+    if(ch.caseTitle!==c.title||ch.actionTitle!==c.objection.title||ch.body!==c.objection.body)
+      throw new SaveDataError("invalid","The saved OBJECTION briefing was altered.");
+  }
   const openTimeline=d.actionChallenge&&d.actionChallenge.type==="timeline"?d.actionChallenge:null;
   if(timelineMarked.length>1||(timelineMarked.length===1)!==!!openTimeline)
     throw new SaveDataError("invalid","A case is stuck inside a missing EVIDENCE TIMELINE.");
@@ -2748,7 +2931,7 @@ function migrateSaveData(raw){
     const ch=openTimeline;
     const c=d.inbox.find(item=>!item.msg&&item.id===ch.caseId);
     const o=c&&c.opts[ch.optionIndex];
-    if(actionMarked.length||!c||c.timelineInProgress!==ch.actionId||c.timelineDone!==true||!o||o.safe||o.action||
+    if(actionMarked.length||objectionMarked.length||!c||c.timelineInProgress!==ch.actionId||c.timelineDone!==true||!o||o.safe||o.action||
       !plain(c.timeline)||c.timeline.id!==ch.actionId)
       throw new SaveDataError("invalid","The saved EVIDENCE TIMELINE no longer matches its case file.");
     // The app is fully modal while a challenge is open, so rank — and therefore
@@ -2766,7 +2949,7 @@ function migrateSaveData(raw){
     if(ch.caseTitle!==c.title||ch.actionTitle!==c.timeline.title||ch.body!==c.timeline.body)
       throw new SaveDataError("invalid","The saved EVIDENCE TIMELINE briefing was altered.");
   }
-  if(d.actionChallenge&&!openTimeline){
+  if(d.actionChallenge&&!openTimeline&&!openObjection){
     const c=d.inbox.find(item=>!item.msg&&item.id===d.actionChallenge.caseId);
     const o=c&&c.opts[d.actionChallenge.optionIndex];
     if(actionMarked.length!==1||!c||c.actionInProgress!==d.actionChallenge.actionId||!o||!o.action||o.action.id!==d.actionChallenge.actionId)

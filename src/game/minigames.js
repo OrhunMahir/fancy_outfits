@@ -303,19 +303,32 @@ export function concedeContradiction(challenge){
       :"You close the binder. Nothing on the board is provable today."};
 }
 
-// Three timing rings for the electrical sabotage action. The shared gameplay
-// RNG is deliberately never read here: a run/case/action identity fixes the
-// board, while the snapshotted SNEAKY score changes only its difficulty.
-export function createPowerCutChallenge({runSeed,caseId,actionId,cost,toil,lateExtra,sneaky=0}){
+/* Three timing rings for the electrical sabotage action. The shared gameplay
+   RNG is deliberately never read here: a run/case/action identity fixes the
+   board, while the snapshotted SNEAKY score changes only its difficulty.
+
+   RULES 1 (v1.9.23) makes the three circuits a real climb instead of three
+   near-identical rings: the first one is a warm-up, the second asks for timing
+   and the third is genuinely fast. RULES 0 is the shipped-before curve and is
+   kept so a board someone is already mid-way through survives the update. */
+export const POWER_RULES=1;
+const POWER_CURVES={
+  0:{speed:index=>66+index*11, speedJitter:()=>25, tolerance:index=>16-index*2, toleranceJitter:()=>5, minTolerance:8},
+  1:{speed:index=>[56,88,120][index]??120, speedJitter:index=>[12,16,20][index]??20,
+     tolerance:index=>[20,13,9][index]??9, toleranceJitter:()=>4, minTolerance:6},
+};
+export function createPowerCutChallenge({runSeed,caseId,actionId,cost,toil,lateExtra,sneaky=0,rules=POWER_RULES}){
   const identity=`${runSeed}|${caseId}|${actionId}`;
   const sneakySnapshot=Math.max(0,Math.min(100,Math.round(Number(sneaky)||0)));
   const speedFactor=1-sneakySnapshot*.0035; // 100 SNEAKY is 35% slower
   const windowBonus=Math.round(sneakySnapshot*.08); // and up to 8deg wider
+  const curve=POWER_CURVES[rules]||POWER_CURVES[POWER_RULES];
 
   const rings=Array.from({length:POWER_RING_COUNT},(_,index)=>{
     const ringIdentity=`${identity}|ring|${index}`;
     const target=hash(`${ringIdentity}|target`)%360;
-    const tolerance=Math.max(8,16-index*2+(hash(`${ringIdentity}|window`)%5)+windowBonus);
+    const tolerance=Math.max(curve.minTolerance,
+      curve.tolerance(index)+(hash(`${ringIdentity}|window`)%curve.toleranceJitter(index))+windowBonus);
     let startAngle=hash(`${ringIdentity}|angle`)%360;
 
     // Never begin with the marker already sitting in the success window.
@@ -329,7 +342,7 @@ export function createPowerCutChallenge({runSeed,caseId,actionId,cost,toil,lateE
       startAngle,
       angle:startAngle,
       elapsedMs:0,
-      speed:Math.round((66+index*11+(hash(`${ringIdentity}|speed`)%25))*speedFactor*10)/10,
+      speed:Math.round((curve.speed(index)+(hash(`${ringIdentity}|speed`)%curve.speedJitter(index)))*speedFactor*10)/10,
       direction:hash(`${ringIdentity}|direction`)%2===0?1:-1,
       target,
       tolerance,
@@ -346,6 +359,7 @@ export function createPowerCutChallenge({runSeed,caseId,actionId,cost,toil,lateE
     toil,
     lateExtra,
     sneaky:sneakySnapshot,
+    rules,
     rings,
     activeRing:0,
     maxMisses:POWER_MISSES,

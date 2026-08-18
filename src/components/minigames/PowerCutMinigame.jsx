@@ -9,6 +9,10 @@ const ringStateLabel=phase=>({
   missed:"MISSED",
 }[phase]||"UNKNOWN");
 
+// The three circuits are a deliberate climb; saying so out loud stops the last
+// one from reading as a bug when it snaps past the window.
+const RING_GRADE=["WARM-UP","STEADY","FAST"];
+
 export default function PowerCutMinigame({challenge}){
   const stopRef=useRef(null);
   const [liveChallenge,setLiveChallenge]=useState(challenge);
@@ -92,7 +96,7 @@ export default function PowerCutMinigame({challenge}){
               <span className="power-ring-core" />
             </div>
             <div className="power-ring-caption">
-              <span>CIRCUIT {index+1}</span>
+              <span>CIRCUIT {index+1} · {RING_GRADE[index]||"FAST"}</span>
               <strong>{ringStateLabel(ring.phase)}</strong>
             </div>
           </div>

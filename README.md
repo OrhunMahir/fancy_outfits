@@ -30,6 +30,17 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.23 — Sharper circuits, and a first day that explains itself *(2026-08-18)*
+- **The sabotage panel is a climb now:** the three circuits used to spin at nearly the same
+  difficulty. The first is now a warm-up, the second asks for timing, and the third is genuinely
+  fast — roughly a two-thirds narrower stopping window than the first. Each ring says which it is.
+  Training SNEAKY widens all three, so the skill buys more than it used to.
+- **A board already in progress keeps its old circuits:** the update cannot rewrite a puzzle you
+  are halfway through, and a save that claims otherwise is refused.
+- **First-run walkthrough:** four cards on your very first career explain the desk, the clock, the
+  choice between the quiet play and the risky one, and the ladder — then never appear again. Skip
+  it at any point; the i panel still holds everything.
+
 ### v19.22.1 — A struck coin *(2026-08-17)*
 - **The escape coin is a real coin now:** two faces instead of a letter on a disc. Heads carries a
   suit and the firm's name, tails the scales of justice and a promise of ONE VERDICT — both drawn

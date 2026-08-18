@@ -198,6 +198,8 @@
 
 **v1.9.22 eklendi (2026-08-13):** Contradiction Board — Timeline'ın tersi tasarım: dosyanın üzerinde gönüllü CASE PREP seçeneği (`style:"prep"`, `action.type:"contradiction"`), 1.5h + 6 FATIGUE peşin, tam chart +15 kenar, kısmi `floor(edge*found/total)`, sıfır → kenar yok + −2 BOLD. COVERT makinesi yeniden kullanıldı ama covert semantiği değil (coin call/yakalanma yok, ayrı `contraTry/W/L` sayaçları); `validOption` etiketi tipe göre zorlar. Board `runSeed|caseId|actionId` kimliğinden 3 ifade + 1 decoy çeker, paylaşılan RNG'yi tüketmez, `CONTRA_ATTEMPTS`(4) denemeyle sınırlıdır. Dava ÇÖZÜLMEZ — dosya masaya döner. Court dosyaları artık prep taşıyabilir, covert taşıyamaz. Hostlar: el yazması `court2` + prosedürel şablon 4 (%50). Schema v17 board'u kimlikten yeniden türeterek doğrular.
 
+**v1.9.23 eklendi (2026-08-18):** (a) Elektrik sabotajı kademeli zorlaştı — pencereler 514/360/248 ms yerine **677/330/182 ms**, 3. halka 132°/s. `POWER_CURVES`/`POWER_RULES=1`; eski eğri RULES 0 olarak korunur, save'de açık board dağıtıldığı kuralla yeniden türetilir. Schema v18 + `migrateV17ToV18`. UI: "CIRCUIT n · WARM-UP/STEADY/FAST". (b) İlk açılışta 4 kartlık walkthrough (`intro.js`, `IntroOverlay.jsx`, `fo_intro_v1`); `S.introStep` transient, `isPaused()`'a girer, save'e YAZILMAZ.
+
 **En son çalışılan konu (2026-08-13):** v1.9.21 `ea50a3894` ile pushlandı; ardından v1.9.22
 (Contradiction Board, schema v17) tamamlandı ve kullanıcının push'unu bekliyor. `npm test`,
 `npm run build`, `npm run test:soak` (replay 336/336, integrity 0) yeşil. Güncel ortak handoff

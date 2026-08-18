@@ -71,6 +71,7 @@ export function newState(scenario,difficulty){
     logEntries:[], over:false,
     // UI state (pause is DERIVED from these — see isPaused() in engine.js)
     infoOpen:false, event:null, summary:null, pendingSummary:null, flash:null, userPaused:false, settingsOpen:false, rosterOpen:false, archiveOpen:false,
+    introStep:null, // first-run walkthrough card; transient, never saved with a career
     saveError:null, // transient autosave warning; never serialized into the slot it failed to write
     pendingChoice:null, // a play awaiting the "work into the night?" confirmation
     sentHomeNote:null,  // set when exhaustion gets you sent home; shown in that day's summary

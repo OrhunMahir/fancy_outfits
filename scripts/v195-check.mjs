@@ -47,6 +47,7 @@ globalThis.clearInterval = () => {};
   const npcs = await import("../src/game/npcs.js");
   const content = await import("../src/game/content.js");
   const casegen = await import("../src/game/casegen.js");
+  const intro = await import("../src/game/intro.js");
   const { settings } = await import("../src/game/settings.js");
   settings.sfx = 0;
   settings.bgm = 0;
@@ -227,13 +228,26 @@ globalThis.clearInterval = () => {};
   const sneakyRanks = [0,2,5].map(rank=>progression.sneakyModifiers({skills:{sneaky:rank,endurance:0}}));
   assert.deepEqual(sneakyRanks.map(m=>[m.powerScore,m.lockToleranceBonus,m.lockAttemptBonus,m.ringSpeedMultiplier]),
     [[0,0,0,1],[40,2,1,.86],[100,5,2,.65]]);
-  const expectedPowerSpeeds=[[70,100,105],[60.2,86,90.3],[45.5,65,68.2]];
+  const expectedPowerSpeeds=[[62,91,132],[53.3,78.3,113.5],[40.3,59.1,85.8]];
+  // The three circuits are a climb, not three of the same ring: each one spins
+  // faster through a narrower window, at every SNEAKY rank.
+  const stopWindowMs=ring=>2*ring.tolerance/ring.speed*1000;
   for (const [modIndex,mod] of sneakyRanks.entries()) {
     const lock=minigames.createLockpickChallenge({...puzzleArgs,toleranceBonus:mod.lockToleranceBonus,attemptBonus:mod.lockAttemptBonus});
     const power=minigames.createPowerCutChallenge({...powerArgs,sneaky:mod.powerScore});
     assert.deepEqual([lock.tolerance,lock.maxAttempts],[10+mod.lockToleranceBonus,3+mod.lockAttemptBonus]);
     assert.deepEqual(power.rings.map(ring=>ring.speed),expectedPowerSpeeds[modIndex]);
+    const speeds=power.rings.map(ring=>ring.speed), windows=power.rings.map(stopWindowMs);
+    assert.ok(speeds[0]<speeds[1]&&speeds[1]<speeds[2],"each circuit spins faster than the last");
+    assert.ok(windows[0]>windows[1]&&windows[1]>windows[2],"and gives less room to stop it");
+    assert.ok(windows[2]>=150,"the hard circuit stays humanly stoppable");
+    assert.equal(power.rules,minigames.POWER_RULES);
   }
+  // A board dealt under the old curve keeps it, so an update cannot rewrite a
+  // puzzle someone is halfway through.
+  const legacyBoard=minigames.createPowerCutChallenge({...powerArgs,sneaky:0,rules:0});
+  assert.deepEqual(legacyBoard.rings.map(ring=>ring.speed),[70,100,105]);
+  assert.equal(legacyBoard.rules,0);
   assert.equal(progression.enduranceFatigueMultiplier(progression.createProgression("fraud"),"fraud"),1);
   assert.equal(progression.enduranceFatigueMultiplier(progression.createProgression("debtor"),"debtor"),.792);
   const maxLegacy={...progression.createProgression("legacy"),skills:{sneaky:0,endurance:5}};
@@ -1167,6 +1181,33 @@ globalThis.clearInterval = () => {};
   assert.deepEqual([state.S.runStats.covertTry, state.S.runStats.covertW,
     state.S.runStats.covertEscape, state.S.runStats.covertCaught], [1, 0, 1, 0]);
   assert.equal(state.S.progression.xp,progression.COVERT_XP.escape);
+
+  // v1.9.23 sharpened the circuits. A career that is mid-sabotage when the
+  // update lands keeps the board it was dealt instead of losing the slot.
+  fresh();
+  powerCut = livePowerCut();
+  engine.choose(powerCut.c, powerCut.o);
+  engine.saveGame();
+  const rawSharpened = JSON.parse(localStorage.getItem(constants.SAVE_KEY + "_s1"));
+  assert.equal(rawSharpened.actionChallenge.rules, minigames.POWER_RULES);
+  const legacyCircuits = JSON.parse(JSON.stringify(rawSharpened));
+  legacyCircuits.schemaVersion = 17;
+  delete legacyCircuits.actionChallenge.rules;
+  const savedPowerScore = progression.sneakyModifiers({ skills: { sneaky: rawSharpened.actionChallenge.skillSnapshot.sneaky, endurance: 0 } }).powerScore;
+  legacyCircuits.actionChallenge.rings = minigames
+    .createPowerCutChallenge({ runSeed: rawSharpened.seed, caseId: rawSharpened.actionChallenge.caseId,
+      actionId: rawSharpened.actionChallenge.actionId, cost: 1.5, toil: 8, lateExtra: 0,
+      sneaky: savedPowerScore, rules: 0 }).rings;
+  localStorage.setItem(constants.SAVE_KEY + "_s1", JSON.stringify(legacyCircuits));
+  assert.equal(engine.loadGame(1), true, "a v17 sabotage in progress migrates instead of being rejected");
+  assert.equal(state.S.actionChallenge.rules, 0, "and keeps the curve it was dealt");
+  assert.deepEqual(state.S.actionChallenge.rings.map(r => r.speed), legacyCircuits.actionChallenge.rings.map(r => r.speed));
+  // A legacy board cannot be re-labelled as a modern one to smuggle easier rings in.
+  const forgedRules = JSON.parse(JSON.stringify(legacyCircuits));
+  forgedRules.schemaVersion = constants.SAVE_SCHEMA_VERSION;
+  forgedRules.actionChallenge.rules = minigames.POWER_RULES;
+  localStorage.setItem(constants.SAVE_KEY + "_s1", JSON.stringify(forgedRules));
+  assert.equal(engine.loadGame(1), false, "old rings claiming the new curve are rejected");
 
   // At 80 FATIGUE the per-hour hazard is 30%: a two-hour overtime block must
   // use the compounded 51% risk, not a single-hour 30% roll.
@@ -2843,6 +2884,36 @@ globalThis.clearInterval = () => {};
   assert.equal(engine.saveGame(), true);
   assert.equal(engine.loadGame(1), false, "a covert action on a court file is still refused");
 
+  // ---- First-run walkthrough (v1.9.23) ----
+  // Four cards on the very first career, never again, and never inside a save.
+  intro.resetIntro();
+  fresh("standard");
+  assert.equal(state.S.introStep, 0, "a brand new player gets the walkthrough");
+  assert.equal(engine.isPaused(), true, "the desk is gated while it is open");
+  for (let i = 1; i < intro.INTRO_STEPS.length; i++) {
+    engine.advanceIntro();
+    assert.equal(state.S.introStep, i);
+  }
+  engine.advanceIntro();
+  assert.equal(state.S.introStep, null, "the last card closes it");
+  assert.equal(engine.isPaused(), false, "and hands the desk back");
+  assert.equal(intro.introSeen(), true);
+  fresh("standard");
+  assert.equal(state.S.introStep, null, "a second career never shows it again");
+
+  // Skipping counts as seen, and the pointer is never written into a slot.
+  intro.resetIntro();
+  fresh("standard");
+  assert.equal(state.S.introStep, 0);
+  engine.saveGame();
+  assert.equal(JSON.parse(localStorage.getItem(constants.SAVE_KEY + "_s1")).introStep, undefined,
+    "the walkthrough pointer is transient");
+  engine.closeIntro();
+  assert.equal(intro.introSeen(), true, "skipping still counts as seen");
+  assert.equal(engine.loadGame(1), true);
+  assert.equal(state.S.introStep, null, "reloading a career never reopens it");
+  assert.ok(intro.INTRO_STEPS.every(step => step.title && step.body), "every card says something");
+
   // Production CSP has no loopback WebSocket escape hatch; Vite adds it only in dev.
   const indexHtml = readFileSync("index.html", "utf8");
   const viteConfig = readFileSync("vite.config.mjs", "utf8");
@@ -2868,7 +2939,7 @@ globalThis.clearInterval = () => {};
     }
   }
 
-  console.log("v1.9.5–v1.9.22 checks passed: Contradiction Board prep (deal/attempts/partial/tamper/v17), Evidence Timeline prep + cold-entry penalty (deal/reload/tamper/migration/scope), safe-route pricing (coasting/hours/v16), Fraud identity pressure/morning continuation, progression/skills, lockpick/Power Cut minigames, balance experiments, Final Warning, Friday/Exceptional Review promotions, delegation cap, strict saves/migrations, procedural IDs, long-run integrity, FIRM payroll, rolling judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
+  console.log("v1.9.5–v1.9.23 checks passed: first-run walkthrough, sharpened sabotage circuits (curve/legacy boards/v18), Contradiction Board prep (deal/attempts/partial/tamper/v17), Evidence Timeline prep + cold-entry penalty (deal/reload/tamper/migration/scope), safe-route pricing (coasting/hours/v16), Fraud identity pressure/morning continuation, progression/skills, lockpick/Power Cut minigames, balance experiments, Final Warning, Friday/Exceptional Review promotions, delegation cap, strict saves/migrations, procedural IDs, long-run integrity, FIRM payroll, rolling judge memory/DAILY, endings, Client War integrity, CSP, 20 starts");
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;

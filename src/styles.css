@@ -512,3 +512,13 @@ h2{font-size:10px; color:var(--gold); margin-bottom:10px; border-bottom:2px soli
      the tails class carries its own static half-turn. */
   .coin-shadow{opacity:.45;}
 }
+
+/* First-run walkthrough: same modal furniture as the action dialog, quieter. */
+.intro-dialog{max-width:440px;}
+.intro-body{margin:10px 0 0; color:var(--paper); font-size:8px; line-height:2.1;}
+.intro-pips{display:flex; justify-content:center; gap:6px; margin:14px 0 12px;}
+.intro-pip{width:9px; height:9px; background:var(--dark); border:2px solid var(--panel2);}
+.intro-pip-on{background:var(--gold); border-color:var(--gold);}
+.intro-actions{display:flex; flex-direction:column; gap:7px;}
+.btn.small.intro-skip{width:100%; min-height:44px; background:#2a2f45; box-shadow:0 4px 0 #12162a;}
+.intro-skip:hover{background:#39405f;}

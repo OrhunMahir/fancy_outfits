@@ -19,7 +19,7 @@ import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DELEGATE_CAP, DAY_HOURS, TIER_HOU
          TIMELINE_TRIGGER, TIMELINE_CARDS, TIMELINE_CARDS_SENIOR, TIMELINE_SENIOR_RANK,
          TIMELINE_EDGE_WIN, TIMELINE_EDGE_LOSS, TIMELINE_EDGE_DECLINE, TIMELINE_FAIL_REP, TIMELINE_HOURS, TIMELINE_FATIGUE } from "./constants.js";
 import { clamp, rnd, rand, shuffle, hash, setSeed, clearSeed, getRngState, setRngState } from "./utils.js";
-import { LOCK_MIN, LOCK_MAX, POWER_RING_COUNT, createLockpickChallenge, clampLockPosition, tryLockpick, callCoin,
+import { LOCK_MIN, LOCK_MAX, POWER_RING_COUNT, POWER_RULES, createLockpickChallenge, clampLockPosition, tryLockpick, callCoin,
          createPowerCutChallenge, advancePowerCut, stopPowerCut, powerAngleAt, powerAngleDistance,
          createTimelineChallenge, moveTimelineCard, submitTimeline,
          CONTRA_ATTEMPTS, CONTRA_STATEMENTS, createContradictionChallenge, selectContradictionStatement,
@@ -32,6 +32,7 @@ import { buildNpcs, buildRoster, buildDemand, buildStory, bossAbove, delegationC
 import { buildLawsuit, buildBigMatter } from "./casegen.js";
 import { CLIENT_CAP, CLIENT_NAMES, makeClient, buildGlobalEvent, buildDinnerEvent, PARTNERS } from "./clients.js";
 import { ACHIEVEMENTS, unlock } from "./achievements.js";
+import { INTRO_STEPS, introSeen, markIntroSeen } from "./intro.js";
 import { CASE_XP, COVERT_XP, CRISIS_XP, DELEGATED_XP, MAX_SKILL, SKILL_IDS, SKILLS,
          addXp, allocateSkill, applyEnduranceToWorkFatigue, createProgression,
          enduranceFatigueMultiplier, getSkillRank, progressionInfo as getProgressionInfo,
@@ -78,7 +79,7 @@ const finalWarningConfig=()=>{
 
 /* The clock stops whenever any overlay is up, the player hit PAUSE, or the
    character is walking out. Replaces the old S.paused flag. */
-export const isPaused=()=>!!(S.infoOpen||S.event||S.summary||S.userPaused||S.settingsOpen||S.rosterOpen||S.archiveOpen||S.actionChallenge||S.leaving);
+export const isPaused=()=>!!(S.infoOpen||S.event||S.summary||S.userPaused||S.settingsOpen||S.rosterOpen||S.archiveOpen||S.actionChallenge||S.leaving||S.introStep!=null);
 export const disrespected=()=>S.rep<30;
 export function finalWarningInfo(){
   if(!S) return null;
@@ -700,7 +701,22 @@ export function startGame(sc,diff,mode){
   else log("Zero clients on your book. Win loudly — they'll find you.","sys");
   drawCases(3);
   newObjective();
+  // A first-time player gets the four cards before the first file, once ever.
+  if(!introSeen()) S.introStep=0;
   sitDown(); startAmbience(); saveGame(); notify();
+}
+
+/* The walkthrough is UI state, not career state: it gates the desk through
+   isPaused() and is stripped from every save. */
+export function advanceIntro(){
+  if(!S||S.introStep==null) return;
+  const next=S.introStep+1;
+  if(next>=INTRO_STEPS.length){ closeIntro(); return; }
+  S.introStep=next; SFX.click(); notify();
+}
+export function closeIntro(){
+  if(!S||S.introStep==null) return;
+  S.introStep=null; markIntroSeen(); SFX.click(); notify();
 }
 
 /* hand-written pool first; when it runs dry (or for late-run variety) the
@@ -1164,7 +1180,10 @@ const legacySkillSnapshot=()=>({rulesVersion:0,sneaky:0,endurance:0});
 const currentSkillSnapshot=()=>({rulesVersion:1,
   sneaky:getSkillRank(S.progression,"sneaky"),endurance:getSkillRank(S.progression,"endurance")});
 const snapshotProgression=snapshot=>({skills:{sneaky:snapshot.sneaky,endurance:snapshot.endurance}});
-function createActionChallenge(action,args,skillSnapshot=legacySkillSnapshot()){
+/* `powerRules` exists for one reason: rebuilding a board that is already open
+   in a save. A run that started under the old circuit curve keeps it, so a
+   balance change can never invalidate a puzzle someone is halfway through. */
+function createActionChallenge(action,args,skillSnapshot=legacySkillSnapshot(),powerRules=POWER_RULES){
   const snapshot={...skillSnapshot};
   const rank=snapshot.rulesVersion===1?clamp(Math.trunc(Number(snapshot.sneaky)||0),0,MAX_SKILL):0;
   const skill=sneakyModifiers({skills:{sneaky:rank}});
@@ -1172,7 +1191,7 @@ function createActionChallenge(action,args,skillSnapshot=legacySkillSnapshot()){
     // Reading exhibits is lawyering, not burglary: SNEAKY buys nothing here.
     ?createContradictionChallenge({...args,pairs:action.pairs,decoys:action.decoys})
     :action.type==="power_cut"
-    ?createPowerCutChallenge({...args,sneaky:skill.powerScore})
+    ?createPowerCutChallenge({...args,sneaky:skill.powerScore,rules:powerRules})
     :createLockpickChallenge({...args,toleranceBonus:skill.lockToleranceBonus,attemptBonus:skill.lockAttemptBonus});
   return {...challenge,skillSnapshot:snapshot};
 }
@@ -2436,7 +2455,15 @@ const migrateV15ToV16=raw=>({...raw,schemaVersion:16,
 /* v16 -> v17 adds the CONTRADICTION BOARD. Older careers carry no board and no
    counters; nothing else about them changes. */
 const migrateV16ToV17=raw=>({...raw,schemaVersion:17,runStats:backfillCounters(raw.runStats,RUN_COUNTER_KEYS)});
-const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6,6:migrateV6ToV7,7:migrateV7ToV8,8:migrateV8ToV9,9:migrateV9ToV10,10:migrateV10ToV11,11:migrateV11ToV12,12:migrateV12ToV13,13:migrateV13ToV14,14:migrateV14ToV15,15:migrateV15ToV16,16:migrateV16ToV17};
+/* v17 -> v18 sharpens the sabotage circuits. A board already open in a save
+   keeps the curve it was dealt with, so nobody loses a puzzle mid-attempt. */
+const migrateV17ToV18=raw=>{
+  const d={...raw,schemaVersion:18};
+  if(plain(d.actionChallenge)&&d.actionChallenge.type==="power_cut"&&d.actionChallenge.rules==null)
+    d.actionChallenge={...d.actionChallenge,rules:0};
+  return d;
+};
+const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6,6:migrateV6ToV7,7:migrateV7ToV8,8:migrateV8ToV9,9:migrateV9ToV10,10:migrateV10ToV11,11:migrateV11ToV12,12:migrateV12ToV13,13:migrateV13ToV14,14:migrateV14ToV15,15:migrateV15ToV16,16:migrateV16ToV17,17:migrateV17ToV18};
 
 const JUDGE_MEMORY_COUNTERS=["seen","aggressiveW","aggressiveL","technicalW","technicalL","bribeW","bribeL","safe","neutralW","neutralL"];
 function validJudgeMemory(memory,day){
@@ -2511,6 +2538,7 @@ const POWER_RING_PHASES=new Set(["active","queued","locked","missed"]);
 const closeNumber=(a,b,tolerance=1e-6)=>Number.isFinite(a)&&Number.isFinite(b)&&Math.abs(a-b)<=tolerance;
 function validPowerChallenge(ch,day){
   if(!validActionChallengeBase(ch,day,POWER_ACTION_PHASES)||ch.type!=="power_cut"||
+    !Number.isInteger(ch.rules)||ch.rules<0||ch.rules>POWER_RULES||
     !Number.isInteger(ch.sneaky)||ch.sneaky<0||ch.sneaky>100||!Array.isArray(ch.rings)||ch.rings.length!==POWER_RING_COUNT||
     !Number.isInteger(ch.activeRing)||ch.activeRing<0||ch.activeRing>=POWER_RING_COUNT||
     !nonNegativeInt(ch.maxMisses)||ch.maxMisses!==1||!nonNegativeInt(ch.missesLeft)||ch.missesLeft>ch.maxMisses||
@@ -2717,7 +2745,7 @@ function migrateSaveData(raw){
     const expectedToil=ch.skillSnapshot.rulesVersion===0?rawWorkToil+lateExtra:
       workFatigue(rawWorkToil,snapshotProgression(ch.skillSnapshot),d.scenario)+lateExtra;
     const expected=createActionChallenge(o.action,{runSeed:d.seed,caseId:c.id,actionId:o.action.id,cost:expectedCost,
-      toil:expectedToil,lateExtra},ch.skillSnapshot);
+      toil:expectedToil,lateExtra},ch.skillSnapshot,ch.type==="power_cut"?ch.rules:POWER_RULES);
     if(ch.runSeed!==d.seed||ch.startedDay!==d.day||d.hours!==ch.hoursBefore||ch.cost!==expectedCost||ch.toil!==expected.toil||ch.lateExtra!==lateExtra||
       ch.type!==expected.type||ch.coinFace!==expected.coinFace)
       throw new SaveDataError("invalid","The saved COVERT ACTION outcome was altered.");
@@ -2808,7 +2836,7 @@ function migrateSaveData(raw){
 function hydrateSaveData(d,slot){
   const base=newState(d.scenario,d.difficulty);
   const defaults={runStats:base.runStats,today:base.today,weekStart:base.weekStart,nemesis:base.nemesis};
-  const transient=new Set(["infoOpen","flash","userPaused","leaving","charAnim","openCase","settingsOpen","sceneRank","rosterOpen","archiveOpen","pendingChoice","saveError","shakeSeq"]);
+  const transient=new Set(["infoOpen","flash","userPaused","leaving","charAnim","openCase","settingsOpen","sceneRank","rosterOpen","archiveOpen","pendingChoice","saveError","shakeSeq","introStep"]);
   for(const key of Object.keys(base)){
     if(!transient.has(key)&&Object.prototype.hasOwnProperty.call(d,key)) base[key]=d[key];
   }
@@ -2879,7 +2907,7 @@ export function setSlot(n){
 
 export function saveGame(){
   if(!S||S.over||S.mode==="ironman") return true; // ironman: no net by design
-  const {infoOpen,event,summary,flash,userPaused,leaving,charAnim,openCase,settingsOpen,sceneRank,rosterOpen,archiveOpen,pendingChoice,saveError,shakeSeq,...data}=S;
+  const {infoOpen,event,summary,flash,userPaused,leaving,charAnim,openCase,settingsOpen,sceneRank,rosterOpen,archiveOpen,pendingChoice,saveError,shakeSeq,introStep,...data}=S;
   const ev=(event&&event.id!=="overtime"&&event.id!=="latework")?event:null;
   const payload={...data,event:ev,summary:persistedSummary(summary),schemaVersion:SAVE_SCHEMA_VERSION,savedAt:Date.now(),rngState:getRngState(),
     logEntries:(data.logEntries||[]).slice(0,SAVE_LOG_LIMIT),archive:(data.archive||[]).slice(0,SAVE_ARCHIVE_LIMIT)};

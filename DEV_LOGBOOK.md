@@ -18,6 +18,66 @@ Her çalışma oturumunda:
 
 ---
 
+## 2026-08-18 — Claude: sabotage difficulty curve + first-run walkthrough (v1.9.23)
+
+### Git checkpoint
+
+- Branch: `minigames`, base commit `3a1535e2a` (yazı-tura kullanıcı tarafından pushlandı; bu
+  oturumun işi commit bekliyor).
+- Dokunulan dosyalar: `src/game/minigames.js`, `engine.js`, `state.js`, `constants.js`,
+  `src/game/intro.js` (yeni), `src/components/IntroOverlay.jsx` (yeni),
+  `src/components/minigames/PowerCutMinigame.jsx`, `src/App.jsx`, `src/styles.css`,
+  `scripts/v195-check.mjs`, `README.md`, bu dosya.
+
+### 1 — Elektrik sabotajı artık gerçek bir tırmanış (kullanıcı isteği)
+
+Üç halka neredeyse aynı zorluktaydı (durdurma penceresi 514/360/248 ms). Yeni eğri kullanıcının
+istediği kolay→orta→zor: **677 / 330 / 182 ms** (SNEAKY 0'da). Üçüncü halka 132°/s ile dönüyor
+(eskiden 105). Hız tabanları `[56,88,120]`, tolerans tabanları `[20,13,9]`; jitter ve SNEAKY
+indirimi aynen korundu — maksimum SNEAKY'de pencereler 1439/778/466 ms'e açılıyor, yani yatırımın
+karşılığı büyüdü.
+
+- `POWER_CURVES` tablosu + `POWER_RULES=1`. **RULES 0 (eski eğri) kod içinde duruyor**: save'de
+  açık bir board varsa oyuncu dağıtıldığı eğriyle devam eder. Denge değişikliği hiç kimsenin yarım
+  bulmacasını geçersiz kılmaz.
+- `createActionChallenge` artık `powerRules` parametresi alıyor; save doğrulaması board'u
+  **kayıttaki kurala göre** yeniden türetip karşılaştırıyor.
+- Save schema v18 + `migrateV17ToV18`: v17'de açık olan power board'a `rules:0` damgalanır.
+- UI: halka başlıkları "CIRCUIT 1 · WARM-UP / 2 · STEADY / 3 · FAST" diyor ki son halkanın
+  hızlanması hata gibi değil tasarım gibi okunsun.
+- Not: soak botları covert board oynamadığı için burada A/B kohortu anlamsız; zorluk eğrisi
+  deterministik testlerle (hız/pencere sıralaması + insanca durdurulabilirlik alt sınırı) kilitlendi.
+
+### 2 — İlk açılışta walkthrough (kullanıcı isteği)
+
+- `src/game/intro.js`: dört kart (THE DESK / THE CLOCK / THE CHOICE / THE LADDER) + `fo_intro_v1`
+  bayrağı. Saf veri; React bilmiyor.
+- `S.introStep` **transient**: `isPaused()`'a girer (masayı kilitler), hem `saveGame` hem
+  `hydrateSaveData` tarafından soyulur. Kariyer kaydına yazılmaz — bir oyuncunun özelliği, bir
+  run'ın değil.
+- `startGame` ilk kez oynayana kartları açar; SKIP de bitirmek sayılır. Klavye: Space/Enter ilerlet,
+  Esc atla. `loadGame` (CONTINUE) asla açmaz.
+- Test bu turda gerçek bir kusur yakaladı: `introStep` ilk uygulamada **kayda yazılıyordu** (soyma
+  yalnız yükleme tarafındaydı). saveGame destructuring'ine eklenerek düzeltildi.
+
+### Testler
+
+- `npm test` yeşil; yeni bloklar: eğri sıralaması (her halka bir öncekinden hızlı, penceresi dar),
+  `windows[2]>=150ms` insanlık sınırı, legacy board'un korunması, "eski halkalar yeni kural
+  etiketiyle" sahteciliğinin reddi, v17→v18 migration; walkthrough'un açılması/kapanması,
+  ikinci kariyerde çıkmaması, save'e sızmaması.
+- `npm run build` yeşil. `npm run test:soak` → replay 336/336, integrity 0.
+- Tarayıcı: dört kart tıklanarak gezildi (pip'ler doluyor, son kart GET TO WORK), kapanınca masa
+  açılıyor, ikinci run'da çıkmıyor. Sabotaj panelinde üç halka WARM-UP/STEADY/FAST etiketleriyle
+  ve ölçülen 657/364/135 ms pencerelerle geldi. Konsol temiz (yalnız dev-server CSP uyarısı; ara
+  HMR sırasında görülen `RING_GRADE` hatası düzeltilmiş sürümde yok).
+
+### Sıradaki kesin adım
+
+Değişmedi: **mobil layout + Capacitor**. Yazı-tura logosu notu bir önceki kayıtta duruyor.
+
+---
+
 ## 2026-08-17 — Claude: struck coin (v1.9.22.1)
 
 ### Git checkpoint

@@ -28,7 +28,7 @@ export default function DevPanel({onClose}){
     <div className="devpanel" role="dialog" aria-label="Developer tools">
       <div className="dev-head">
         <strong>DEV</strong>
-        <span className="dev-hint">` closes · dev build only</span>
+        <span className="dev-hint">F9 or ` closes · dev build only</span>
         <button className="btn small dev-x" type="button" onClick={onClose}>✕</button>
       </div>
 

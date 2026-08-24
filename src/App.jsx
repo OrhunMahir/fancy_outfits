@@ -51,7 +51,8 @@ export default function App(){
   const [devOpen,setDevOpen]=useState(false);
   useEffect(()=>{
     if(!import.meta.env.DEV) return;
-    const onKey=e=>{ if(e.key==="`"){ e.preventDefault(); setDevOpen(v=>!v); } };
+    // F9 works on every keyboard layout; backtick is a dead key on some.
+    const onKey=e=>{ if(e.key==="F9"||e.key==="`"){ e.preventDefault(); setDevOpen(v=>!v); } };
     window.addEventListener("keydown",onKey);
     return ()=>window.removeEventListener("keydown",onKey);
   },[]);
@@ -89,6 +90,9 @@ export default function App(){
       {S.actionChallenge && <ActionMinigameOverlay />}
       {S.summary && <SummaryOverlay sum={S.summary} />}
       {S.introStep!=null && <IntroOverlay />}
+      {import.meta.env.DEV && !devOpen && (
+        <button className="dev-open" type="button" onClick={()=>setDevOpen(true)}>DEV</button>
+      )}
       {import.meta.env.DEV && devOpen && <DevPanel onClose={()=>setDevOpen(false)} />}
       {S.flash && <div className="flash" key={S.flash.id}>{S.flash.txt}</div>}
     </div>

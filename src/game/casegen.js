@@ -294,6 +294,124 @@ const TEMPLATES=[
       {text:"Use exhibit G — the next-day checksum proves survival.",base:72,style:"technical",ok:{fx:{rep:8,inf:7,money:1100},txt:"A checksum cannot forget on command. The court orders the backup produced."},fail:{fx:{rep:-6},txt:"They call the invoice an automated placeholder. Without the manifest, the judge wants more."}},
       {text:"Bluff: claim the vendor already gave you the manifest.",base:35,boldW:3,style:"aggressive",ok:{fx:{bold:7,inf:7,money:850},txt:"Both sides race to produce a document you never had. Now you do."},fail:{fx:{rep:-11,bold:-2},txt:"They ask for the manifest number. Your imaginary source goes very quiet."}},
       {text:"COVERT ACTION: recover the offsite backup manifest.",style:"covert",action}]};},
+  // 13 — the exclusion nobody delivered
+  ()=>{const a=rnd(CO),ins=rnd(CO.filter(x=>x!==a)),k=rnd([400,750,1200]);
+  return {tier:1,title:`CASE: ${a} v. ${ins} (coverage)`,deadline:rnd([2,3]),
+    body:`${ins} denied ${a}'s $${k}k claim under an exclusion for 'contractor error'. The exclusion is real — it appears in the renewal endorsement. What the file also shows: that endorsement was never delivered to ${a}. The certified mail receipt in exhibit D is signed by a person who left ${a} eleven months before the renewal. An exclusion nobody received is an exclusion nobody agreed to.`,
+    opts:[
+      {text:"Negotiate a partial payout and close it.",base:100,safe:true,ok:{fx:{inf:2,bold:-3,money:400},txt:"Half the claim, none of the fight. The exclusion lives on in their next policy."}},
+      {text:"Attack delivery — the endorsement never arrived.",base:75,style:"technical",delay:rnd([1,2]),ok:{fx:{rep:8,inf:7,money:1200},txt:`The receipt is signed by a ghost. ${ins} pays the claim and quietly rewrites its mailing procedure.`},fail:{fx:{rep:-5},txt:"They produce a second receipt, signed by someone who did work there. Convenient."}},
+      {text:"Threaten a bad-faith claim in the press.",base:34,boldW:3,style:"aggressive",ok:{fx:{bold:7,inf:6,money:1000},txt:"'Bad faith' is a phrase insurers pay to keep out of print. They pay."},fail:{fx:{rep:-10},txt:`${ins}'s counsel forwards your threat to the regulator. As a courtesy. To you.`}}]};},
+  // 14 — the arbitration clause that nobody could afford to use
+  ()=>{const a=rnd(CO),who=rnd(LAST),city=rnd(["a city two thousand miles away","the company's home state","a forum the employee has never set foot in"]);
+  return {tier:1,title:`CASE: ${who} v. ${a} (arbitration)`,deadline:rnd([2,3]),
+    body:`${a} wants ${who}'s wage claim thrown into arbitration. The clause exists, buried in the onboarding packet ${who} signed on day one. Read what it actually requires: arbitration in ${city}, filing fees split evenly, each side bearing its own costs — on a claim worth less than the filing fee. A forum that costs more to enter than the claim is worth is not a forum.`,
+    opts:[
+      {text:"Advise settling before anyone reads the clause aloud.",base:100,safe:true,ok:{fx:{inf:2,bold:-3,money:350},txt:"Quietly settled. The onboarding packet survives to trap the next hire."}},
+      {text:"Argue the clause is unconscionable and unenforceable.",base:72,style:"technical",ok:{fx:{rep:8,inf:6,money:900},txt:"'A remedy you cannot afford is not a remedy.' The clause falls; the claim stays in court."},fail:{fx:{rep:-5},txt:"The court severs the fee-splitting and enforces the rest. Half a win is a loss here."}},
+      {text:"Demand the whole onboarding packet be voided.",base:33,boldW:3,style:"aggressive",ok:{fx:{bold:7,inf:7,money:800},txt:`${a} settles rather than let a court look at what else is in that packet.`},fail:{fx:{rep:-10},txt:"You overreached. The court enforces the clause and notes your 'ambition'."}}]};},
+  // 15 — the laptop that wiped itself on a very specific day
+  ()=>{const a=rnd(CO),b=rnd(CO.filter(x=>x!==a)),who=rnd(LAST);
+  const c15={tier:1,title:`CASE: ${b} document destruction`,deadline:rnd([2,3]),
+    body:`${b} says the laptop was wiped by 'routine auto-deletion'. The IT ticket in exhibit K disagrees with them: the retention policy ran on a 90-day cycle for four years, and then someone disabled it by hand. February 3, ${a} sends ${b} a litigation hold letter. February 4, ${who} at ${b} opens a ticket titled 'storage cleanup'. February 6, auto-deletion is switched off. February 9, the laptop is reimaged. February 20, ${b} tells the court the data was lost 'in the ordinary course'. March 2, the same laptop is issued to a new hire.`,
+    opts:[
+      {text:"Accept their explanation and work around the gap.",base:100,safe:true,ok:{fx:{inf:2,bold:-4},txt:"You rebuild the timeline from emails. Slower, poorer, unremarkable."}},
+      {text:"Move for a spoliation instruction.",base:70,style:"technical",ok:{fx:{rep:8,inf:7,money:1100},txt:"The jury will be told it may assume the worst about what was on that laptop. That is worth more than the laptop."},fail:{fx:{rep:-6},txt:"The court calls it negligent, not intentional, and gives you nothing but sympathy."}},
+      {text:"Accuse them of obstruction in open filings.",base:33,boldW:3,style:"aggressive",ok:{fx:{bold:8,inf:7,money:900},txt:`${b} settles within the week. Nobody wants that word in a published opinion.`},fail:{fx:{rep:-11},txt:"Intent is hard to prove and you did not prove it. The word lands on you instead."}}]};
+  if(rand()<.5) c15.timeline={id:"spoliation_cleanup",title:"THE CLEANUP, IN ORDER",
+    body:`Before you accuse anyone of anything, lay the IT tickets end to end. ${b}'s counsel will argue coincidence, and coincidence is a question of sequence.`,
+    events:[
+      {id:"hold",at:1,text:`${a} sends the litigation hold letter`},
+      {id:"ticket",at:2,text:`${who} opens a ticket titled 'storage cleanup'`},
+      {id:"disable",at:3,text:"Auto-deletion is switched off by hand"},
+      {id:"reimage",at:4,text:"The laptop is reimaged"},
+      {id:"told",at:5,text:"The court is told the data was lost in the ordinary course"},
+      {id:"reissue",at:6,text:"The same laptop is issued to a new hire"}]};
+  return c15;},
+  // 16 — the conflict their own memo admits
+  ()=>{const a=rnd(CO),firm=rnd(["Snidely Fitch","Braddock & Vane","Ellory Pike LLP"]);
+  const c16={tier:1,title:`CASE: ${a} — disqualify opposing counsel`,deadline:rnd([2,3]),
+    body:`${firm} is representing the other side against ${a}. They also represented ${a} on this exact dispute three years ago — and their own internal conflict memo, produced by accident in a batch of exhibits, says so in the second paragraph. It even names the partner who 'does not recall the engagement'. He billed forty hours to it.`,
+    opts:[
+      {text:"Raise it privately and let them withdraw quietly.",base:100,safe:true,ok:{fx:{inf:3,rep:2,bold:-3},txt:`${firm} withdraws over a weekend. No motion, no headline, no leverage.`}},
+      {text:"Move to disqualify, citing their own memo.",base:74,style:"technical",ok:{fx:{rep:8,inf:7,money:1000},txt:"Their memo is exhibit A to their own disqualification. The other side starts over with new counsel and a cold file."},fail:{fx:{rep:-5},txt:"They wall off the partner and the court accepts the screen. You lose a month."}},
+      {text:"Report the firm to the bar association.",base:32,boldW:3,style:"aggressive",ok:{fx:{bold:7,inf:7},txt:`${firm} settles the underlying case to make the complaint go away. Everyone notices who did it.`},fail:{fx:{rep:-11},txt:"The bar finds no violation, and the profession is small. Very small."}}]};
+  if(rand()<.45) c16.opts.push({text:"CASE PREP: clear our own file before it goes back.",style:"prep",
+    action:{id:"generated_conflict_privilege",type:"redaction",title:`THE ${a.toUpperCase()} CONFLICT FILE`,
+      body:`${firm} has asked for everything you hold on the old engagement, and it ships tonight. Black out legal advice and your own work product — nothing else. A third party on the thread breaks privilege, and blacking out an ordinary record is obstruction.`,
+      hours:1.5,fatigue:6,edge:15,
+      edgeText:"PRIVILEGE HELD (+15% on this file's risky plays)",
+      pages:[
+        {id:"cadvice",text:`${a}'s GC to you: 'how badly does their old file hurt us?'`,priv:true},
+        {id:"cmemo",text:"Your memo on whether to move or let them withdraw",priv:true},
+        {id:"cnote",text:"Your note on the partner who 'does not recall' the engagement",priv:true},
+        {id:"cbill",text:`${firm}'s own forty-hour billing record from three years ago`},
+        {id:"cmemo2",text:"Their internal conflict memo, produced by accident"},
+        {id:"cpr",text:`${a}'s CEO to their agency, copying you: 'can we use this publicly?'`},
+        {id:"cengage",text:"The original engagement letter from the old matter"},
+        {id:"cindex",text:"An index of the exhibit batch as produced"},
+        {id:"cfee",text:"Your engagement letter's fee schedule"},
+        {id:"cminutes",text:"Board minutes approving outside counsel, three years ago"}],
+      success:{fx:{bold:2},txt:"The file goes back clean. They get their paper and nothing else."},
+      partial:{fx:{},txt:"Most of it holds. The over-black pages draw a letter, but nothing of yours went out."},
+      miss:{fx:{},txt:"Your own read on your own client's exposure is now in the hands of the firm you are trying to disqualify."}}});
+  return c16;},
+  // 17 — the lead plaintiff who already settled (court)
+  ()=>{const a=rnd(CO),who=rnd(LAST),yrs=rnd([2,3]);
+  const c17={tier:2,title:`COURT: ${who} v. ${a} (class certification)`,deadline:rnd([3,4]),judge:true,
+    body:`${who} wants to represent a class of every customer ${a} overcharged. Certification turns on whether the lead plaintiff is typical of the class. Buried in ${a}'s own records: ${who} signed an individual settlement ${yrs} years ago releasing exactly these claims, for $900 and a coupon. A representative with no live claim cannot represent anyone.`,
+    opts:[
+      {text:"Consent to a narrow class and limit the damage.",base:100,safe:true,ok:{fx:{inf:2,bold:-3,money:500},txt:"A small class, a small settlement, a small mention in the file."}},
+      {text:"Oppose certification — the lead plaintiff released these claims.",base:68,style:"technical",ok:{fx:{rep:9,inf:8,money:1500},txt:"'The representative has nothing to represent.' Certification denied. The class evaporates."},fail:{fx:{rep:-6},txt:"They substitute a new lead plaintiff by Friday. You bought a week."}},
+      {text:"Argue the whole action was manufactured by counsel.",base:34,boldW:3,style:"aggressive",ok:{fx:{bold:8,inf:8,money:1200},txt:"The court asks plaintiff's counsel some very slow questions. The action is dismissed."},fail:{fx:{rep:-12},txt:"Accusing a colleague of manufacturing a class action requires proof. You had a theory."}}]};
+  if(rand()<.5) c17.objection={id:"class_examination",title:`THE ${who.toUpperCase()} EXAMINATION`,
+    body:`Plaintiff's counsel is walking ${who} through why she is typical of the class. Object while a question is standing — the bench decides certification and it is listening to you as much as to her.`,
+    lines:[
+      {id:"c1",text:"'You bought the product in question, correct?'"},
+      {id:"c2",text:"'And you would say the charge felt unfair to you, wouldn't you?'",bad:true,tag:"leading"},
+      {id:"c3",text:"'What did the invoice say?'"},
+      {id:"c4",text:"'Other customers told you they were charged the same. Is that right?'",bad:true,tag:"hearsay"},
+      {id:"c5",text:"'Describe the day you noticed the charge.'"},
+      {id:"c6",text:`'Why did ${a} decide to hide the fee from customers like you?'`,bad:true,tag:"assumes facts not in evidence"},
+      {id:"c7",text:"'Is this your signature on the account agreement?'"},
+      {id:"c8",text:"'What do you think the other class members would want here?'",bad:true,tag:"calls for speculation"},
+      {id:"c9",text:"'Did you read the settlement you signed?'"},
+      {id:"c10",text:"'You will sign anything with a cheque attached, won't you?'",bad:true,tag:"argumentative"}]};
+  return c17;},
+  // 18 — the expert whose credential does not exist (court)
+  ()=>{const a=rnd(CO),who=rnd(LAST),field=rnd(["forensic accounting","materials failure","valuation"]);
+  const c18={tier:2,title:`COURT: ${a} — exclude the ${field} expert`,deadline:rnd([3,4]),judge:true,
+    body:`The other side's ${field} expert, Dr. ${who}, has a CV that does not survive a phone call. It lists a board certification the issuing body says it has never awarded to anyone by that name; the same methodology was excluded in two prior cases; and his report cites a dataset he describes as 'proprietary and unavailable for review'. An opinion nobody can check is not evidence.`,
+    opts:[
+      {text:"Cross-examine him at trial and hope the jury notices.",base:100,safe:true,ok:{fx:{inf:2,bold:-3},txt:"You save it for cross. Juries forgive experts more than judges do."}},
+      {text:"Move to exclude — unverifiable method, phantom credential.",base:70,style:"technical",ok:{fx:{rep:9,inf:8,money:1400},txt:"Excluded. Their damages case leaves with him."},fail:{fx:{rep:-6},txt:"The court lets him testify and says the CV goes to weight, not admissibility."}},
+      {text:"Accuse him of perjury on his own CV.",base:32,boldW:3,style:"aggressive",ok:{fx:{bold:8,inf:8,money:1100},txt:"He withdraws from the case before the hearing. And from two others."},fail:{fx:{rep:-12},txt:"Calling an expert a liar in open court without the issuing body's letter is a choice. You made it."}}]};
+  if(rand()<.5) c18.opts.push({text:"CASE PREP: chart the CV against what the file proves.",style:"prep",
+    action:{id:"generated_expert_contradictions",type:"contradiction",title:`DR. ${who.toUpperCase()}'S CV`,
+      body:"He swore to his qualifications in a declaration. The bundle disagrees with him in several places. Pin each claim to the page that ends it — and leave the pages that prove nothing alone.",
+      hours:1.5,fatigue:6,edge:15,
+      edgeText:"CONTRADICTION CHART COMPLETE (+15% on this file's risky legal plays)",
+      pairs:[
+        {id:"board",statement:"'I hold board certification in this field.'",
+          document:"The issuing body's letter: no such certification has ever been awarded"},
+        {id:"method",statement:"'My methodology has never been challenged.'",
+          document:"Two prior orders excluding the same method by name"},
+        {id:"data",statement:"'All underlying data is available for review.'",
+          document:"His own report calling the dataset proprietary and unavailable"},
+        {id:"neutral",statement:"'I have no financial relationship with the parties.'",
+          document:"An invoice showing a contingent bonus on the outcome"},
+        {id:"teaching",statement:"'I taught this subject for a decade.'",
+          document:"The university's registrar: one guest lecture, one semester"},
+        {id:"peer",statement:"'My paper was peer reviewed.'",
+          document:"The journal's retraction notice for that paper"}],
+      decoys:[
+        {id:"parking",text:"His parking receipt from the deposition"},
+        {id:"cvcover",text:"The covering email attaching the CV"},
+        {id:"hotel",text:"A hotel folio from the conference he cites"}],
+      success:{fx:{bold:2},txt:"Every line of that CV now has a document sitting on top of it."},
+      partial:{fx:{},txt:"Part of the chart holds. The rest you would not put in front of a judge."},
+      miss:{fx:{bold:-2},txt:"The CV survives the afternoon. You spent the hours and proved nothing."}}});
+  return c18;},
 ];
 
 export function genCase(){

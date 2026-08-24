@@ -18,6 +18,58 @@ Her çalışma oturumunda:
 
 ---
 
+## 2026-08-22 — Claude: altı yeni prosedürel şablon (v1.9.27)
+
+### Neden
+
+Ölçüm: 30 günlük kariyerde ~67 dosya çözülüyor, 12 şablon vardı → aynı şablon **5.6 kez**
+tekrarlıyordu. Sorun sıkıcılık değil, **okuma sebebinin ölmesi**: isim ve rakam değişse de
+kazandıran ipucu aynı kaldığı için oyuncu ipucu ezberleyip metni atlıyor. Oyunun çekirdek vaadi bu.
+
+### Eklenen şablonlar (hepsi farklı hukuki argüman)
+
+13. **Teslim edilmemiş istisna** — poliçe istisnası yenileme ekinde var ama ek hiç ulaşmamış;
+    taahhütlü posta alındısını 11 ay önce işten ayrılmış biri imzalamış.
+14. **Ödenemeyen tahkim şartı** — şart geçerli ama iki bin mil ötede, ücretler paylaşımlı ve talep
+    dosyalama ücretinden küçük; girilemeyen forum forum değildir.
+15. **Kendi kendini silen dizüstü** — otomatik silme dört yıl düzenli çalışmış, hold mektubundan
+    iki gün sonra elle kapatılmış *(kronoloji %50)*.
+16. **Kendi memosunun itiraf ettiği çıkar çatışması** — karşı taraf vekili aynı işte üç yıl önce
+    müvekkilini temsil etmiş; iç çatışma memosu yanlışlıkla üretilmiş *(redaksiyon %45)*.
+17. **Zaten sulh olmuş sınıf temsilcisi** — lead plaintiff bu talepleri iki yıl önce 900 dolara
+    ibra etmiş *(itiraz %50, mahkeme)*.
+18. **Var olmayan unvanlı bilirkişi** — CV'deki sertifikayı veren kurum "böyle bir belge hiç
+    vermedik" diyor *(çelişki tablosu %50, mahkeme)*.
+
+### Sonuç
+
+- Şablon tekrarı kariyer başına **5.6 → 3.7**.
+- Farklı dava iskeleti: 47 (isim/rakam varyasyonları hariç).
+- Board dağılımı daha da dengelendi: timeline %17.6, objection %8.1, redaction %7.2,
+  contradiction %5.1, lockpick %2.5, power_cut %2.3 — herhangi bir board %42.8.
+- Tier dağılımı sağlıklı: t0 %11, t1 %67, t2 %22 (mahkeme şablonu 2'den 4'e çıktı, rank≥1'de
+  duruşma içeriği artık kıt değil).
+- **Denge bozulmadı:** 120 kariyer, kazanma %65.8 — yerleşik ~%65-70 bandının içinde.
+
+### Yeni kalıcı test: içerik derinliği
+
+`npm test` artık üretilen her dosyayı denetliyor: garantili çıkış seçeneği var mı, en az bir riskli
+okuma var mı, tier≥1 dosyalarda gövde ipucu saklayacak kadar uzun mu, deadline geçerli mi. Ayrıca
+üretilen farklı iskelet sayısının 40'ın altına düşmesi testi kırıyor — içerik eklerken bozuk dosya
+kaçıramayız, içerik **azaltırken** de fark ederiz.
+
+### Testler
+
+`npm test` yeşil, `npm run build` yeşil, `npm run test:soak` → replay 329/329, integrity 0.
+
+### Sıradaki kesin adım
+
+Değişmedi: **GitHub Pages demo**, ardından **mobil layout + Capacitor**. İçerik tarafında bir sonraki
+adım (yapılırsa) **B planı**: mevcut şablonlara alternatif kazandıran ipuçları vermek — aynı başlığı
+görsen bile okumak zorunda kalman için. Bu tur A planıydı (yeni şablon), B daha invaziv.
+
+---
+
 ## 2026-08-22 — Claude: genel kontrol + board erişilebilirliği (v1.9.26)
 
 ### Genel kontrol bulguları

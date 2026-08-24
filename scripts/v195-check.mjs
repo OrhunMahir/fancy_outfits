@@ -3253,6 +3253,26 @@ globalThis.clearInterval = () => {};
   assert.equal(state.S.introStep, null, "reloading a career never reopens it");
   assert.ok(intro.INTRO_STEPS.every(step => step.title && step.body), "every card says something");
 
+  // ---- CONTENT DEPTH ----
+  // Every template must be playable on its own terms: a guaranteed way out, at
+  // least one risky read, and a clue long enough to actually be read. Adding
+  // content should never be able to smuggle in a broken filing.
+  fresh("daily");
+  utils.setSeed(31337);
+  const skeletons = new Set();
+  for (let i = 0; i < 4000; i++) {
+    const c = casegen.genCase();
+    skeletons.add(c.title.replace(/[A-Z][a-z]+( [A-Z][a-z&.']+)*/g, "X").replace(/[0-9]+/g, "N"));
+    assert.ok(c.opts.some(o => o.safe), "every filing keeps a guaranteed way out");
+    assert.ok(c.opts.some(o => !o.safe && !o.action), "and at least one risky read");
+    // Errands are chores, not puzzles; the reading contract is for real files.
+    if ((c.tier || 0) >= 1) assert.ok(c.body.length > 180, "the clue needs room to hide in: " + c.title);
+    assert.ok(Number.isFinite(c.deadline) && c.deadline >= 1, "every filing is due sometime");
+  }
+  // The docket is the reason to read; too few distinct arguments and players
+  // stop reading and start pattern-matching.
+  assert.ok(skeletons.size >= 40, "the generator offers " + skeletons.size + " distinct filings");
+
   // ---- DATE INDEPENDENCE ----
   // DAILY takes its scenario from the calendar, so a suite that hardcodes any
   // scenario-scaled number silently rots overnight. This has bitten three

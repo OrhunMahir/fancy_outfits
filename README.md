@@ -30,6 +30,18 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.27 — Six more arguments to read *(2026-08-22)*
+- **Twelve procedural templates became eighteen.** A thirty-day career resolves around 67 filings,
+  which meant every template came round five or six times — and once you recognise an argument you
+  stop reading it, which is the one thing this game asks you to do.
+- **The new files:** an insurance exclusion that was never delivered, an arbitration clause that
+  costs more to use than the claim is worth, a laptop whose auto-deletion was switched off by hand
+  two days after the litigation hold, opposing counsel whose own conflict memo admits the conflict,
+  a class representative who quietly settled these claims two years ago, and an expert witness whose
+  board certification the issuing body has never awarded to anyone.
+- Repetition per career drops from 5.6 to 3.7, court filings double, and the balance is unchanged —
+  120 measured careers still win at 65.8%.
+
 ### v19.26 — The boards you built are the boards you see *(2026-08-22)*
 - **Objections and privilege reviews now reach the whole docket.** Both were authored on a single
   hand-written case each, which meant a long career could finish without ever meeting them. The

@@ -155,6 +155,10 @@ const judgeMemoryModel=()=>balanceExperiment&&["legacy","rolling","friday"].incl
    its hours (C) and its diminishing payoff when leaned on (A). Both ship off. */
 const safeHoursMultiplier=()=>balanceExperiment&&Number.isFinite(balanceExperiment.safeHoursMult)?
   Math.max(1,balanceExperiment.safeHoursMult):SAFE_HOURS_MULT;
+/* Involuntary board odds, overridable through the existing test-only hook so
+   the soak and the dev panel can force a window open. Production never sets it. */
+const boardTrigger=(key,fallback)=>balanceExperiment&&Number.isFinite(balanceExperiment[key])
+  ?clamp(balanceExperiment[key],0,100):fallback;
 const safeCoastingEnabled=()=>balanceExperiment&&typeof balanceExperiment.safeCoasting==="boolean"?
   balanceExperiment.safeCoasting:SAFE_COASTING;
 const recentJudgeEvents=m=>Array.isArray(m&&m.recent)?m.recent:[];
@@ -1694,8 +1698,10 @@ export function choose(c,o,confirmedLate,timelinePrepped){
   }
   // A rare prep window opens BEFORE any money changes hands: resuming this play
   // after the challenge must not charge a bribe (or anything else) twice.
-  if(!timelinePrepped&&objectionEligible(c,o)&&rand()*100<OBJECTION_TRIGGER&&beginObjectionChallenge(c,o,confirmedLate)) return;
-  if(!timelinePrepped&&timelineEligible(c,o)&&rand()*100<TIMELINE_TRIGGER&&beginTimelineChallenge(c,o,confirmedLate)) return;
+  if(!timelinePrepped&&objectionEligible(c,o)&&rand()*100<boardTrigger("objectionTrigger",OBJECTION_TRIGGER)&&
+    beginObjectionChallenge(c,o,confirmedLate)) return;
+  if(!timelinePrepped&&timelineEligible(c,o)&&rand()*100<boardTrigger("timelineTrigger",TIMELINE_TRIGGER)&&
+    beginTimelineChallenge(c,o,confirmedLate)) return;
   if(o.bribe){ // the golf money leaves your account win or lose
     if(S.money<o.bribe){ log("You can't afford the judge's 'green fees'.","bad"); notify(); return; }
     apply({money:-o.bribe},true);

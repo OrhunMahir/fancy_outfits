@@ -18,6 +18,56 @@ Her çalışma oturumunda:
 
 ---
 
+## 2026-08-22 — Claude: DEV panel (v1.9.28)
+
+### Karar
+
+Kullanıcı "developer bölümü" istedi, "GitHub'a pushlamayalım" dedi. Sordum, seçim:
+**repo'da dursun ama yalnız dev'de çalışsın.** Yani kod pushlanır, `npm run build` çıktısında
+hiç yer almaz — oyuncuya, Pages demosuna, itch'e ve Steam'e asla gitmez. Alternatifler (gitignore
+ya da ayrı yerel dal) reddedildi: yedeklenmez, refactor'da sessizce bozulur, test koruyamaz.
+
+### Ne var
+
+`` ` `` tuşu paneli açar/kapatır (yalnız dev). İçinde:
+
+- **Boards:** her board tek tıkla açılır — kilit açma SNEAKY 0/2/5 ile ayrı ayrı, sabotaj,
+  kronoloji, çelişki, itiraz, redaksiyon, ve yazı-tura **istenen yüzle** (heads/tails).
+- **El yazması dosyalar:** 11 davanın hepsi tier etiketiyle, tek tıkla masaya.
+- **Prosedürel şablonlar:** 1-18 arası istediğin şablonu doğrudan üretir (`genCaseFrom`).
+- **Statlar:** rep/bold/inf/firm/money/fatigue/hours/rank/day/sneaky canlı düzenlenir.
+- **Reveal:** açık board'un gizlediği değerleri döker — kilidin `give`/`breakAt`/`hintLead`'i,
+  kronolojinin doğru sırası, redaksiyonun imtiyazlı sayfaları, itirazın hatalı soruları,
+  sabotajın halka hedefleri. Efektleri gerçeğe karşı yargılayabilmek için.
+
+### Kurallar
+
+- `src/game/devtools.js` **gerçek engine fonksiyonlarını sürer** — hiçbir oyun kuralını yeniden
+  yazmaz. Panelde gördüğün, oyuncunun göreceğiyle aynı.
+- Board tetikleri için mevcut test-only `setBalanceExperiment` seam'i kullanıldı
+  (`objectionTrigger`/`timelineTrigger`); yeni bir üretim mekanizması eklenmedi.
+- `casegen.js`'e `genCaseFrom(index)` ve `TEMPLATE_COUNT` eklendi (üretim kodu, zararsız).
+
+### Yolda yakalanan kusur
+
+Board açıkken modalın `inert` süpürmesi dev paneli de kilitliyordu — yani tam ihtiyaç duyulan anda
+çalışmıyordu. Süpürme seçicisine `:not(.devpanel)` eklendi.
+
+### Yeni kalıcı test
+
+`npm test` artık **dev/production sınırını** denetliyor: panelin yalnız `import.meta.env.DEV`
+arkasında render edildiğini, hotkey'in yalnız dev'de kurulduğunu, hiçbir sevk edilen modülün
+`devtools.js`'i import etmediğini ve devtools'un gerçek engine'i sürdüğünü zorunlu kılıyor.
+Ayrıca build çıktısı elle de doğrulandı: `devOpenBoard`, `DEV_TEMPLATE_COUNT`, panel metinleri —
+hiçbiri `dist/`te yok.
+
+### Testler
+
+`npm test` yeşil, `npm run build` yeşil, `npm run test:soak` → replay 329/329, integrity 0.
+Tarayıcıda panel açıldı, SNEAKY 5 ile kilit board'u açıldı (3 pik), reveal gizli değerleri döktü.
+
+---
+
 ## 2026-08-22 — Claude: altı yeni prosedürel şablon (v1.9.27)
 
 ### Neden

@@ -132,7 +132,9 @@ export default function ActionMinigameOverlay(){
   useEffect(()=>{
     if(!challengeOpen) return;
     const previouslyFocused=document.activeElement;
-    const background=[...document.querySelectorAll("#approot > :not(.action-overlay):not(.flash)")];
+    // .devpanel is excluded on purpose: it only exists in dev builds, and
+    // inspecting a board while it is open is the entire point of it.
+    const background=[...document.querySelectorAll("#approot > :not(.action-overlay):not(.flash):not(.devpanel)")];
     const previousState=background.map(element=>({
       element,
       inert:element.inert,

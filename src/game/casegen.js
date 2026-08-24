@@ -414,8 +414,19 @@ const TEMPLATES=[
   return c18;},
 ];
 
+export const TEMPLATE_COUNT=TEMPLATES.length;
+
 export function genCase(){
   const c=rnd(TEMPLATES)();
+  c.id=nextId("gen");
+  return c;
+}
+
+/* Draw one NAMED template instead of a random one. Used by the dev panel so a
+   specific filing can be summoned without rolling the docket for it. */
+export function genCaseFrom(index){
+  const i=Math.max(0,Math.min(TEMPLATES.length-1,Math.trunc(Number(index))||0));
+  const c=TEMPLATES[i]();
   c.id=nextId("gen");
   return c;
 }

@@ -3253,6 +3253,27 @@ globalThis.clearInterval = () => {};
   assert.equal(state.S.introStep, null, "reloading a career never reopens it");
   assert.ok(intro.INTRO_STEPS.every(step => step.title && step.body), "every card says something");
 
+  // ---- DEV TOOLS STAY OUT OF THE GAME ----
+  // The dev panel is repo-resident but must never ship. Vite only drops it if
+  // every reference is behind import.meta.env.DEV and no shipped module imports
+  // it, so that discipline is the thing worth testing.
+  const devAppSource = readFileSync("src/App.jsx", "utf8");
+  assert.match(devAppSource, /import\.meta\.env\.DEV\s*&&\s*devOpen\s*&&\s*<DevPanel/,
+    "the dev panel renders only behind the dev flag");
+  assert.match(devAppSource, /if\(!import\.meta\.env\.DEV\) return;/,
+    "and its hotkey is installed only in dev");
+  const shipped = ["src/game/engine.js", "src/game/state.js", "src/game/content.js", "src/game/casegen.js",
+    "src/game/minigames.js", "src/components/CasePane.jsx", "src/components/StatsPanel.jsx",
+    "src/components/ActionMinigameOverlay.jsx", "src/components/Topbar.jsx"];
+  for (const file of shipped)
+    assert.ok(!/from ".*devtools\.js"/.test(readFileSync(file, "utf8")),
+      file + " must not import the dev tools");
+  // devtools drives the real engine instead of reimplementing rules, so the
+  // panel can never show behaviour a player would not get.
+  const devSource = readFileSync("src/game/devtools.js", "utf8");
+  assert.match(devSource, /import \* as engine from "\.\/engine\.js"/, "dev tools drive the real engine");
+  assert.ok(!/Math\.random/.test(devSource), "dev tools respect the deterministic RNG rule");
+
   // ---- CONTENT DEPTH ----
   // Every template must be playable on its own terms: a guaranteed way out, at
   // least one risky read, and a clue long enough to actually be read. Adding

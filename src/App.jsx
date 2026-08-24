@@ -1,12 +1,13 @@
 // Top-level layout: start screen before a run, then topbar + office scene +
 // the three panels. Overlays render conditionally from state (no .hidden CSS).
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useGame } from "./game/useGame.js";
 import { S } from "./game/state.js";
 import { choose, deferCase, resolveCrisis, dismissSummary, advanceIntro, closeIntro,
          closeSettings, closeInfo, closeRoster, closeArchive, dismissSaveError } from "./game/engine.js";
 import StartScreen from "./components/StartScreen.jsx";
 import IntroOverlay from "./components/IntroOverlay.jsx";
+import DevPanel from "./components/DevPanel.jsx";
 import Topbar from "./components/Topbar.jsx";
 import OfficeScene from "./components/OfficeScene.jsx";
 import Inbox from "./components/Inbox.jsx";
@@ -47,6 +48,13 @@ function handleKey(e){
 
 export default function App(){
   const S=useGame();
+  const [devOpen,setDevOpen]=useState(false);
+  useEffect(()=>{
+    if(!import.meta.env.DEV) return;
+    const onKey=e=>{ if(e.key==="`"){ e.preventDefault(); setDevOpen(v=>!v); } };
+    window.addEventListener("keydown",onKey);
+    return ()=>window.removeEventListener("keydown",onKey);
+  },[]);
   // screen shake: replay the CSS animation whenever shakeSeq bumps
   const rootRef=useRef(null);
   const shake=S&&S.shakeSeq;
@@ -81,6 +89,7 @@ export default function App(){
       {S.actionChallenge && <ActionMinigameOverlay />}
       {S.summary && <SummaryOverlay sum={S.summary} />}
       {S.introStep!=null && <IntroOverlay />}
+      {import.meta.env.DEV && devOpen && <DevPanel onClose={()=>setDevOpen(false)} />}
       {S.flash && <div className="flash" key={S.flash.id}>{S.flash.txt}</div>}
     </div>
   );

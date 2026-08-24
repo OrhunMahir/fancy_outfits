@@ -14,7 +14,24 @@ import * as engine from "./engine.js";
 export const DEV_TEMPLATE_COUNT=TEMPLATE_COUNT;
 export const devCaseIds=()=>buildPool().map(c=>({id:c.id,title:c.title,tier:c.tier||0}));
 
+/* Anything that puts a new filing on the desk must first close whatever board
+   is open. Otherwise `choose()` refuses (a challenge is already live), the old
+   board stays on screen, and its case is gone from the inbox — so every button
+   in it silently does nothing. That reads as a freeze. */
+export function devClearBoard(){
+  if(!S) return;
+  S.actionChallenge=null;
+  for(const c of S.inbox||[]){
+    if(!c||c.msg) continue;
+    delete c.actionInProgress;
+    delete c.timelineInProgress;
+    delete c.objectionInProgress;
+  }
+  notify();
+}
+
 const desk=(c,{hours=8}={})=>{
+  devClearBoard();
   S.inbox=[c]; S.openCase=c; S.hours=hours; S.event=null; S.summary=null; S.pendingSummary=null;
   notify();
   return c;
@@ -65,7 +82,7 @@ export function devOpenCoin(face){
     engine.setLockTension(S.actionChallenge.breakAt); // snap the last pick
     const now=S.actionChallenge;
     if(now&&now.phase==="coin_call"&&(!face||now.coinFace===face)) return now;
-    S.actionChallenge=null;
+    devClearBoard();
   }
   return S.actionChallenge;
 }

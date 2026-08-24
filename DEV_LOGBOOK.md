@@ -48,10 +48,26 @@ ya da ayrı yerel dal) reddedildi: yedeklenmez, refactor'da sessizce bozulur, te
   (`objectionTrigger`/`timelineTrigger`); yeni bir üretim mekanizması eklenmedi.
 - `casegen.js`'e `genCaseFrom(index)` ve `TEMPLATE_COUNT` eklendi (üretim kodu, zararsız).
 
-### Yolda yakalanan kusur
+### Yolda yakalanan üç kusur
 
-Board açıkken modalın `inert` süpürmesi dev paneli de kilitliyordu — yani tam ihtiyaç duyulan anda
-çalışmıyordu. Süpürme seçicisine `:not(.devpanel)` eklendi.
+1. **Modal panelin üstüne inert basıyordu.** Board açıkken `ActionMinigameOverlay`'in `inert`
+   süpürmesi dev paneli de kilitliyordu — tam ihtiyaç duyulan anda tıklanamıyordu. Süpürme
+   seçicisine `:not(.devpanel)` eklendi.
+2. **Oyun donuyordu (kullanıcı bildirdi).** Açık bir board varken panelden ikinci bir board'a
+   basınca: `devSpawnCase` inbox'ı değiştiriyor, ama `choose()` zaten açık bir challenge varken
+   hiçbir şey yapmıyor. Sonuç: ekranda kalan board'un davası inbox'tan kayboluyor, `actionRefs`
+   çözemiyor ve tüm tuşlar **sessizce** boşa düşüyor. Düzeltme: `devClearBoard()` — masaya yeni
+   dosya koyan her yol önce açık board'u ve `*InProgress` işaretlerini temizliyor. Panele ayrıca
+   "Close open board (unstick)" kurtarma düğmesi eklendi. Yedi board arka arkaya açılıp her birinin
+   tepki verdiği doğrulandı.
+3. **Genişlik yanlış kaydediliyordu.** `pointerup` işleyicisi closure'daki eski genişliği
+   yazıyordu; ref'e taşındı. Panel artık sol kenarından sürüklenerek 240-760px arası
+   boyutlandırılıyor ve genişlik reload'ı aşıyor (`fo_devpanel_width`). Başlıktaki ↔ sıfırlıyor.
+
+### Açma/kapama
+
+Kullanıcının klavyesinde backtick ölü tuş olduğu için tek kısayol yetersizdi: artık **F9**, sağ
+kenardaki görünür **DEV şeridi** ve backtick — üçü de çalışıyor.
 
 ### Yeni kalıcı test
 

@@ -72,6 +72,9 @@ globalThis.clearInterval = () => {};
     engine.startGame(mode === "daily" ? null : "fraud", "easy", mode);
     return state.S;
   };
+  // Work fatigue runs through ENDURANCE, and a DAILY run takes its scenario from
+  // today's date — so expected fatigue is derived, never written down.
+  const toil = raw => progression.applyEnduranceToWorkFatigue(raw, state.S.progression, state.S.scenario);
   const liveRedvale = () => {
     const raw = content.buildPool().find(c => c.id === "redvale");
     const c = engine.instantiateCase(raw);
@@ -1132,7 +1135,7 @@ globalThis.clearInterval = () => {};
   assert.match(loadedRedvale.covertNote, /ARCHIVE INDEX/);
   assert.equal(loadedRedvale.opts.some(option => option.action), false);
   assert.equal(loadedRedvale.actionInProgress, undefined);
-  assert.deepEqual([state.S.hours, state.S.fatigue, state.S.bold], [.5, 7, 43]);
+  assert.deepEqual([state.S.hours, state.S.fatigue, state.S.bold], [.5, toil(7), 43]);
   assert.deepEqual([state.S.runStats.covertTry, state.S.runStats.covertW,
     state.S.runStats.covertEscape, state.S.runStats.covertCaught], [1, 1, 0, 0]);
   assert.equal(state.S.progression.xp,trainedXpBase+progression.COVERT_XP.success);
@@ -1161,7 +1164,7 @@ globalThis.clearInterval = () => {};
   assert.equal(state.S.openCase, redvale.c);
   assert.equal(redvale.c.opts.some(option => option.action), false);
   assert.equal(redvale.c.covertEdge, undefined);
-  assert.deepEqual([state.S.hours, state.S.fatigue, state.S.bold], [.5, 7, 38]);
+  assert.deepEqual([state.S.hours, state.S.fatigue, state.S.bold], [.5, toil(7), 38]);
   assert.deepEqual([state.S.runStats.covertTry, state.S.runStats.covertW,
     state.S.runStats.covertEscape, state.S.runStats.covertCaught], [1, 0, 1, 0]);
   assert.equal(state.S.progression.xp,progression.COVERT_XP.escape);
@@ -1177,7 +1180,7 @@ globalThis.clearInterval = () => {};
   engine.completeActionChallenge();
   assert.equal(state.S.inbox.includes(redvale.c), false);
   assert.equal(state.S.openCase, null);
-  assert.deepEqual([state.S.rep, state.S.bold, state.S.firm, state.S.hours, state.S.fatigue], [32, 35, 56, .5, 7]);
+  assert.deepEqual([state.S.rep, state.S.bold, state.S.firm, state.S.hours, state.S.fatigue], [32, 35, 56, .5, toil(7)]);
   assert.deepEqual([state.S.runStats.covertTry, state.S.runStats.covertW,
     state.S.runStats.covertEscape, state.S.runStats.covertCaught], [1, 0, 0, 1]);
   assert.equal(state.S.progression.xp,progression.COVERT_XP.caught);
@@ -1226,7 +1229,7 @@ globalThis.clearInterval = () => {};
   assert.equal(loadedPowerCase.covertEdge, 12);
   assert.match(loadedPowerCase.covertNote, /PATCH LEDGER/);
   assert.equal(loadedPowerCase.opts.some(option => option.action), false);
-  assert.deepEqual([state.S.hours, state.S.fatigue, state.S.bold], [.5, 8, 44]);
+  assert.deepEqual([state.S.hours, state.S.fatigue, state.S.bold], [.5, toil(8), 44]);
   assert.deepEqual([state.S.runStats.covertTry, state.S.runStats.covertW,
     state.S.runStats.covertEscape, state.S.runStats.covertCaught], [1, 1, 0, 0]);
   assert.equal(state.S.progression.xp,progression.COVERT_XP.success);
@@ -1243,7 +1246,7 @@ globalThis.clearInterval = () => {};
   assert.equal(state.S.inbox.includes(powerCut.c), true);
   assert.equal(powerCut.c.opts.some(option => option.action), false);
   assert.equal(powerCut.c.covertEdge, undefined);
-  assert.deepEqual([state.S.hours, state.S.fatigue, state.S.bold], [.5, 8, 38]);
+  assert.deepEqual([state.S.hours, state.S.fatigue, state.S.bold], [.5, toil(8), 38]);
   assert.deepEqual([state.S.runStats.covertTry, state.S.runStats.covertW,
     state.S.runStats.covertEscape, state.S.runStats.covertCaught], [1, 0, 1, 0]);
   assert.equal(state.S.progression.xp,progression.COVERT_XP.escape);
@@ -2072,7 +2075,8 @@ globalThis.clearInterval = () => {};
   fresh();
   Object.assign(state.S, { day: 3, rank: 1, inf: 60, firm: 35, hours: 8, fatigue: 0, firmPlanDay: 0, event: null, summary: null });
   engine.pitchTurnaround();
-  assert.deepEqual([state.S.firm, state.S.hours, state.S.fatigue, state.S.firmPlanDay, state.S.rank], [45, 6.5, 6, 8, 2]);
+  assert.deepEqual([state.S.firm, state.S.hours, state.S.fatigue, state.S.firmPlanDay, state.S.rank],
+    [45, 6.5, toil(constants.FIRM_PLAN_FATIGUE), 8, 2]);
   const afterPlan = [state.S.firm, state.S.hours, state.S.fatigue, state.S.firmPlanDay];
   engine.pitchTurnaround();
   assert.deepEqual([state.S.firm, state.S.hours, state.S.fatigue, state.S.firmPlanDay], afterPlan);
@@ -2085,7 +2089,7 @@ globalThis.clearInterval = () => {};
   fresh("daily");
   Object.assign(state.S, { firm: 20, hours: 8, fatigue: 0 });
   engine.pitchTurnaround();
-  assert.deepEqual([state.S.firm, state.S.hours, state.S.fatigue], [20, 8, 0]);
+  assert.deepEqual([state.S.firm, state.S.hours, state.S.fatigue], [20, 8, 0]); // fatigue-literal-ok: nothing was spent
 
   // The full 90-minute plan lands before the exhaustion incident, like a resolved
   // case: its FIRM gain/cooldown persist, then the day ends exactly once with no
@@ -3244,6 +3248,24 @@ globalThis.clearInterval = () => {};
   assert.equal(engine.loadGame(1), true);
   assert.equal(state.S.introStep, null, "reloading a career never reopens it");
   assert.ok(intro.INTRO_STEPS.every(step => step.title && step.body), "every card says something");
+
+  // ---- DATE INDEPENDENCE ----
+  // DAILY takes its scenario from the calendar, so a suite that hardcodes any
+  // scenario-scaled number silently rots overnight. This has bitten three
+  // times; it is now an invariant with a test behind it.
+  const scenarioToil = {};
+  for (const scenario of ["fraud", "debtor", "legacy", "defector", "boomerang"]) {
+    engine.startGame(scenario, "easy", "standard");
+    scenarioToil[scenario] = progression.applyEnduranceToWorkFatigue(7, state.S.progression, scenario);
+  }
+  assert.ok(new Set(Object.values(scenarioToil)).size > 1,
+    "scenarios really do scale work fatigue differently — derived expectations are mandatory");
+  const suiteSource = readFileSync("scripts/v195-check.mjs", "utf8");
+  const hardcodedFatigue = suiteSource
+    .split("\n")
+    .filter(line => /state\.S\.fatigue/.test(line) && /\[[^\]]*\b(?:6|7|8|9)\b/.test(line) && !/toil\(/.test(line) && !/fatigue-literal-ok/.test(line));
+  assert.deepEqual(hardcodedFatigue, [],
+    "work-fatigue expectations must be derived through toil(), never written as a literal");
 
   // Production CSP has no loopback WebSocket escape hatch; Vite adds it only in dev.
   const indexHtml = readFileSync("index.html", "utf8");

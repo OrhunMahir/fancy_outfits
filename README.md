@@ -30,6 +30,18 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.26 — The boards you built are the boards you see *(2026-08-22)*
+- **Objections and privilege reviews now reach the whole docket.** Both were authored on a single
+  hand-written case each, which meant a long career could finish without ever meeting them. The
+  generator now writes an examination into two court templates and a production bundle into two
+  document templates, with the generated names running through the questions and the pages.
+- **One board per filing.** A court file used to be able to carry two competing windows where only
+  one could ever open; now it rolls for one.
+- **The chronology stops being the default.** It sat on 42% of generated filings and now sits on
+  22%, so no single board is what the game feels like.
+- Measured across 240 careers: objections went from 25% to 70% of careers, chronologies from 82% to
+  68% — the two now appear at comparable rates instead of one crowding out the other.
+
 ### v19.25 — Objections, and the black marker *(2026-08-18)*
 - **OBJECTION:** the first timing board that happens in a courtroom instead of a stairwell. Commit to
   a risky play at a hearing and opposing counsel's examination starts scrolling. Object while an

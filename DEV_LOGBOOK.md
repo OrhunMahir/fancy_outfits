@@ -18,6 +18,67 @@ Her çalışma oturumunda:
 
 ---
 
+## 2026-08-22 — Claude: genel kontrol + board erişilebilirliği (v1.9.26)
+
+### Genel kontrol bulguları
+
+Kullanıcı "genel bir kontrol yap" dedi. Katman kuralı, RNG kuralı, bağımlılıklar (`npm audit` 0),
+save zinciri (21 migration / 92 doğrulama noktası), bundle (439 KB, gzip 147 KB) ve soak temizdi.
+İki gerçek bulgu çıktı:
+
+**1. `npm test` KIRIKTI ve tarihe bağlıydı (üçüncü tekrar).** DAILY senaryoyu takvimden seçiyor;
+o gün `debtor` çıkınca doğuştan ENDURANCE work-fatigue'i 7'den 6'ya indirdi, testte sabit `7`
+yazıyordu. Beş beklenti `toil()` ile türetildi ve suite'e **kendi kaynağını tarayan bir kural**
+eklendi: `state.S.fatigue` içeren bir satır sabit sayı yazarsa test kırılıyor (gerçek bir gizli
+bomba daha yakaladı: `pitchTurnaround`). Bilinçli istisnalar `fatigue-literal-ok` ile işaretleniyor.
+Farklı saat dilimlerinde doğrulandı.
+
+**2. Yeni board'lar oyuncuya ulaşmıyordu.** Ölçüm (240 kariyer × 30 gün):
+
+| Board | Verisi nerede | Görülen kariyer | Açılış/kariyer |
+|---|---|---|---|
+| Timeline | 5 prosedürel şablon | %82 | 1.9 |
+| Objection | **yalnız `court1`** | %25 | 0.25 |
+| Redaction | **yalnız `nda`** | — (gönüllü) | — |
+
+Yani iki oturumluk emek, uzun bir kariyerde bir kez bile çıkmayabiliyordu.
+
+### Yapılan: board dağıtımı
+
+- **Objection** iki mahkeme şablonuna yazıldı (3: geç dosyalama — records custodian sorgusu;
+  4: vasiyet — tanık sorgusu). Her biri 10 satır, 5'i hatalı (leading/hearsay/assumes facts/
+  speculation/argumentative), üretilen isimler satırlara giriyor.
+- **Redaction** iki belge şablonuna yazıldı (2: sözleşme uyuşmazlığı üretim demeti; 8: fesih —
+  personel dosyası). Tuzaklar korundu: PR ajansına cc'li mail imtiyazlı değil, ücret tarifesi değil.
+- **Tek dosya tek board:** mahkeme şablonlarında objection ve timeline/contradiction artık **tek
+  zarla** seçiliyor (birbirlerinin tetiğini yiyorlardı — `choose()` içinde objection önce denenir).
+- **Timeline kısıldı:** üç şablonda koşulsuzdu, `rand()<.6` ile seyreltildi.
+
+### Sonuç (aynı 240 kariyer, öncesi → sonrası)
+
+| | görülen kariyer | açılış/kariyer |
+|---|---|---|
+| Timeline | %82 → **%68** | 1.9 → **1.10** |
+| Objection | %25 → **%70** | 0.25 → **1.18** |
+
+Üretilen dosya başına dağılım: timeline %41.8 → **%22.3**, redaction 0 → **%7.4**, objection 0 →
+**%6.9**, contradiction/lockpick/power_cut %3.8 (değişmedi). Artık tek board varsayılan deneyim
+değil.
+
+### Testler
+
+- `npm test` yeşil (üç saat diliminde ayrı ayrı). Coverage testi genişletildi: generator'ın **her
+  iki** prep board'unu da üretebildiği artık zorunlu invariant.
+- `npm run build` yeşil. `npm run test:soak` → replay 328/328, integrity 0.
+
+### Sıradaki kesin adım
+
+**GitHub Pages demo** (tek workflow; repo görünürlüğü kullanıcının kararı), ardından
+**mobil layout + Capacitor**. Backlog'da: bağlamsal SFX, Steam paketleme, barodan atılma fikri,
+3. minigame (parçalanmış belge — önerilmedi).
+
+---
+
 ## 2026-08-18 — Claude: OBJECTION + PRIVILEGE REVIEW (v1.9.25)
 
 ### Git checkpoint

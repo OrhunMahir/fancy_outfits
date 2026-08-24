@@ -867,17 +867,21 @@ globalThis.clearInterval = () => {};
   // actions: the procedural docket can surface either COVERT board again.
   fresh("daily");
   utils.setSeed(2052);
-  const generatedCovertTypes=new Set(), generatedPrepTypes=new Set();
-  for(let i=0;i<1000&&(generatedCovertTypes.size<2||!generatedPrepTypes.size);i++){
+  const generatedCovertTypes=new Set(), generatedPrepTypes=new Set(), generatedPrepStyles=new Set();
+  const COVERT_TYPES=["lockpick","power_cut"], PREP_TYPES=["contradiction","redaction"];
+  for(let i=0;i<2000&&(generatedCovertTypes.size<2||generatedPrepTypes.size<2);i++){
     for(const option of casegen.genCase().opts){
       if(!option.action) continue;
-      if(option.action.type==="contradiction") generatedPrepTypes.add(option.style);
+      if(PREP_TYPES.includes(option.action.type)){ generatedPrepTypes.add(option.action.type); generatedPrepStyles.add(option.style); }
       else generatedCovertTypes.add(option.action.type);
     }
   }
-  assert.deepEqual([...generatedCovertTypes].sort(),["lockpick","power_cut"]);
+  assert.deepEqual([...generatedCovertTypes].sort(),COVERT_TYPES);
+  // Both voluntary boards must be reachable from the generator, not just from
+  // the eleven hand-written files — otherwise a long career never sees them.
+  assert.deepEqual([...generatedPrepTypes].sort(),PREP_TYPES,"the procedural docket offers both prep boards");
   // Prep boards ride the same machinery but must never be labelled covert.
-  assert.deepEqual([...generatedPrepTypes],["prep"],"the procedural docket also offers contradiction prep");
+  assert.deepEqual([...generatedPrepStyles],["prep"],"prep is never labelled covert");
 
   // The chronology feature cannot live on one hand-written file: the templates
   // whose bodies already carry dates must offer it too, with the dates in the

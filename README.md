@@ -30,6 +30,22 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.32 — The profession is watching *(2026-08-26)*
+- **You can now be disbarred.** Getting caught inside a building, hiding documents from a
+  court, paying a judge — the profession remembers all of it, and you are never shown the
+  file. The first you hear about it is a letter, then a formal complaint, then three
+  practitioners in a room deciding whether you are still a lawyer. Every stage has a way
+  through; only the last one, answered recklessly, ends the career.
+- **In THE FRAUD, the bar never writes.** It simply starts asking which law school you
+  attended — the attention feeds the credentials ladder that scenario already had, rather
+  than running a second investigation beside it.
+- **The room now sounds like the room.** The ambience hushes and slows when you stand up in
+  a hearing, picks up air handling when you are alone in the building after seven, and goes
+  dull and slightly out of tune when you are running on fumes.
+- **Verdicts sound like what was riding on them.** A junior's win is a chirp; a partner's
+  win on a scaled file gets the extra octave, and a big loss drops the floor out.
+- The balance is untouched: 320 measured careers, same win rate as before.
+
 ### v19.31 — Objections everywhere, and a door out *(2026-08-26)*
 - **Hearings stopped being rare, and the measurement said why.** It was never the number
   of cases: 57% of court filings carried no transcript at all, so the board could not open

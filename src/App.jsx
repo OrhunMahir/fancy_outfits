@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useGame } from "./game/useGame.js";
 import { S } from "./game/state.js";
 import { choose, deferCase, resolveCrisis, dismissSummary, advanceIntro, closeIntro,
-         closeSettings, closeInfo, closeRoster, closeArchive, dismissSaveError } from "./game/engine.js";
+         closeSettings, closeInfo, closeRoster, closeArchive, dismissSaveError,
+         refreshRoomTone } from "./game/engine.js";
 import StartScreen from "./components/StartScreen.jsx";
 import IntroOverlay from "./components/IntroOverlay.jsx";
 import DevPanel from "./components/DevPanel.jsx";
@@ -48,6 +49,11 @@ function handleKey(e){
 
 export default function App(){
   const S=useGame();
+  /* The ambience follows the situation: a hearing hushes the room, an empty
+     building after seven gets louder air handling, exhaustion dulls everything.
+     Driven from here because it is presentation reacting to state — and it is
+     idempotent, so re-running it on every render costs nothing. */
+  useEffect(refreshRoomTone);
   const [devOpen,setDevOpen]=useState(false);
   useEffect(()=>{
     if(!import.meta.env.DEV) return;

@@ -132,7 +132,7 @@ export const REDACT_OVER_REP=-2;       // per ordinary record blacked out
 export const REDACT_OVER_SANCTION=2;   // this many over-redactions and the court sanctions the firm
 export const REDACT_HOURS=1.5, REDACT_FATIGUE=6;
 // The storage key stays stable; ordered migrations use the embedded schema.
-export const SAVE_SCHEMA_VERSION=23;
+export const SAVE_SCHEMA_VERSION=24;
 export const SAVE_LOG_LIMIT=200, SAVE_ARCHIVE_LIMIT=200;
 export const INBOX_MESSAGE_LIMIT=80; // notifications are history, not permanent case files
 export const SAVE_KEY="fo_save_v1";

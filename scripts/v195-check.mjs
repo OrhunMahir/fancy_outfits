@@ -40,6 +40,7 @@ globalThis.clearInterval = () => {};
   const minigames = await import("../src/game/minigames.js");
   const progression = await import("../src/game/progression.js");
   const fraud = await import("../src/game/fraud.js");
+  const ethics = await import("../src/game/ethics.js");
   const state = await import("../src/game/state.js");
   const engine = await import("../src/game/engine.js");
   const constants = await import("../src/game/constants.js");
@@ -3464,6 +3465,81 @@ globalThis.clearInterval = () => {};
       .filter(args => args.length === 4 && !args[3].startsWith("minCost"))
       .map(args => args[3]);
     assert.deepEqual(lowered, ["OBJECTION_HOURS"], "only the hearing lowers it");
+  }
+
+  // ---- BAR DISCIPLINE ----
+  /* The heat is hidden by design, which puts all the weight on two things: the
+     letters must arrive in order (they are the only readout the player gets),
+     and the meter must never leak into the UI during a career. */
+  {
+    const clean = ethics.createBarHeat();
+    assert.equal(ethics.barValidationError(clean, 1), null);
+    assert.equal(ethics.barRecord(clean), null, "a clean career has no bar file to show");
+    for (let i = 1; i < ethics.BAR_STAGE_AT.length; i++)
+      assert.ok(ethics.BAR_STAGE_AT[i] > ethics.BAR_STAGE_AT[i - 1], "stages escalate");
+    assert.ok(ethics.BAR_WEIGHTS.caught > ethics.BAR_WEIGHTS.obstruction &&
+      ethics.BAR_WEIGHTS.obstruction > ethics.BAR_WEIGHTS.bribe,
+      "getting caught inside is the worst thing on the list");
+    for (const file of ["src/components/StatsPanel.jsx", "src/components/Topbar.jsx",
+      "src/components/CasePane.jsx", "src/components/InfoOverlay.jsx", "src/components/Inbox.jsx"])
+      assert.ok(!/barHeat/.test(readFileSync(file, "utf8")), file + " must not reveal the hidden heat");
+    assert.ok(ethics.barValidationError({ ...clean, heat: 90, stage: 3, violations: 0 }, 5),
+      "a full meter with no violations is refused");
+    assert.ok(ethics.barValidationError({ ...clean, heat: 10, stage: 3 }, 5),
+      "a stage cannot outrun its heat");
+    assert.ok(ethics.barValidationError({ ...clean, pendingKind: "discipline", pendingDay: 0 }, 5),
+      "a pending letter must have a day");
+    assert.ok(ethics.barValidationError({ ...clean, sneaky: 1 }, 5), "unknown fields are refused");
+    for (let stage = 1; stage <= ethics.BAR_STAGE_MAX; stage++) {
+      const ev = ethics.buildBarEvent({ ...clean, stage });
+      assert.equal(ev.barStage, stage);
+      assert.equal(ev.opts[0].base, 100, "stage " + stage + " always has a way through");
+      assert.ok(ev.opts.every(o => !o.ok.disbar), "no winning branch is fatal");
+      const fatal = ev.opts.filter(o => o.fail && o.fail.disbar).length;
+      assert.equal(fatal, stage === ethics.BAR_STAGE_MAX ? 1 : 0,
+        "only the hearing can take the licence");
+      assert.equal(ethics.barEventValidationError(ev, { ...clean, stage }), null);
+      assert.ok(ethics.barEventValidationError({ ...ev, body: "tampered" }, { ...clean, stage }),
+        "an altered confrontation is refused");
+    }
+  }
+  /* End to end: violations heat the file, the letters arrive one rung at a time,
+     and only the last one can end the career. A burst that jumps two thresholds
+     must not skip the middle letter — that would silently delete a warning. */
+  {
+    fresh();
+    engine.startGame("legacy", "medium");
+    const bar = () => state.S.barHeat;
+    engine.recordBarViolation("caught");
+    assert.deepEqual([bar().heat, bar().caught, bar().violations],
+      [ethics.BAR_WEIGHTS.caught, 1, 1]);
+    // Enough recorded violations to justify a full meter — the heat can never
+    // exceed what the tally could have produced, so the fixture earns it.
+    for (let i = 0; i < 5; i++) engine.recordBarViolation("caught");
+    const stages = [];
+    for (let i = 0; i < 4; i++) {
+      state.S.event = null;
+      bar().pendingKind = null; bar().pendingDay = 0;
+      bar().heat = ethics.BAR_STAGE_AT[3] + ethics.BAR_DECAY;
+      if (engine.runBarTick()) stages.push(state.S.event.barStage);
+    }
+    assert.deepEqual(stages, [1, 2, 3], "the letters arrive in order, none skipped");
+    state.S.event = engine.buildBarConfrontation();
+    assert.equal(state.S.event.barStage, 3);
+    assert.equal(state.S.event.opts[2].fail.disbar, true, "the reckless branch is the only door out");
+    assert.match(ethics.barRecord(bar()), /caught inside/, "the file is readable once it is over");
+    // FRAUD routes bar attention into the credentials ladder instead of running
+    // a second investigation beside it.
+    fresh();
+    engine.startGame("fraud", "medium");
+    engine.recordBarViolation("caught");
+    engine.recordBarViolation("caught");   // earn the heat the same way a player would
+    state.S.barHeat.heat = ethics.BAR_STAGE_AT[1] + ethics.BAR_DECAY;
+    state.S.barHeat.pendingKind = null;
+    const before = state.S.fraudRisk.suspicion;
+    assert.equal(engine.runBarTick(), false, "Fraud never opens a bar confrontation");
+    assert.equal(state.S.fraudRisk.suspicion, before + 1, "it feeds the credentials ladder instead");
+    assert.equal(state.S.event, null);
   }
 
   // ---- SAVE AND STEP OUT ----

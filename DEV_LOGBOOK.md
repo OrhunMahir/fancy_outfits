@@ -84,6 +84,68 @@ Tarayıcıda panel açıldı, SNEAKY 5 ile kilit board'u açıldı (3 pik), reve
 
 ---
 
+## 2026-08-26 (4) — Claude: barodan atılma + bağlamsal ses (v1.9.32)
+
+### 1. Barodan atılma — GİZLİ ısı (kullanıcının seçimi)
+
+`ethics.js` (saf modül, `fraud.js` deseninde). `S.barHeat` **hiçbir yerde görünmez** —
+regresyon beş bileşen dosyasını tarayıp `barHeat` geçmediğini zorluyor.
+
+**Ne besler:** yakalanmak 24, belge gizleme yaptırımı 15, hakim rüşveti 8 (ödemek suç,
+işe yarayıp yaramaması alakasız). Gece 1 azalır — baro unutur, ama ağır unutur.
+Pratikte: 4 yakalanma / 6 karartma / 10 rüşvet bir duruşmaya götürür.
+
+**Geri bildirim mektuplardır** (gizli ısıda tek okuma kanalı bu):
+GRIEVANCE@26 → COMPLAINT@54 → HEARING@80. Her biri saat/para/REP karşılığı
+yatıştırma yolu ve bir kumar sunar; **her aşamada %100'lük bir çıkış var**.
+Yalnız üçüncü aşamanın pervasız kolu `DISBARRED` terminaline gider.
+
+**Kritik detay:** ısı hızlı yükselirse aşama atlanmıyor (`Math.min(reached,stage+1)`).
+İlk sürüm ORTA mektubu atlıyordu — gizli ısıda bu, sessizce bir uyarıyı silmek demek.
+Regresyon bunu zorluyor ve guard'ı bozunca kırmızıya dönüyor.
+
+**Fraud çakışması çözüldü:** Fraud'da baro mektubu HİÇ açılmıyor; ilgi doğrudan
+`fraudRisk.suspicion`'a yazılıyor. Sahte diplomanla baronun sana bakması zaten ölümcül —
+iki paralel kimlik soruşturması yürütmek yerine mevcut merdiveni hızlandırıyor.
+
+**Test bir açık buldu:** ısının kayıtlı ihlallerden bağımsız olabildiğini fark etti.
+Doğrulamaya `heat ≤ ihlallerin üretebileceği maksimum` kuralı eklendi; kurcalanmış bir
+kayıt artık hak etmediği bir disiplin duruşmasına giremiyor. Schema v24 + migration
+(eski kariyerler temiz başlar — arşivden geriye dönük ihlal türetmek, terminal sonu olan
+bir tahmin olurdu).
+
+### 2. Bağlamsal ses
+
+**Oda tonu** (`setRoomTone`, dört oda, aynı döngü başka bir yerden duyuluyor):
+`office` normal · `court` duruşma/çelişki board'unda (kesim 750→430, tıslama düşer,
+tempo yavaşlar — ayağa kalkınca susan oda) · `afterhours` saat bitince ya da mesaide
+(tıslama artar: boş bina, yüksek havalandırma) · `spent` FATIGUE≥75 (kesim 300,
+detune 14 — donuk ve hafif akortsuz). Yorgunluk hepsini ezer: o noktada sorun oda değil,
+sensin. `App.jsx` her render'da `refreshRoomTone()` çağırıyor — idempotent, oda
+değişmediyse hiçbir şey yapmıyor.
+
+**Olay ölçeği:** dosya hükümlerinde `SFX.win(scale)`/`SFX.lose(scale)`; scale rütbe
+(%65) + dosya tier'ı (%35). Junior'ın kazanması cıvıltı, Name Partner'ın tier-2
+kazanması ekstra oktav; büyük kayıpta zemin çekiliyor (98 Hz). Board tıkırtıları
+ölçeklenmiyor — onlar geri bildirim, hüküm değil.
+
+### Testler
+
+`npm test` yeşil (yeni: aşama sıralaması, gizlilik taraması, kurcalama reddi, Fraud
+yönlendirmesi — ikisi kasten bozulup kırıldığı doğrulandı).
+`npm run build` yeşil. `npm run soak` 320 kariyer: **%65.3 kazanma, medyan gün 21,
+integrity 0** — botlar yakalanmadığı/rüşvet vermediği için barodan atılma dengeyi
+DEĞİŞTİRMİYOR, ki doğrusu bu: sadece davranışın sonucu.
+
+Tarayıcıda: üç mektup, DISBARRED ekranı ve run ledger'ın başındaki
+`BAR FILE: 4× caught inside` satırı doğrulandı. DEV panelinde "Bar letter · 1/2/3".
+
+### Sıradaki kesin adım
+
+**GitHub Pages demo**, ardından **mobil layout + Capacitor**.
+
+---
+
 ## 2026-08-26 (3) — Claude: basma hissi, menüye dönüş, itirazın kapsamı (v1.9.31)
 
 ### 1. Demo butonlarında basma hissi

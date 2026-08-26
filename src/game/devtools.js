@@ -81,6 +81,22 @@ export function devOpenBoard(kind,{sneaky=0,reroll=true}={}){
   return S.actionChallenge;
 }
 
+/* The bar heat is hidden from the player on purpose, so the only way to see a
+   letter in development is to ask for one directly. */
+export function devOpenBarLetter(stage=1){
+  if(!S||!S.barHeat) return null;
+  const bar=S.barHeat;
+  const want=Math.max(1,Math.min(3,Math.trunc(stage)||1));
+  bar.caught=Math.max(bar.caught,4); bar.violations=Math.max(bar.violations,bar.caught);
+  // runBarTick() decays first, so the letter has to be paid for twice.
+  bar.heat=[0,26,54,80][want]+1;
+  bar.stage=want-1; bar.pendingKind=null; bar.pendingDay=0;
+  S.event=null;
+  engine.runBarTick();
+  notify();
+  return S.event;
+}
+
 /* The coin only appears after a covert job fails, so fail one on purpose.
    `face` decides which side is already waiting, so both endings are reachable. */
 export function devOpenCoin(face){

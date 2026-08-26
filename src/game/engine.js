@@ -30,7 +30,9 @@ import { LOCK_MIN, LOCK_MAX, LOCK_HINT_SPREAD, LOCK_HOLD_MS, LOCK_WEAR_MAX, POWE
          pairContradiction, concedeContradiction,
          createObjectionChallenge, advanceObjection, raiseObjection, objectionScore,
          createRedactionChallenge, toggleRedaction, produceDocuments, boardTierOf } from "./minigames.js";
-import { SFX, startAmbience, stopAmbience, applyBgmVolume } from "./sound.js";
+import { SFX, startAmbience, stopAmbience, applyBgmVolume, setRoomTone } from "./sound.js";
+import { createBarHeat, barStageFor, barRecord, buildBarEvent, barValidationError, barEventValidationError,
+         BAR_WEIGHTS, BAR_DECAY, BAR_MAX, BAR_STAGE_MAX } from "./ethics.js";
 import { settings, setSetting } from "./settings.js";
 import { buildPool, JUDGES, crises, SCENARIOS, buildWeekend } from "./content.js";
 import { genCase } from "./casegen.js";
@@ -1073,6 +1075,73 @@ function continueMorning(){
   }
   ensureMorningArrival();
 }
+/* Where you are standing, as far as the ambience is concerned. Exhaustion wins
+   over everything: at that point the room is not the problem, you are. */
+function roomTone(){
+  if(!S||S.over) return "office";
+  if(S.fatigue>=FATIGUE_DANGER) return "spent";
+  const ch=S.actionChallenge;
+  if(ch&&(ch.type==="objection"||ch.type==="contradiction")) return "court";
+  if(S.hours<=0||S.otToday>0) return "afterhours";
+  return "office";
+}
+export function refreshRoomTone(){ setRoomTone(roomTone()); }
+export const buildBarConfrontation=()=>S&&S.barHeat?buildBarEvent(S.barHeat):null;
+/* 0..1: how much this result should be allowed to sound like it mattered.
+   Rank is most of it, the file's own stake scaling does the rest — so the same
+   win lands differently in the bullpen and in the corner office. */
+function stakeScale(c){
+  if(!S) return 0;
+  const rank=S.rank/(RANKS.length-1);
+  const tier=c&&Number.isFinite(c.tier)?Math.min(1,c.tier/2):0;
+  return clamp(rank*.65+tier*.35,0,1);
+}
+
+/* The heat is hidden on purpose, so this never logs a number and never touches
+   a stat bar. What it does is decide when a letter arrives — the letters are the
+   only readout the player gets, which is why each one has to land harder than
+   the last. In the FRAUD scenario the bar looking at you at all is lethal, so
+   attention feeds the existing credentials ladder instead of opening a second
+   investigation alongside it. */
+export function recordBarViolation(kind){
+  const bar=S&&S.barHeat, weight=BAR_WEIGHTS[kind];
+  if(!bar||!weight) return;
+  bar[kind]++; bar.violations++;
+  bar.heat=clamp(bar.heat+weight,0,BAR_MAX);
+  if(balanceProbe) balanceProbe({kind:"bar_violation",day:S.day,violation:kind,heat:bar.heat});
+}
+function barCool(amount){
+  const bar=S&&S.barHeat;
+  if(!bar||!(amount>0)) return;
+  bar.heat=clamp(bar.heat-amount,0,BAR_MAX);
+  bar.stage=Math.min(bar.stage,barStageFor(bar.heat));
+}
+/* Called once per morning, before anything that can end the run: a letter you
+   never got to answer is not a warning. */
+export function runBarTick(){
+  const bar=S&&S.barHeat;
+  if(!bar) return false;
+  bar.heat=clamp(bar.heat-BAR_DECAY,0,BAR_MAX);
+  bar.stage=Math.min(bar.stage,barStageFor(bar.heat));
+  /* One rung at a time. A burst of violations can jump the heat two stages in a
+     week, and skipping the middle letter would silently remove a warning — the
+     letters are the ONLY thing the player can see, so none of them is optional. */
+  const reached=barStageFor(bar.heat);
+  if(reached<=bar.stage||bar.pendingKind) return false;
+  bar.stage=Math.min(reached,bar.stage+1);
+  if(S.scenario==="fraud"&&S.fraudRisk){
+    // No parallel ladder: a bar that is curious about you is a bar that will
+    // eventually ask which law school you attended.
+    S.fraudRisk.suspicion=Math.min(3,S.fraudRisk.suspicion+1);
+    log("Someone at the bar has been asking about your file. Not about the case. About YOU.","bad");
+    return false;
+  }
+  bar.pendingKind="discipline"; bar.pendingDay=S.day;
+  S.event=buildBarEvent(bar);
+  SFX.crisis();
+  return true;
+}
+
 function advanceDay(){
   S.day++; S.hours=settings.dayLen||DAY_HOURS; S.otHours=0; S.otToday=0;
   if(S.fraudRisk) S.fraudRisk.dailyPeak=0;
@@ -1085,6 +1154,9 @@ function advanceDay(){
     ensureMorningArrival();
     saveGame(); notify(); return;
   }
+  if(runBarTick()){
+    saveGame(); notify(); return;
+  }
   continueMorning();
 }
 
@@ -1093,12 +1165,12 @@ function resolveDelayed(c){
   const r=c.pending, out=r.win?r.o.ok:r.o.fail;
   archiveCase(c,r.o.text,r.win,out.txt,"delayed reply",r.judgeMemorySnapshot);
   rememberJudgeOutcome(c,r.o,r.win); // reveal first: hidden delayed outcomes never leak through future odds
-  if(r.win){ SFX.win(); S.today.wins++; if(r.o.style==="aggressive") S.today.aggWin++;
+  if(r.win){ SFX.win(stakeScale(c)); S.today.wins++; if(r.o.style==="aggressive") S.today.aggWin++;
     log("RESPONSE ["+c.title+"]: SUCCESS","good"); pushMsg("REPLY: "+c.title,out.txt);
     awardXp(caseXpFor(c,r.o,true),"CASE REPLY · "+c.title); apply(out.fx,false,"delayed");
     if((c.tier||0)>=1) apply({firm:1},true,"delayed"); // same firm effect as an instant win (v1.9.4 symmetry)
     maybeImpressClient(c); if((out.fx.rep||0)+(out.fx.inf||0)>=10) flash("HENDERED!"); }
-  else { SFX.lose(); log("RESPONSE ["+c.title+"]: FAILED","bad"); pushMsg("REPLY: "+c.title,out.txt);
+  else { SFX.lose(stakeScale(c)); log("RESPONSE ["+c.title+"]: FAILED","bad"); pushMsg("REPLY: "+c.title,out.txt);
     awardXp(caseXpFor(c,r.o,false),"CASE REPLY · "+c.title);
     apply(out.fx,false,"delayed",aggressiveFailureContext(r.o,r.finalWarningSnapshot));
     if((c.tier||0)>=1) apply({firm:-1},true,"delayed");
@@ -1394,6 +1466,7 @@ function completeRedactionChallenge(ch){
     apply({rep:REDACT_OVER_REP*ch.over},false,"case");
     if(ch.over>=REDACT_OVER_SANCTION){
       apply({firm:-2},false,"case");
+      recordBarViolation("obstruction");
       log("SANCTIONED: the court orders the bundle re-produced unredacted. The firm eats the costs.","bad");
     }
   }
@@ -1666,6 +1739,7 @@ export function completeActionChallenge(){
     if(!S.over) S.openCase=c;
   } else {
     S.runStats.covertCaught++;
+    recordBarViolation("caught");
     awardXp(COVERT_XP.caught,"COVERT ACTION · CAUGHT");
     S.today.resolved++;
     S.inbox=S.inbox.filter(item=>item!==c);
@@ -1718,6 +1792,7 @@ export function choose(c,o,confirmedLate,timelinePrepped){
   if(o.bribe){ // the golf money leaves your account win or lose
     if(S.money<o.bribe){ log("You can't afford the judge's 'green fees'.","bad"); notify(); return; }
     apply({money:-o.bribe},true);
+    recordBarViolation("bribe"); // paying is the offence; whether it works is irrelevant
   }
   if(o.action){ beginActionChallenge(c,o,cost0); return; }
   logJudgeMemory(c,o);
@@ -1748,14 +1823,14 @@ export function choose(c,o,confirmedLate,timelinePrepped){
   rememberJudgeOutcome(c,o,win);
   if(o.bribe&&win&&S.runStats.bribeW>=3) ach("bribe3");
   if(win){
-    SFX.win();
+    SFX.win(stakeScale(c));
     log("["+c.title+"] "+out.txt,"good");
     awardXp(caseXpFor(c,o,true),"CASE · "+c.title); apply(coastFx(out.fx,coast),false,c.favor?"favor":c.big?"big_case":"case");
     if(coast) log("COASTING: "+(coast.step+1)+" quiet settlements in a row. The floor notices what you don't take on.","bad");
     if((c.tier||0)>=1&&!c.favor){ apply({firm:1},true,c.big?"big_case":"case"); maybeImpressClient(c); } // wins keep the lights on — and attract logos
     if(((out.fx&&out.fx.rep)||0)+((out.fx&&out.fx.inf)||0)>=10) flash("HENDERED!");
   } else {
-    SFX.lose();
+    SFX.lose(stakeScale(c));
     log("["+c.title+"] "+out.txt,"bad");
     awardXp(caseXpFor(c,o,false),"CASE · "+c.title);
     apply(out.fx,false,c.favor?"favor":c.big?"big_case":"case",aggressiveFailureContext(o,warningSnapshot));
@@ -2001,7 +2076,7 @@ export function resolveCrisis(o){
     const n=S.npcs.find(x=>x.id===ev.npc), d=win?(o.relOk||0):(o.relFail||0);
     if(n&&d){ relNpc(n,d); log(n.name+(d>0?" won't forget this. (+":" recalibrates. (")+d+" rel)",d>0?"good":"bad"); }
   }
-  const infSource=ev&&ev.fraudKind?"fraud":ev&&ev.weekend?"weekend":ev&&ev.story?"story":ev&&ev.demand?"demand":
+  const infSource=ev&&ev.fraudKind?"fraud":ev&&ev.barKind?"bar":ev&&ev.weekend?"weekend":ev&&ev.story?"story":ev&&ev.demand?"demand":
     ev&&/^g_/.test(ev.id||"")?"client_event":"crisis";
   const grantsCrisisXp=infSource==="crisis";
   const resolveFraudState=()=>{
@@ -2021,19 +2096,38 @@ export function resolveCrisis(o){
       style:o.safe?"safe":o.style||"neutral",win,scheduled:!!risk.pendingKind,contained:!!effect.contained,
       exposed:!!(!win&&out.expose),suspicion:risk.suspicion});
   };
+  /* The letter is answered here. Cooling clears the pending marker so the next
+     stage can arrive later; a failure that reads as contempt heats it further,
+     which can hand you the next letter tomorrow. */
+  const resolveBarState=()=>{
+    const bar=S.barHeat;
+    if(!bar||!ev.barKind) return;
+    bar.pendingKind=null; bar.pendingDay=0;
+    const effect=out&&out.bar;
+    if(effect&&effect.cool) barCool(effect.cool);
+    if(effect&&effect.heat) bar.heat=clamp(bar.heat+effect.heat,0,BAR_MAX);
+    bar.stage=Math.min(BAR_STAGE_MAX,Math.max(barStageFor(bar.heat),win?bar.stage:ev.barStage));
+    if(balanceProbe) balanceProbe({kind:"bar_stage",day:S.day,stage:ev.barStage,
+      style:o.safe?"safe":o.style||"neutral",win,disbarred:!!(!win&&out.disbar),heat:bar.heat});
+  };
+  if(!win&&out.disbar){
+    SFX.lose(); log("[BAR] "+out.txt,"bad"); resolveBarState();
+    gameOver("DISBARRED","The panel's finding runs to four pages and never raises its voice. Your licence is revoked, your files are reassigned by lunchtime, and the firm's statement calls you 'a former colleague'. You can still read the law. You just cannot practise it."); return;
+  }
   if(!win&&out.expose){
     SFX.lose(); log("[CRISIS] "+out.txt,"bad"); resolveFraudState();
     gameOver("EXPOSED","There is no bar record. No law school. No you-with-a-JD. The audit found the empty space where your credentials should be, and the firm found it at the same time. Security is very polite about it. The Fraud is over."); return;
   }
   if(win){ SFX.win(); log("[CRISIS] "+out.txt,"good");
     if(grantsCrisisXp) awardXp(CRISIS_XP[o.safe?"safe":"win"],"CRISIS · "+ev.title);
-    resolveFraudState();
+    resolveFraudState(); resolveBarState();
     apply(out.fx,false,infSource); if(((out.fx&&out.fx.inf)||0)>=10) flash("HENDERED!"); }
   else { SFX.lose(); log("[CRISIS] "+out.txt,"bad");
     if(grantsCrisisXp) awardXp(CRISIS_XP.loss,"CRISIS · "+ev.title);
-    resolveFraudState();
+    resolveFraudState(); resolveBarState();
     apply(out.fx,false,infSource,out.expose?null:aggressiveFailureContext(o,warningSnapshot));
-    apply({firm:-2},true,infSource); doShake(); nemesisGain(3,true); }
+    if(!ev.barKind) apply({firm:-2},true,infSource);
+    doShake(); nemesisGain(3,true); }
   if(out.golf) S.golfEdge=true; // the next court judge arrives pre-read
   if(out.client){ // global events move the client book
     if(out.client.lose) loseClient(out.client.lose);
@@ -2156,9 +2250,13 @@ function checkEndings(endingContext){
 
 /* end-of-run breakdown for the final screen */
 function ledger(){
+  const bar=S&&barRecord(S.barHeat);
   const r=S.runStats, top=Object.entries(r.deleg).sort((a,b)=>b[1]-a[1])[0];
   const topName=top&&S.npcs.find(n=>n.id===top[0]);
   return ["— RUN LEDGER —",
+    // The bar file is hidden for the whole career and readable only now — the
+    // point of hidden heat is that you never knew how close it was.
+    ...(bar?[bar]:[]),
     "Bluffs: "+r.bluffW+" landed / "+r.bluffL+" blew up · Technical: "+r.techW+"W/"+r.techL+"L · Safe plays: "+r.safe,
     "Covert actions: "+r.covertTry+" attempted · "+r.covertW+" opened · "+r.covertEscape+" escaped · "+r.covertCaught+" caught",
     "Case prep: "+r.timelineW+" chronologies locked / "+r.timelineL+" muddled · "+
@@ -2757,7 +2855,11 @@ const migrateV22ToV23=raw=>{
     d.actionChallenge={...d.actionChallenge,diff:1};
   return d;
 };
-const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6,6:migrateV6ToV7,7:migrateV7ToV8,8:migrateV8ToV9,9:migrateV9ToV10,10:migrateV10ToV11,11:migrateV11ToV12,12:migrateV12ToV13,13:migrateV13ToV14,14:migrateV14ToV15,15:migrateV15ToV16,16:migrateV16ToV17,17:migrateV17ToV18,18:migrateV18ToV19,19:migrateV19ToV20,20:migrateV20ToV21,21:migrateV21ToV22,22:migrateV22ToV23};
+/* v23 -> v24 opens the bar file. Old careers start clean: the profession has no
+   record of what it never saw, and back-dating violations from an archive would
+   be guesswork with a terminal ending attached. */
+const migrateV23ToV24=raw=>({...raw,schemaVersion:24,barHeat:plain(raw.barHeat)?raw.barHeat:createBarHeat()});
+const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6,6:migrateV6ToV7,7:migrateV7ToV8,8:migrateV8ToV9,9:migrateV9ToV10,10:migrateV10ToV11,11:migrateV11ToV12,12:migrateV12ToV13,13:migrateV13ToV14,14:migrateV14ToV15,15:migrateV15ToV16,16:migrateV16ToV17,17:migrateV17ToV18,18:migrateV18ToV19,19:migrateV19ToV20,20:migrateV20ToV21,21:migrateV21ToV22,22:migrateV22ToV23,23:migrateV23ToV24};
 
 const JUDGE_MEMORY_COUNTERS=["seen","aggressiveW","aggressiveL","technicalW","technicalL","bribeW","bribeL","safe","neutralW","neutralL"];
 function validJudgeMemory(memory,day){
@@ -3003,6 +3105,8 @@ function migrateSaveData(raw){
   const progressionError=progressionValidationError(d.progression,d.scenario);
   if(progressionError) throw new SaveDataError("invalid","The saved training record is damaged ("+progressionError+").");
   if(!Number.isInteger(d.day)||d.day<1) throw new SaveDataError("invalid","The saved day is invalid.");
+  const barError=barValidationError(d.barHeat,d.day);
+  if(barError) throw new SaveDataError("invalid",barError);
   const fraudError=fraudRiskValidationError(d.fraudRisk,d.scenario,d.day);
   if(fraudError) throw new SaveDataError("invalid","The saved identity-pressure record is damaged ("+fraudError+").");
   if(!Number.isInteger(d.rank)||d.rank<0||d.rank>=RANKS.length) throw new SaveDataError("invalid","The saved rank is invalid.");
@@ -3188,6 +3292,8 @@ function migrateSaveData(raw){
     throw new SaveDataError("invalid","The case archive is damaged.");
   if(d.event!=null&&(!plain(d.event)||typeof d.event.title!=="string"||typeof d.event.body!=="string"||!Array.isArray(d.event.opts)||!d.event.opts.length||!d.event.opts.every(o=>validOption(o,0))))
     throw new SaveDataError("invalid","The pending event is damaged.");
+  const barEventError=barEventValidationError(d.event,d.barHeat);
+  if(barEventError) throw new SaveDataError("invalid",barEventError);
   const fraudEventError=fraudEventValidationError(d.event,d.fraudRisk,d.scenario);
   if(fraudEventError) throw new SaveDataError("invalid","The pending identity-pressure event is damaged ("+fraudEventError+").");
   const activeFraudEvent=!!(d.event&&d.event.fraudKind);

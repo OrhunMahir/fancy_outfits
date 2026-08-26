@@ -186,6 +186,7 @@ export default function ActionMinigameOverlay(){
   const timeline=challenge.type==="timeline";
   const contradiction=challenge.type==="contradiction";
   const objection=challenge.type==="objection";
+  const deposition=objection&&challenge.depo;
   const redaction=challenge.type==="redaction";
   let game=null;
   if(challenge.phase==="redaction") game=<RedactionMinigame challenge={challenge} />;
@@ -220,7 +221,7 @@ export default function ActionMinigameOverlay(){
                   onClick={()=>{ checkpointActionChallenge(); setGuide(true); }}>i</button>
         )}
         <div className="action-kicker">
-          {timeline?"CASE PREP · EVIDENCE TIMELINE":contradiction?"CASE PREP · CONTRADICTION BOARD":objection?"IN SESSION · THE RECORD":redaction?"CASE PREP · PRIVILEGE REVIEW":"COVERT ACTION"}
+          {timeline?"CASE PREP · EVIDENCE TIMELINE":contradiction?"CASE PREP · CONTRADICTION BOARD":deposition?"DEPOSITION · THE RECORD":objection?"IN SESSION · THE RECORD":redaction?"CASE PREP · PRIVILEGE REVIEW":"COVERT ACTION"}
         </div>
         <h2 id="action-challenge-title">{challenge.actionTitle||"AFTER HOURS"}</h2>
         <p id="action-challenge-body" className="action-brief">

@@ -30,6 +30,24 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.31 — Objections everywhere, and a door out *(2026-08-26)*
+- **Hearings stopped being rare, and the measurement said why.** It was never the number
+  of cases: 57% of court filings carried no transcript at all, so the board could not open
+  on them. Every court filing now assembles its examination from its own names and
+  documents, and a deposition needs no judge — objections there are *preserved* rather than
+  ruled on. Files carrying a hearing went from 10% to 44%, roughly four times as many
+  objections in a career.
+- **Two boards no longer starve each other.** A file can offer both a hearing and a
+  chronology; a coin decides which one you get instead of the hearing always winning.
+- **The window costs no billable hours.** Standing up in a hearing you are already
+  attending never added time to your day — and once it fires fifteen times a career, the
+  old half hour stopped being a price and became a difficulty increase nobody asked for.
+  Preparation boards keep their hours: that is work you chose. Measured back to the
+  pre-change win band across 320 careers.
+- **Save and quit to the title screen**, so save slots can be swapped without reloading.
+- **Demo buttons now press.** The guide's hand used to bloom over a button that never
+  moved, which reads as hovering; the control itself now travels like a real click.
+
 ### v19.30.1 — The guide is the board *(2026-08-26)*
 - **The worked examples now run the real board.** They used to be hand-drawn imitations,
   which never quite matched and meant maintaining every board twice. Each guide now renders

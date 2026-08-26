@@ -1,7 +1,7 @@
 // Global settings (day length, volumes, screen shake). Persisted outside the run.
 import { useState } from "react";
 import { settings } from "../game/settings.js";
-import { closeSettings, updateSetting, restartRun } from "../game/engine.js";
+import { closeSettings, updateSetting, restartRun, quitToMenu, canQuitToMenu } from "../game/engine.js";
 
 const DAYS=[6,8,10]; // fictional workday length, in hours
 const VOL=[0,0.5,1];
@@ -44,6 +44,18 @@ export default function SettingsOverlay(){
             <button className={"btn small"+(settings.shake?" on":"")} onClick={()=>updateSetting("shake",true)}>ON</button>
             <button className={"btn small"+(!settings.shake?" on":"")} onClick={()=>updateSetting("shake",false)}>OFF</button>
           </div>
+        </div>
+        <div className="setrow">
+          {canQuitToMenu()
+            ? <>
+                <div className="kv">SAVE AND STEP OUT — the desk keeps everything. Swap slots from the title screen.</div>
+                <button className="btn small safe" onClick={()=>{ if(!quitToMenu()) closeSettings(); }}>
+                  SAVE &amp; QUIT TO TITLE
+                </button>
+              </>
+            : <div className="kv" style={{opacity:.7}}>
+                IRONMAN keeps no save, so there is nothing to step back into. Finish the career or restart.
+              </div>}
         </div>
         <div className="setrow">
           <div className="kv">RESTART — wipe this save slot, back to the title screen:</div>

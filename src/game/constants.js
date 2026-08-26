@@ -102,12 +102,22 @@ export const TIMELINE_HOURS=.5, TIMELINE_FATIGUE=3; // prep costs, paid either w
 // break-in. Improper questions scroll past; catching them helps the play you
 // already committed to, and objecting to clean questions burns credibility with
 // the judge on the bench. A strict, by-the-book judge punishes that harder.
-export const OBJECTION_TRIGGER=60;         // % chance on a risky play in court
+export const OBJECTION_TRIGGER=60;         // % chance on a risky play in a hearing OR a deposition
 export const OBJECTION_LINES=6;            // questions drawn from the authored transcript
 export const OBJECTION_WINDOW_MS=2600;     // how long each question stands before it is answered
 export const OBJECTION_EDGE_WIN=12;        // a clean sheet is worth as much as an exact chronology
 export const OBJECTION_EDGE_LOSS=-10;
-export const OBJECTION_HOURS=.5, OBJECTION_FATIGUE=3;
+/* Repriced when the board stopped being rare. Every court filing now assembles
+   an examination from its own facts and depositions need no bench, which took
+   this from ~4 hearings a career to ~15. At the old 0.5h + 3 FATIGUE that was a
+   14-point win-rate drop nobody asked for (320 careers: 69% -> 55%), and NOT
+   because the board hurt you — a competent player nets +4.9% odds from it. It
+   was pure time and exhaustion on a window you never chose to open.
+   So: no hours, because standing up in a hearing you are already attending adds
+   no billable time, and one point of fatigue for the concentration. Preparation
+   boards keep their hours; that IS extra work you opted into.
+   Measured back at 65.3% win / median day 21 — the pre-change band. */
+export const OBJECTION_HOURS=0, OBJECTION_FATIGUE=1;
 export const OBJECTION_STRICT_BOOK=60;     // above this the judge doubles the cost of a frivolous objection
 // REDACTION: the only board where you can fail in two opposite directions.
 // Leave privileged material in and opposing counsel reads your strategy; black

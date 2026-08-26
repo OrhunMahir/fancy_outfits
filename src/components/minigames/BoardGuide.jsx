@@ -37,19 +37,26 @@ const glide=(from,to,k)=>from&&to?{x:from.x+(to.x-from.x)*ease(k),y:from.y+(to.y
 const press=(t,at,span=280)=>t>=at&&t<at+span;
 
 function GuideBoard({caption,cursor,children}){
-  const stageRef=useRef(null),handRef=useRef(null);
-  // After layout, never during render: the control has to exist before it can
-  // be measured, and this way tracking costs no extra React pass.
+  const stageRef=useRef(null),handRef=useRef(null),downRef=useRef(null);
+  /* After layout, never during render: the control has to exist before it can be
+     measured. The control itself is driven too — a hand that blooms over a
+     button that never moves does not read as a press, it reads as a cursor
+     hovering, which is exactly what the board is trying to teach against. */
   useLayoutEffect(()=>{
     const stage=stageRef.current,hand=handRef.current;
     if(!stage||!hand) return;
     const point=cursor(stage);
+    const hit=point&&point.press&&point.hit?stage.querySelector(point.hit):null;
+    if(downRef.current&&downRef.current!==hit) downRef.current.classList.remove("guide-pressed");
+    if(hit) hit.classList.add("guide-pressed");
+    downRef.current=hit;
     if(!point){ hand.style.opacity="0"; return; }
     hand.style.opacity="1";
     hand.style.left=point.x+"px";
     hand.style.top=point.y+"px";
     hand.classList.toggle("guide-cursor-press",!!point.press);
   });
+  useEffect(()=>()=>{ downRef.current?.classList.remove("guide-pressed"); },[]);
   return (
     <div className="guide-demo">
       <div className="guide-board" ref={stageRef} aria-hidden="true">
@@ -108,7 +115,7 @@ function PowerDemo(){
   const hand=stage=>{
     const btn=center(stage,".power-cut-stop");
     if(!btn) return null;
-    return {...glide({x:btn.x+80,y:btn.y+40},btn,cycle/hitAt),press:press(cycle,hitAt)};
+    return {...glide({x:btn.x+80,y:btn.y+40},btn,cycle/hitAt),press:press(cycle,hitAt),hit:".power-cut-stop"};
   };
   return (
     <GuideBoard cursor={hand}
@@ -127,9 +134,9 @@ function TimelineDemo(){
   const hand=stage=>{
     const up=center(stage,".timeline-list li:nth-child(2) .timeline-move");
     const send=center(stage,".timeline-actions .action-primary");
-    if(t<2200) return {...glide({x:(up?.x||0)+70,y:(up?.y||0)-46},up,t/2200),press:press(t,2200-160,160)};
+    if(t<2200) return {...glide({x:(up?.x||0)+70,y:(up?.y||0)-46},up,t/2200),press:press(t,2040,160),hit:".timeline-list li:nth-child(2) .timeline-move"};
     if(t<5200) return {...glide(up,send,(t-2600)/1600),press:false};
-    return {...send,press:press(t,5200)};
+    return {...send,press:press(t,5200),hit:".timeline-actions .action-primary"};
   };
   const caption=t<2200?"the March event is sitting under the May one — lift it"
     :t<5200?"in order now: licence, shipment, inspector"
@@ -155,8 +162,8 @@ function ContraDemo(){
   const hand=stage=>{
     const st=center(stage,".contra-column:nth-child(1) .contra-card");
     const doc=center(stage,".contra-column:nth-child(2) .contra-card");
-    if(t<2200) return {...glide({x:(st?.x||0)+60,y:(st?.y||0)-50},st,t/2200),press:press(t,2200-160,160)};
-    if(t<4800) return {...glide(st,doc,(t-2600)/1500),press:press(t,4800-160,160)};
+    if(t<2200) return {...glide({x:(st?.x||0)+60,y:(st?.y||0)-50},st,t/2200),press:press(t,2040,160),hit:".contra-column:nth-child(1) .contra-card"};
+    if(t<4800) return {...glide(st,doc,(t-2600)/1500),press:press(t,4640,160),hit:".contra-column:nth-child(2) .contra-card"};
     return {...doc,press:false};
   };
   const caption=pinned?"pinned — those two cannot both be true"
@@ -186,9 +193,9 @@ function RedactDemo(){
     const a=center(stage,".redact-list li:nth-child(1) button");
     const b=center(stage,".redact-list li:nth-child(3) button");
     const go=center(stage,".redact-game .action-primary");
-    if(t<2400) return {...glide({x:(a?.x||0)+60,y:(a?.y||0)-50},a,t/2400),press:press(t,2400-160,160)};
-    if(t<5200) return {...glide(a,b,(t-2800)/1900),press:press(t,5200-160,160)};
-    if(t<7800) return {...glide(b,go,(t-5600)/1700),press:press(t,7800-160,160)};
+    if(t<2400) return {...glide({x:(a?.x||0)+60,y:(a?.y||0)-50},a,t/2400),press:press(t,2240,160),hit:".redact-list li:nth-child(1) button"};
+    if(t<5200) return {...glide(a,b,(t-2800)/1900),press:press(t,5040,160),hit:".redact-list li:nth-child(3) button"};
+    if(t<7800) return {...glide(b,go,(t-5600)/1700),press:press(t,7640,160),hit:".redact-game .action-primary"};
     return {...go,press:false};
   };
   const caption=t<2400?"advice from the client: black it out"
@@ -221,7 +228,7 @@ function ObjectDemo(){
   const hand=stage=>{
     const btn=center(stage,".obj-button");
     if(!btn) return null;
-    return {...btn,press:slot===1&&press(within,1600)};
+    return {...btn,press:slot===1&&press(within,1600),hit:".obj-button"};
   };
   const caption=objected?"SUSTAINED — struck before it was answered"
     :slot===1?"that one is leading. object while it is still standing."

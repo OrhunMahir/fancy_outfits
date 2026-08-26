@@ -12,7 +12,8 @@ const BOARDS=[
   ["power_cut","Power Cut",{}],
   ["timeline","Evidence Timeline",{}],
   ["contradiction","Contradiction Board",{}],
-  ["objection","Objection",{}],
+  ["objection","Objection (court)",{}],
+  ["deposition","Objection (depo)",{}],
   ["redaction","Privilege Review",{}],
 ];
 const STATS=["rep","bold","inf","firm","money","fatigue","hours","rank","day"];

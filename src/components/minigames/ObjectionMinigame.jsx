@@ -32,13 +32,19 @@ export default function ObjectionMinigame({challenge,demo=false,paused=false}){
   const left=Math.max(0,1-(live.elapsedMs||0)/live.windowMs);
   const spoken=lines.slice(0,live.index);
   const ruledById=new Map((live.ruled||[]).map(r=>[r.id,r]));
+  /* No bench, no ruling: in a deposition the objection is preserved for a judge
+     to read later, and a frivolous one just reads as obstruction on the page. */
+  const depo=!!live.depo;
+  const good=depo?"PRESERVED":"SUSTAINED";
+  const bad=depo?"SPEAKING OBJ.":"OVERRULED";
 
   return (
     <div className="action-game obj-game">
-      <div className="power-cut-warning">{live.strict?"THE BENCH IS STRICT":"COURT IS IN SESSION"}</div>
+      <div className="power-cut-warning">{depo?"ON THE RECORD · NO JUDGE IN THE ROOM":live.strict?"THE BENCH IS STRICT":"COURT IS IN SESSION"}</div>
       <div className="lock-instructions">
-        Object while the question is standing. Let it stand too long and it is answered; object to a clean
-        question and the bench remembers.
+        {depo
+          ? "Object while the question is standing. Let it stand too long and the answer is in the transcript; object to a clean question and you look like you are coaching."
+          : "Object while the question is standing. Let it stand too long and it is answered; object to a clean question and the bench remembers."}
       </div>
 
       <ol className="obj-record">
@@ -49,7 +55,7 @@ export default function ObjectionMinigame({challenge,demo=false,paused=false}){
             <li key={line.id} className={"obj-line "+state}>
               <span className="obj-line-text">{line.text}</span>
               <span className="obj-line-tag">
-                {r?(r.sustained?"SUSTAINED":"OVERRULED"):line.bad?"ANSWERED":"—"}
+                {r?(r.sustained?good:bad):line.bad?"ANSWERED":"—"}
               </span>
             </li>
           );
@@ -64,7 +70,7 @@ export default function ObjectionMinigame({challenge,demo=false,paused=false}){
       )}
 
       <div className="obj-score" role="status" aria-live="polite">
-        SUSTAINED {live.sustained} · OVERRULED {live.overruled} · ANSWERED {live.missed}
+        {good} {live.sustained} · {bad} {live.overruled} · ANSWERED {live.missed}
       </div>
 
       <button ref={buttonRef} className="btn bold action-primary obj-button" type="button"

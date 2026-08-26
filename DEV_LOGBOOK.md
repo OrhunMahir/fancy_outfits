@@ -84,6 +84,72 @@ Tarayıcıda panel açıldı, SNEAKY 5 ile kilit board'u açıldı (3 pik), reve
 
 ---
 
+## 2026-08-26 (3) — Claude: basma hissi, menüye dönüş, itirazın kapsamı (v1.9.31)
+
+### 1. Demo butonlarında basma hissi
+
+İmleç patlıyordu ama buton kıpırdamıyordu — bu "basıyor" değil "üzerinde duruyor" diye
+okunuyor. Artık basılan kontrolün kendisi de hareket ediyor: gerçek `.btn:active` ile
+aynı 3px iniş + altın halka. Demo butonları `disabled` olduğu ve `.btn:disabled:active`
+hareketi iptal ettiği için rehber kendi basmasını sürüyor. Dokuz basma noktasının
+dokuzu da (CUT CURRENT, ▲, SUBMIT, ifade→exhibit, iki sayfa, PRODUCE, OBJECTION)
+ölçülerek doğru kontrole oturuyor.
+
+### 2. SAVE & QUIT
+
+Ayarlarda. Kaydediyor, sonra masayı bırakıyor → başlık ekranı, slot değiştirilebiliyor.
+IRONMAN'e verilmiyor (kaydı yok, çıkarsa kariyer buharlaşır) — `canQuitToMenu()` UI'ı
+da engine'i de kapatıyor, test guard'ı bozunca kırmızıya dönüyor.
+
+### 3. İtirazın kapsamı — ÖLÇÜMLE karar verildi
+
+Kullanıcı "yeni dava mı yazalım?" diye sordu. Ölçüm başka bir şey söyledi:
+
+| | önce |
+|---|---|
+| üretilen dosyaların duruşmalı olanı | %22 |
+| **bunların transkript taşıyanı** | **%43** |
+| transkriptsiz duruşma dosyası | **%57 — itiraz burada asla açılamaz** |
+
+Darboğaz dava sayısı değildi, **zaten var olan duruşma dosyalarının yarısından
+fazlasının sorgu metni yoktu.** Yapılan:
+- `buildExamination` — her duruşma dosyası KENDİ isim/belge/olaylarından sorgu metni
+  kuruyor (18 temiz + 22 uygunsuz soru kalıbı). Ölçüm: çekilen transkriptlerin %85'i
+  benzersiz; damgalanmış tek metin yok.
+- **İfade alma (deposition)**: hakim gerekmiyor, mahkeme şartı kalkıyor. `objection.depo`
+  bayrağı; UI'da SUSTAINED→PRESERVED, OVERRULED→SPEAKING OBJ., "NO JUDGE IN THE ROOM".
+  El yazması `depo` (Vance) ve `court2` (Pemberton) kendi metinlerini aldı.
+- **İki board artık yarışmıyor:** aynı dosya hem duruşma hem kronoloji taşıyabiliyor;
+  `choose()` yazı-tura atıyor. Önce hep itiraz denendiği için kronoloji sessizce açlıktan
+  ölüyordu.
+
+Sonuç: itiraz taşıyan dosya %9.6 → **%44.4**, kariyer başına **3.9 → ~17.8**.
+
+### 4. Denge: fiyat yeniden belirlendi (asıl iş buydu)
+
+320 kariyerlik soak, kazanmayı **%69 → %55**'e düşürdü. Sebebi ARAMADAN varsaymadım:
+botun oynadığı 554 duruşmada ortalama kenar **+4.9** çıktı — yani board oyuncuya
+YARDIM ediyor. Düşüş tamamen saat ve yorgunluktan geliyordu: nadir bir olayın fiyatı
+(0.5h + 3 FATIGUE) 15 kez tekrarlanınca kimsenin istemediği bir zorluk artışına dönüşmüş.
+
+`OBJECTION_HOURS 0.5 → 0`: zaten içinde olduğun duruşmada ayağa kalkmak fatura edilebilir
+saat yaratmaz. `OBJECTION_FATIGUE 3 → 1`: konsantrasyon bedeli kalıyor. **Hazırlık
+board'ları (kronoloji, redaksiyon) saatlerini koruyor** — onlar gerçekten ekstra iş ve
+onları sen seçiyorsun.
+
+Ölçümlü sonuç: 320 kariyer, **%65.3 kazanma, medyan gün 21, kovulma %6.6** — değişiklik
+öncesi bandın içinde. replay 357/357, integrity 0.
+
+`validActionChallengeBase`'e `minCost` parametresi eklendi (0 saat ilk kez mümkün);
+regresyon "yalnız duruşma tabanı düşürebilir" kuralını kaynaktan zorluyor ve bozunca kırılıyor.
+
+### Sıradaki kesin adım
+
+Kullanıcı oynayıp geri bildirim verecek. Sonra **GitHub Pages demo**, ardından
+**mobil layout + Capacitor**.
+
+---
+
 ## 2026-08-26 (2) — Claude: rehberler artık GERÇEK board'u oynuyor (v1.9.30.1)
 
 Kullanıcı dört şey bildirdi, dördü de gerçek hataydı.

@@ -18,6 +18,106 @@ const nextId=prefix=>{
   return prefix+(++fallbackSeq);
 };
 
+/* ---------- EXAMINATIONS ----------
+   Measurement, not guesswork: 57% of generated court filings carried no
+   transcript, so the objection board could never open on them — that gap, not
+   the number of cases, was what made it the rarest thing in the game. Rather
+   than writing new cases, every examination is assembled from the filing's OWN
+   names and facts, the way chronologies already are, so it reads authored
+   instead of stock. A deposition needs no judge, which lifts the court-only
+   ceiling entirely. */
+const CLEAN=[
+  f=>`'You are the records custodian at ${f.party}, is that right?'`,
+  f=>"'What date did the notice reach your desk?'",
+  f=>`'Do you recognise this ${f.thing}?'`,
+  f=>"'Is that your signature at the bottom?'",
+  f=>`'Describe your reporting line at ${f.party}.'`,
+  f=>"'Who else was copied on it?'",
+  f=>`'Walk me through what you did after ${f.other} called.'`,
+  f=>"'How long have you held that role?'",
+  f=>`'Was the ${f.thing} kept in the ordinary course of business?'`,
+  f=>`'Where was the ${f.thing} stored?'`,
+  f=>"'Did you take notes during that call?'",
+  f=>`'Who at ${f.party} approved it?'`,
+  f=>"'Is this a complete copy, to your knowledge?'",
+  f=>`'When did you first see the ${f.subject}?'`,
+  f=>"'Did anyone ask you to change it?'",
+  f=>`'What is your title at ${f.party} today?'`,
+  f=>"'Have you reviewed anything to prepare for today?'",
+  f=>`'Was ${f.other} on the distribution list?'`,
+];
+const IMPROPER=[
+  {tag:"leading",       line:f=>`'And you would agree ${f.party} sat on this for months, wouldn't you?'`},
+  {tag:"leading",       line:f=>`'You knew the ${f.thing} was wrong when you signed it, didn't you?'`},
+  {tag:"leading",       line:f=>`'It is fair to say nobody at ${f.party} was watching this, isn't it?'`},
+  {tag:"hearsay",       line:f=>`'Your predecessor told me ${f.other} was never notified. Correct?'`},
+  {tag:"hearsay",       line:f=>`'I'm told the ${f.thing} was backdated. What did you hear?'`},
+  {tag:"hearsay",       line:f=>"'What did the auditor say about it afterwards?'"},
+  {tag:"assumes facts not in evidence",line:f=>`'Why did ${f.party} decide to bury the ${f.subject}?'`},
+  {tag:"assumes facts not in evidence",line:f=>"'When you destroyed the earlier draft, who told you to?'"},
+  {tag:"assumes facts not in evidence",line:f=>`'How long had ${f.party} been hiding the second set of figures?'`},
+  {tag:"calls for speculation",line:f=>`'What was ${f.other}'s counsel hoping would happen?'`},
+  {tag:"calls for speculation",line:f=>"'If you had spoken up, would any of this have happened?'"},
+  {tag:"calls for speculation",line:f=>`'What do you suppose ${f.party}'s board would say about that?'`},
+  {tag:"argumentative", line:f=>"'You are not much of a record-keeper, are you?'"},
+  {tag:"argumentative", line:f=>`'Does anyone at ${f.party} read anything before signing it?'`},
+  {tag:"argumentative", line:f=>"'You expect this room to believe that?'"},
+  {tag:"compound",      line:f=>`'Did you review the ${f.thing}, and did you tell ${f.other} what it said?'`},
+  {tag:"compound",      line:f=>"'Did you see it, keep it, and pass it on?'"},
+  {tag:"misstates prior testimony",line:f=>`'You said earlier that you never saw the ${f.subject} — so why is your name on it?'`},
+  {tag:"misstates prior testimony",line:f=>"'A moment ago you said it was routine. Now you call it urgent?'"},
+  {tag:"asked and answered",line:f=>`'One more time: who told you to file the ${f.thing}?'`},
+  {tag:"asked and answered",line:f=>"'I'll ask again, since you seem unsure of the date.'"},
+  {tag:"vague",         line:f=>"'And there were problems, generally speaking, weren't there?'"},
+];
+/* Alternate clean and improper so the rhythm reads like a real examination and
+   no run can learn "the bad ones are always third". The board draws 6 of these
+   by identity, so a long list is what keeps two runs from matching. */
+export function buildExamination(kind,f){
+  const clean=[...CLEAN], improper=[...IMPROPER], lines=[];
+  const take=pool=>pool.splice(Math.floor(rand()*pool.length),1)[0];
+  for(let i=0;i<7&&clean.length&&improper.length;i++){
+    lines.push({id:"x"+(lines.length+1),text:take(clean)(f)});
+    const pick=take(improper);
+    lines.push({id:"x"+(lines.length+1),text:pick.line(f),bad:true,tag:pick.tag});
+  }
+  const depo=kind==="depo";
+  return {
+    id:(depo?"depo_":"exam_")+f.slug,
+    depo,
+    title:depo?`THE ${f.who.toUpperCase()} DEPOSITION`:`THE ${f.who.toUpperCase()} EXAMINATION`,
+    body:depo
+      ?`No judge, no jury, just a court reporter and ${f.other}'s counsel doing whatever he likes. Objections here are preserved for someone else to rule on later — but a lawyer who objects to every clean question is coaching the witness, and the transcript shows it.`
+      :`${f.other}'s counsel has the witness on the stand, walking through the ${f.subject}. Some of these are not questions. Object before the answer lands — the bench is right there.`,
+    lines,
+  };
+}
+/* Every court filing gets a hearing, including the appeal stages hanging off
+   one. Anything that already carries an authored transcript keeps it. */
+const facts=c=>{
+  const t=String(c.title||"").replace(/^[A-Z ]+:\s*/,"");
+  const party=(t.match(/[A-Z][A-Za-z&'’-]+(?: [A-Z][A-Za-z&'’-]+)?/)||[rnd(CO)])[0];
+  return {party,other:rnd(CO.filter(x=>x!==party)),who:party.split(" ")[0],
+    subject:"filing",thing:rnd(["log","memo","invoice","certificate","docket entry"]),
+    slug:String(c.id||"gen").replace(/[^a-z0-9]/gi,"")};
+};
+function dressExaminations(c){
+  if(!c||typeof c!=="object") return c;
+  if((c.judge||c.tier===2)&&!c.objection) c.objection=buildExamination("court",facts(c));
+  /* Real work is not all courtrooms. A live tier-1 dispute can just as easily
+     put you in a conference room across from opposing counsel, which is what
+     stops this board from being a thing you see twice a career. */
+  /* Real work is not all courtrooms: a live tier-1 dispute can just as easily
+     put you across a conference table from opposing counsel. Files carrying a
+     chronology are allowed one too — choose() flips between them, so neither
+     board starves the other. */
+  else if(c.tier===1&&!c.judge&&rand()<.35) c.objection=buildExamination("depo",facts(c));
+  for(const o of c.opts||[])
+    for(const out of [o.ok,o.fail])
+      if(out&&out.next&&out.next.case) dressExaminations(out.next.case);
+  return c;
+}
+
 /* Each template returns a full case object. Tier decides deadline + reward scale. */
 const TEMPLATES=[
   // 1 — the misplaced liability cap
@@ -419,7 +519,7 @@ export const TEMPLATE_COUNT=TEMPLATES.length;
 export function genCase(){
   const c=rnd(TEMPLATES)();
   c.id=nextId("gen");
-  return c;
+  return dressExaminations(c);
 }
 
 /* Draw one NAMED template instead of a random one. Used by the dev panel so a
@@ -428,7 +528,7 @@ export function genCaseFrom(index){
   const i=Math.max(0,Math.min(TEMPLATES.length-1,Math.trunc(Number(index))||0));
   const c=TEMPLATES[i]();
   c.id=nextId("gen");
-  return c;
+  return dressExaminations(c);
 }
 
 /* THE {CLIENT} WAR — a retained client's existential, three-stage matter

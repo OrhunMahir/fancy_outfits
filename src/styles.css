@@ -698,4 +698,19 @@ h2{font-size:10px; color:var(--gold); margin-bottom:10px; border-bottom:2px soli
   content:""; position:absolute; left:-8px; top:-7px; width:26px; height:26px;
   border-radius:50%; border:2px solid var(--gold); opacity:.9;
 }
+/* A press has to be visible on the CONTROL, not just under the hand: the demo
+   buttons are disabled, and :disabled:active deliberately cancels the normal
+   travel, so the guide drives its own. */
+.guide-board .guide-pressed,
+.guide-board .btn.guide-pressed,
+.guide-board .btn:disabled.guide-pressed{
+  transform:translateY(3px);
+  box-shadow:0 1px 0 #1b2a6b;
+  filter:brightness(1.5);
+  opacity:1;
+}
+.guide-board .guide-pressed::before{
+  content:""; position:absolute; inset:-3px; border:2px solid var(--gold); pointer-events:none;
+}
+.guide-board .guide-pressed{position:relative;}
 .guide-caption{margin-top:8px; font-size:7px; color:var(--grey); line-height:1.9; min-height:26px; text-align:center;}

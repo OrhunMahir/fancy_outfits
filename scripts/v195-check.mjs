@@ -2598,9 +2598,14 @@ globalThis.clearInterval = () => {};
   assert.deepEqual(moved.order.slice(0, 2), [boardA.order[1], boardA.order[0]]);
   assert.deepEqual(minigames.moveTimelineCard(boardA, boardA.order[0], -1).order, boardA.order, "the top card cannot rise");
 
+  /* The Vance file now offers a deposition transcript AND a chronology, and
+     choose() flips between them. These cases are about the chronology, so the
+     fixture removes the hearing rather than fighting the coin; the coin gets
+     its own test below. */
   const liveDepo = (optionStyle = "technical") => {
     const raw = content.buildPool().find(c => c.id === "depo");
     const c = engine.instantiateCase(raw);
+    delete c.objection;
     const o = c.opts.find(option => option.style === optionStyle);
     Object.assign(state.S, { inbox: [c], openCase: c, event: null, summary: null, pendingSummary: null,
       hours: 4, fatigue: 0, clients: [], nemesis: null, objective: null });
@@ -3348,11 +3353,141 @@ globalThis.clearInterval = () => {};
   assert.match(overlaySource, /checkpointActionChallenge\(\);\s*setGuide\(true\)/,
     "the frozen position is written down before the guide opens");
   const guideSource = readFileSync("src/components/minigames/BoardGuide.jsx", "utf8");
+  /* A hand that blooms over a button which never moves reads as hovering, not
+     pressing. Every press must therefore name the control it lands on, so the
+     board can show the same 3px travel a real click gives. */
+  const presses = [...guideSource.matchAll(/press:(?!false)[^,}]+/g)].length;
+  const hits = [...guideSource.matchAll(/hit:"/g)].length;
+  assert.equal(presses, hits, "every demo press must name the control it lands on");
+  assert.ok(hits >= 5, "each pressable board demonstrates its press");
   assert.ok(!/from "\.\.\/\.\.\/game\/engine\.js"/.test(guideSource),
     "a guide must never reach the engine");
   for (const board of Object.keys(BOARD_FILES))
     assert.ok(guideSource.includes("<" + board.replace(".jsx", "") + " challenge={challenge} demo />"),
       "the " + board + " guide must render the real board in demo mode");
+
+  // ---- A DEPOSITION IS A ROOM, NOT A COURTROOM ----
+  /* Measured, not assumed: 57% of generated court filings carried no transcript
+     at all, which is why the hearing was the rarest board in the game. Every
+     court filing now assembles one from its own facts, and a deposition needs
+     no bench — which is what lifts the court-only ceiling. */
+  {
+    const pool = content.buildPool();
+    const vance = pool.find(c => c.id === "depo");
+    assert.equal(vance.objection.depo, true, "a deposition is flagged as one");
+    assert.equal(!!vance.judge, false, "and has no judge in the room");
+    utils.setSeed(4242);
+    let court = 0, transcripts = 0, depos = 0, drawn = 0;
+    const shapes = new Set();
+    for (let i = 0; i < 400; i++) {
+      const filing = casegen.genCaseFrom(i % casegen.TEMPLATE_COUNT);
+      if (filing.judge || filing.tier === 2) { court++; if (filing.objection) transcripts++; }
+      if (filing.objection) {
+        drawn++;
+        if (filing.objection.depo) depos++;
+        assert.ok(filing.objection.lines.some(l => l.bad), "every transcript has something to object to");
+        assert.ok(filing.objection.lines.some(l => !l.bad), "and something to sit still through");
+        shapes.add(filing.objection.lines.map(l => l.text).join("|"));
+      }
+    }
+    assert.equal(transcripts, court, "every court filing can hold a hearing");
+    assert.ok(depos > 0, "and depositions reach filings with no bench at all");
+    // Not 100%: two draws of the same template that roll the same party name
+    // legitimately produce the same examination. What must never happen is one
+    // stamped transcript reused across the docket.
+    assert.ok(shapes.size / drawn > 0.8,
+      "transcripts are assembled per filing, not stamped: " + shapes.size + "/" + drawn);
+    // A transcript without a room is not a filing you can hold a hearing on.
+    // The play has to be a risky LEGAL one: prep and covert options are their
+    // own boards and must never open a second one on top.
+    const stray = engine.instantiateCase(pool.find(c => c.id === "nda"));
+    const legalPlay = stray.opts.find(o => !o.safe && !o.action);
+    stray.objection = { ...vance.objection, depo: false };
+    assert.equal(engine.objectionEligible(stray, legalPlay), false,
+      "a hearing needs either a bench or the deposition flag");
+    stray.objection = { ...vance.objection, depo: true };
+    assert.equal(engine.objectionEligible(stray, legalPlay), true,
+      "the deposition flag is what opens the room");
+    assert.equal(engine.objectionEligible(stray, stray.opts.find(o => o.action)), false,
+      "a prep or covert option never stacks a hearing on top of its own board");
+  }
+  /* When a filing offers both boards, neither may starve the other: trying the
+     hearing first every time would have cost the Vance chronology 60% of its
+     appearances the moment its deposition transcript was written. */
+  {
+    fresh();
+    const both = engine.instantiateCase(content.buildPool().find(c => c.id === "depo"));
+    assert.ok(both.objection && both.timeline, "the fixture really does offer both");
+    const risky = both.opts.find(o => o.style === "technical");
+    let hearings = 0, chronologies = 0;
+    for (let seed = 1; seed <= 240; seed++) {
+      utils.setSeed(seed);
+      const c = engine.instantiateCase(content.buildPool().find(x => x.id === "depo"));
+      Object.assign(state.S, { inbox: [c], openCase: c, event: null, summary: null, pendingSummary: null,
+        hours: 6, fatigue: 0, clients: [], nemesis: null, objective: null, actionChallenge: null });
+      engine.choose(c, c.opts.find(o => o.style === risky.style));
+      const type = state.S.actionChallenge?.type;
+      if (type === "objection") hearings++;
+      if (type === "timeline") chronologies++;
+    }
+    assert.ok(hearings > 30 && chronologies > 30,
+      "both boards reach the player: " + hearings + " hearings / " + chronologies + " chronologies");
+  }
+
+  /* The hearing is the only board that costs no hours — you are already in the
+     room — but that must not become a hole every board can climb through. */
+  {
+    assert.equal(constants.OBJECTION_HOURS, 0, "standing up in a hearing costs no billable time");
+    assert.ok(constants.TIMELINE_HOURS >= .5 && constants.REDACT_HOURS >= .5,
+      "preparation boards still cost real hours");
+    fresh();
+    const raw = content.buildPool().find(c => c.id === "court1");
+    const c = engine.instantiateCase(raw);
+    const o = c.opts.find(x => x.style === "technical");
+    Object.assign(state.S, { inbox: [c], openCase: c, event: null, summary: null, pendingSummary: null,
+      hours: 5, fatigue: 0, clients: [], nemesis: null, objective: null, actionChallenge: null });
+    utils.setSeed(1);
+    for (let i = 0; i < 400 && state.S.actionChallenge?.type !== "objection"; i++) {
+      const cursor = utils.getRngState();
+      if (utils.rand() * 100 < constants.OBJECTION_TRIGGER) { utils.setRngState(cursor); engine.choose(c, o); }
+    }
+    assert.equal(state.S.actionChallenge?.type, "objection", "the fixture opened a hearing");
+    assert.equal(state.S.actionChallenge.cost, 0);
+    /* A free hearing must not become a hole every board climbs through. The
+       floor lives in one place, and exactly one caller is allowed to lower it. */
+    const engineSource = readFileSync("src/game/engine.js", "utf8");
+    assert.match(engineSource, /function validActionChallengeBase\(ch,day,phases,minCost=\.5\)/,
+      "the cost floor defaults to half an hour");
+    assert.match(engineSource, /ch\.cost<minCost/, "and the floor is what the check uses");
+    const lowered = [...engineSource.matchAll(/validActionChallengeBase\(([^)]*)\)/g)]
+      .map(m => m[1].split(",").map(a => a.trim()))
+      .filter(args => args.length === 4 && !args[3].startsWith("minCost"))
+      .map(args => args[3]);
+    assert.deepEqual(lowered, ["OBJECTION_HOURS"], "only the hearing lowers it");
+  }
+
+  // ---- SAVE AND STEP OUT ----
+  /* Swapping slots used to mean reloading the page. Quitting has to write the
+     save FIRST and only then drop the run, and IRONMAN — which keeps no save by
+     design — must not be offered a door that leads nowhere. */
+  engine.startGame("debtor", "hard");
+  state.S.day = 4;
+  assert.equal(engine.canQuitToMenu(), true);
+  assert.equal(engine.quitToMenu(), true, "a standard career can step out");
+  assert.equal(state.S, null, "and the desk is cleared");
+  assert.equal(engine.canQuitToMenu(), false, "with no run there is nothing to quit");
+  assert.equal(engine.quitToMenu(), false);
+  const parked = engine.peekSave(engine.getSlot());
+  assert.equal(parked.scenario, "debtor");
+  assert.equal(parked.day, 4, "the save holds the day you left on");
+  engine.loadGame(engine.getSlot());
+  assert.equal(state.S.day, 4, "and it comes back where it was");
+  engine.startGame("legacy", "medium", "ironman");
+  assert.equal(engine.canQuitToMenu(), false, "ironman is never offered the door");
+  assert.equal(engine.quitToMenu(), false, "and cannot walk through it anyway");
+  assert.ok(state.S, "the ironman career survives the attempt");
+  const settingsSource = readFileSync("src/components/SettingsOverlay.jsx", "utf8");
+  assert.match(settingsSource, /canQuitToMenu\(\)\s*\n?\s*\?/, "the UI asks before offering the button");
 
   // ---- DEV TOOLS STAY OUT OF THE GAME ----
   // The dev panel is repo-resident but must never ship. Vite only drops it if

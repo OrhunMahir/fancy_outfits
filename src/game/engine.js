@@ -1409,7 +1409,12 @@ function completeRedactionChallenge(ch){
    Fires inside a hearing, after you commit to a risky play on a court file.
    It cannot win or lose the case: it moves THAT play, and the judge on the
    bench decides how expensive a frivolous objection is. */
-export const objectionEligible=(c,o)=>!!(c&&o&&!c.msg&&!c.favor&&c.judge&&!c.objectionDone&&!c.objectionInProgress&&
+/* A hearing needs a bench; a deposition does not — opposing counsel asks the
+   improper question in a conference room and the objection goes on the record
+   for a judge to read later. Same board, and it lifts the court-only ceiling
+   that kept this the rarest thing in the game. */
+export const objectionEligible=(c,o)=>!!(c&&o&&!c.msg&&!c.favor&&!c.objectionDone&&!c.objectionInProgress&&
+  (c.judge||(plain(c.objection)&&c.objection.depo))&&
   !o.safe&&!o.action&&plain(c.objection)&&typeof c.objection.id==="string"&&
   Array.isArray(c.objection.lines)&&c.objection.lines.length>=2);
 
@@ -1431,13 +1436,13 @@ function beginObjectionChallenge(c,o,confirmedLate){
     ...createObjectionChallenge({runSeed:S.seed,caseId:c.id,optionIndex,objectionId:c.objection.id,
       lines:c.objection.lines,count:Math.min(OBJECTION_LINES,c.objection.lines.length),
       cost:OBJECTION_HOURS,toil,lateExtra:0,windowMs:OBJECTION_WINDOW_MS,
-      strict:(c.judge&&c.judge.book||0)>=OBJECTION_STRICT_BOOK}),
+      strict:(c.judge&&c.judge.book||0)>=OBJECTION_STRICT_BOOK,depo:!!c.objection.depo}),
     skillSnapshot, optionIndex, startedDay:S.day, hoursBefore:S.hours, confirmedLate:!!confirmedLate,
     caseTitle:c.title, actionTitle:c.objection.title, body:c.objection.body,
   };
   S.openCase=null;
   SFX.crisis();
-  log("OBJECTION WINDOW: "+c.objection.title,"sys");
+  log((c.objection.depo?"ON THE RECORD: ":"OBJECTION WINDOW: ")+c.objection.title,"sys");
   saveGame(); notify();
   return true;
 }
@@ -1697,10 +1702,19 @@ export function choose(c,o,confirmedLate,timelinePrepped){
   }
   // A rare prep window opens BEFORE any money changes hands: resuming this play
   // after the challenge must not charge a bribe (or anything else) twice.
-  if(!timelinePrepped&&objectionEligible(c,o)&&rand()*100<boardTrigger("objectionTrigger",OBJECTION_TRIGGER)&&
-    beginObjectionChallenge(c,o,confirmedLate)) return;
-  if(!timelinePrepped&&timelineEligible(c,o)&&rand()*100<boardTrigger("timelineTrigger",TIMELINE_TRIGGER)&&
-    beginTimelineChallenge(c,o,confirmedLate)) return;
+  /* A file can offer both a hearing and a chronology — the Vance deposition has
+     a room full of improper questions AND a binder of dates. Trying the hearing
+     first every time would quietly starve the chronology on exactly those
+     files, so when both are available the coin decides which one you get. */
+  if(!timelinePrepped){
+    const hearing=objectionEligible(c,o), chrono=timelineEligible(c,o);
+    const hearingFirst=hearing&&(!chrono||rand()<.5);
+    if(hearingFirst){
+      if(rand()*100<boardTrigger("objectionTrigger",OBJECTION_TRIGGER)&&beginObjectionChallenge(c,o,confirmedLate)) return;
+    } else if(chrono){
+      if(rand()*100<boardTrigger("timelineTrigger",TIMELINE_TRIGGER)&&beginTimelineChallenge(c,o,confirmedLate)) return;
+    }
+  }
   if(o.bribe){ // the golf money leaves your account win or lose
     if(S.money<o.bribe){ log("You can't afford the judge's 'green fees'.","bad"); notify(); return; }
     apply({money:-o.bribe},true);
@@ -2374,6 +2388,7 @@ function validOption(o,depth){
 function validTimelineData(t){
   if(t==null) return true;
   if(!plain(t)||typeof t.id!=="string"||!t.id||typeof t.title!=="string"||typeof t.body!=="string") return false;
+  if(t.depo!=null&&typeof t.depo!=="boolean") return false;
   if(!Array.isArray(t.events)||t.events.length<2||t.events.length>12) return false;
   const ids=new Set();
   for(const e of t.events){
@@ -2420,7 +2435,9 @@ function validCase(c,depth=0){
     (c.covertNote==null||typeof c.covertNote==="string")&&(c.actionInProgress==null||typeof c.actionInProgress==="string")&&
     validObjectionData(c.objection)&&(c.objectionDone==null||typeof c.objectionDone==="boolean")&&
     (c.objectionInProgress==null||typeof c.objectionInProgress==="string")&&validHearingEdge(c.hearingEdge,c.opts)&&
-    (!c.objection||!!c.judge)&&
+    // A transcript needs a room: a bench for an examination, or the deposition
+    // flag for one held across a conference table with no judge in it.
+    (!c.objection||!!c.judge||c.objection.depo===true)&&
     validTimelineData(c.timeline)&&(c.timelineDone==null||typeof c.timelineDone==="boolean")&&
     (c.timelineInProgress==null||typeof c.timelineInProgress==="string")&&validTimelineEdge(c.timelineEdge,c.opts)&&
     // A burglary during a court appearance never made sense; preparing exhibits
@@ -2783,12 +2800,15 @@ function validSkillSnapshot(snapshot){
     !Number.isInteger(snapshot.endurance)||snapshot.endurance<0||snapshot.endurance>MAX_SKILL) return false;
   return snapshot.rulesVersion!==0||(snapshot.sneaky===0&&snapshot.endurance===0);
 }
-function validActionChallengeBase(ch,day,phases){
+/* minCost exists because the hearing is the first board that costs no hours at
+   all — you are already in the room. Every other board still has to declare at
+   least half an hour, so a tampered save cannot hand itself a free break-in. */
+function validActionChallengeBase(ch,day,phases,minCost=.5){
   if(!plain(ch)||!phases.has(ch.phase)||typeof ch.caseId!=="string"||!ch.caseId||
     typeof ch.actionId!=="string"||!ch.actionId||!nonNegativeInt(ch.optionIndex)||!nonNegativeInt(ch.startedDay)||ch.startedDay<1||ch.startedDay>day||
     typeof ch.caseTitle!=="string"||typeof ch.actionTitle!=="string"||typeof ch.body!=="string"||typeof ch.feedback!=="string"||
     !Number.isInteger(ch.runSeed)||ch.runSeed<0||ch.runSeed>0xffffffff||!Number.isFinite(ch.hoursBefore)||ch.hoursBefore<=0||ch.hoursBefore>48||
-    !Number.isFinite(ch.cost)||ch.cost<.5||ch.cost>12||
+    !Number.isFinite(ch.cost)||ch.cost<minCost||ch.cost>12||
     !Number.isSafeInteger(ch.toil)||ch.toil<0||ch.toil>200||!Number.isSafeInteger(ch.lateExtra)||ch.lateExtra<0||ch.lateExtra>200||
     !validSkillSnapshot(ch.skillSnapshot)||
     !["heads","tails"].includes(ch.coinFace)) return false;
@@ -2926,7 +2946,7 @@ function validRedactionChallenge(ch,day){
 }
 const OBJECTION_PHASES=new Set(["objection","objection_done"]);
 function validObjectionChallenge(ch,day){
-  if(!validActionChallengeBase(ch,day,OBJECTION_PHASES)||ch.type!=="objection"||typeof ch.confirmedLate!=="boolean") return false;
+  if(!validActionChallengeBase(ch,day,OBJECTION_PHASES,OBJECTION_HOURS)||ch.type!=="objection"||typeof ch.confirmedLate!=="boolean") return false;
   if(!Array.isArray(ch.lines)||ch.lines.length<2||ch.lines.length>20||!Array.isArray(ch.ruled)) return false;
   if(ch.lines.some(l=>!plain(l)||typeof l.id!=="string"||!l.id||typeof l.text!=="string"||
     typeof l.bad!=="boolean"||typeof l.tag!=="string")) return false;
@@ -3056,15 +3076,17 @@ function migrateSaveData(raw){
     const c=d.inbox.find(item=>!item.msg&&item.id===ch.caseId);
     const o=c&&c.opts[ch.optionIndex];
     if(!c||c.objectionInProgress!==ch.actionId||c.objectionDone!==true||!o||o.safe||o.action||
-      !plain(c.objection)||c.objection.id!==ch.actionId||!c.judge)
+      !plain(c.objection)||c.objection.id!==ch.actionId||!(c.judge||c.objection.depo))
       throw new SaveDataError("invalid","The saved OBJECTION window no longer matches its case file.");
     const expectedToil=workFatigue(OBJECTION_FATIGUE,snapshotProgression(ch.skillSnapshot),d.scenario);
     const expected=createObjectionChallenge({runSeed:d.seed,caseId:c.id,optionIndex:ch.optionIndex,
       objectionId:c.objection.id,lines:c.objection.lines,
       count:Math.min(OBJECTION_LINES,c.objection.lines.length),cost:OBJECTION_HOURS,toil:expectedToil,
-      lateExtra:0,windowMs:OBJECTION_WINDOW_MS,strict:(c.judge&&c.judge.book||0)>=OBJECTION_STRICT_BOOK});
+      lateExtra:0,windowMs:OBJECTION_WINDOW_MS,strict:(c.judge&&c.judge.book||0)>=OBJECTION_STRICT_BOOK,
+      depo:!!c.objection.depo});
     if(ch.runSeed!==d.seed||ch.startedDay!==d.day||d.hours!==ch.hoursBefore||ch.cost!==OBJECTION_HOURS||
       ch.toil!==expectedToil||ch.lateExtra!==0||ch.windowMs!==expected.windowMs||ch.strict!==expected.strict||
+      ch.depo!==expected.depo||
       ch.lines.length!==expected.lines.length||
       ch.lines.some((l,i)=>l.id!==expected.lines[i].id||l.text!==expected.lines[i].text||l.bad!==expected.lines[i].bad))
       throw new SaveDataError("invalid","The saved OBJECTION transcript was altered.");
@@ -3343,6 +3365,18 @@ export function clearSaveSlot(n){
 function clearSave(){ return S&&S.mode==="ironman"?true:clearSaveSlot(S&&S.slot); }
 /* restart: wipe the current slot only when storage confirms the deletion */
 export function restartRun(){ if(clearSave()) location.reload(); }
+/* Save and step out to the menu, so slots can be swapped without closing the
+   game. Ironman keeps no save by design, so it has nothing to step back into:
+   the caller checks canQuitToMenu() and offers a restart instead. */
+export const canQuitToMenu=()=>!!S&&!S.over&&S.mode!=="ironman";
+export function quitToMenu(){
+  if(!canQuitToMenu()) return false;
+  if(!saveGame()) return false;      // a failed write must not swallow the run
+  stopAmbience();
+  setS(null);
+  notify();
+  return true;
+}
 export function dismissSaveError(){ if(S&&S.saveError){ S.saveError=null; notify(); } }
 export function getStats(){
   try{ return JSON.parse(localStorage.getItem(STATS_KEY)); }catch(e){ return null; }

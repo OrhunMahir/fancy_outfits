@@ -412,7 +412,7 @@ export function objectionDeal(lines,count,identity){
   return drawn;
 }
 
-export function createObjectionChallenge({runSeed,caseId,optionIndex,objectionId,lines,count,cost,toil,lateExtra,windowMs,strict}){
+export function createObjectionChallenge({runSeed,caseId,optionIndex,objectionId,lines,count,cost,toil,lateExtra,windowMs,strict,depo=false}){
   const identity=`${runSeed}|${caseId}|${objectionId}`;
   return {
     type:"objection",
@@ -429,6 +429,9 @@ export function createObjectionChallenge({runSeed,caseId,optionIndex,objectionId
     elapsedMs:0,
     windowMs,
     strict:!!strict,
+    // A deposition has no bench: objections are preserved, not ruled on. Same
+    // maths, different room — so the scoring stays comparable across both.
+    depo:!!depo,
     ruled:[],
     sustained:0,
     overruled:0,

@@ -53,8 +53,12 @@ const BOARD_HOSTS={
   power_cut:{case:"breach",pick:c=>c.opts.find(o=>o.action?.type==="power_cut")},
   contradiction:{case:"court2",pick:c=>c.opts.find(o=>o.action?.type==="contradiction")},
   redaction:{case:"nda",pick:c=>c.opts.find(o=>o.action?.type==="redaction")},
-  timeline:{case:"depo",pick:c=>c.opts.find(o=>o.style==="technical"),force:{timelineTrigger:100}},
+  /* The Vance file carries BOTH a chronology and a deposition, and choose()
+     flips between them — so a host that wants one has to take the other off the
+     file first, or the panel gives you whichever board the coin felt like. */
+  timeline:{case:"depo",pick:c=>c.opts.find(o=>o.style==="technical"),force:{timelineTrigger:100},strip:["objection"]},
   objection:{case:"court1",pick:c=>c.opts.find(o=>o.style==="technical"),force:{objectionTrigger:100}},
+  deposition:{case:"depo",pick:c=>c.opts.find(o=>o.style==="technical"),force:{objectionTrigger:100},strip:["timeline"]},
 };
 
 export function devOpenBoard(kind,{sneaky=0,reroll=true}={}){
@@ -68,6 +72,7 @@ export function devOpenBoard(kind,{sneaky=0,reroll=true}={}){
   if(sneaky) S.progression={...S.progression,skills:{...S.progression.skills,sneaky}};
   const c=devSpawnCase(host.case);
   if(!c) return null;
+  for(const key of host.strip||[]) delete c[key];
   const o=host.pick(c);
   if(!o) return null;
   if(host.force) engine.setBalanceExperiment(host.force);

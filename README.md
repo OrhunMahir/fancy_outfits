@@ -30,6 +30,18 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.30.1 — The guide is the board *(2026-08-26)*
+- **The worked examples now run the real board.** They used to be hand-drawn imitations,
+  which never quite matched and meant maintaining every board twice. Each guide now renders
+  the actual component in a read-only demo mode: same markup, same CSS, same pixels — driven
+  by invented material the guide owns and can never confuse with your puzzle.
+- **The demo hand points at what it is pressing.** Its position is measured from the control
+  itself rather than guessed in percentages, so it lands dead centre and stops trailing behind
+  the slider it is supposed to be holding.
+- **Opening the help pauses your board.** Reading how objections work used to cost you the
+  hearing while the clock ran behind the guide. The three timed boards now freeze, and the
+  frozen position is written to the save before the guide opens.
+
 ### v19.30 — Guides that play themselves *(2026-08-26)*
 - **Every board now teaches itself by being played.** The `i` button opens a looping,
   watch-only simulation with a pixel cursor that presses the right thing at the right moment:

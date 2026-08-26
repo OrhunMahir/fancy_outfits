@@ -84,6 +84,59 @@ Tarayıcıda panel açıldı, SNEAKY 5 ile kilit board'u açıldı (3 pik), reve
 
 ---
 
+## 2026-08-26 (2) — Claude: rehberler artık GERÇEK board'u oynuyor (v1.9.30.1)
+
+Kullanıcı dört şey bildirdi, dördü de gerçek hataydı.
+
+### 1. "Rehberdeki doku farklı, sanki başka bir oyun"
+
+Haklıydı ve sebep mimariydi: rehber board'ların **taklidini** çiziyordu (`guide-ring`,
+`guide-card`, `guide-page`...). Taklit hiçbir zaman aslını tutmaz ve iki ayrı bakım
+noktası demektir. Taklitler tamamen silindi — rehber artık **gerçek bileşeni** çiziyor:
+`LockpickMinigame`, `PowerCutMinigame`, `TimelineMinigame`, `ContradictionMinigame`,
+`RedactionMinigame`, `ObjectionMinigame`. Aynı JSX, aynı CSS, aynı piksel.
+
+Bunun için her board'a `demo` prop'u eklendi: state'i ebeveyn verir, motor çağıran her
+handler `demo?undefined:` ile kapanır, autofocus atlanır. Rehberin beslediği challenge
+nesnesi `BoardGuide.jsx` içinde **uydurma** malzemeyle kurulur — dosya motoru import
+bile etmez (regresyon bunu zorluyor).
+
+### 2. İmleç yanlış yeri gösteriyor / geriden geliyor
+
+Sebep: imleç yüzdeyle konumlanıyordu. Yüzde, font ve yerleşim değiştiği anda kayar;
+kilitte ise hedef (slider topuzu) hareket ettiği için interpolasyon sürekli geriden
+geliyordu. Artık imleç, işaret ettiği kontrolü **ölçerek** konumlanıyor
+(`getBoundingClientRect`, `useLayoutEffect` — render sırasında değil, layout'tan sonra).
+Kilitte topuz bir eleman olmadığı için ray genişliğinden türetiliyor.
+Ölçüm: SUBMIT'e nişan alan imleç butonun tam merkezinden **1px** sapıyor.
+
+### 3. "i"ye basınca itiraz duruşması akmaya devam ediyor
+
+Ciddi bir hataydı: yardımı okumak duruşmayı kaybettiriyordu. Üç zamanlı board
+(itiraz, kilit, sabotaj) artık `paused` prop'u alıyor; rehber açıkken frame döngüsü
+hiç dönmüyor ve açılış anında `checkpointActionChallenge()` ile donmuş konum kayda
+yazılıyor (rehber açıkken reload olursa aynı yerden devam).
+
+Tarayıcıda kanıtlandı: aynı sürede rehberin kendi demosu SUSTAINED 1'e ilerlerken
+arkadaki gerçek duruşma bar %100, 0 soru, 0/0/0 skorda kaldı.
+
+### 4. Rehber başlığı görünmüyordu
+
+`closeRef.focus()` kutuyu kendi başlığının altına kaydırıyordu → `preventScroll:true`.
+
+### Kalıcı koruma
+
+Yeni regresyon bloğu altı board dosyasını kaynak düzeyinde tarıyor: `demo` prop'u,
+motor çağıran her `onClick`'in kapalı olması, zamanlı board'larda `demo||paused`
+erken dönüşü, overlay'in `paused={guide}` geçmesi, checkpoint sırası ve rehberin
+motoru import etmemesi. **Guard'ların gerçekten ısırdığı ayrıca test edildi** —
+her iki invariant kasten bozulduğunda test kırmızıya döndü.
+
+`npm test` yeşil, `npm run build` yeşil, `npm run test:soak` → replay 346/346, integrity 0.
+Altı rehberin altısı da tarayıcıda tek tek doğrulandı.
+
+---
+
 ## 2026-08-26 — Claude: izlenen walkthrough'lar, zorluğa bağlı board'lar, sertleşen kilit (v1.9.30)
 
 ### 1. Her minigame artık kendini OYNAYARAK anlatıyor

@@ -1,9 +1,16 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import LockpickMinigame from "./LockpickMinigame.jsx";
+import PowerCutMinigame from "./PowerCutMinigame.jsx";
+import TimelineMinigame from "./TimelineMinigame.jsx";
+import ContradictionMinigame from "./ContradictionMinigame.jsx";
+import RedactionMinigame from "./RedactionMinigame.jsx";
+import ObjectionMinigame from "./ObjectionMinigame.jsx";
+import { LOCK_HOLD_MS, LOCK_MAX } from "../../game/minigames.js";
 
-/* Every board teaches itself by being played in front of you. The demos run on
-   invented material and loop on their own — you only watch. None of them can
-   touch the puzzle you actually have open, which is the point: the guide shows
-   the SHAPE of the board, never its answer. */
+/* Every guide plays the REAL board — the same components, the same CSS — driven
+   by a fabricated challenge this file owns. Nothing here touches game state or
+   the engine: `demo` makes the board a read-only picture, and the material is
+   always invented, so watching a guide can never solve the puzzle behind it. */
 
 const useClock=total=>{
   const [t,setT]=useState(0);
@@ -16,168 +23,213 @@ const useClock=total=>{
   return t;
 };
 
-// The hand: keyframes are waypoints, movement between them is interpolated, and
-// a click blooms for a moment so it reads as a press rather than a teleport.
-const cursorAt=(t,frames)=>{
-  let a=frames[0],b=frames[0];
-  for(let i=0;i<frames.length;i++) if(frames[i].t<=t){ a=frames[i]; b=frames[i+1]||frames[i]; }
-  const span=Math.max(1,b.t-a.t),k=Math.min(1,(t-a.t)/span);
-  return {x:a.x+(b.x-a.x)*k,y:a.y+(b.y-a.y)*k,press:!!a.click&&(t-a.t)<260};
+/* The hand is placed by MEASURING the control it is pointing at, not by guessing
+   percentages: a demo cursor that lands next to the button teaches the wrong
+   thing, and the offsets moved with every font and layout change. */
+const center=(stage,sel)=>{
+  const el=stage.querySelector(sel);
+  if(!el) return null;
+  const a=el.getBoundingClientRect(),b=stage.getBoundingClientRect();
+  return {x:a.left-b.left+a.width/2,y:a.top-b.top+a.height/2};
 };
-const Cursor=({x,y,press})=>(
-  <span className={"guide-cursor"+(press?" guide-cursor-press":"")} style={{left:x+"%",top:y+"%"}} aria-hidden="true" />
-);
-const Stage=({children,caption})=>(
-  <div className="guide-demo">
-    <div className="guide-stage">{children}</div>
-    <p className="guide-caption">{caption}</p>
-  </div>
-);
+const ease=k=>k<=0?0:k>=1?1:k*k*(3-2*k);
+const glide=(from,to,k)=>from&&to?{x:from.x+(to.x-from.x)*ease(k),y:from.y+(to.y-from.y)*ease(k)}:(to||from);
+const press=(t,at,span=280)=>t>=at&&t<at+span;
 
-/* LOCKPICK — the one board where nothing is ever pressed. The pick slides, the
-   cylinder starts turning by itself, and the only skill is leaving it alone. */
-function LockDemo(){
-  const t=useClock(8000);
-  const give=62;
-  let tension=0,hold=0;
-  if(t<700) tension=0;
-  else if(t<2900) tension=Math.round(give*(t-700)/2200);
-  else if(t<5200){ tension=give; hold=Math.round(100*(t-2900)/2300); }
-  else { tension=give; hold=100; }
-  const life=Math.max(38,100-Math.round((Math.min(t,5200)/5200)*52));
-  const cx=6+tension*0.86;
-  const caption=t<700?"the pick goes in":hold>0&&hold<100?"HOLD IT — TURNING "+hold+"%":hold>=100?"OPEN. you never pressed a button":"NOT HERE. KEEP MOVING.";
+function GuideBoard({caption,cursor,children}){
+  const stageRef=useRef(null),handRef=useRef(null);
+  // After layout, never during render: the control has to exist before it can
+  // be measured, and this way tracking costs no extra React pass.
+  useLayoutEffect(()=>{
+    const stage=stageRef.current,hand=handRef.current;
+    if(!stage||!hand) return;
+    const point=cursor(stage);
+    if(!point){ hand.style.opacity="0"; return; }
+    hand.style.opacity="1";
+    hand.style.left=point.x+"px";
+    hand.style.top=point.y+"px";
+    hand.classList.toggle("guide-cursor-press",!!point.press);
+  });
   return (
-    <Stage caption={caption}>
-      <div className="guide-lock-plug"><span style={{transform:`rotate(${(hold/100)*80}deg)`}} /></div>
-      <div className="guide-track">
-        <span className={"guide-handle"+(hold>0?" guide-handle-on":"")} style={{left:cx+"%"}} />
+    <div className="guide-demo">
+      <div className="guide-board" ref={stageRef} aria-hidden="true">
+        {children}
+        <span className="guide-cursor" ref={handRef} />
       </div>
-      <div className="guide-meter"><span style={{width:life+"%"}} /></div>
-      <div className="guide-meter-label">PICK LIFE {life}%</div>
-      <Cursor {...cursorAt(t,[{t:0,x:6,y:52},{t:700,x:6,y:52},{t:2900,x:cx,y:52},{t:8000,x:cx,y:52}])} />
-    </Stage>
+      <p className="guide-caption">{caption}</p>
+    </div>
   );
 }
 
-/* POWER CUT — timing cannot be written down, so the marker sweeps and the hand
-   presses CUT CURRENT the instant it is inside the amber. */
+/* LOCKPICK — the one board where nothing is ever pressed. The hand rides the
+   slider and then simply stops, which is the entire lesson. */
+function LockDemo(){
+  const t=useClock(9000);
+  const give=62;
+  let tension=0,hold=0;
+  if(t<900) tension=0;
+  else if(t<3200) tension=Math.round(give*(t-900)/2300);
+  else if(t<5900){ tension=give; hold=Math.min(LOCK_HOLD_MS,LOCK_HOLD_MS*(t-3200)/2400); }
+  else { tension=give; hold=LOCK_HOLD_MS; }
+  const wear=Math.round(Math.min(52,(Math.min(t,5900)/5900)*52));
+  const challenge={phase:"lockpick",tension,wear,hold,give,tolerance:3,hintLead:6,hintTail:2,
+    attemptsLeft:1,maxAttempts:1,brokeInLock:false};
+  const turning=Math.round((hold/LOCK_HOLD_MS)*100);
+  const caption=t<900?"the pick goes in"
+    :turning>=100?"OPEN — and no button was ever pressed"
+    :turning>0?"it started turning by itself. now LEAVE IT ALONE."
+    :"nothing yet — keep sliding";
+  // The thumb is not an element, so it is derived from the track it rides on.
+  const hand=stage=>{
+    const el=stage.querySelector(".lock-range");
+    if(!el) return null;
+    const a=el.getBoundingClientRect(),b=stage.getBoundingClientRect();
+    const inset=9;
+    const on={x:a.left-b.left+inset+((a.width-inset*2)*(tension/LOCK_MAX)),y:a.top-b.top+a.height/2};
+    return t<900?glide({x:on.x+70,y:on.y+56},on,t/900):on;
+  };
+  return (
+    <GuideBoard caption={caption} cursor={hand}>
+      <LockpickMinigame challenge={challenge} demo />
+    </GuideBoard>
+  );
+}
+
+/* POWER CUT — timing cannot be written down, so the hand waits and cuts. */
 function PowerDemo(){
   const t=useClock(9000);
-  const target=250,tolerance=18,speed=0.115;
-  const cycle=t%4500;
-  const angle=(cycle*speed)%360;
-  const gap=Math.min(Math.abs(angle-target),360-Math.abs(angle-target));
-  const hitAt=(target/speed);
-  const cut=cycle>=hitAt&&cycle<hitAt+1400;
+  const target=250,tolerance=16,speed=0.115;
+  const cycle=t%4500,hitAt=target/speed;
+  const cut=cycle>=hitAt;
+  const angle=cut?target:(cycle*speed)%360;
+  const ring=(i,phase,ang)=>({id:"g"+i,phase,angle:ang,target,tolerance});
+  const challenge={phase:"power_cut",activeRing:cut?1:0,feedback:cut?"Contact one is dead.":"Contact one is live.",
+    rings:[ring(0,cut?"locked":"active",angle),ring(1,cut?"active":"queued",(cycle*0.16)%360),ring(2,"queued",(cycle*0.2)%360)]};
+  const hand=stage=>{
+    const btn=center(stage,".power-cut-stop");
+    if(!btn) return null;
+    return {...glide({x:btn.x+80,y:btn.y+40},btn,cycle/hitAt),press:press(cycle,hitAt)};
+  };
   return (
-    <Stage caption={cut?"CUT — the marker was inside the amber":"the marker sweeps… let it come round to the amber"}>
-      <div className="guide-ring">
-        <span className="guide-window" style={{transform:`rotate(${target-tolerance}deg)`}} />
-        <span className={"guide-marker"+(cut?" guide-marker-hit":"")} style={{transform:`rotate(${cut?target:angle}deg)`}} />
-        <span className="guide-core" />
-      </div>
-      <div className={"guide-btn"+(cut?" guide-btn-on":"")}>CUT CURRENT</div>
-      <Cursor {...cursorAt(t,[{t:0,x:60,y:78},{t:hitAt-500,x:50,y:80},{t:hitAt,x:50,y:80,click:true},{t:4500,x:50,y:80},
-        {t:4500+hitAt-500,x:50,y:80},{t:4500+hitAt,x:50,y:80,click:true},{t:9000,x:50,y:80}])} />
-    </Stage>
+    <GuideBoard cursor={hand}
+      caption={cut?"CUT — the marker was inside the amber":"let the marker come round to the amber, then cut"}>
+      <PowerCutMinigame challenge={challenge} demo />
+    </GuideBoard>
   );
 }
 
 /* TIMELINE — one card is out of place; the hand lifts it and files. */
 function TimelineDemo(){
-  const t=useClock(9000);
-  const moved=t>=1500;
-  const cards=moved
-    ?["the licence expires (March)","the shipment leaves (May)","the inspector calls (June)"]
-    :["the shipment leaves (May)","the licence expires (March)","the inspector calls (June)"];
-  const sent=t>=4200;
-  return (
-    <Stage caption={sent?"EXACT CHRONOLOGY — this play gets +12%":moved?"in order now — file it":"the March event is sitting under the May one"}>
-      <ol className="guide-cards">
-        {cards.map((c,i)=>(
-          <li key={c} className={(moved&&i===0)||(!moved&&i===1)?"guide-card guide-card-live":"guide-card"}>
-            <span className="guide-up">▲</span>{c}
-          </li>
-        ))}
-      </ol>
-      <div className={"guide-btn"+(sent?" guide-btn-on":"")}>SUBMIT</div>
-      <Cursor {...cursorAt(t,[{t:0,x:70,y:20},{t:1500,x:11,y:41,click:true},{t:4200,x:50,y:86,click:true},{t:9000,x:50,y:86}])} />
-    </Stage>
-  );
-}
-
-/* CONTRADICTION — a sworn line on the left, the paper that kills it on the right. */
-function ContraDemo(){
   const t=useClock(9500);
-  const picked=t>=1600,pinned=t>=3600;
+  const moved=t>=2200;
+  const cards=[{id:"a",text:"the licence expires"},{id:"b",text:"the shipment leaves"},{id:"c",text:"the inspector calls"}];
+  const challenge={phase:"timeline",cards,order:moved?["a","b","c"]:["b","a","c"]};
+  const hand=stage=>{
+    const up=center(stage,".timeline-list li:nth-child(2) .timeline-move");
+    const send=center(stage,".timeline-actions .action-primary");
+    if(t<2200) return {...glide({x:(up?.x||0)+70,y:(up?.y||0)-46},up,t/2200),press:press(t,2200-160,160)};
+    if(t<5200) return {...glide(up,send,(t-2600)/1600),press:false};
+    return {...send,press:press(t,5200)};
+  };
+  const caption=t<2200?"the March event is sitting under the May one — lift it"
+    :t<5200?"in order now: licence, shipment, inspector"
+    :"filed. exact order helps the play you already committed to.";
   return (
-    <Stage caption={pinned?"PINNED — those two cannot both be true":picked?"now the exhibit that makes it impossible":"start with what the witness swore"}>
-      <div className="guide-columns">
-        <div>
-          <div className={"guide-slip"+(picked?" guide-slip-on":"")}>“I was never in the building that week.”</div>
-          <div className="guide-slip guide-slip-dim">“I signed nothing after April.”</div>
-        </div>
-        <div>
-          <div className={"guide-slip"+(pinned?" guide-slip-hit":"")}>BADGE LOG — their card, Tue 08:41</div>
-          <div className="guide-slip guide-slip-dim">CAFETERIA RECEIPT — Thursday</div>
-        </div>
-      </div>
-      <div className="guide-meter-label">{pinned?"1 of 3 proved · 4 tries left":"4 tries left — a wrong pin costs one"}</div>
-      <Cursor {...cursorAt(t,[{t:0,x:70,y:15},{t:1600,x:24,y:33,click:true},{t:3600,x:76,y:33,click:true},{t:9500,x:76,y:33}])} />
-    </Stage>
+    <GuideBoard caption={caption} cursor={hand}>
+      <TimelineMinigame challenge={challenge} demo />
+    </GuideBoard>
   );
 }
 
-/* REDACTION — the only board where doing nothing is already a failure. */
+/* CONTRADICTION — a sworn line, then the paper that kills it. The decoy is
+   shown and deliberately left alone. */
+function ContraDemo(){
+  const t=useClock(10500);
+  const picked=t>=2200,pinned=t>=4800;
+  const statements=[{id:"s1",text:"I was never in the building that week."},{id:"s2",text:"I signed nothing after April."}];
+  const documents=[{id:"d1",text:"BADGE LOG — their card, Tuesday 08:41"},{id:"d2",text:"CAFETERIA RECEIPT — Thursday"}];
+  const challenge={phase:"contradiction",statements,documents,
+    solution:[{statement:"s1",document:"d1"},{statement:"s2",document:"d2"}],
+    matched:pinned?[{statement:"s1",document:"d1"}]:[],selected:picked&&!pinned?"s1":null,
+    attemptsLeft:4,maxAttempts:4};
+  const hand=stage=>{
+    const st=center(stage,".contra-column:nth-child(1) .contra-card");
+    const doc=center(stage,".contra-column:nth-child(2) .contra-card");
+    if(t<2200) return {...glide({x:(st?.x||0)+60,y:(st?.y||0)-50},st,t/2200),press:press(t,2200-160,160)};
+    if(t<4800) return {...glide(st,doc,(t-2600)/1500),press:press(t,4800-160,160)};
+    return {...doc,press:false};
+  };
+  const caption=pinned?"pinned — those two cannot both be true"
+    :picked?"now the exhibit that makes it impossible (the receipt proves nothing)"
+    :"start with what the witness swore";
+  return (
+    <GuideBoard caption={caption} cursor={hand}>
+      <ContradictionMinigame challenge={challenge} demo />
+    </GuideBoard>
+  );
+}
+
+/* REDACTION — the only board where doing nothing is already a failure, so the
+   demo shows one page deliberately going out untouched. */
 function RedactDemo(){
-  const t=useClock(10000);
+  const t=useClock(11000);
   const pages=[
-    {text:"GC asks you what the exposure is",priv:true,at:1400},
-    {text:"Delivery log, 14 March",priv:false,at:null},
-    {text:"Your memo ranking the arguments",priv:true,at:3600},
+    {id:"p1",text:"Their GC asks you what the exposure really is.",priv:true},
+    {id:"p2",text:"Delivery log, 14 March, signed at the gate.",priv:false},
+    {id:"p3",text:"Your own memo ranking the arguments.",priv:true},
   ];
-  const sent=t>=5800;
+  const marked=[];
+  if(t>=2400) marked.push("p1");
+  if(t>=5200) marked.push("p3");
+  const challenge={phase:"redaction",pages,marked};
+  const hand=stage=>{
+    const a=center(stage,".redact-list li:nth-child(1) button");
+    const b=center(stage,".redact-list li:nth-child(3) button");
+    const go=center(stage,".redact-game .action-primary");
+    if(t<2400) return {...glide({x:(a?.x||0)+60,y:(a?.y||0)-50},a,t/2400),press:press(t,2400-160,160)};
+    if(t<5200) return {...glide(a,b,(t-2800)/1900),press:press(t,5200-160,160)};
+    if(t<7800) return {...glide(b,go,(t-5600)/1700),press:press(t,7800-160,160)};
+    return {...go,press:false};
+  };
+  const caption=t<2400?"advice from the client: black it out"
+    :t<5200?"your own memo: black it out too"
+    :t<7800?"the delivery log is an ordinary record — it goes out untouched"
+    :"clean production: nothing leaked, nothing over-redacted";
   return (
-    <Stage caption={sent?"CLEAN PRODUCTION — advice held back, the delivery log goes out":"black out advice and your own work. nothing else."}>
-      <ul className="guide-pages">
-        {pages.map((p,i)=>{
-          const black=p.at!==null&&t>=p.at;
-          return <li key={i} className={"guide-page"+(black?" guide-page-black":"")}>
-            <span className="guide-box-mark">{black?"█":"□"}</span>{black?"REDACTED":p.text}
-          </li>;
-        })}
-      </ul>
-      <div className={"guide-btn"+(sent?" guide-btn-on":"")}>PRODUCE</div>
-      <Cursor {...cursorAt(t,[{t:0,x:70,y:12},{t:1400,x:12,y:24,click:true},{t:3600,x:12,y:56,click:true},{t:5800,x:50,y:86,click:true},{t:10000,x:50,y:86}])} />
-    </Stage>
+    <GuideBoard caption={caption} cursor={hand}>
+      <RedactionMinigame challenge={challenge} demo />
+    </GuideBoard>
   );
 }
 
-/* OBJECTION — two clean questions and one improper one, so the demo shows the
-   restraint as clearly as the interruption. */
+/* OBJECTION — two fair questions and one improper one, so the restraint is as
+   visible as the interruption. */
 function ObjectDemo(){
   const t=useClock(10500);
   const LINES=[
-    {q:"What date did you receive the notice?",bad:false},
-    {q:"You would agree you were careless, wouldn't you?",bad:true},
-    {q:"Who else was copied on that letter?",bad:false},
+    {id:"o1",text:"What date did you receive the notice?",bad:false},
+    {id:"o2",text:"You would agree you were careless, wouldn't you?",bad:true},
+    {id:"o3",text:"Who else was copied on that letter?",bad:false},
   ];
-  const slot=Math.min(2,Math.floor(t/3500)),within=t%3500;
-  const line=LINES[slot];
-  const objected=line.bad&&within>=1500;
-  const bar=Math.max(0,100-Math.round((within/2600)*100));
-  const caption=objected?"SUSTAINED — struck from the record"
-    :line.bad?"that one is leading. object while it stands."
-    :"a fair question. leave it alone.";
+  const SLOT=3500,WINDOW=2600;
+  const slot=Math.min(2,Math.floor(t/SLOT)),within=t%SLOT;
+  const objected=slot===1&&within>=1600;
+  const ruled=slot>=1&&(slot>1||objected)?[{id:"o2",sustained:true}]:[];
+  const challenge={phase:"objection",lines:LINES,index:slot,windowMs:WINDOW,strict:false,
+    elapsedMs:objected?WINDOW:Math.min(WINDOW,within),ruled,
+    sustained:ruled.length,overruled:0,missed:0};
+  const hand=stage=>{
+    const btn=center(stage,".obj-button");
+    if(!btn) return null;
+    return {...btn,press:slot===1&&press(within,1600)};
+  };
+  const caption=objected?"SUSTAINED — struck before it was answered"
+    :slot===1?"that one is leading. object while it is still standing."
+    :"a fair question — sit on your hands";
   return (
-    <Stage caption={caption}>
-      <div className="guide-question">{line.q}</div>
-      <div className="guide-meter"><span style={{width:(objected?0:bar)+"%"}} /></div>
-      <div className={"guide-btn"+(objected?" guide-btn-on":"")}>OBJECTION</div>
-      <div className="guide-meter-label">{objected?"1 sustained · 0 overruled":"sustained 0 · overruled 0"}</div>
-      <Cursor {...cursorAt(t,[{t:0,x:50,y:80},{t:5000,x:50,y:80,click:true},{t:5400,x:50,y:80},{t:10500,x:50,y:80}])} />
-    </Stage>
+    <GuideBoard caption={caption} cursor={hand}>
+      <ObjectionMinigame challenge={challenge} demo />
+    </GuideBoard>
   );
 }
 
@@ -219,11 +271,12 @@ export default function BoardGuide({kind,onClose}){
   const closeRef=useRef(null);
   const guide=GUIDES[kind];
   const Demo=guide?.demo;
-  useEffect(()=>{ closeRef.current?.focus(); },[]);
+  useEffect(()=>{ closeRef.current?.focus({preventScroll:true}); },[]);
   return (
     <div className="guide-overlay" role="dialog" aria-modal="true" aria-label="How this board works">
       <section className="guide-box">
         <h3 className="guide-title">{guide?.title||"HOW THIS WORKS"}</h3>
+        <p className="guide-note">Your own board is paused. This is an invented example.</p>
         {Demo && <Demo />}
         <ol className="guide-steps">{(guide?.steps||[]).map((s,i)=><li key={i}>{s}</li>)}</ol>
         <button ref={closeRef} className="btn safe action-primary" type="button" onClick={onClose}>GOT IT</button>

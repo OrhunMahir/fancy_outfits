@@ -13,22 +13,27 @@ const ringStateLabel=phase=>({
 // one from reading as a bug when it snaps past the window.
 const RING_GRADE=["WARM-UP","STEADY","FAST"];
 
-export default function PowerCutMinigame({challenge}){
+/* `demo` renders this exact board from a fabricated challenge for the guide, and
+   `paused` freezes the panel while the guide is open — the circuits kept
+   spinning behind it otherwise, which meant reading the help cost you the run. */
+export default function PowerCutMinigame({challenge,demo=false,paused=false}){
   const stopRef=useRef(null);
-  const [liveChallenge,setLiveChallenge]=useState(challenge);
+  const [ownChallenge,setLiveChallenge]=useState(challenge);
+  const liveChallenge=demo?challenge:ownChallenge;
   const activeRing=Number.isInteger(liveChallenge.activeRing)?liveChallenge.activeRing:0;
   const rings=Array.isArray(liveChallenge.rings)?liveChallenge.rings:[];
 
+  // In demo mode the parent owns the frame, so syncing would double the render.
   useEffect(()=>{
-    setLiveChallenge(challenge);
-  },[challenge]);
+    if(!demo) setLiveChallenge(challenge);
+  },[challenge,demo]);
 
   useEffect(()=>{
-    stopRef.current?.focus();
-  },[activeRing]);
+    if(!demo) stopRef.current?.focus();
+  },[activeRing,demo]);
 
   useEffect(()=>{
-    if(challenge.phase!=="power_cut") return undefined;
+    if(demo||paused||challenge.phase!=="power_cut") return undefined;
 
     let frameId=0;
     let lastTime=null;
@@ -62,7 +67,7 @@ export default function PowerCutMinigame({challenge}){
       document.removeEventListener("visibilitychange",resetClock);
       window.removeEventListener("pagehide",checkpoint);
     };
-  },[challenge.phase,challenge.activeRing]);
+  },[challenge.phase,challenge.activeRing,demo,paused]);
 
   const ringCount=rings.length;
   const activeNumber=Math.min(ringCount,activeRing+1);
@@ -121,8 +126,8 @@ export default function PowerCutMinigame({challenge}){
         ref={stopRef}
         className="btn bold action-primary power-cut-stop"
         type="button"
-        onClick={stopPowerRing}
-        disabled={liveChallenge.phase!=="power_cut"||!rings[activeRing]}
+        onClick={demo?undefined:stopPowerRing}
+        disabled={demo||paused||liveChallenge.phase!=="power_cut"||!rings[activeRing]}
         aria-label={`Stop circuit ${activeNumber} of ${ringCount}`}
       >
         CUT CURRENT

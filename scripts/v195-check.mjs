@@ -3319,6 +3319,41 @@ globalThis.clearInterval = () => {};
   assert.deepEqual(minigames.objectionDeal(objectionLines, 6, "fixed").map(l => l.id),
     minigames.objectionDeal(objectionLines, 6, "fixed").map(l => l.id));
 
+  // ---- BOARD GUIDES ARE PICTURES, NOT PLAYERS ----
+  /* Each guide plays the REAL board component so the texture matches exactly,
+     which means every one of them is one careless prop away from letting a
+     worked example mutate the run. Two invariants hold that line:
+     `demo` must neutralise every engine handler, and on the three timed boards
+     the frame loop must stop while the guide is open — reading the help used to
+     cost you the hearing, which is the bug this replaced. */
+  const BOARD_FILES = {
+    "LockpickMinigame.jsx": true, "PowerCutMinigame.jsx": true, "ObjectionMinigame.jsx": true,
+    "TimelineMinigame.jsx": false, "ContradictionMinigame.jsx": false, "RedactionMinigame.jsx": false,
+  };
+  for (const [file, timed] of Object.entries(BOARD_FILES)) {
+    const src = readFileSync("src/components/minigames/" + file, "utf8");
+    assert.match(src, /\{challenge,\s*demo=false/, file + " must accept a demo prop");
+    // Every onClick that reaches the engine has to be gated on demo.
+    for (const [, handler] of src.matchAll(/onClick=\{(?!demo\?)([^}]*)\}/g))
+      assert.ok(!/[a-z]\(/.test(handler) || /undefined/.test(handler),
+        file + " has an ungated demo handler: " + handler);
+    if (!timed) continue;
+    assert.match(src, /\{challenge,\s*demo=false,\s*paused=false\}/, file + " must accept a paused prop");
+    assert.match(src, /if\(demo\|\|paused\|\|/, file + "'s clock must stop for demo and pause");
+  }
+  const overlaySource = readFileSync("src/components/ActionMinigameOverlay.jsx", "utf8");
+  for (const board of ["ObjectionMinigame", "LockpickMinigame", "PowerCutMinigame"])
+    assert.match(overlaySource, new RegExp("<" + board + " challenge=\\{challenge\\} paused=\\{guide\\}"),
+      board + " must be paused while its guide is open");
+  assert.match(overlaySource, /checkpointActionChallenge\(\);\s*setGuide\(true\)/,
+    "the frozen position is written down before the guide opens");
+  const guideSource = readFileSync("src/components/minigames/BoardGuide.jsx", "utf8");
+  assert.ok(!/from "\.\.\/\.\.\/game\/engine\.js"/.test(guideSource),
+    "a guide must never reach the engine");
+  for (const board of Object.keys(BOARD_FILES))
+    assert.ok(guideSource.includes("<" + board.replace(".jsx", "") + " challenge={challenge} demo />"),
+      "the " + board + " guide must render the real board in demo mode");
+
   // ---- DEV TOOLS STAY OUT OF THE GAME ----
   // The dev panel is repo-resident but must never ship. Vite only drops it if
   // every reference is behind import.meta.env.DEV and no shipped module imports

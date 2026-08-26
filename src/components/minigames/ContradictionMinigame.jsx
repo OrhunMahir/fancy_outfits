@@ -4,7 +4,7 @@ import { selectContradictionCard, pinContradiction, closeContradictionBoard } fr
 /* Two columns of real buttons: pick a statement, then pick the exhibit that
    makes it impossible. Every control is keyboard reachable and 48px tall, so
    mouse, thumb and keyboard all play the same board. */
-export default function ContradictionMinigame({challenge}){
+export default function ContradictionMinigame({challenge,demo=false}){
   const firstRef=useRef(null);
   const statements=Array.isArray(challenge.statements)?challenge.statements:[];
   const documents=Array.isArray(challenge.documents)?challenge.documents:[];
@@ -14,8 +14,8 @@ export default function ContradictionMinigame({challenge}){
   const selected=challenge.selected;
 
   useEffect(()=>{
-    firstRef.current?.focus();
-  },[]);
+    if(!demo) firstRef.current?.focus();
+  },[demo]);
 
   return (
     <div className="action-game contra-game">
@@ -39,9 +39,9 @@ export default function ContradictionMinigame({challenge}){
                     ref={index===0?firstRef:null}
                     className={"btn small contra-card"+(done?" contra-done":"")+(selected===statement.id?" contra-selected":"")}
                     type="button"
-                    disabled={done}
+                    disabled={demo||done}
                     aria-pressed={selected===statement.id}
-                    onClick={()=>selectContradictionCard(statement.id)}
+                    onClick={demo?undefined:()=>selectContradictionCard(statement.id)}
                   >{done?"✓ ":""}{statement.text}</button>
                 </li>
               );
@@ -60,7 +60,7 @@ export default function ContradictionMinigame({challenge}){
                     className={"btn small contra-card"+(done?" contra-done":"")}
                     type="button"
                     disabled={done||!selected}
-                    onClick={()=>pinContradiction(document.id)}
+                    onClick={demo?undefined:()=>pinContradiction(document.id)}
                   >{done?"✓ ":""}{document.text}</button>
                 </li>
               );
@@ -69,7 +69,7 @@ export default function ContradictionMinigame({challenge}){
         </div>
       </div>
 
-      <button className="btn small timeline-decline" type="button" onClick={closeContradictionBoard}>
+      <button className="btn small timeline-decline" type="button" onClick={demo?undefined:closeContradictionBoard} disabled={demo}>
         CLOSE THE BINDER (keep what you proved)
       </button>
     </div>

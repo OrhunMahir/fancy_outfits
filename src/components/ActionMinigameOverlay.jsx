@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { completeActionChallenge } from "../game/engine.js";
+import { checkpointActionChallenge, completeActionChallenge } from "../game/engine.js";
 import { useGame } from "../game/useGame.js";
 import CoinFlipMinigame from "./minigames/CoinFlipMinigame.jsx";
 import LockpickMinigame from "./minigames/LockpickMinigame.jsx";
@@ -190,15 +190,15 @@ export default function ActionMinigameOverlay(){
   let game=null;
   if(challenge.phase==="redaction") game=<RedactionMinigame challenge={challenge} />;
   else if(challenge.phase==="redaction_done") game=<RedactionResultPanel challenge={challenge} />;
-  else if(challenge.phase==="objection") game=<ObjectionMinigame challenge={challenge} />;
+  else if(challenge.phase==="objection") game=<ObjectionMinigame challenge={challenge} paused={guide} />;
   else if(challenge.phase==="objection_done") game=<ObjectionResultPanel challenge={challenge} />;
   else if(challenge.phase==="contradiction") game=<ContradictionMinigame challenge={challenge} />;
   else if(challenge.phase==="contradiction_success"||challenge.phase==="contradiction_fail")
     game=<ContradictionResultPanel challenge={challenge} />;
   else if(challenge.phase==="timeline") game=<TimelineMinigame challenge={challenge} />;
   else if(challenge.phase==="timeline_success"||challenge.phase==="timeline_fail") game=<TimelineResultPanel challenge={challenge} />;
-  else if(challenge.phase==="lockpick") game=<LockpickMinigame challenge={challenge} />;
-  else if(challenge.phase==="power_cut") game=<PowerCutMinigame challenge={challenge} />;
+  else if(challenge.phase==="lockpick") game=<LockpickMinigame challenge={challenge} paused={guide} />;
+  else if(challenge.phase==="power_cut") game=<PowerCutMinigame challenge={challenge} paused={guide} />;
   else if(challenge.phase==="lock_success"||challenge.phase==="power_success") game=<SuccessPanel challenge={challenge} />;
   else if(challenge.phase==="coin_call"||challenge.phase==="coin_result") game=<CoinFlipMinigame challenge={challenge} />;
 
@@ -216,7 +216,8 @@ export default function ActionMinigameOverlay(){
       >
         {GUIDED.has(challenge.type) && (
           <button className="btn small guide-open" type="button" title="How does this work?"
-                  aria-label="How this board works" onClick={()=>setGuide(true)}>i</button>
+                  aria-label="How this board works"
+                  onClick={()=>{ checkpointActionChallenge(); setGuide(true); }}>i</button>
         )}
         <div className="action-kicker">
           {timeline?"CASE PREP · EVIDENCE TIMELINE":contradiction?"CASE PREP · CONTRADICTION BOARD":objection?"IN SESSION · THE RECORD":redaction?"CASE PREP · PRIVILEGE REVIEW":"COVERT ACTION"}

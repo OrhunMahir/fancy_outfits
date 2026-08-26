@@ -4,12 +4,12 @@ import { markRedaction, produceRedaction } from "../../game/engine.js";
 /* Two ways to be wrong, so the board never marks the pages for you. What it CAN
    do is state the test plainly and show, for each page, what pressing it will
    actually do — the earlier version left both to the player's memory. */
-export default function RedactionMinigame({challenge}){
+export default function RedactionMinigame({challenge,demo=false}){
   const firstRef=useRef(null);
   const pages=Array.isArray(challenge.pages)?challenge.pages:[];
   const marked=new Set(challenge.marked||[]);
 
-  useEffect(()=>{ firstRef.current?.focus(); },[]);
+  useEffect(()=>{ if(!demo) firstRef.current?.focus(); },[demo]);
 
   return (
     <div className="action-game redact-game">
@@ -43,7 +43,7 @@ export default function RedactionMinigame({challenge}){
                 type="button"
                 aria-pressed={on}
                 aria-label={`${page.text} — currently ${on?"blacked out":"going out"}`}
-                onClick={()=>markRedaction(page.id)}
+                onClick={demo?undefined:()=>markRedaction(page.id)}
               >
                 <span className="redact-mark" aria-hidden="true">{on?"█":"□"}</span>
                 <span className="redact-text">{page.text}</span>
@@ -54,7 +54,7 @@ export default function RedactionMinigame({challenge}){
         })}
       </ul>
 
-      <button className="btn bold action-primary redact-submit" type="button" onClick={produceRedaction}>
+      <button className="btn bold action-primary redact-submit" type="button" onClick={demo?undefined:produceRedaction} disabled={demo}>
         SEND THE PRODUCTION ({pages.length-marked.size} pages legible)
       </button>
     </div>

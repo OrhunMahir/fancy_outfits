@@ -4,15 +4,16 @@ import { POWER_FRAME_CAP_MS } from "../../game/minigames.js";
 
 /* The transcript runs on its own clock, so this component paints the frames
    locally — a store notification per frame would rebuild the whole desk. */
-export default function ObjectionMinigame({challenge}){
+export default function ObjectionMinigame({challenge,demo=false,paused=false}){
   const buttonRef=useRef(null);
-  const [live,setLive]=useState(challenge);
+  const [own,setLive]=useState(challenge);
+  const live=demo?challenge:own;
 
-  useEffect(()=>{ setLive(challenge); },[challenge]);
-  useEffect(()=>{ buttonRef.current?.focus(); },[]);
+  useEffect(()=>{ if(!demo) setLive(challenge); },[challenge,demo]);
+  useEffect(()=>{ if(!demo) buttonRef.current?.focus(); },[demo]);
 
   useEffect(()=>{
-    if(live.phase!=="objection") return;
+    if(demo||paused||live.phase!=="objection") return;
     let raf=0, last=performance.now();
     const tick=now=>{
       const delta=Math.min(POWER_FRAME_CAP_MS,now-last);
@@ -24,7 +25,7 @@ export default function ObjectionMinigame({challenge}){
     };
     raf=requestAnimationFrame(tick);
     return ()=>cancelAnimationFrame(raf);
-  },[live.phase]);
+  },[live.phase,demo,paused]);
 
   const lines=Array.isArray(live.lines)?live.lines:[];
   const current=lines[live.index];
@@ -67,7 +68,7 @@ export default function ObjectionMinigame({challenge}){
       </div>
 
       <button ref={buttonRef} className="btn bold action-primary obj-button" type="button"
-              onClick={raiseObjectionNow} disabled={live.phase!=="objection"}>
+              onClick={demo?undefined:raiseObjectionNow} disabled={demo||paused||live.phase!=="objection"}>
         OBJECTION
       </button>
     </div>

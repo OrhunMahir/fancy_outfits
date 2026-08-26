@@ -9,17 +9,18 @@ const remainingLabel=attemptsLeft=>attemptsLeft===1?"1 PICK LEFT":`${Math.max(0,
 const strainOf=wear=>wear>=75?"critical":wear>=45?"high":wear>=15?"working":"slack";
 const STRAIN_LABEL={slack:"FRESH",working:"BENDING",high:"STRAINING",critical:"ABOUT TO GO"};
 
-export default function LockpickMinigame({challenge}){
+export default function LockpickMinigame({challenge,demo=false,paused=false}){
   const rangeRef=useRef(null);
-  const [live,setLive]=useState(challenge);
+  const [own,setLive]=useState(challenge);
+  const live=demo?challenge:own;
 
-  useEffect(()=>{ setLive(challenge); },[challenge]);
-  useEffect(()=>{ rangeRef.current?.focus(); },[]);
+  useEffect(()=>{ if(!demo) setLive(challenge); },[challenge,demo]);
+  useEffect(()=>{ if(!demo) rangeRef.current?.focus(); },[demo]);
 
   /* The lock runs on its own clock now: hold the pick in the right place and
      the cylinder turns; hold it anywhere under load and the steel wears out. */
   useEffect(()=>{
-    if(live.phase!=="lockpick") return;
+    if(demo||paused||live.phase!=="lockpick") return;
     let raf=0,last=performance.now();
     const tick=now=>{
       const delta=Math.min(POWER_FRAME_CAP_MS,now-last);
@@ -31,7 +32,7 @@ export default function LockpickMinigame({challenge}){
     };
     raf=requestAnimationFrame(tick);
     return ()=>cancelAnimationFrame(raf);
-  },[live.phase,live.attemptsLeft]);
+  },[live.phase,live.attemptsLeft,demo,paused]);
 
   const attemptsLeft=Number.isFinite(live.attemptsLeft)?live.attemptsLeft:0;
   const maxAttempts=Number.isFinite(live.maxAttempts)?live.maxAttempts:attemptsLeft;
@@ -92,7 +93,9 @@ export default function LockpickMinigame({challenge}){
         max={LOCK_MAX}
         step={LOCK_STEP}
         value={tension}
-        onChange={event=>setLockTension(Number(event.target.value))}
+        onChange={demo?undefined:event=>setLockTension(Number(event.target.value))}
+        readOnly={demo}
+        disabled={demo||paused}
         aria-label="Pick tension"
         aria-valuetext={`${tension} of ${LOCK_MAX}, ${STRAIN_LABEL[strain]}`}
       />
@@ -110,9 +113,9 @@ export default function LockpickMinigame({challenge}){
       </div>
       <div className="lock-nudge">
         <button className="btn small lock-nudge-btn" type="button"
-                onClick={()=>setLockTension(tension-LOCK_STEP)} disabled={tension<=0}>EASE OFF</button>
+                onClick={demo?undefined:()=>setLockTension(tension-LOCK_STEP)} disabled={demo||paused||tension<=0}>EASE OFF</button>
         <button className="btn small lock-nudge-btn" type="button"
-                onClick={()=>setLockTension(tension+LOCK_STEP)} disabled={tension>=LOCK_MAX}>PUSH</button>
+                onClick={demo?undefined:()=>setLockTension(tension+LOCK_STEP)} disabled={demo||paused||tension>=LOCK_MAX}>PUSH</button>
       </div>
 
       <div className="lock-attempts" aria-label={`${attemptsLeft} of ${maxAttempts} picks left`}>

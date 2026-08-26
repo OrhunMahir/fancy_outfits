@@ -23,13 +23,13 @@ import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DELEGATE_CAP, DAY_HOURS, TIER_HOU
          REDACT_LINES, REDACT_EDGE_FULL, REDACT_EDGE_FLOOR,
          REDACT_OVER_REP, REDACT_OVER_SANCTION, REDACT_HOURS, REDACT_FATIGUE } from "./constants.js";
 import { clamp, rnd, rand, shuffle, hash, setSeed, clearSeed, getRngState, setRngState } from "./utils.js";
-import { LOCK_MIN, LOCK_MAX, LOCK_HINT_SPREAD, POWER_RING_COUNT, POWER_RULES, POWER_FRAME_CAP_MS, createLockpickChallenge, clampLockTension, pressLockTension, tryLockpick, callCoin,
+import { LOCK_MIN, LOCK_MAX, LOCK_HINT_SPREAD, LOCK_HOLD_MS, LOCK_WEAR_MAX, POWER_RING_COUNT, POWER_RULES, POWER_FRAME_CAP_MS, createLockpickChallenge, clampLockTension, pressLockTension, advanceLockpick, callCoin,
          createPowerCutChallenge, advancePowerCut, stopPowerCut, powerAngleAt, powerAngleDistance,
          createTimelineChallenge, moveTimelineCard, submitTimeline,
          CONTRA_ATTEMPTS, CONTRA_STATEMENTS, createContradictionChallenge, selectContradictionStatement,
          pairContradiction, concedeContradiction,
          createObjectionChallenge, advanceObjection, raiseObjection, objectionScore,
-         createRedactionChallenge, toggleRedaction, produceDocuments } from "./minigames.js";
+         createRedactionChallenge, toggleRedaction, produceDocuments, boardTierOf } from "./minigames.js";
 import { SFX, startAmbience, stopAmbience, applyBgmVolume } from "./sound.js";
 import { settings, setSetting } from "./settings.js";
 import { buildPool, JUDGES, crises, SCENARIOS, buildWeekend } from "./content.js";
@@ -1197,19 +1197,19 @@ const snapshotProgression=snapshot=>({skills:{sneaky:snapshot.sneaky,endurance:s
 /* `powerRules` exists for one reason: rebuilding a board that is already open
    in a save. A run that started under the old circuit curve keeps it, so a
    balance change can never invalidate a puzzle someone is halfway through. */
-function createActionChallenge(action,args,skillSnapshot=legacySkillSnapshot(),powerRules=POWER_RULES){
+function createActionChallenge(action,args,skillSnapshot=legacySkillSnapshot(),powerRules=POWER_RULES,boardDiff=1){
   const snapshot={...skillSnapshot};
   const rank=snapshot.rulesVersion===1?clamp(Math.trunc(Number(snapshot.sneaky)||0),0,MAX_SKILL):0;
   const skill=sneakyModifiers({skills:{sneaky:rank}});
   const challenge=action.type==="redaction"
     // Reviewing your own bundle is billable hours, not burglary: no SNEAKY.
-    ?createRedactionChallenge({...args,pages:action.pages,count:Math.min(REDACT_LINES,(action.pages||[]).length)})
+    ?createRedactionChallenge({...args,pages:action.pages,count:Math.min(REDACT_LINES,(action.pages||[]).length),diff:boardDiff})
     :action.type==="contradiction"
     // Reading exhibits is lawyering, not burglary: SNEAKY buys nothing here.
-    ?createContradictionChallenge({...args,pairs:action.pairs,decoys:action.decoys})
+    ?createContradictionChallenge({...args,pairs:action.pairs,decoys:action.decoys,diff:boardDiff})
     :action.type==="power_cut"
-    ?createPowerCutChallenge({...args,sneaky:skill.powerScore,rules:powerRules})
-    :createLockpickChallenge({...args,toleranceBonus:skill.lockToleranceBonus,attemptBonus:skill.lockAttemptBonus});
+    ?createPowerCutChallenge({...args,sneaky:skill.powerScore,rules:powerRules,diff:boardDiff})
+    :createLockpickChallenge({...args,toleranceBonus:skill.lockToleranceBonus,attemptBonus:skill.lockAttemptBonus,diff:boardDiff});
   return {...challenge,skillSnapshot:snapshot};
 }
 
@@ -1226,7 +1226,7 @@ function beginActionChallenge(c,o,cost){
   const toil=workFatigue(rawWorkToil,snapshotProgression(skillSnapshot),S.scenario)+lateExtra;
   c.actionInProgress=action.id; // persisted: reload cannot reopen or duplicate the attempt
   S.actionChallenge={
-    ...createActionChallenge(action,{runSeed:S.seed,caseId:c.id,actionId:action.id,cost,toil,lateExtra},skillSnapshot),
+    ...createActionChallenge(action,{runSeed:S.seed,caseId:c.id,actionId:action.id,cost,toil,lateExtra},skillSnapshot,POWER_RULES,boardTierOf(S.difficulty)),
     optionIndex, startedDay:S.day, hoursBefore, caseTitle:c.title,
     actionTitle:action.title, body:action.body,
   };
@@ -1265,7 +1265,7 @@ function beginTimelineChallenge(c,o,confirmedLate){
   S.actionChallenge={
     ...createTimelineChallenge({runSeed:S.seed,caseId:c.id,optionIndex,timelineId:c.timeline.id,
       events:c.timeline.events,count:Math.min(timelineCardCount(),c.timeline.events.length),
-      cost:TIMELINE_HOURS,toil,lateExtra:0}),
+      cost:TIMELINE_HOURS,toil,lateExtra:0,diff:boardTierOf(S.difficulty)}),
     skillSnapshot, optionIndex, startedDay:S.day, hoursBefore:S.hours, confirmedLate:!!confirmedLate,
     caseTitle:c.title, actionTitle:c.timeline.title, body:c.timeline.body,
   };
@@ -1489,27 +1489,26 @@ function completeObjectionChallenge(ch){
   choose(c,o,ch.confirmedLate,true);
 }
 
+/* Moving the pick is free and instant. What kills it is holding it under load:
+   the wear clock runs in advanceLockpickFrame, driven by the component. */
 export function setLockTension(value){
   const ch=S&&S.actionChallenge;
   if(!ch||ch.phase!=="lockpick"||!actionRefs(ch)) return;
-  const next=pressLockTension(ch,value);
-  const snapped=next.snapped&&!ch.snapped;
-  S.actionChallenge=next;
-  if(snapped){ SFX.lose(); doShake(); }
-  if(next.phase==="coin_call") SFX.lose();
-  if(snapped||next.phase==="coin_call"){ saveGame(); }
+  S.actionChallenge=pressLockTension(ch,value);
   notify();
 }
 
-export function attemptLockpick(){
+/* One frame of the lock. Like the Power Cut board this repaints locally and
+   only touches the store when something actually happened. */
+export function advanceLockpickFrame(deltaMs){
   const ch=S&&S.actionChallenge;
-  if(!ch||ch.phase!=="lockpick"||!actionRefs(ch)) return;
-  const next=tryLockpick(ch);
+  if(!ch||ch.phase!=="lockpick"||!actionRefs(ch)) return null;
+  const next=advanceLockpick(ch,deltaMs);
+  const snapped=next.snapped&&!ch.snapped;
   S.actionChallenge=next;
-  if(next.phase==="lock_success") SFX.open();
-  else if(next.phase==="coin_call") SFX.lose();
-  else SFX.click();
-  saveGame(); notify();
+  if(next.phase==="lock_success"){ SFX.open(); saveGame(); notify(); }
+  else if(snapped){ SFX.lose(); doShake(); saveGame(); notify(); }
+  return S.actionChallenge;
 }
 
 export function advancePowerCutFrame(deltaMs){
@@ -2716,7 +2715,32 @@ const migrateV19ToV20=raw=>{
 /* v20 -> v21 adds the privilege review. Older careers carry no bundle. */
 /* v20 -> v21 adds the privilege review. Older careers carry no bundle. */
 const migrateV20ToV21=raw=>({...raw,schemaVersion:21,runStats:backfillCounters(raw.runStats,RUN_COUNTER_KEYS)});
-const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6,6:migrateV6ToV7,7:migrateV7ToV8,8:migrateV8ToV9,9:migrateV9ToV10,10:migrateV10ToV11,11:migrateV11ToV12,12:migrateV12ToV13,13:migrateV13ToV14,14:migrateV14ToV15,15:migrateV15ToV16,16:migrateV16ToV17,17:migrateV17ToV18,18:migrateV18ToV19,19:migrateV19ToV20,20:migrateV20ToV21};
+/* v21 -> v22 turns the lockpick into a wear clock. The old board had a snap
+   threshold and no wear, so a half-finished pick is handed back rather than
+   converted: the covert option returns to the file, unspent. */
+const migrateV21ToV22=raw=>{
+  const d={...raw,schemaVersion:22};
+  if(plain(d.actionChallenge)&&d.actionChallenge.type==="lockpick"){
+    const openId=d.actionChallenge.actionId;
+    d.actionChallenge=null;
+    if(Array.isArray(d.inbox)) d.inbox=d.inbox.map(c=>{
+      if(!plain(c)||c.msg||c.actionInProgress!==openId) return c;
+      const {actionInProgress,...rest}=c;
+      return rest;
+    });
+  }
+  return d;
+};
+/* v22 -> v23 binds board difficulty to the run's difficulty setting. Boards
+   already dealt keep the medium curve they were built with — tier 1 reproduces
+   the pre-v23 numbers exactly, so a puzzle in progress re-derives unchanged. */
+const migrateV22ToV23=raw=>{
+  const d={...raw,schemaVersion:23};
+  if(plain(d.actionChallenge)&&d.actionChallenge.type!=="objection")
+    d.actionChallenge={...d.actionChallenge,diff:1};
+  return d;
+};
+const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6,6:migrateV6ToV7,7:migrateV7ToV8,8:migrateV8ToV9,9:migrateV9ToV10,10:migrateV10ToV11,11:migrateV11ToV12,12:migrateV12ToV13,13:migrateV13ToV14,14:migrateV14ToV15,15:migrateV15ToV16,16:migrateV16ToV17,17:migrateV17ToV18,18:migrateV18ToV19,19:migrateV19ToV20,20:migrateV20ToV21,21:migrateV21ToV22,22:migrateV22ToV23};
 
 const JUDGE_MEMORY_COUNTERS=["seen","aggressiveW","aggressiveL","technicalW","technicalL","bribeW","bribeL","safe","neutralW","neutralL"];
 function validJudgeMemory(memory,day){
@@ -2775,7 +2799,9 @@ function validLockChallenge(ch,day){
     !Number.isInteger(ch.give)||ch.give<LOCK_MIN||ch.give>LOCK_MAX||
     !Number.isInteger(ch.tension)||ch.tension<LOCK_MIN||ch.tension>LOCK_MAX||
     !Number.isFinite(ch.tolerance)||ch.tolerance<1||ch.tolerance>30||
-    !Number.isInteger(ch.breakAt)||ch.breakAt<=ch.give+ch.tolerance||ch.breakAt>LOCK_MAX||
+    // the pick wears instead of snapping outright; both clocks are bounded
+    !Number.isFinite(ch.wear)||ch.wear<0||ch.wear>=LOCK_WEAR_MAX||
+    !Number.isFinite(ch.hold)||ch.hold<0||ch.hold>LOCK_HOLD_MS||
     !Number.isInteger(ch.hintLead)||ch.hintLead<0||ch.hintLead>=LOCK_HINT_SPREAD||
     !Number.isInteger(ch.hintTail)||ch.hintTail<1||ch.hintTail>3||
     typeof ch.snapped!=="boolean"||typeof ch.brokeInLock!=="boolean"||
@@ -2787,11 +2813,12 @@ function validLockChallenge(ch,day){
   if((ch.phase==="coin_call"||ch.phase==="coin_result")&&ch.attemptsLeft!==0) return false;
   const spent=ch.maxAttempts-ch.attemptsLeft;
   const inside=Math.abs(ch.tension-ch.give)<=ch.tolerance;
-  // A saved pick is never resting past the point where it would have snapped.
-  if(ch.tension>=ch.breakAt) return false;
+  // Progress only exists inside the zone, and a finished turn must be a full one.
+  if(ch.hold>0&&!inside) return false;
+  if(ch.phase==="lockpick"&&ch.hold>=LOCK_HOLD_MS) return false;
   if(ch.phase==="lockpick"&&ch.turn!==spent) return false;
-  if(ch.phase==="lock_success"&&(ch.attemptsLeft<1||ch.turn!==spent+1||!inside)) return false;
-  if((ch.phase==="coin_call"||ch.phase==="coin_result")&&(ch.turn!==ch.maxAttempts||ch.tension!==0)) return false;
+  if(ch.phase==="lock_success"&&(ch.attemptsLeft<1||ch.turn!==spent+1||!inside||ch.hold<LOCK_HOLD_MS)) return false;
+  if((ch.phase==="coin_call"||ch.phase==="coin_result")&&(ch.turn!==ch.maxAttempts||ch.tension!==0||ch.wear!==0)) return false;
   if(ch.phase==="coin_result") return ["heads","tails"].includes(ch.coinCall)&&typeof ch.escaped==="boolean"&&ch.escaped===(ch.coinCall===ch.coinFace);
   return ch.coinCall==null&&ch.escaped==null;
 }
@@ -3058,8 +3085,10 @@ function migrateSaveData(raw){
     // the board size — cannot have moved since it was dealt.
     const expectedCount=Math.min(d.rank>=TIMELINE_SENIOR_RANK?TIMELINE_CARDS_SENIOR:TIMELINE_CARDS,c.timeline.events.length);
     const expectedToil=workFatigue(TIMELINE_FATIGUE,snapshotProgression(ch.skillSnapshot),d.scenario);
+    if(![0,1,2].includes(ch.diff))
+      throw new SaveDataError("invalid","The saved EVIDENCE TIMELINE difficulty was altered.");
     const expected=createTimelineChallenge({runSeed:d.seed,caseId:c.id,optionIndex:ch.optionIndex,timelineId:c.timeline.id,
-      events:c.timeline.events,count:expectedCount,cost:TIMELINE_HOURS,toil:expectedToil,lateExtra:0});
+      events:c.timeline.events,count:expectedCount,cost:TIMELINE_HOURS,toil:expectedToil,lateExtra:0,diff:ch.diff});
     if(ch.runSeed!==d.seed||ch.startedDay!==d.day||d.hours!==ch.hoursBefore||ch.cost!==TIMELINE_HOURS||
       ch.toil!==expectedToil||ch.lateExtra!==0||ch.cards.length!==expectedCount||ch.coinFace!==expected.coinFace)
       throw new SaveDataError("invalid","The saved EVIDENCE TIMELINE outcome was altered.");
@@ -3075,17 +3104,20 @@ function migrateSaveData(raw){
     if(actionMarked.length!==1||!c||c.actionInProgress!==d.actionChallenge.actionId||!o||!o.action||o.action.id!==d.actionChallenge.actionId)
       throw new SaveDataError("invalid","The saved COVERT ACTION no longer matches its case file.");
     const ch=d.actionChallenge, expectedCost=Math.max(.5,Math.round(o.action.hours*4)/4);
+    if(![0,1,2].includes(ch.diff))
+      throw new SaveDataError("invalid","The saved board difficulty was altered.");
     const lateExtra=Math.round(Math.max(0,expectedCost-ch.hoursBefore)*LATE_FATIGUE);
     const rawWorkToil=Math.round(expectedCost*2)+(o.action.fatigue||0);
     const expectedToil=ch.skillSnapshot.rulesVersion===0?rawWorkToil+lateExtra:
       workFatigue(rawWorkToil,snapshotProgression(ch.skillSnapshot),d.scenario)+lateExtra;
     const expected=createActionChallenge(o.action,{runSeed:d.seed,caseId:c.id,actionId:o.action.id,cost:expectedCost,
-      toil:expectedToil,lateExtra},ch.skillSnapshot,ch.type==="power_cut"?ch.rules:POWER_RULES);
+      toil:expectedToil,lateExtra},ch.skillSnapshot,ch.type==="power_cut"?ch.rules:POWER_RULES,ch.diff);
     if(ch.runSeed!==d.seed||ch.startedDay!==d.day||d.hours!==ch.hoursBefore||ch.cost!==expectedCost||ch.toil!==expected.toil||ch.lateExtra!==lateExtra||
       ch.type!==expected.type||ch.coinFace!==expected.coinFace)
       throw new SaveDataError("invalid","The saved COVERT ACTION outcome was altered.");
-    if(ch.type==="lockpick"&&(ch.target!==expected.target||ch.tolerance!==expected.tolerance||ch.maxAttempts!==expected.maxAttempts))
-      throw new SaveDataError("invalid","The saved lock position was altered.");
+    if(ch.type==="lockpick"&&(ch.give!==expected.give||ch.tolerance!==expected.tolerance||
+      ch.hintLead!==expected.hintLead||ch.hintTail!==expected.hintTail||ch.maxAttempts!==expected.maxAttempts))
+      throw new SaveDataError("invalid","The saved lock was altered.");
     if(ch.type==="redaction"&&(ch.pages.length!==expected.pages.length||
       ch.pages.some((p,index)=>p.id!==expected.pages[index].id||p.text!==expected.pages[index].text||p.priv!==expected.pages[index].priv)))
       throw new SaveDataError("invalid","The saved production bundle was altered.");

@@ -30,6 +30,27 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.30 — Guides that play themselves *(2026-08-26)*
+- **Every board now teaches itself by being played.** The `i` button opens a looping,
+  watch-only simulation with a pixel cursor that presses the right thing at the right moment:
+  it cuts the circuit inside the amber window, *stops moving* on the lock's give point,
+  lifts the out-of-order card, pins the exhibit that kills the statement, blacks out the two
+  privileged pages while deliberately letting the delivery log through, and objects to the
+  leading question while sitting still through two fair ones. Every demo runs on invented
+  material — it can never touch the puzzle in front of you.
+- **Difficulty now shapes the boards, not just the numbers.** It still never touches the dice:
+  `chance()` is unchanged. What changes is what your hands have to do — a narrower lock and a
+  pick that gives out sooner, faster circuits, a longer chronology, a bigger production bundle,
+  fewer tries on a chart. HARD and REALISTIC play identical boards.
+- **The hearing is the exemption.** An objection window is the same length for everyone,
+  because it is already the tightest thing in the game — and the test suite enforces that with
+  data rather than a comment.
+- **Picking a lock is hard again.** Sweeping blindly from zero used to be free, which made a
+  steady hand a guaranteed win. Searching now costs real pick life, so a confident move beats a
+  careful crawl — and on HARD, training in SNEAKY decides the door for the first time.
+- Boards already open in a save keep the curve they were dealt with, so shipping this could not
+  invalidate a puzzle anyone was halfway through.
+
 ### v19.27 — Six more arguments to read *(2026-08-22)*
 - **Twelve procedural templates became eighteen.** A thirty-day career resolves around 67 filings,
   which meant every template came round five or six times — and once you recognise an argument you

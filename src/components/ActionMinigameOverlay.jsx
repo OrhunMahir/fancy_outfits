@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { completeActionChallenge } from "../game/engine.js";
 import { useGame } from "../game/useGame.js";
 import CoinFlipMinigame from "./minigames/CoinFlipMinigame.jsx";
@@ -7,6 +7,7 @@ import PowerCutMinigame from "./minigames/PowerCutMinigame.jsx";
 import TimelineMinigame from "./minigames/TimelineMinigame.jsx";
 import ContradictionMinigame from "./minigames/ContradictionMinigame.jsx";
 import ObjectionMinigame from "./minigames/ObjectionMinigame.jsx";
+import BoardGuide from "./minigames/BoardGuide.jsx";
 import RedactionMinigame from "./minigames/RedactionMinigame.jsx";
 
 /* The production has two opposite failures, and the panel names which one. */
@@ -123,11 +124,14 @@ function SuccessPanel({challenge}){
   );
 }
 
+const GUIDED=new Set(["lockpick","power_cut","timeline","contradiction","objection","redaction"]);
+
 export default function ActionMinigameOverlay(){
   const state=useGame();
   const challenge=state?.actionChallenge;
   const challengeOpen=Boolean(challenge);
   const dialogRef=useRef(null);
+  const [guide,setGuide]=useState(false);
 
   useEffect(()=>{
     if(!challengeOpen) return;
@@ -210,6 +214,10 @@ export default function ActionMinigameOverlay(){
         tabIndex="-1"
         onKeyDown={trapFocus}
       >
+        {GUIDED.has(challenge.type) && (
+          <button className="btn small guide-open" type="button" title="How does this work?"
+                  aria-label="How this board works" onClick={()=>setGuide(true)}>i</button>
+        )}
         <div className="action-kicker">
           {timeline?"CASE PREP · EVIDENCE TIMELINE":contradiction?"CASE PREP · CONTRADICTION BOARD":objection?"IN SESSION · THE RECORD":redaction?"CASE PREP · PRIVILEGE REVIEW":"COVERT ACTION"}
         </div>
@@ -219,6 +227,7 @@ export default function ActionMinigameOverlay(){
         </p>
         <div className="action-divider" aria-hidden="true" />
         {game}
+        {guide && <BoardGuide kind={challenge.type} onClose={()=>setGuide(false)} />}
         {challenge.phase!=="power_cut" && <div className="action-live" role="status" aria-live="polite" aria-atomic="true">
           {challenge.feedback||(
             challenge.phase==="coin_result"

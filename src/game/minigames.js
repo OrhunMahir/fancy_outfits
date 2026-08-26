@@ -9,14 +9,55 @@ export const LOCK_STEP=3;
 export const POWER_RING_COUNT=3;
 export const POWER_FRAME_CAP_MS=80;
 
-const LOCK_TOLERANCE=4;     // half-width of the give zone before SNEAKY widens it
+/* Narrow enough that a coarse sweep can step straight over it — which is what
+   makes "move fast" a gamble rather than a free win. SNEAKY widens it. */
+const LOCK_TOLERANCE=3;
 const LOCK_ATTEMPTS=1;      // SNEAKY is the only thing that buys more picks
-const LOCK_BREAK_MARGIN=2;  // minimum slack between the give zone and the snap
+/* The pick is never "broken" by a single move: it WEARS. Any load wears it
+   slowly, load past the give point wears it fast, and it shears when the wear
+   runs out. Sitting in the give zone turns the cylinder instead — you have to
+   hold it there, which is why easing up and down forever is not a strategy. */
+export const LOCK_HOLD_MS=700;      // time in the zone before the cylinder turns
+export const LOCK_WEAR_MAX=100;
+/* Searching is what costs you. A slow sweep from zero up to a high give point
+   burns most of the pick, so hunting blind is a losing plan and a confident,
+   coarser approach is the skill — which is also what SNEAKY makes safe, since a
+   wider zone cannot be stepped over. */
+const LOCK_WEAR_LOAD=1.05;          // per second, per unit of tension: the pick is bent
+const LOCK_WEAR_OVER=4.2;           // per second, per unit PAST the give zone
 /* How badly a lock can lie about being close. Deliberately a CONSTANT: SNEAKY
    widens the zone you are hunting, so the same spread of uncertainty covers a
    bigger share of it — training reduces doubt instead of scaling with it. */
 export const LOCK_HINT_SPREAD=22;
 const POWER_MISSES=1;
+
+/* `hash` is fine for picking a number, but its output moves by ~1 when the
+   input's last character moves by 1. Sorting items by it therefore reproduced
+   the AUTHORED order for every identity — every run drew the same subset, which
+   is why the boards felt like they never changed. Avalanche the bits first. */
+const mixKey=(identity,id)=>{
+  let x=hash(`${identity}|${id}`)>>>0;
+  x^=x>>>16; x=Math.imul(x,0x7feb352d)>>>0;
+  x^=x>>>15; x=Math.imul(x,0x846ca68b)>>>0;
+  x^=x>>>16;
+  return x>>>0;
+};
+
+/* Board difficulty follows the run's difficulty setting. This does NOT touch
+   the dice — odds still come from chance() alone — it changes how hard the
+   things you play with your hands are. 0 easy, 1 medium, 2 hard AND realistic
+   (the user wants those two identical). OBJECTION is deliberately excluded:
+   its timing is already the tightest thing in the game. */
+export const BOARD_TIERS=3;
+export const boardTierOf=difficulty=>difficulty==="easy"?0:difficulty==="medium"?1:2;
+const LOCK_WEAR_SCALE=[0.78,1,1.5];      // hard picks give out much sooner
+const LOCK_TOL_SHIFT=[1,0,-1];           // and the zone you are hunting is narrower
+const POWER_SPEED_SCALE=[0.9,1,1.18];
+const POWER_TOL_SHIFT=[2,0,-2];
+const TIMELINE_EXTRA=[0,0,1];            // one more card to order
+const CONTRA_ATTEMPT_SHIFT=[1,0,-1];
+const REDACT_PAGE_SHIFT=[-1,0,1];        // a bigger bundle is more to get wrong
+const tier=v=>Math.max(0,Math.min(BOARD_TIERS-1,Math.trunc(Number(v)||0)));
 
 const normalizeAngle=value=>{
   const n=Number(value);
@@ -41,14 +82,13 @@ export function powerAngleAt(ring,elapsedMs=ring?.elapsedMs){
 }
 
 // Minigame outcomes derive from stable identities, never the shared gameplay RNG.
-export function createLockpickChallenge({runSeed,caseId,actionId,cost,toil,lateExtra,toleranceBonus=0,attemptBonus=0}){
+export function createLockpickChallenge({runSeed,caseId,actionId,cost,toil,lateExtra,toleranceBonus=0,attemptBonus=0,diff=1}){
   const identity=`${runSeed}|${caseId}|${actionId}`;
   const bonus=Math.max(0,Math.trunc(Number(toleranceBonus)||0));
-  const tolerance=Math.max(1,Math.min(30,LOCK_TOLERANCE+bonus));
+  const level=tier(diff);
+  const tolerance=Math.max(1,Math.min(30,LOCK_TOLERANCE+bonus+LOCK_TOL_SHIFT[level]));
   const maxAttempts=Math.max(1,Math.min(10,LOCK_ATTEMPTS+Math.trunc(Number(attemptBonus)||0)));
   const give=28+(hash(`${identity}|give`)%45); // the cylinder yields somewhere in 28..72
-  // A steadier hand also breaks fewer picks, so SNEAKY widens the slack too.
-  const breakAt=Math.min(LOCK_MAX,give+tolerance+LOCK_BREAK_MARGIN+(hash(`${identity}|break`)%4)+bonus);
   /* Every lock announces itself early, and by a different amount: hintLead is
      how far BEFORE the real zone it starts to feel close, hintTail how briefly
      it still feels close after. So "it feels close" tells you the zone is
@@ -66,16 +106,18 @@ export function createLockpickChallenge({runSeed,caseId,actionId,cost,toil,lateE
     lateExtra,
     give,
     tolerance,
-    breakAt,
+    diff:level,
     hintLead,
     hintTail,
     maxAttempts,
     attemptsLeft:maxAttempts,
     tension:0,
+    wear:0,
+    hold:0,
     snapped:false,
     brokeInLock:false,
     turn:0,
-    feedback:"Lean on the pick. Stop when the cylinder wants to turn.",
+    feedback:"Lean on the pick and hold. The cylinder turns where it wants to.",
     coinFace:hash(`${identity}|coin`)%2===0?"heads":"tails",
   };
 }
@@ -110,54 +152,52 @@ export function clampLockTension(value){
   return Math.max(LOCK_MIN,Math.min(LOCK_MAX,Math.round(n)));
 }
 
-/* Leaning on the pick is itself a move: past breakAt it snaps and costs the
-   attempt, without the player ever pressing "turn". */
+/* Moving the pick is free. What costs is holding it there. */
 export function pressLockTension(challenge,value){
   if(challenge.phase!=="lockpick") return {...challenge};
   const tension=clampLockTension(value);
-  if(tension<challenge.breakAt)
-    return {...challenge,tension,snapped:false,feedback:FEEL_TEXT[lockFeel(challenge,tension)]};
-
-  const attemptsLeft=Math.max(0,(challenge.attemptsLeft||0)-1);
-  return {
-    ...challenge,
-    phase:attemptsLeft===0?"coin_call":"lockpick",
-    attemptsLeft,
-    tension:0,
-    snapped:true,
-    // Only the LAST pick leaves evidence: with spares you can pull the stub out
-    // and start again. Break the final one and half of it stays in the keyway.
-    brokeInLock:attemptsLeft===0,
-    turn:(challenge.turn||0)+1,
-    feedback:attemptsLeft===0
-      ?"The pick shears off. Half of it is still in the keyway, and it is not coming out by hand."
-      :"The pick snaps. You work the stub free and bend another one straight.",
-  };
+  // leaving the zone abandons the turn you had started
+  const hold=lockGives(challenge,tension)?challenge.hold:0;
+  return {...challenge,tension,hold,snapped:false,feedback:FEEL_TEXT[lockFeel(challenge,tension)]};
 }
 
-export function tryLockpick(challenge){
+const wearPerSecond=(challenge,tension)=>{
+  const over=Math.max(0,tension-(challenge.give+challenge.tolerance));
+  return (tension*LOCK_WEAR_LOAD+over*LOCK_WEAR_OVER)*LOCK_WEAR_SCALE[tier(challenge.diff)];
+};
+
+/* One frame of the lock. Either the cylinder is turning or the pick is dying;
+   below the zone it is only the slow wear of being bent at all. */
+export function advanceLockpick(challenge,deltaMs){
   if(challenge.phase!=="lockpick") return {...challenge};
-  const turn=(challenge.turn||0)+1;
-  const tension=clampLockTension(challenge.tension);
+  const dt=Math.max(0,Math.min(POWER_FRAME_CAP_MS,Number(deltaMs)||0))/1000;
+  if(dt<=0) return {...challenge};
+  const inZone=lockGives(challenge,challenge.tension);
+  const hold=inZone?Math.min(LOCK_HOLD_MS,challenge.hold+dt*1000):0;
+  const wear=Math.min(LOCK_WEAR_MAX,challenge.wear+wearPerSecond(challenge,challenge.tension)*dt);
 
-  if(lockGives(challenge,tension)){
-    return {...challenge,phase:"lock_success",tension,turn,snapped:false,
-      feedback:"The pins settle in a row. The lock opens."};
+  if(inZone&&hold>=LOCK_HOLD_MS){
+    return {...challenge,phase:"lock_success",hold,wear,turn:(challenge.turn||0)+1,
+      feedback:"The pins settle in a row. The cylinder turns."};
   }
-
-  const attemptsLeft=Math.max(0,(challenge.attemptsLeft||0)-1);
-  return {
-    ...challenge,
-    phase:attemptsLeft===0?"coin_call":"lockpick",
-    attemptsLeft,
-    tension:0,
-    snapped:false,
-    brokeInLock:false,
-    turn,
-    feedback:attemptsLeft===0
-      ?"The cylinder will not go. You pocket the pick — the noise, though, has been going on a while."
-      :"Not enough. The cylinder rolls back and you start the pressure again.",
-  };
+  if(wear>=LOCK_WEAR_MAX){
+    const attemptsLeft=Math.max(0,(challenge.attemptsLeft||0)-1);
+    return {
+      ...challenge,
+      phase:attemptsLeft===0?"coin_call":"lockpick",
+      attemptsLeft,
+      tension:0,
+      wear:0,
+      hold:0,
+      snapped:true,
+      brokeInLock:attemptsLeft===0,
+      turn:(challenge.turn||0)+1,
+      feedback:attemptsLeft===0
+        ?"The pick shears off. Half of it is still in the keyway, and it is not coming out by hand."
+        :"The pick shears. You work the stub free and bend another one straight.",
+    };
+  }
+  return {...challenge,hold,wear};
 }
 
 /* The last-chance coin after a failed covert action. Its face was fixed when
@@ -205,7 +245,7 @@ export function timelineDeal(events,count,identity){
   // Stable, identity-ordered draw: sort the whole pool by a per-event hash and
   // take the first `size`. No shared RNG, no Array#sort comparator randomness.
   const drawn=pool
-    .map(event=>({event,key:hash(`${identity}|draw|${event.id}`)}))
+    .map(event=>({event,key:mixKey(identity,`draw|${event.id}`)}))
     .sort((a,b)=>a.key-b.key||(a.event.id<b.event.id?-1:1))
     .slice(0,size)
     .map(entry=>entry.event);
@@ -226,9 +266,11 @@ export function timelineDeal(events,count,identity){
   return {cards:drawn.map(e=>({id:e.id,text:String(e.text||"")})),order,solution};
 }
 
-export function createTimelineChallenge({runSeed,caseId,optionIndex,timelineId,events,count,cost,toil,lateExtra}){
+export function createTimelineChallenge({runSeed,caseId,optionIndex,timelineId,events,count,cost,toil,lateExtra,diff=1}){
   const identity=`${runSeed}|${caseId}|${timelineId}`;
-  const {cards,order,solution}=timelineDeal(events,count,identity);
+  const level=tier(diff);
+  const dealt=Math.min((Number(count)||0)+TIMELINE_EXTRA[level],(events||[]).length);
+  const {cards,order,solution}=timelineDeal(events,dealt,identity);
   return {
     type:"timeline",
     phase:"timeline",
@@ -242,6 +284,7 @@ export function createTimelineChallenge({runSeed,caseId,optionIndex,timelineId,e
     cards,
     order,
     solution,
+    diff:level,
     correct:0,
     turn:0,
     feedback:"Put the events in the order the file describes, earliest first.",
@@ -284,7 +327,7 @@ export function submitTimeline(challenge){
 export function redactionDeal(pages,count,identity){
   const pool=(Array.isArray(pages)?pages:[]).filter(p=>p&&typeof p.id==="string");
   const drawn=pool
-    .map((page,index)=>({page,index,key:hash(`${identity}|page|${page.id}`)}))
+    .map((page,index)=>({page,index,key:mixKey(identity,`page|${page.id}`)}))
     .sort((a,b)=>a.key-b.key||a.index-b.index)
     .slice(0,Math.max(2,Math.min(pool.length,Math.trunc(Number(count))||0)))
     .sort((a,b)=>a.index-b.index)
@@ -293,8 +336,10 @@ export function redactionDeal(pages,count,identity){
   return drawn.some(p=>p.priv)&&drawn.some(p=>!p.priv)?drawn:pool.slice(0,Math.max(2,drawn.length));
 }
 
-export function createRedactionChallenge({runSeed,caseId,optionIndex,actionId,pages,count,cost,toil,lateExtra}){
+export function createRedactionChallenge({runSeed,caseId,optionIndex,actionId,pages,count,cost,toil,lateExtra,diff=1}){
   const identity=`${runSeed}|${caseId}|${actionId}`;
+  const level=tier(diff);
+  const dealt=Math.max(3,Math.min((Number(count)||0)+REDACT_PAGE_SHIFT[level],(pages||[]).length));
   return {
     type:"redaction",
     phase:"redaction",
@@ -305,7 +350,8 @@ export function createRedactionChallenge({runSeed,caseId,optionIndex,actionId,pa
     cost,
     toil,
     lateExtra,
-    pages:redactionDeal(pages,count,identity),
+    pages:redactionDeal(pages,dealt,identity),
+    diff:level,
     marked:[],
     leaked:0,
     over:0,
@@ -356,7 +402,7 @@ export function objectionDeal(lines,count,identity){
   const pool=(Array.isArray(lines)?lines:[]).filter(l=>l&&typeof l.id==="string");
   const size=Math.max(2,Math.min(pool.length,Math.trunc(Number(count))||0));
   const drawn=pool
-    .map((line,index)=>({line,index,key:hash(`${identity}|line|${line.id}`)}))
+    .map((line,index)=>({line,index,key:mixKey(identity,`line|${line.id}`)}))
     .sort((a,b)=>a.key-b.key||a.index-b.index)
     .slice(0,size)
     // keep the authored order so the transcript still reads like a transcript
@@ -458,7 +504,7 @@ export const CONTRA_DECOYS=1;
 export const CONTRA_ATTEMPTS=4;
 
 const drawByIdentity=(pool,size,identity,salt)=>pool
-  .map(entry=>({entry,key:hash(`${identity}|${salt}|${entry.id}`)}))
+  .map(entry=>({entry,key:mixKey(identity,`${salt}|${entry.id}`)}))
   .sort((a,b)=>a.key-b.key||(a.entry.id<b.entry.id?-1:1))
   .slice(0,size)
   .map(item=>item.entry);
@@ -484,9 +530,11 @@ export function contradictionDeal(pairs,decoys,identity,count=CONTRA_STATEMENTS,
   return {statements,documents,solution:drawn.map(p=>({statement:p.id,document:"doc_"+p.id}))};
 }
 
-export function createContradictionChallenge({runSeed,caseId,actionId,cost,toil,lateExtra,pairs,decoys}){
+export function createContradictionChallenge({runSeed,caseId,actionId,cost,toil,lateExtra,pairs,decoys,diff=1}){
   const identity=`${runSeed}|${caseId}|${actionId}`;
+  const level=tier(diff);
   const {statements,documents,solution}=contradictionDeal(pairs,decoys,identity);
+  const attempts=Math.max(2,CONTRA_ATTEMPTS+CONTRA_ATTEMPT_SHIFT[level]);
   return {
     type:"contradiction",
     phase:"contradiction",
@@ -501,8 +549,9 @@ export function createContradictionChallenge({runSeed,caseId,actionId,cost,toil,
     solution,
     matched:[],
     selected:null,
-    maxAttempts:CONTRA_ATTEMPTS,
-    attemptsLeft:CONTRA_ATTEMPTS,
+    diff:level,
+    maxAttempts:attempts,
+    attemptsLeft:attempts,
     turn:0,
     feedback:"Pin each sworn statement to the exhibit that makes it impossible.",
     coinFace:hash(`${identity}|coin`)%2===0?"heads":"tails", // unused here; keeps one challenge shape
@@ -567,21 +616,24 @@ export function concedeContradiction(challenge){
 export const POWER_RULES=1;
 const POWER_CURVES={
   0:{speed:index=>66+index*11, speedJitter:()=>25, tolerance:index=>16-index*2, toleranceJitter:()=>5, minTolerance:8},
-  1:{speed:index=>[56,88,120][index]??120, speedJitter:index=>[12,16,20][index]??20,
-     tolerance:index=>[20,13,9][index]??9, toleranceJitter:()=>4, minTolerance:6},
+  // v1.9.29: a notch harder across the board — the first ring still teaches,
+  // the last one now genuinely demands timing.
+  1:{speed:index=>[62,98,136][index]??136, speedJitter:index=>[12,16,20][index]??20,
+     tolerance:index=>[18,12,8][index]??8, toleranceJitter:()=>4, minTolerance:6},
 };
-export function createPowerCutChallenge({runSeed,caseId,actionId,cost,toil,lateExtra,sneaky=0,rules=POWER_RULES}){
+export function createPowerCutChallenge({runSeed,caseId,actionId,cost,toil,lateExtra,sneaky=0,rules=POWER_RULES,diff=1}){
   const identity=`${runSeed}|${caseId}|${actionId}`;
   const sneakySnapshot=Math.max(0,Math.min(100,Math.round(Number(sneaky)||0)));
   const speedFactor=1-sneakySnapshot*.0035; // 100 SNEAKY is 35% slower
   const windowBonus=Math.round(sneakySnapshot*.08); // and up to 8deg wider
   const curve=POWER_CURVES[rules]||POWER_CURVES[POWER_RULES];
+  const level=tier(diff);
 
   const rings=Array.from({length:POWER_RING_COUNT},(_,index)=>{
     const ringIdentity=`${identity}|ring|${index}`;
     const target=hash(`${ringIdentity}|target`)%360;
     const tolerance=Math.max(curve.minTolerance,
-      curve.tolerance(index)+(hash(`${ringIdentity}|window`)%curve.toleranceJitter(index))+windowBonus);
+      curve.tolerance(index)+(hash(`${ringIdentity}|window`)%curve.toleranceJitter(index))+windowBonus+POWER_TOL_SHIFT[level]);
     let startAngle=hash(`${ringIdentity}|angle`)%360;
 
     // Never begin with the marker already sitting in the success window.
@@ -595,7 +647,7 @@ export function createPowerCutChallenge({runSeed,caseId,actionId,cost,toil,lateE
       startAngle,
       angle:startAngle,
       elapsedMs:0,
-      speed:Math.round((curve.speed(index)+(hash(`${ringIdentity}|speed`)%curve.speedJitter(index)))*speedFactor*10)/10,
+      speed:Math.round((curve.speed(index)+(hash(`${ringIdentity}|speed`)%curve.speedJitter(index)))*speedFactor*POWER_SPEED_SCALE[level]*10)/10,
       direction:hash(`${ringIdentity}|direction`)%2===0?1:-1,
       target,
       tolerance,
@@ -613,6 +665,7 @@ export function createPowerCutChallenge({runSeed,caseId,actionId,cost,toil,lateE
     lateExtra,
     sneaky:sneakySnapshot,
     rules,
+    diff:level,
     rings,
     activeRing:0,
     maxMisses:POWER_MISSES,

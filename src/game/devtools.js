@@ -57,9 +57,14 @@ const BOARD_HOSTS={
   objection:{case:"court1",pick:c=>c.opts.find(o=>o.style==="technical"),force:{objectionTrigger:100}},
 };
 
-export function devOpenBoard(kind,{sneaky=0}={}){
+export function devOpenBoard(kind,{sneaky=0,reroll=true}={}){
   const host=BOARD_HOSTS[kind];
   if(!host||!S) return null;
+  /* A board is dealt from runSeed|caseId|actionId, so opening the same file
+     twice in one career is SUPPOSED to give the same board. That makes the dev
+     panel look like nothing ever changes, so it rolls a fresh run seed each
+     time unless you ask it not to. */
+  if(reroll) S.seed=(S.seed+0x9e3779b1)>>>0;
   if(sneaky) S.progression={...S.progression,skills:{...S.progression.skills,sneaky}};
   const c=devSpawnCase(host.case);
   if(!c) return null;

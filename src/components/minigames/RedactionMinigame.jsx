@@ -1,8 +1,9 @@
 import { useEffect, useRef } from "react";
 import { markRedaction, produceRedaction } from "../../game/engine.js";
 
-/* Two ways to be wrong, so the board never tells you which pages are which —
-   the case brief states the rule and the pages have to be read against it. */
+/* Two ways to be wrong, so the board never marks the pages for you. What it CAN
+   do is state the test plainly and show, for each page, what pressing it will
+   actually do — the earlier version left both to the player's memory. */
 export default function RedactionMinigame({challenge}){
   const firstRef=useRef(null);
   const pages=Array.isArray(challenge.pages)?challenge.pages:[];
@@ -12,12 +13,24 @@ export default function RedactionMinigame({challenge}){
 
   return (
     <div className="action-game redact-game">
+      <div className="redact-rule">
+        <div className="redact-rule-row redact-rule-black">
+          <span className="redact-rule-key">BLACK OUT</span>
+          <span>advice between you and the client · notes and memos you wrote yourself</span>
+        </div>
+        <div className="redact-rule-row redact-rule-send">
+          <span className="redact-rule-key">SEND</span>
+          <span>ordinary business records · anything an outsider already saw</span>
+        </div>
+      </div>
       <div className="lock-instructions">
-        Black out privileged material only: legal advice with the client, and your own work product.
-        Leave everything else legible.
+        Tap a page to switch it. Miss a privileged page and they read your case; black out an ordinary
+        record and the court calls it obstruction.
       </div>
 
-      <div className="redact-status">BLACKED OUT {marked.size}/{pages.length}</div>
+      <div className="redact-status">
+        {marked.size} BLACKED OUT · {pages.length-marked.size} GOING OUT AS-IS
+      </div>
 
       <ul className="redact-list">
         {pages.map((page,index)=>{
@@ -29,10 +42,12 @@ export default function RedactionMinigame({challenge}){
                 className={"btn small redact-page"+(on?" redact-on":"")}
                 type="button"
                 aria-pressed={on}
+                aria-label={`${page.text} — currently ${on?"blacked out":"going out"}`}
                 onClick={()=>markRedaction(page.id)}
               >
+                <span className="redact-mark" aria-hidden="true">{on?"█":"□"}</span>
                 <span className="redact-text">{page.text}</span>
-                <span className="redact-flag">{on?"REDACTED":"PRODUCE"}</span>
+                <span className="redact-flag">{on?"BLACKED OUT":"GOING OUT"}</span>
               </button>
             </li>
           );
@@ -40,7 +55,7 @@ export default function RedactionMinigame({challenge}){
       </ul>
 
       <button className="btn bold action-primary redact-submit" type="button" onClick={produceRedaction}>
-        SEND THE PRODUCTION
+        SEND THE PRODUCTION ({pages.length-marked.size} pages legible)
       </button>
     </div>
   );

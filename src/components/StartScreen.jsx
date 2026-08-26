@@ -6,10 +6,10 @@ import { ACHIEVEMENTS, getUnlocked } from "../game/achievements.js";
 import { rnd } from "../game/utils.js";
 
 const DIFFS=[
-  ["easy","EASY","odds shown as a tight range"],
-  ["medium","MEDIUM","the range gets wide"],
-  ["hard","HARD","the range is more of a rumor"],
-  ["realistic","REALISTIC","no numbers. Read the file. Feel the odds."],
+  ["easy","EASY","odds shown as a tight range · forgiving boards"],
+  ["medium","MEDIUM","the range gets wide · boards as written"],
+  ["hard","HARD","the range is more of a rumor · unforgiving boards"],
+  ["realistic","REALISTIC","no numbers. Read the file. Feel the odds. · same boards as HARD"],
 ];
 const MODES=[
   ["standard","STANDARD","auto-save. One career at a time."],
@@ -50,7 +50,7 @@ export default function StartScreen(){
       <div className="box panel" style={{margin:"auto"}}>
         <h2 style={{fontSize:16}}>FANCY OUTFITS</h2>
         <div className="subtitle">A pixel legal drama. Read the file. Pick your line.<br/>Don't get HENDERED.</div>
-        <div className="kv">DIFFICULTY — blurs what you KNOW, never the dice:</div>
+        <div className="kv">DIFFICULTY — blurs what you KNOW and sharpens what you PLAY, never the dice:</div>
         <div className="diffrow">
           {DIFFS.map(([k,label])=>(
             <button key={k} className={"btn small"+(diff===k?" on":"")} onClick={()=>setDiff(k)}>{label}</button>

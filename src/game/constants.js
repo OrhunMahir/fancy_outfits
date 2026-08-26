@@ -89,7 +89,7 @@ export const FIRE_HEAT=9, FIRE_HEAT_SENIOR=16, HEAT_DECAY=0.93, HEAT_MIN=1;
 // or loses the case by itself — it only moves that play's odds, so reading the
 // file stays the edge. The board is drawn from an authored event pool so the
 // same case asks a different chronology in a different run.
-export const TIMELINE_TRIGGER=25;          // % chance on an eligible risky play
+export const TIMELINE_TRIGGER=55;          // % chance on an eligible risky play
 export const TIMELINE_CARDS=4;             // events on the board (5 from rank 2)
 export const TIMELINE_CARDS_SENIOR=5;
 export const TIMELINE_SENIOR_RANK=2;       // rank at which the board grows
@@ -102,7 +102,7 @@ export const TIMELINE_HOURS=.5, TIMELINE_FATIGUE=3; // prep costs, paid either w
 // break-in. Improper questions scroll past; catching them helps the play you
 // already committed to, and objecting to clean questions burns credibility with
 // the judge on the bench. A strict, by-the-book judge punishes that harder.
-export const OBJECTION_TRIGGER=30;         // % chance on a risky play in court
+export const OBJECTION_TRIGGER=60;         // % chance on a risky play in court
 export const OBJECTION_LINES=6;            // questions drawn from the authored transcript
 export const OBJECTION_WINDOW_MS=2600;     // how long each question stands before it is answered
 export const OBJECTION_EDGE_WIN=12;        // a clean sheet is worth as much as an exact chronology
@@ -122,7 +122,7 @@ export const REDACT_OVER_REP=-2;       // per ordinary record blacked out
 export const REDACT_OVER_SANCTION=2;   // this many over-redactions and the court sanctions the firm
 export const REDACT_HOURS=1.5, REDACT_FATIGUE=6;
 // The storage key stays stable; ordered migrations use the embedded schema.
-export const SAVE_SCHEMA_VERSION=21;
+export const SAVE_SCHEMA_VERSION=23;
 export const SAVE_LOG_LIMIT=200, SAVE_ARCHIVE_LIMIT=200;
 export const INBOX_MESSAGE_LIMIT=80; // notifications are history, not permanent case files
 export const SAVE_KEY="fo_save_v1";

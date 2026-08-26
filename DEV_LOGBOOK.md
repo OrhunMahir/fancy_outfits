@@ -84,6 +84,124 @@ Tarayıcıda panel açıldı, SNEAKY 5 ile kilit board'u açıldı (3 pik), reve
 
 ---
 
+## 2026-08-26 — Claude: izlenen walkthrough'lar, zorluğa bağlı board'lar, sertleşen kilit (v1.9.30)
+
+### 1. Her minigame artık kendini OYNAYARAK anlatıyor
+
+Metin kutuları gitti. `BoardGuide.jsx` altı board için de **kendi kendine dönen, izlenen**
+bir simülasyon çalıştırıyor: sahnede piksel bir imleç var, doğru anda doğru yere basıyor.
+
+- **Sabotaj:** işaretçi süpürüyor, amber pencereye girdiği anda imleç CUT CURRENT'a basıyor.
+- **Kilit:** imleç çubuğu kaydırıyor, veriş noktasında **duruyor**, göbek dönüyor, PICK LIFE iniyor.
+  ("There is no button to press" cümlesi artık gösteriliyor, anlatılmıyor.)
+- **Kronoloji:** yanlış sıradaki kart ▲ ile kaldırılıyor, sonra SUBMIT.
+- **Çelişki:** önce ifade, sonra onu imkânsız kılan exhibit — decoy'a dokunulmuyor.
+- **Redaksiyon:** iki imtiyazlı sayfa karartılıyor, teslimat kaydı **bilerek** açık bırakılıyor.
+- **İtiraz:** iki temiz soru geçiyor, sadece leading olana basılıyor. Kendini tutmak da öğretiliyor.
+
+Hepsi uydurma malzeme kullanıyor — önündeki bulmacayı asla çözmüyor, çünkü rehberin işi
+board'un ŞEKLİNİ göstermek, cevabını değil.
+
+### 2. Zorluk artık board'ları da ölçekliyor
+
+Şimdiye kadar zorluk **yalnız bilgiyi** bulanıklaştırıyordu (belgelenmiş çekirdek karar).
+Bu hâlâ geçerli: `chance()` tek satır değişmedi. Değişen, ELİNLE oynadığın şeyler
+(`boardTierOf`, tier 0/1/2 — **hard ve realistic aynı tier**, kullanıcının isteği):
+
+| | EASY | MEDIUM | HARD/REALISTIC |
+|---|---|---|---|
+| kilit bandı | ±4 | ±3 | ±2 |
+| pik aşınması | ×0.78 | ×1 | ×1.5 |
+| sabotaj pencereleri | 824/302/177ms | 677/233/130ms | 519/165/86ms |
+| kronoloji kartı | 4 | 4 | 5 |
+| redaksiyon sayfası | 7 | 8 | 9 |
+| çelişki hakkı | 5 | 4 | 3 |
+
+**İTİRAZ bilinçli olarak MUAF** (kullanıcının isteği) — penceresi zaten oyundaki en dar şey.
+Testte veriyle zorlanıyor: objection board'u hiç `diff` alanı taşımıyor, yani sessizce
+ölçeklenmesi mümkün değil.
+
+**Tier 1 = eski eğri, birebir.** Bu yüzden yarım kalmış bir board'u olan kayıtlar
+schema v23'e geçtiğinde `diff:1` damgasıyla aynen yeniden türetiliyor; kimsenin oynadığı
+bulmaca bir denge değişikliğiyle geçersiz olmuyor. Regresyon bunu `deepEqual` ile kilitliyor.
+
+### 3. Kilit gerçekten zorlaştı
+
+Kullanıcı "direk yapılıyor" dedi, haklıydı: `locksim` steady oyuncuyu **%100** gösteriyordu.
+Sebep, `LOCK_WEAR_LOAD` 0.62'de kör bir taramanın bedava olmasıydı. 1.05'e çekildi —
+artık sıfırdan yukarı yavaş yavaş yoklamak pikin bütçesini yiyor, yani **aramak pahalı**,
+kararlı hamle beceridir.
+
+| | SNEAKY 0 | SNEAKY 2 | SNEAKY 5 |
+|---|---|---|---|
+| MEDIUM careful/steady/hasty | 43/56/77% | 46/60/100% | 50/68/100% |
+| HARD careful/steady/hasty | 21/38/39% | 26/41/68% | 33/46/76% |
+
+HARD'da SNEAKY yatırımı ilk kez gerçekten belirleyici.
+
+### Testler
+
+`npm test` yeşil (yeni: tier sıralaması, aşınma sıralaması, tier1==eski eğri, objection muafiyeti),
+`npm run build` yeşil, `npm run test:soak` → replay 346/346, integrity 0.
+Altı rehberin altısı da tarayıcıda gerçek animasyonla doğrulandı.
+
+Bir test literali daha türetilmiş hale getirildi: kilidin "dönüş pikin hepsini yemez"
+kontrolü artık `LOCK_WEAR_MAX`'in oranı, sabit 45 değil — aşınma yeniden ayarlandığında
+test sessizce yanlış şeyi ölçmesin.
+
+### Sıradaki kesin adım
+
+Kullanıcı oynayıp geri bildirim verecek. Sonrasında **GitHub Pages demo**, ardından
+**mobil layout + Capacitor**.
+
+---
+
+## 2026-08-22 — Claude: kilidi okunur yapmak, board sıklığı ve rehberler (v1.9.29)
+
+### Kullanıcı geri bildirimi ve karşılıkları
+
+**"Kilit çok garip, nasıl yapacağımı anlayamadım."** Mekanik doğruydu ama ekran çelişiyordu:
+göbek GERİLİMLE dönüyordu (yani her yerde "ilerliyorum" der gibi), ilerleme ise ayrı bir yeşil
+bardaydı. İki sinyal aynı resimde farklı şey söylüyordu. Düzeltme:
+- Göbek artık YALNIZCA silindir dönerken dönüyor — dönüş = ilerleme, tek anlam.
+- Tek büyük başlık: "HOLD IT — TURNING %n" / "TOO FAR. EASE OFF." / "NOT HERE. KEEP MOVING."
+- "PICK WEAR 0→100" yerine "PICK LIFE 100→0": kaynak azalır, oyuncu bunu bekler.
+
+**"İtiraz/kronoloji/çelişki hâlâ aynı geliyor."** Kısmen haklıydı ve sebebi ölçüldü:
+board kimliği `runSeed|caseId|actionId` olduğu için DEV panelinden aynı davayı tekrar açmak
+TASARIM GEREĞİ aynı board'u veriyordu (save/reload kararlılığı buna dayanıyor). Panel artık her
+açılışta run seed'ini döndürüyor. Ayrıca iki havuz gerçekten küçüktü:
+kronoloji 7→11 olay (35→330 kombinasyon), çelişki 6→9 çift + 3→5 decoy (60→420).
+Ölçüm: 300 farklı run'da farklı board — objection 292, timeline 297, contradiction 236.
+
+**"Minigameler daha sık olsun, çoğu davada."** Taşıma oranları ve tetikler yükseltildi
+(TIMELINE_TRIGGER 25→55, OBJECTION_TRIGGER 30→60, şablon taşıma oranları .45-.6 → .7-.95).
+Üretilen dosyaların **%55.3**'ü artık bir board taşıyor. Kariyer başına açılış: kronoloji
+1.10→**2.19**, itiraz 1.18→**2.52**. Denge korundu: 160 kariyerde kazanma **%68.1**
+(yerleşik bant ~%65-70) — board'lar saat/yorgunluk yediği halde oyun sertleşmedi.
+
+**"Minigamelerde i butonu olsun, örnek göstersin."** `BoardGuide.jsx`: her board'un sağ üstünde
+altın **i** düğmesi. Açılan kutu **uydurma malzemeyle** çalışılmış bir örnek gösteriyor — önündeki
+bulmacayı ASLA çözmüyor. Elektrik sabotajında metin yerine **canlı animasyon**: işaretçi süpürüyor,
+amber pencerede duruyor, altında "STOPPED INSIDE THE WINDOW" yazıyor. Zamanlama anlatılamaz,
+gösterilir.
+
+**"Elektrik güzel olmuş"** — dokunulmadı (pencereler 559/277/149 ms).
+**"Redaksiyon yeterince açık"** — kural kartı korundu.
+
+### Testler
+
+`npm test` yeşil, `npm run build` yeşil, `npm run test:soak` → replay 346/346, integrity 0.
+Tarayıcıda: kilit başlığı ve PICK LIFE doğrulandı, i rehberi hem kilitte hem sabotajda (animasyonlu)
+açıldı.
+
+### Sıradaki kesin adım
+
+Kullanıcı oynayıp geri bildirim verecek. Sonrasında **GitHub Pages demo**, ardından
+**mobil layout + Capacitor**.
+
+---
+
 ## 2026-08-22 — Claude: altı yeni prosedürel şablon (v1.9.27)
 
 ### Neden

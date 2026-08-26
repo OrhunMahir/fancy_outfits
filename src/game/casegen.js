@@ -37,9 +37,9 @@ const TEMPLATES=[
   const c={tier:1,title:`CASE: ${a} contract dispute`,deadline:rnd([2,3]),
     body:`${a} wants out of a supply contract. Their file is a mess of routing slips and one furious sticky note. Exhibit C is the gem: the contract was signed by ${who} of the counterparty who, under their own bylaws attached as Exhibit F, had no signing authority that quarter. Opposing counsel attached Exhibit F themselves.`,
     opts};
-  if(rand()<.45) c.opts.push({text:"CASE PREP: clear the production bundle before it goes out.",style:"prep",
+  if(rand()<.7) c.opts.push({text:"CASE PREP: clear the production bundle before it goes out.",style:"prep",
     action:{id:"generated_contract_privilege",type:"redaction",title:`THE ${a.toUpperCase()} PRODUCTION`,
-      body:"Their request sweeps in your whole file and it ships tonight. Black out legal advice and your own work product. Nothing else — a third party on the thread breaks privilege, and blacking out an ordinary business record is obstruction, not caution.",
+      body:"Opposing counsel's request sweeps in this whole bundle and it ships tonight. The rule is below; the pages are not marked.",
       hours:1.5,fatigue:6,edge:15,
       edgeText:"PRIVILEGE HELD (+15% on this file's risky plays)",
       pages:[
@@ -78,7 +78,7 @@ const TEMPLATES=[
   /* One board per court filing: the hearing window and the chronology would
      otherwise fight over the same risky play, and only one can open. */
   const board3=rand();
-  if(board3<.45){
+  if(board3<.5){
     c.objection={id:"late_filing_examination",title:`${a.toUpperCase()}'S EXAMINATION`,
       body:`${a}'s counsel has your client's records custodian on the stand, walking her through the dates. Some of these are not questions. Object before the answer lands.`,
       lines:[
@@ -92,7 +92,7 @@ const TEMPLATES=[
         {id:"g8",text:"'What was your general counsel hoping would happen?'",bad:true,tag:"calls for speculation"},
         {id:"g9",text:"'Is this your signature on the log?'"},
         {id:"g10",text:"'You are not much of a record-keeper, are you?'",bad:true,tag:"argumentative"}]};
-  } else if(board3<.85){ c.timeline=c.timelineDraft; }
+  } else if(board3<.95){ c.timeline=c.timelineDraft; }
   delete c.timelineDraft;
   if(rand()<.5){ const yrs=rnd([2,3,4]); // half the time the loser appeals — a follow-up stage
     c.opts[1].ok.next={after:2,note:`${a}'s counsel promises an appeal. Loudly, near a camera.`,case:{
@@ -114,7 +114,7 @@ const TEMPLATES=[
       {text:"Present the location evidence. Void the will.",base:74,style:"technical",ok:{fx:{rep:8,inf:7,money:1300},txt:"Exhibit A: a timestamped photo. The will folds like a beach chair."},fail:{fx:{rep:-5},txt:"One witness signed remotely — legal here since '21. The other one you never checked."}},
       {text:"Accuse the beneficiary of undue influence.",base:38,boldW:3,style:"aggressive",ok:{fx:{bold:7,inf:7,money:900},txt:"They confess to 'manifesting the estate'. On the record."},fail:{fx:{rep:-10},txt:"No evidence, just vibes. The judge bills you for the vibes."}}]};
   const board4=rand();
-  if(board4<.45){
+  if(board4<.5){
     c.objection={id:"estate_examination",title:`THE ${who.toUpperCase()} EXAMINATION`,
       body:`The ${heir}'s counsel is examining the surviving witness about that afternoon. Object while a question is standing; the bench is watching you as closely as the witness.`,
       lines:[
@@ -128,7 +128,7 @@ const TEMPLATES=[
         {id:"e8",text:"'What do you imagine he meant to leave his daughter?'",bad:true,tag:"calls for speculation"},
         {id:"e9",text:"'Did you read it before you signed?'"},
         {id:"e10",text:"'You will sign anything put in front of you, won't you?'",bad:true,tag:"argumentative"}]};
-  } else if(board4<.9) c.opts.push({text:"CASE PREP: chart the affidavits against the bundle.",style:"prep",
+  } else if(board4<.95) c.opts.push({text:"CASE PREP: chart the affidavits against the bundle.",style:"prep",
     action:{id:"generated_estate_contradictions",type:"contradiction",title:`THE ${who.toUpperCase()} AFFIDAVITS`,
       body:"Two witnesses swore to a version of that afternoon. The bundle disagrees with them in five different places. Pin each sentence to the page that ends it — and leave the pages that prove nothing alone.",
       hours:1.5,fatigue:6,edge:15,
@@ -152,7 +152,7 @@ const TEMPLATES=[
   ()=>{const a=rnd(CO),m=rnd([1,2,3]);
   return {tier:1,title:`CASE: ${a} audit prep`,deadline:rnd([2,3]),
     body:`Prep the ${a} CFO for deposition. The binder holds two versions of the same expense report: one signed BEFORE the audit, one after — with ${money(m*1000000)} quietly reclassified to 'consulting'. Their counsel included both copies. By accident, presumably. The dates are duller than the numbers and twice as useful. January 12: the audit committee schedules its review. February 3: the original report is signed. February 20: the auditors ask for supporting invoices. February 21: the CFO's assistant books a vendor 'orientation dinner'. March 2: the ${money(m*1000000)} moves to consulting. March 6: the second report is signed. March 30: the assistant leaves the company.`,
-    timeline:rand()<.6?{id:"audit_two_reports",title:`THE ${a.toUpperCase()} BINDER, END TO END`,
+    timeline:rand()<.8?{id:"audit_two_reports",title:`THE ${a.toUpperCase()} BINDER, END TO END`,
       body:"Two signatures, one audit. Lay the binder out in order and the reclassification stops looking like accounting and starts looking like a decision.",
       events:[
         {id:"schedule",at:1,text:"The audit committee schedules its review"},
@@ -201,10 +201,10 @@ const TEMPLATES=[
       {text:"Confront them with the metadata timestamp.",base:73,style:"technical",delay:rnd([1,2]),ok:{fx:{rep:8,inf:7,money:1000},txt:`The header doesn't lie even when ${a} does. They settle before discovery.`},fail:{fx:{rep:-5},txt:"They claim a 'server clock error'. It's flimsy — but it's today's problem now."}},
       {text:"Threaten to report the fabrication to the court.",base:33,boldW:3,style:"aggressive",ok:{fx:{bold:6,inf:6,money:1200},txt:"The word 'sanctions' does the negotiating for you."},fail:{fx:{rep:-10},txt:`${a} reminds you whose client they are. Loudly. To Hardwick.`}}]};
   const board8=rand();
-  if(board8<.45){
+  if(board8<.5){
     c8.opts.push({text:"CASE PREP: clear the HR file before it is produced.",style:"prep",
       action:{id:"generated_hr_privilege",type:"redaction",title:`THE ${a.toUpperCase()} HR FILE`,
-        body:`${who}'s counsel has asked for the whole personnel file and it goes out tonight. Black out legal advice and your own work product — nothing else. A third party on the thread breaks privilege, and blacking out an ordinary record is obstruction.`,
+        body:`${who}'s counsel has asked for the whole personnel file and it ships tonight. The rule is below; the pages are not marked.`,
         hours:1.5,fatigue:6,edge:15,
         edgeText:"PRIVILEGE HELD (+15% on this file's risky plays)",
         pages:[
@@ -221,14 +221,14 @@ const TEMPLATES=[
         success:{fx:{bold:2},txt:"The file goes out clean. They learn nothing they did not already have."},
         partial:{fx:{},txt:"Most of it holds. The over-black pages will draw a letter, but nothing of yours went out."},
         miss:{fx:{},txt:"Your own assessment of your own client's exposure is now in their hands."}}});
-  } else if(board8<.8){ c8.timeline=c8.timelineDraft8; }
+  } else if(board8<.95){ c8.timeline=c8.timelineDraft8; }
   delete c8.timelineDraft8;
   return c8;},
   // 9 — the patent that predates itself
   ()=>{const a=rnd(CO),b=rnd(CO.filter(x=>x!==a));
   return {tier:1,title:`CASE: ${a} v. ${b} (patent)`,deadline:rnd([2,3]),
     body:`${b} sues ${a} for infringing a 'revolutionary' patent. The filing date is right there on page one. So is the trade-show brochure in exhibit 9, where ${b} publicly demoed the exact invention — fourteen months BEFORE they filed. Public disclosure that old sinks the patent. The prosecution history runs: year one, March 4, the trade-show demo. Year one, April 20, ${b} posts the demo video publicly. Year two, May 9, the application is filed. Year two, November 2, the patent issues. Year three, January 15, ${a} launches the accused product. Year three, March 1, the cease-and-desist arrives. Year three, April 12, the complaint is filed. They exhibited their own poison.`,
-    timeline:rand()<.6?{id:"patent_prior_disclosure",title:"THE PROSECUTION HISTORY",
+    timeline:rand()<.8?{id:"patent_prior_disclosure",title:"THE PROSECUTION HISTORY",
       body:`Prior disclosure is a date problem, not an argument problem. Put ${b}'s own history in order and the fourteen months speak for themselves.`,
       events:[
         {id:"demo",at:1,text:"The invention is demoed at the trade show"},
@@ -246,7 +246,7 @@ const TEMPLATES=[
   ()=>{const who=rnd(LAST),a=rnd(CO),k=rnd([200,350,500]);
   return {tier:1,title:`CASE: ${a} loan guaranty`,deadline:rnd([2,3]),
     body:`${a} defaulted on a $${k}k loan and the bank is chasing ${who}, who allegedly 'personally guaranteed' it. The guaranty page bears ${who}'s signature — but it's a photocopy grafted onto a different font than the rest of the document, and it is dated June 14, stamped by a notary whose commission expired April 1. The rest of the file is honest about its dates: February 2, ${a} draws the loan down. February 20, the credit committee demands a personal guarantor. April 1, the notary's commission expires. September 8, ${a} misses its first payment. September 21, the bank scans its own file copy — with no guaranty page in it. October 5, the demand letter goes to ${who}. November 30, the guaranty page appears in the bank's production. Somebody assembled this.`,
-    timeline:rand()<.6?{id:"guaranty_assembly",title:"WHEN THE PAGE APPEARED",
+    timeline:rand()<.8?{id:"guaranty_assembly",title:"WHEN THE PAGE APPEARED",
       body:`The signature is the wrong fight. The right fight is the order: a page nobody could scan in September cannot have been signed in June.`,
       events:[
         {id:"drawdown",at:1,text:`${a} draws the loan down`},
@@ -318,7 +318,7 @@ const TEMPLATES=[
       {text:"Accept their explanation and work around the gap.",base:100,safe:true,ok:{fx:{inf:2,bold:-4},txt:"You rebuild the timeline from emails. Slower, poorer, unremarkable."}},
       {text:"Move for a spoliation instruction.",base:70,style:"technical",ok:{fx:{rep:8,inf:7,money:1100},txt:"The jury will be told it may assume the worst about what was on that laptop. That is worth more than the laptop."},fail:{fx:{rep:-6},txt:"The court calls it negligent, not intentional, and gives you nothing but sympathy."}},
       {text:"Accuse them of obstruction in open filings.",base:33,boldW:3,style:"aggressive",ok:{fx:{bold:8,inf:7,money:900},txt:`${b} settles within the week. Nobody wants that word in a published opinion.`},fail:{fx:{rep:-11},txt:"Intent is hard to prove and you did not prove it. The word lands on you instead."}}]};
-  if(rand()<.5) c15.timeline={id:"spoliation_cleanup",title:"THE CLEANUP, IN ORDER",
+  if(rand()<.8) c15.timeline={id:"spoliation_cleanup",title:"THE CLEANUP, IN ORDER",
     body:`Before you accuse anyone of anything, lay the IT tickets end to end. ${b}'s counsel will argue coincidence, and coincidence is a question of sequence.`,
     events:[
       {id:"hold",at:1,text:`${a} sends the litigation hold letter`},
@@ -336,9 +336,9 @@ const TEMPLATES=[
       {text:"Raise it privately and let them withdraw quietly.",base:100,safe:true,ok:{fx:{inf:3,rep:2,bold:-3},txt:`${firm} withdraws over a weekend. No motion, no headline, no leverage.`}},
       {text:"Move to disqualify, citing their own memo.",base:74,style:"technical",ok:{fx:{rep:8,inf:7,money:1000},txt:"Their memo is exhibit A to their own disqualification. The other side starts over with new counsel and a cold file."},fail:{fx:{rep:-5},txt:"They wall off the partner and the court accepts the screen. You lose a month."}},
       {text:"Report the firm to the bar association.",base:32,boldW:3,style:"aggressive",ok:{fx:{bold:7,inf:7},txt:`${firm} settles the underlying case to make the complaint go away. Everyone notices who did it.`},fail:{fx:{rep:-11},txt:"The bar finds no violation, and the profession is small. Very small."}}]};
-  if(rand()<.45) c16.opts.push({text:"CASE PREP: clear our own file before it goes back.",style:"prep",
+  if(rand()<.7) c16.opts.push({text:"CASE PREP: clear our own file before it goes back.",style:"prep",
     action:{id:"generated_conflict_privilege",type:"redaction",title:`THE ${a.toUpperCase()} CONFLICT FILE`,
-      body:`${firm} has asked for everything you hold on the old engagement, and it ships tonight. Black out legal advice and your own work product — nothing else. A third party on the thread breaks privilege, and blacking out an ordinary record is obstruction.`,
+      body:`${firm} has asked for everything you hold on the old engagement, and it ships tonight. The rule is below; the pages are not marked.`,
       hours:1.5,fatigue:6,edge:15,
       edgeText:"PRIVILEGE HELD (+15% on this file's risky plays)",
       pages:[
@@ -364,7 +364,7 @@ const TEMPLATES=[
       {text:"Consent to a narrow class and limit the damage.",base:100,safe:true,ok:{fx:{inf:2,bold:-3,money:500},txt:"A small class, a small settlement, a small mention in the file."}},
       {text:"Oppose certification — the lead plaintiff released these claims.",base:68,style:"technical",ok:{fx:{rep:9,inf:8,money:1500},txt:"'The representative has nothing to represent.' Certification denied. The class evaporates."},fail:{fx:{rep:-6},txt:"They substitute a new lead plaintiff by Friday. You bought a week."}},
       {text:"Argue the whole action was manufactured by counsel.",base:34,boldW:3,style:"aggressive",ok:{fx:{bold:8,inf:8,money:1200},txt:"The court asks plaintiff's counsel some very slow questions. The action is dismissed."},fail:{fx:{rep:-12},txt:"Accusing a colleague of manufacturing a class action requires proof. You had a theory."}}]};
-  if(rand()<.5) c17.objection={id:"class_examination",title:`THE ${who.toUpperCase()} EXAMINATION`,
+  if(rand()<.7) c17.objection={id:"class_examination",title:`THE ${who.toUpperCase()} EXAMINATION`,
     body:`Plaintiff's counsel is walking ${who} through why she is typical of the class. Object while a question is standing — the bench decides certification and it is listening to you as much as to her.`,
     lines:[
       {id:"c1",text:"'You bought the product in question, correct?'"},
@@ -386,7 +386,7 @@ const TEMPLATES=[
       {text:"Cross-examine him at trial and hope the jury notices.",base:100,safe:true,ok:{fx:{inf:2,bold:-3},txt:"You save it for cross. Juries forgive experts more than judges do."}},
       {text:"Move to exclude — unverifiable method, phantom credential.",base:70,style:"technical",ok:{fx:{rep:9,inf:8,money:1400},txt:"Excluded. Their damages case leaves with him."},fail:{fx:{rep:-6},txt:"The court lets him testify and says the CV goes to weight, not admissibility."}},
       {text:"Accuse him of perjury on his own CV.",base:32,boldW:3,style:"aggressive",ok:{fx:{bold:8,inf:8,money:1100},txt:"He withdraws from the case before the hearing. And from two others."},fail:{fx:{rep:-12},txt:"Calling an expert a liar in open court without the issuing body's letter is a choice. You made it."}}]};
-  if(rand()<.5) c18.opts.push({text:"CASE PREP: chart the CV against what the file proves.",style:"prep",
+  if(rand()<.7) c18.opts.push({text:"CASE PREP: chart the CV against what the file proves.",style:"prep",
     action:{id:"generated_expert_contradictions",type:"contradiction",title:`DR. ${who.toUpperCase()}'S CV`,
       body:"He swore to his qualifications in a declaration. The bundle disagrees with him in several places. Pin each claim to the page that ends it — and leave the pages that prove nothing alone.",
       hours:1.5,fatigue:6,edge:15,

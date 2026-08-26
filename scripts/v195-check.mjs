@@ -91,12 +91,22 @@ globalThis.clearInterval = () => {};
       hours: 2, fatigue: 0, clients: [], nemesis: null, objective: null });
     return { c, o };
   };
-  const missTension = () => 0; // the cylinder never gives at zero pressure
   const oppositeFace = face => face === "heads" ? "tails" : "heads";
-  const exhaustLock = () => { // turn with no pressure until every pick is spent
+  /* The lock is a clock now: nothing happens until frames run. Sitting well
+     past the give zone wears a pick out; sitting in it turns the cylinder. */
+  const runLock = (limit = 200) => {
+    let n = 0;
+    while (state.S.actionChallenge?.phase === "lockpick" && n++ < limit) engine.advanceLockpickFrame(80);
+  };
+  const wearOutLock = () => {
+    const ch = state.S.actionChallenge;
+    engine.setLockTension(Math.min(100, ch.give + ch.tolerance + 20));
+    runLock();
+  };
+  const openLock = () => { engine.setLockTension(state.S.actionChallenge.give); runLock(); };
+  const exhaustLock = () => { // wear every pick out until the coin comes up
     for (let i = 0; i < 10 && state.S.actionChallenge?.phase === "lockpick"; i++) {
-      engine.setLockTension(missTension());
-      engine.attemptLockpick();
+      wearOutLock();
     }
   };
   const directedPowerMs = ring => {
@@ -164,61 +174,94 @@ globalThis.clearInterval = () => {};
   assert.equal(utils.getRngState(), puzzleCursor);
   // A beginner gets exactly one pick; SNEAKY is the only thing that buys more.
   assert.equal(puzzle1.maxAttempts, 1, "the first level picks a lock with one shot");
-  assert.ok(puzzle1.breakAt > puzzle1.give + puzzle1.tolerance, "there is real slack before the pick snaps");
-  assert.equal(puzzle1.tension, 0);
-  // Leaning into the give zone and turning opens it.
-  const tensedPuzzle = minigames.pressLockTension(puzzle1, puzzle1.give);
-  assert.deepEqual([tensedPuzzle.tension, tensedPuzzle.phase, tensedPuzzle.attemptsLeft], [puzzle1.give, "lockpick", 1]);
-  assert.equal(minigames.lockGives(tensedPuzzle), true, "the cylinder really does turn here");
-  assert.equal(minigames.lockFeel(tensedPuzzle), "close", "and the hand feels it");
+  assert.deepEqual([puzzle1.tension, puzzle1.wear, puzzle1.hold], [0, 0, 0]);
+
+  // Holding in the give zone turns the cylinder; it is a clock, not a button.
+  let held = minigames.pressLockTension(puzzle1, puzzle1.give);
+  assert.equal(minigames.lockGives(held), true, "the cylinder really does turn here");
+  assert.equal(minigames.lockFeel(held), "close", "and the hand feels it");
+  let frames = 0;
+  while (held.phase === "lockpick" && frames++ < 40) held = minigames.advanceLockpick(held, 80);
+  assert.equal(held.phase, "lock_success", "holding the right spot opens it");
+  /* Holding costs something now — searching is the expensive part, not the
+     turn. Derived from the pick's own budget rather than a literal, so a wear
+     retune can tighten the lock without silently making the turn unsurvivable:
+     landing straight on the give point must always leave pick to spare. */
+  assert.ok(held.wear < minigames.LOCK_WEAR_MAX * 0.6,
+    "the turn itself does not use up the pick: " + Math.round(held.wear));
+  /* v23: the run's difficulty setting now sizes the boards you play with your
+     hands. It still never touches the dice — chance() is untouched — and
+     OBJECTION is deliberately exempt, since its window is already the tightest
+     thing in the game. hard and realistic are one tier by design. */
+  assert.equal(minigames.boardTierOf("easy"), 0);
+  assert.equal(minigames.boardTierOf("medium"), 1);
+  assert.equal(minigames.boardTierOf("hard"), 2);
+  assert.equal(minigames.boardTierOf("realistic"), 2,
+    "realistic plays the same boards as hard");
+  const byTier = d => minigames.createLockpickChallenge({ ...puzzleArgs, diff: d });
+  assert.ok(byTier(0).tolerance > byTier(1).tolerance && byTier(1).tolerance > byTier(2).tolerance,
+    "the zone you hunt for narrows as difficulty rises");
+  const wearAt = d => {
+    let ch = minigames.pressLockTension(byTier(d), 40);
+    return minigames.advanceLockpick(ch, 400).wear;
+  };
+  assert.ok(wearAt(0) < wearAt(1) && wearAt(1) < wearAt(2),
+    "and the pick gives out sooner: " + [0, 1, 2].map(d => Math.round(wearAt(d))).join(" / "));
+  // Tier 1 must reproduce the pre-v23 numbers exactly, or every save carrying an
+  // open board would fail re-derivation the moment this shipped.
+  assert.deepEqual(minigames.createLockpickChallenge({ ...puzzleArgs, diff: 1 }),
+    { ...minigames.createLockpickChallenge(puzzleArgs) },
+    "medium is the old curve, so boards in progress survive the change");
+  // The hearing is the exemption, and it has to be visible in the data: an
+  // objection board carries no tier at all, so nothing can quietly scale it.
+  const heardLines = Array.from({ length: 10 }, (_, i) => ({ id: "q" + i, text: "q" + i, bad: i % 3 === 0 }));
+  assert.equal("diff" in minigames.objectionDeal(heardLines, 6, "r|c|o")[0], false,
+    "objection questions carry no difficulty tier");
+
+  // Half a turn is no turn: leaving the zone abandons the progress.
+  let partial = minigames.advanceLockpick(minigames.pressLockTension(puzzle1, puzzle1.give), 300);
+  assert.ok(partial.hold > 0 && partial.phase === "lockpick");
+  assert.equal(minigames.pressLockTension(partial, 0).hold, 0, "stepping off the zone restarts the turn");
+
+  // Sitting past the give point wears the steel out and shears it — no button
+  // press involved, which is the whole point of the redesign.
+  let over = minigames.pressLockTension(puzzle1, Math.min(100, puzzle1.give + puzzle1.tolerance + 15));
+  let overFrames = 0;
+  while (over.phase === "lockpick" && overFrames++ < 200) over = minigames.advanceLockpick(over, 80);
+  assert.equal(over.phase, "coin_call", "one pick, one shear, straight to the coin");
+  assert.deepEqual([over.snapped, over.brokeInLock, over.tension, over.wear], [true, true, 0, 0]);
+  assert.match(over.feedback, /shears off/i);
+  const overSeconds = overFrames * 80 / 1000;
+  assert.ok(overSeconds < 4, "pushing well past the zone kills it quickly: " + overSeconds + "s");
+  // Loitering below the zone is safer but not free — the pick is still bent.
+  let low = minigames.pressLockTension(puzzle1, Math.max(1, puzzle1.give - puzzle1.tolerance - 8));
+  let lowFrames = 0;
+  while (low.phase === "lockpick" && lowFrames++ < 400) low = minigames.advanceLockpick(low, 80);
+  const lowSeconds = lowFrames * 80 / 1000;
+  assert.equal(low.phase, "coin_call", "dawdling under load eventually costs the pick too");
+  assert.ok(lowSeconds > overSeconds * 2, "but it takes far longer: " + lowSeconds + "s vs " + overSeconds + "s");
+
+  // A snap with spares left is recoverable: you pull the stub and start again.
+  const sparePick = minigames.createLockpickChallenge({ ...puzzleArgs, attemptBonus: 1 });
+  let spare = minigames.pressLockTension(sparePick, Math.min(100, sparePick.give + sparePick.tolerance + 20));
+  let spareFrames = 0;
+  while (spare.phase === "lockpick" && !spare.snapped && spareFrames++ < 200) spare = minigames.advanceLockpick(spare, 80);
+  assert.deepEqual([spare.phase, spare.snapped, spare.brokeInLock], ["lockpick", true, false],
+    "only the final pick leaves evidence behind");
+  // The coin narrates the failure you actually had.
+  const brokenCaught = minigames.callCoin(over, over.coinFace === "heads" ? "tails" : "heads");
+  assert.match(brokenCaught.feedback, /keyway|tape/i, "a fragment left behind is what gets reviewed");
+  const brokenAway = minigames.callCoin(over, over.coinFace);
+  assert.match(brokenAway.feedback, /tweezers|comes free/i, "calling it right gets the stub back out");
   // The warning band is deliberately wider than the zone and starts a different
   // distance early on every lock, so no fixed nudge can solve every door.
   const leads = new Set();
   for (let i = 0; i < 60; i++) leads.add(minigames.createLockpickChallenge({ ...puzzleArgs, caseId: "lead" + i }).hintLead);
   assert.ok(leads.size > 8, "locks lie about being close by varying amounts");
-  const lyingLock = minigames.createLockpickChallenge({ ...puzzleArgs, caseId: "lead3" });
-  if (lyingLock.hintLead > lyingLock.tolerance)
-    assert.equal(minigames.lockFeel(lyingLock, lyingLock.give - lyingLock.tolerance - lyingLock.hintLead), "close",
-      "the hint starts before the zone");
-  assert.equal(minigames.lockGives(lyingLock, lyingLock.give - lyingLock.tolerance - lyingLock.hintLead),
-    lyingLock.hintLead === 0, "but feeling close is not the same as being right");
-  const solvedPuzzle = minigames.tryLockpick(tensedPuzzle);
-  assert.deepEqual([solvedPuzzle.phase, solvedPuzzle.turn, solvedPuzzle.attemptsLeft, solvedPuzzle.tension],
-    ["lock_success", 1, 1, puzzle1.give]);
-  // Pushing past what the pick takes ends the attempt on its own — no turn needed.
-  const snappedPuzzle = minigames.pressLockTension(puzzle1, puzzle1.breakAt);
-  assert.deepEqual([snappedPuzzle.phase, snappedPuzzle.attemptsLeft, snappedPuzzle.snapped, snappedPuzzle.tension],
-    ["coin_call", 0, true, 0], "one pick, one snap, straight to the coin");
-  assert.match(snappedPuzzle.feedback, /shears off/i);
-  assert.equal(snappedPuzzle.brokeInLock, true, "the last pick leaves half itself in the keyway");
-  // A snap with spares left is recoverable: you pull the stub and start again.
-  const sparePick = minigames.createLockpickChallenge({ ...puzzleArgs, attemptBonus: 1 });
-  const firstSnap = minigames.pressLockTension(sparePick, sparePick.breakAt);
-  assert.deepEqual([firstSnap.phase, firstSnap.snapped, firstSnap.brokeInLock], ["lockpick", true, false],
-    "only the final pick leaves evidence behind");
-  // The coin narrates the failure you actually had: a sheared pick is physical
-  // evidence, a lock that simply refused is only a matter of who walks past.
-  const brokenCaught = minigames.callCoin(snappedPuzzle, snappedPuzzle.coinFace === "heads" ? "tails" : "heads");
-  assert.match(brokenCaught.feedback, /keyway|tape/i, "a fragment left behind is what gets reviewed");
-  const brokenAway = minigames.callCoin(snappedPuzzle, snappedPuzzle.coinFace);
-  assert.match(brokenAway.feedback, /tweezers|comes free/i, "calling it right gets the stub back out");
-  // Turning too early spends the pick just the same.
-  const earlyPuzzle = minigames.tryLockpick(minigames.pressLockTension(puzzle1, Math.max(0, puzzle1.give - puzzle1.tolerance - 6)));
-  assert.deepEqual([earlyPuzzle.phase, earlyPuzzle.attemptsLeft], ["coin_call", 0]);
-  assert.equal(earlyPuzzle.brokeInLock, false, "a lock that simply refused leaves nothing behind");
-  const quietCaught = minigames.callCoin(earlyPuzzle, earlyPuzzle.coinFace === "heads" ? "tails" : "heads");
-  assert.match(quietCaught.feedback, /corridor/i, "so getting caught is about who walks past");
-  // Trained hands get more picks AND more room before the snap.
+  // Trained hands get more picks AND a wider zone to find.
   const trained = minigames.createLockpickChallenge({ ...puzzleArgs, toleranceBonus: 5, attemptBonus: 2 });
   assert.equal(trained.maxAttempts, 3, "SNEAKY buys extra picks");
-  assert.ok(trained.tolerance > puzzle1.tolerance && trained.breakAt > puzzle1.breakAt,
-    "and a wider give zone with more slack before it snaps");
-  let failedPuzzle = trained;
-  for (let i = 0; i < 3; i++) failedPuzzle = minigames.pressLockTension(failedPuzzle, LOCK_BREAK_TEST(failedPuzzle));
-  assert.deepEqual([failedPuzzle.phase, failedPuzzle.turn, failedPuzzle.attemptsLeft], ["coin_call", 3, 0]);
-  assert.equal(minigames.callCoin(failedPuzzle, failedPuzzle.coinFace).escaped, true);
-  assert.equal(minigames.callCoin(failedPuzzle, oppositeFace(failedPuzzle.coinFace)).escaped, false);
-  assert.equal(utils.getRngState(), puzzleCursor);
+  assert.ok(trained.tolerance > puzzle1.tolerance, "and a wider give zone");
 
   const powerArgs = { runSeed: 123, caseId: "covert2", actionId: "blackout", cost: 1.5, toil: 8, lateExtra: 0 };
   const power1 = minigames.createPowerCutChallenge(powerArgs);
@@ -279,7 +322,7 @@ globalThis.clearInterval = () => {};
   const sneakyRanks = [0,2,5].map(rank=>progression.sneakyModifiers({skills:{sneaky:rank,endurance:0}}));
   assert.deepEqual(sneakyRanks.map(m=>[m.powerScore,m.lockToleranceBonus,m.lockAttemptBonus,m.ringSpeedMultiplier]),
     [[0,0,0,1],[40,2,1,.86],[100,5,2,.65]]);
-  const expectedPowerSpeeds=[[62,91,132],[53.3,78.3,113.5],[40.3,59.1,85.8]];
+  const expectedPowerSpeeds=[[68,101,148],[58.5,86.9,127.3],[44.2,65.6,96.2]];
   // The three circuits are a climb, not three of the same ring: each one spins
   // faster through a narrower window, at every SNEAKY rank.
   const stopWindowMs=ring=>2*ring.tolerance/ring.speed*1000;
@@ -287,12 +330,14 @@ globalThis.clearInterval = () => {};
     const lock=minigames.createLockpickChallenge({...puzzleArgs,toleranceBonus:mod.lockToleranceBonus,attemptBonus:mod.lockAttemptBonus});
     const power=minigames.createPowerCutChallenge({...powerArgs,sneaky:mod.powerScore});
     // One pick at rank 0, one more at each SNEAKY attempt threshold.
-    assert.deepEqual([lock.tolerance,lock.maxAttempts],[4+mod.lockToleranceBonus,1+mod.lockAttemptBonus]);
+    assert.deepEqual([lock.tolerance,lock.maxAttempts],[3+mod.lockToleranceBonus,1+mod.lockAttemptBonus]);
     assert.deepEqual(power.rings.map(ring=>ring.speed),expectedPowerSpeeds[modIndex]);
     const speeds=power.rings.map(ring=>ring.speed), windows=power.rings.map(stopWindowMs);
     assert.ok(speeds[0]<speeds[1]&&speeds[1]<speeds[2],"each circuit spins faster than the last");
     assert.ok(windows[0]>windows[1]&&windows[1]>windows[2],"and gives less room to stop it");
-    assert.ok(windows[2]>=150,"the hard circuit stays humanly stoppable");
+    // ~9 frames at 60fps: tight, but a press you can anticipate. Any SNEAKY
+    // rank widens it quickly, which is the point of training the skill.
+    assert.ok(windows[2]>=140,"the hard circuit stays humanly stoppable");
     assert.equal(power.rules,minigames.POWER_RULES);
   }
   // A board dealt under the old curve keeps it, so an update cannot rewrite a
@@ -1111,13 +1156,12 @@ globalThis.clearInterval = () => {};
   assert.deepEqual(state.S.actionChallenge.skillSnapshot,{rulesVersion:1,
     sneaky:state.S.progression.skills.sneaky,endurance:state.S.progression.skills.endurance});
   assert.deepEqual([state.S.actionChallenge.tolerance,state.S.actionChallenge.maxAttempts],
-    [4+state.S.progression.skills.sneaky,1+(state.S.progression.skills.sneaky>=2?1:0)+(state.S.progression.skills.sneaky>=5?1:0)]);
+    [3+state.S.progression.skills.sneaky,1+(state.S.progression.skills.sneaky>=2?1:0)+(state.S.progression.skills.sneaky>=5?1:0)]);
   assert.equal(engine.isPaused(), true);
   const blockedSnapshot = JSON.stringify({ challenge: state.S.actionChallenge, stats: state.S.runStats, hours: state.S.hours });
   engine.choose(redvale.c, legalOption);
   assert.equal(JSON.stringify({ challenge: state.S.actionChallenge, stats: state.S.runStats, hours: state.S.hours }), blockedSnapshot);
-  engine.setLockTension(missTension());
-  engine.attemptLockpick();
+  wearOutLock();
   const savedChallenge = JSON.parse(JSON.stringify(state.S.actionChallenge));
   const cursorAfterMiss = utils.getRngState();
   assert.deepEqual([savedChallenge.phase, savedChallenge.attemptsLeft, savedChallenge.turn],
@@ -1129,8 +1173,7 @@ globalThis.clearInterval = () => {};
   const loadedRedvale = state.S.inbox.find(c => c.id === "redvale");
   assert.equal(loadedRedvale.actionInProgress, "redvale_archive_lock");
   assert.equal(loadedRedvale.opts[state.S.actionChallenge.optionIndex].action.id, "redvale_archive_lock");
-  engine.setLockTension(state.S.actionChallenge.give);
-  engine.attemptLockpick();
+  openLock();
   assert.equal(state.S.actionChallenge.phase, "lock_success");
   engine.completeActionChallenge();
   assert.equal(utils.getRngState(), cursorAfterMiss);
@@ -1196,7 +1239,7 @@ globalThis.clearInterval = () => {};
     hours: state.S.hours, fatigue: state.S.fatigue, stats: state.S.runStats, archive: state.S.archive });
   engine.completeActionChallenge();
   engine.callActionCoin(wrongCall);
-  engine.attemptLockpick();
+  engine.advanceLockpickFrame(80);
   assert.equal(JSON.stringify({ rep: state.S.rep, bold: state.S.bold, firm: state.S.firm,
     hours: state.S.hours, fatigue: state.S.fatigue, stats: state.S.runStats, archive: state.S.archive }), caughtOnce);
 
@@ -1567,8 +1610,7 @@ globalThis.clearInterval = () => {};
   fresh("daily");
   redvale=liveRedvale();
   engine.choose(redvale.c,redvale.o);
-  engine.setLockTension(missTension());
-  engine.attemptLockpick();
+  wearOutLock();
   const validActionRaw=JSON.parse(storage.get(saveKey));
   assert.equal(engine.inspectSave(1).status,"ready");
   const v9ActiveLockRaw=clone(validActionRaw);
@@ -1594,8 +1636,7 @@ globalThis.clearInterval = () => {};
   state.S.hours=2; state.S.event=null;
   engine.choose(v9Case,v9Action);
   assert.equal(state.S.actionChallenge.phase,"lockpick","and can be started fresh under the new rules");
-  engine.setLockTension(state.S.actionChallenge.give);
-  engine.attemptLockpick();
+  openLock();
   engine.completeActionChallenge();
   assert.equal(state.S.actionChallenge,null,"the re-picked lock completes normally");
   engine.setSlot(1);
@@ -1664,7 +1705,7 @@ globalThis.clearInterval = () => {};
   };
   const actionInvalidRaws=[
     alteredAction((raw,ch)=>{ ch.phase="retry"; }),
-    alteredAction((raw,ch)=>{ ch.target=ch.target===minigames.LOCK_MAX?ch.target-1:ch.target+1; }),
+    alteredAction((raw,ch)=>{ ch.give=ch.give===minigames.LOCK_MAX?ch.give-1:ch.give+1; }),
     alteredAction((raw,ch)=>{ ch.coinFace=oppositeFace(ch.coinFace); }),
     alteredAction((raw,ch)=>{ ch.attemptsLeft=ch.maxAttempts; }),
     alteredAction((raw,ch)=>{ ch.runSeed=(ch.runSeed+1)>>>0; }),
@@ -1673,11 +1714,14 @@ globalThis.clearInterval = () => {};
     alteredAction((raw,ch,c)=>{ c.actionInProgress="wrong_action"; }),
     alteredAction((raw,ch,c)=>{ raw.actionChallenge=null; c.actionInProgress=ch.actionId; }),
     alteredAction((raw,ch)=>{ ch.phase="lock_success"; ch.attemptsLeft=ch.maxAttempts;
-      ch.turn=1; ch.tension=0; }),
+      ch.turn=1; ch.tension=0; ch.hold=0; }),
+    // a turn claimed without the hold behind it
+    alteredAction((raw,ch)=>{ ch.phase="lock_success"; ch.turn=ch.turn+1; ch.tension=ch.give; ch.hold=10; }),
     alteredAction((raw,ch)=>{ ch.phase="coin_call"; ch.attemptsLeft=0;
       ch.turn=ch.maxAttempts; ch.tension=ch.give; }),
-    alteredAction((raw,ch)=>{ ch.tension=ch.breakAt; }), // a pick resting past its snap point
-    alteredAction((raw,ch)=>{ ch.breakAt=ch.give; }),    // no slack at all
+    alteredAction((raw,ch)=>{ ch.wear=minigames.LOCK_WEAR_MAX; }), // a pick worn past shearing
+    alteredAction((raw,ch)=>{ ch.hold=minigames.LOCK_HOLD_MS; }),  // a finished turn still "in progress"
+    alteredAction((raw,ch)=>{ ch.hold=200; ch.tension=0; }),       // progress banked outside the zone
     alteredAction((raw,ch)=>{ ch.phase="coin_result"; ch.attemptsLeft=0; ch.turn=ch.maxAttempts;
       ch.coinCall=ch.coinFace; ch.escaped=false; }),
     alteredAction((raw,ch)=>{ ch.actionTitle="A FORGED BRIEFING"; }),
@@ -1802,9 +1846,9 @@ globalThis.clearInterval = () => {};
     ...actionInvalidRaws,
     ...powerActionInvalidRaws,
   ];
-  for (const { raw, status } of invalidRaws) {
+  for (const [idx, { raw, status }] of invalidRaws.entries()) {
     storage.set(`${constants.SAVE_KEY}_s2`, raw);
-    assert.equal(engine.inspectSave(2).status, status);
+    assert.equal(engine.inspectSave(2).status, status, "tamper fixture #" + idx + " should be " + status);
     assert.equal(storage.get(`${constants.SAVE_KEY}_s2`), raw, "inspection must preserve raw data");
   }
   const futureRaw = JSON.stringify({ ...clone(readyBase), schemaVersion: constants.SAVE_SCHEMA_VERSION + 1 });
@@ -3252,6 +3296,28 @@ globalThis.clearInterval = () => {};
   assert.equal(engine.loadGame(1), true);
   assert.equal(state.S.introStep, null, "reloading a career never reopens it");
   assert.ok(intro.INTRO_STEPS.every(step => step.title && step.body), "every card says something");
+
+  // ---- BOARDS MUST ACTUALLY VARY ----
+  // The deal used to sort by a hash whose output moved by ~1 with its input, so
+  // every identity reproduced the authored order and every run drew the same
+  // subset. The boards looked identical run after run. Lock the fix down.
+  const pool = content.buildPool();
+  const spread = fn => { const seen = new Set(); for (let i = 0; i < 150; i++) seen.add(fn("run" + i)); return seen.size; };
+  const objectionLines = pool.find(c => c.id === "court1").objection.lines;
+  const timelineEvents = pool.find(c => c.id === "depo").timeline.events;
+  const contraAction = pool.find(c => c.id === "court2").opts.find(o => o.action).action;
+  const redactAction = pool.find(c => c.id === "nda").opts.find(o => o.action).action;
+  assert.ok(spread(id => minigames.objectionDeal(objectionLines, 6, id).map(l => l.id).join()) > 60,
+    "a hearing draws a different transcript in a different career");
+  assert.ok(spread(id => minigames.timelineDeal(timelineEvents, 4, id).cards.map(c => c.id).join()) > 15,
+    "a chronology draws different events in a different career");
+  assert.ok(spread(id => minigames.contradictionDeal(contraAction.pairs, contraAction.decoys, id)
+    .statements.map(x => x.id).join()) > 15, "a contradiction chart asks different statements");
+  assert.ok(spread(id => minigames.redactionDeal(redactAction.pages, 8, id).map(p => p.id).join()) > 15,
+    "a production bundle holds different pages");
+  // And the deal stays deterministic for one identity, which is what save/reload rests on.
+  assert.deepEqual(minigames.objectionDeal(objectionLines, 6, "fixed").map(l => l.id),
+    minigames.objectionDeal(objectionLines, 6, "fixed").map(l => l.id));
 
   // ---- DEV TOOLS STAY OUT OF THE GAME ----
   // The dev panel is repo-resident but must never ship. Vite only drops it if

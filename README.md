@@ -30,6 +30,29 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.33–19.35 — Trials *(2026-08-27)*
+- **You can take a case to a jury.** Openings, arguments, a closing — and no odds anywhere
+  on the screen. A jury's standing is built out of every decision you make in the room and
+  rolled against once, at the end. What you get instead of a number is the room: a juror
+  who stops looking at the clock, a foreman whose pen has not moved in a while.
+- **Objections you have to read for.** Opposing counsel's line sits on the page. You may
+  object — but you have to name the ground, from a fixed list, and be right. Staying silent
+  on a proper question is the correct play and costs nothing; letting an improper one stand
+  is the only silence that hurts.
+- **Opposing counsel offers to settle once**, and only when they are genuinely behind. It
+  is the single indirect readout of a standing you are never shown.
+- **The bench remembers you personally.** Judges have temperaments — one doubles the cost
+  of a frivolous objection, another halves it, one rewards a bold line and another a careful
+  one — and a relationship that tilts a close call without ever deciding one. Get it warm
+  enough and a judge will fix your objection when you had the right instinct and the wrong
+  word for it.
+- **Golf and money.** The fixed-price bribe button is gone from case files. THE BENCH panel
+  holds an invitation to play a round, and a private arrangement where you name your own
+  figure — knowing that some benches cannot be bought at any price, and that a refusal costs
+  far more than the money.
+- **Six new courtrooms and six new files.** Every court filing can now go to a jury, whether
+  it was written by hand or assembled from its own facts.
+
 ### v19.32 — The profession is watching *(2026-08-26)*
 - **You can now be disbarred.** Getting caught inside a building, hiding documents from a
   court, paying a judge — the profession remembers all of it, and you are never shown the

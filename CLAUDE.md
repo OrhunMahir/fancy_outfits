@@ -355,6 +355,13 @@
 - **Dosyadaki sabit fiyatlı rüşvet butonu KALDIRILDI** (regresyon hiçbir dosyanın taşımadığını zorlar). **THE BENCH paneli** (topbar'da, hakim görüldüyse): golf ($600+2h, kendi mini-sahnesi, 4 gün cooldown) ve **miktarı sen yazdığın rüşvet** ($500-$20.000). Şans `corrupt` tabanı × azalan getiri; **corrupt<20 hiçbir fiyata satılmaz**; tavan `BRIBE_CEILING`(35)×corrupt/100. Ret: para gider, rel −60 + kalıcı `burned`, baro ısısı İKİ kez.
 - **Save schema v26** + `migrateV25ToV26`. FIX: `lastGolfDay:0` "hiç oynamadım" demek — cooldown kariyerin ilk davetini 4. güne kadar kilitliyordu.
 
+**v1.9.35 eklendi (2026-08-27, DURUŞMA tur 3/3 — dava havuzu):**
+- **6 yeni el yazması mahkeme davası** (`court3`-`court8`: Bellwether Freight telemetri, Ravenscroft Bio konferans ifşası, Almeida imza yetersizliği, Kepler Tower sahte denetim kaydı, Sable & Roe paraflı ek, Corvid Media anti-SLAPP), her biri kendi duruşma metniyle (4-6 aşama, kendi strength/verdict'i). El yazması mahkeme salonu 2→**8**.
+- **6 yeni prosedürel şablon** (18→**24**): kefalet tanığı eş, işten çıkarma sonrası rekabet yasağı, azınlık hissedar tasfiyesi, sonuca bağlı ücretli bilirkişi, sigorta bildirim süresi, uydurma içtihatlı AI dilekçesi.
+- **`buildTrial` (casegen):** artık HER mahkeme dosyası duruşmaya gidebiliyor — açılış/argüman/kapanış havuzları + 11 satırlık karşı taraf havuzu dosyanın kendi isim/belgelerinden kuruluyor; 4 veya 6 aşama; ödül/ceza dosyanın kendi bahsinden türetiliyor.
+- **FIX (test buldu):** üretilen bir aşamada hiç "strong" seçenek çıkmayabiliyordu — oynanamayan tur. `opts()` her zaman bir güçlü satır dağıtıp karıştırıyor; regresyon zorluyor.
+- Ölçüm: kariyer başına aynı şablon tekrarı 3.7→**2.8**; soak %66.6, medyan gün 20, integrity 0.
+
 **Dış denetim notu (Codex, 2026-08-12):** Bayat/untracked `AGENTS.md` yüzünden gerçek checkpoint yanlışlıkla v1.9.1/hakim hafızası sanılmıştı. Hakim hafızası v1.9.8/v1.9.13'te bitmişti; gerçek yarım iş v1.9.16 sonrası Power Cut entegrasyonuydu. Yarım model/UI dosyaları korunup engine/content/save/CSS/test zinciri tamamlandı.
 
 **En son çalışılan konu (2026-08-18):** v1.9.21 `ea50a3894` ile pushlandı; ardından v1.9.22 (Contradiction Board, schema v17), v1.9.22.1 (gerçek madeni para yazı-tura) ve v1.9.23 (sabotaj zorluk eğrisi + ilk açılış walkthrough'u, schema v18) tamamlandı ve kullanıcının push'unu bekliyor. `npm test`, `npm run build`, `npm run test:soak` (replay 336/336, integrity 0) yeşil; tarayıcıda gerçek tıklamalarla doğrulandı. Güncel ortak handoff ve oturum günlüğü `DEV_LOGBOOK.md`'dir. Sıradaki kullanıcı-onaylı iş **mobil layout + Capacitor**; bağlamsal SFX, GitHub Pages demo ve Steam paketleme sonraki backlog'dur.

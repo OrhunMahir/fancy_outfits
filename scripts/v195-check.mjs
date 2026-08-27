@@ -3467,6 +3467,59 @@ globalThis.clearInterval = () => {};
     assert.deepEqual(lowered, ["OBJECTION_HOURS"], "only the hearing lowers it");
   }
 
+  // ---- EVERY COURTROOM CAN BE TRIED ----
+  /* Trials shipped with two hand-written courtrooms, which meant a career saw
+     the same two juries. Now every court filing carries one — authored where
+     one was written, generated from the file's own facts otherwise. */
+  {
+    const pool = content.buildPool();
+    const courts = pool.filter(c => c.tier === 2 || c.judge);
+    assert.ok(courts.length >= 8, "the hand-written pool has real courtroom depth: " + courts.length);
+    assert.ok(courts.every(c => c.trial), "every hand-written courtroom can go to a jury");
+    const checkTrial = (t, where) => {
+      assert.ok(Array.isArray(t.phases) && t.phases.length >= 3 && t.phases.length <= 7,
+        where + ": a trial runs three to seven phases, not " + t.phases.length);
+      assert.equal(t.phases[0].kind, "opening", where + ": a trial opens with an opening");
+      assert.equal(t.phases.at(-1).kind, "closing", where + ": and ends with a closing");
+      assert.ok(Number.isFinite(t.strength), where + ": a file walks in somewhere");
+      for (const phase of t.phases) {
+        if (phase.kind === "opposing") {
+          assert.ok(typeof phase.text === "string" && phase.text.length > 20,
+            where + ": opposing counsel actually says something");
+          assert.ok(phase.bad === null || phase.bad === undefined || trial.GROUND_IDS.includes(phase.bad),
+            where + ": an improper line names a ground you can actually pick");
+        } else {
+          assert.ok(Array.isArray(phase.opts) && phase.opts.length >= 2,
+            where + ": every turn is a real choice");
+          assert.ok(phase.opts.some(o => o.weight === "strong"),
+            where + ": and one of them is the right one");
+          assert.ok(phase.opts.every(o => !o.flavor || ["bold", "technical"].includes(o.flavor)),
+            where + ": argument flavour is bold or technical");
+        }
+      }
+      // A trial where every line is objectionable teaches nothing about when to
+      // stay seated, so both kinds have to be reachable across the pool.
+      return t.phases.filter(p => p.kind === "opposing");
+    };
+    let clean = 0, improper = 0;
+    for (const c of courts) for (const p of checkTrial(c.trial, c.id)) p.bad ? improper++ : clean++;
+    assert.ok(improper > 0 && clean > 0,
+      "hand-written trials teach both objecting and sitting still: " + improper + " improper / " + clean + " clean");
+    // Generated courtrooms get the same treatment.
+    utils.setSeed(31);
+    let generatedCourts = 0, generatedClean = 0, generatedImproper = 0;
+    for (let i = 0; i < 300; i++) {
+      const filing = casegen.genCaseFrom(i % casegen.TEMPLATE_COUNT);
+      if (!(filing.tier === 2 || filing.judge)) continue;
+      generatedCourts++;
+      assert.ok(filing.trial, "a generated courtroom can be tried too");
+      for (const p of checkTrial(filing.trial, filing.id)) p.bad ? generatedImproper++ : generatedClean++;
+    }
+    assert.ok(generatedCourts > 0 && generatedClean > 0 && generatedImproper > 0,
+      "generated trials cover both as well");
+    assert.ok(casegen.TEMPLATE_COUNT >= 24, "the template pool grew: " + casegen.TEMPLATE_COUNT);
+  }
+
   // ---- THE BENCH ----
   /* A relationship tilts a close call and never decides one — the user was
      explicit, and it is also the only way golf stays optional instead of a

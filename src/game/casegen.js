@@ -92,6 +92,93 @@ export function buildExamination(kind,f){
     lines,
   };
 }
+/* ---------- GENERATED TRIALS ----------
+   Hand-written court files carry their own trial text; everything else builds
+   one from the facts it already invented — the same method the examinations
+   use, so a procedural trial still argues about THIS case's dates and
+   documents rather than reciting stock lines. Length varies with the file. */
+const OPENINGS=[
+  {weight:"strong",flavor:"technical",make:f=>({text:`One document, one date. The ${f.thing} says ${f.party} knew before they say they knew.`,
+    txt:"You give them one fact they can hold and stop talking."})},
+  {weight:"strong",flavor:"bold",make:f=>({text:`${f.other} waited until it was expensive, then called it a principle.`,
+    txt:"You hand them a villain instead of a rule. Three jurors settle in."})},
+  {weight:"weak",flavor:"technical",make:f=>({text:`Walk the jury through the full history from the first agreement onward.`,
+    txt:"Eleven minutes of chronology. The back row goes somewhere else."})},
+  {weight:"weak",flavor:"bold",make:f=>({text:`Tell them ${f.party} has been treated appallingly and deserves better.`,
+    txt:"Sympathy with nothing under it. It slides off the box."})},
+  {weight:"neutral",make:f=>({text:"Keep it short. Promise them the documents will do the work.",
+    txt:"Brief and careful. Some juries prefer that; this one has not decided yet."})},
+];
+const ARGUMENTS=[
+  {weight:"strong",flavor:"technical",make:f=>({text:`Put the ${f.thing} on the screen and leave it there while you talk.`,
+    txt:"Twelve people spend four minutes looking at one page. It stops being technical."})},
+  {weight:"strong",flavor:"bold",make:f=>({text:`Ask why nobody at ${f.other} noticed until the money moved.`,
+    txt:"Nobody has an answer, and the silence does more work than you could."})},
+  {weight:"strong",flavor:"technical",make:f=>({text:`Have the custodian explain, slowly, how the ${f.thing} is kept.`,
+    txt:"She is boring and unshakeable. The best kind of witness."})},
+  {weight:"weak",flavor:"bold",make:f=>({text:`Attack the credibility of ${f.other}'s witness.`,
+    txt:"He is pleasant, precise and clearly telling the truth about his own filing habits."})},
+  {weight:"weak",flavor:"technical",make:f=>({text:"Restate the rule once more, slowly.",
+    txt:"They heard it. Hearing it again does not make it warmer."})},
+  {weight:"neutral",make:f=>({text:"Let the exhibit speak and move on.",
+    txt:"The record takes it. Nothing gained, nothing lost."})},
+];
+const CLOSINGS=[
+  {weight:"strong",flavor:"technical",make:f=>({text:`Three documents, one afternoon. Pick the version of it that can be true.`,
+    txt:"You hand them the arithmetic and let them do it themselves."})},
+  {weight:"strong",flavor:"bold",make:f=>({text:`They knew. They waited. Now they want you to call it an accident.`,
+    txt:"You end on conduct rather than on rules, and it lands."})},
+  {weight:"weak",flavor:"bold",make:f=>({text:`Remind them how much ${f.other} stands to gain.`,
+    txt:"You finish on greed instead of on evidence. A smaller note to end on."})},
+  {weight:"weak",flavor:"technical",make:f=>({text:"Warn them what happens if rules like this stop meaning anything.",
+    txt:"A speech about the system. The system is not on trial and they know it."})},
+  {weight:"neutral",make:f=>({text:"Thank them for their time and sit down.",
+    txt:"Brief. Some juries like brief."})},
+];
+/* Opposing counsel's line, plus the ground that actually answers it. The clean
+   ones matter as much as the improper ones: a trial where every question is
+   objectionable teaches nothing about when to stay seated. */
+const TRIAL_LINES=[
+  {bad:"speculation",  make:f=>`'In your view, what do you imagine ${f.party} was hoping would happen here?'`},
+  {bad:"hearsay",      make:f=>`'Your predecessor told me the ${f.thing} was never sent. That is right, isn't it?'`},
+  {bad:"assumes",      make:f=>`'When ${f.party} destroyed the earlier version, were you consulted?'`},
+  {bad:"leading",      make:f=>`'And you would agree ${f.party} sat on this for months, wouldn't you?'`},
+  {bad:"argumentative",make:f=>`'Does anyone at ${f.party} read anything before signing it?'`},
+  {bad:"compound",     make:f=>`'Did you review the ${f.thing}, and did you tell ${f.other} what it said?'`},
+  {bad:"relevance",    make:f=>`'Let us talk about your employer's tax filings for a moment.'`},
+  {bad:"asked",        make:f=>`'One more time, since you seem unsure: who signed the ${f.thing}?'`},
+  {bad:null,           make:f=>`'What date does the stamp on this exhibit read?'`},
+  {bad:null,           make:f=>`'Who else was copied on it?'`},
+  {bad:null,           make:f=>`'Was the ${f.thing} kept in the ordinary course of business?'`},
+];
+export function buildTrial(f,strength,verdict){
+  const draw=(pool,n)=>{ const copy=[...pool],out=[];
+    for(let i=0;i<n&&copy.length;i++) out.push(copy.splice(Math.floor(rand()*copy.length),1)[0]);
+    return out; };
+  const line=()=>{ const pick=draw(TRIAL_LINES,1)[0];
+    return {kind:"opposing",bad:pick.bad,text:pick.make(f)}; };
+  /* Always deal one strong line. A phase drawn purely at random can come up with
+     nothing but weak options, and a turn you cannot play well is not a choice —
+     it is a tax on having reached this phase. */
+  const opts=(pool,n)=>{
+    const strong=draw(pool.filter(o=>o.weight==="strong"),1);
+    const rest=draw(pool.filter(o=>!strong.includes(o)),n-strong.length);
+    const dealt=[...strong,...rest];
+    for(let i=dealt.length-1;i>0;i--){ const j=Math.floor(rand()*(i+1)); [dealt[i],dealt[j]]=[dealt[j],dealt[i]]; }
+    return dealt.map(o=>({...o.make(f),weight:o.weight,...(o.flavor?{flavor:o.flavor}:{})}));
+  };
+  // Four or six phases. Longer than that and a generated trial outstays the
+   // hand-written ones without having more to say.
+  const rounds=1+Math.floor(rand()*2);
+  const phases=[{kind:"opening",prompt:"You stand first. Whatever frame you give them now is the one they will hang everything else on.",opts:opts(OPENINGS,3)}];
+  for(let i=0;i<rounds;i++){
+    phases.push(line());
+    phases.push({kind:"argument",prompt:"Your turn with the documents.",opts:opts(ARGUMENTS,3)});
+  }
+  phases.push({kind:"closing",prompt:"Last words.",opts:opts(CLOSINGS,3)});
+  return {id:"trial_"+f.slug,strength,verdict,phases};
+}
+
 /* Every court filing gets a hearing, including the appeal stages hanging off
    one. Anything that already carries an authored transcript keeps it. */
 const facts=c=>{
@@ -104,6 +191,17 @@ const facts=c=>{
 function dressExaminations(c){
   if(!c||typeof c!=="object") return c;
   if((c.judge||c.tier===2)&&!c.objection) c.objection=buildExamination("court",facts(c));
+  /* A courtroom filing can go to a jury. Reward and penalty are derived from the
+     file's own stakes so a generated trial is worth what the case is worth. */
+  if((c.judge||c.tier===2)&&!c.trial){
+    const f=facts(c);
+    const risky=(c.opts||[]).find(o=>!o.safe&&!o.action&&o.ok&&o.ok.fx)||{ok:{fx:{}},fail:{fx:{}}};
+    const w=risky.ok.fx||{}, l=(risky.fail&&risky.fail.fx)||{};
+    c.trial=buildTrial(f,-6+Math.floor(rand()*16),{
+      win:{rep:Math.max(4,w.rep||5),inf:Math.max(4,w.inf||5),money:Math.max(800,w.money||1200),firm:1},
+      lose:{rep:Math.min(-5,l.rep||-6),inf:-3,money:Math.min(-200,l.money||-300)},
+    });
+  }
   /* Real work is not all courtrooms. A live tier-1 dispute can just as easily
      put you in a conference room across from opposing counsel, which is what
      stops this board from being a thing you see twice a career. */
@@ -512,6 +610,60 @@ const TEMPLATES=[
       partial:{fx:{},txt:"Part of the chart holds. The rest you would not put in front of a judge."},
       miss:{fx:{bold:-2},txt:"The CV survives the afternoon. You spent the hours and proved nothing."}}});
   return c18;},
+
+  // 19 — the guarantee nobody signed twice
+  ()=>{const a=rnd(CO),b=rnd(CO.filter(x=>x!==a)),who=rnd(LAST),m=rnd([250,400,650,900]);
+  return {tier:1,title:`CASE: ${a} personal guarantee`,deadline:rnd([2,3]),
+    body:`${a} wants ${money(m*1000)} from ${who} personally on a guarantee for ${b}'s debts. The guarantee is signed. It is also witnessed by ${who}'s own spouse, which the statute does not allow, and the attestation clause was left blank and filled in later in a different pen. ${a}'s file also contains a properly executed guarantee from a DIFFERENT director, for a smaller sum, which nobody has mentioned.`,
+    opts:[
+      {text:"Negotiate a payment plan on the full amount.",base:100,safe:true,ok:{fx:{inf:2,bold:-4},txt:"Your client pays for years on a document that would not have survived an afternoon."}},
+      {text:`Challenge the attestation: a spouse cannot witness this.`,base:80,style:"technical",ok:{fx:{rep:7,inf:6,money:1500},txt:`Unenforceable on its face. ${a}'s counsel had not read past the signature either.`},fail:{fx:{rep:-5},txt:"The bench wants evidence on the pen. That means a handwriting expert and six weeks."}},
+      {text:"Point at the other director's guarantee and let them chase him.",base:38,boldW:3,style:"aggressive",ok:{fx:{rep:8,inf:8,money:1900},txt:"They had a good guarantee from someone else the whole time. Now they know it too."},fail:{fx:{rep:-10},txt:"You have handed them a second defendant and kept the first. Yours."}}]};},
+
+  // 20 — the non-compete that follows a firing
+  ()=>{const a=rnd(CO),who=rnd(LAST),mo=rnd([6,12,18,24]),km=rnd([25,50,100]);
+  return {tier:1,title:`CASE: ${a} restraint of trade`,deadline:rnd([2,3]),
+    body:`${a} is enforcing a ${mo}-month, ${km}km non-compete against ${who}, who they made redundant. The clause is wide, but the interesting page is the redundancy letter: it terminates the contract 'with immediate effect and no further obligation on either party'. There is also an unsigned draft with a ${Math.round(mo/2)}-month restraint, an email calling the wide version 'aspirational', and a colleague who left last year under the same clause and now works across the road.`,
+    opts:[
+      {text:"Advise the client to sit out the restraint period.",base:100,safe:true,ok:{fx:{inf:2,bold:-4},txt:`${mo} months of not working, to honour a clause nobody was going to enforce properly.`}},
+      {text:"Argue the redundancy letter released the obligation.",base:79,style:"technical",ok:{fx:{rep:7,inf:6,money:1300},txt:"'No further obligation on either party' is a sentence with consequences. They wrote it."},fail:{fx:{rep:-5},txt:"'Boilerplate,' says the bench, and reads the restraint on its own terms."}},
+      {text:"Take the injunction hearing and dare them to explain the colleague.",base:35,boldW:3,style:"aggressive",judge:true,ok:{fx:{rep:9,inf:9,money:1800},txt:"A restraint you enforce against one person and not another is not a restraint. It is a grudge."},fail:{fx:{rep:-11},txt:"The colleague's contract was different in a way you had not checked. In open court."}}]};},
+
+  // 21 — the shareholder squeeze-out
+  ()=>{const a=rnd(CO),who=rnd(LAST),pct=rnd([8,12,15]);
+  return {tier:2,title:`COURT: ${a} minority petition`,deadline:rnd([3,4]),judge:true,
+    body:`${who} holds ${pct}% of ${a} and has been removed from the board, taken off the payroll, and left out of a dividend the majority voted themselves. The articles permit all of it. The minutes do not: the board resolution removing ${who} is dated a Tuesday, and the notice convening that meeting was posted the Thursday after. Also in the bundle: a valuation commissioned by the majority, a text about 'making it uncomfortable enough', and three years of dividends that were never paid to anyone.`,
+    opts:[
+      {text:"Take the majority's valuation and exit.",base:100,safe:true,ok:{fx:{inf:2,bold:-5,money:600},txt:"Sold at their number. Their number was always going to be their number."}},
+      {text:"Attack the resolution: notice was served after the meeting.",base:77,style:"technical",ok:{fx:{rep:8,inf:7,money:2000},txt:"A meeting nobody was properly called to did not remove anyone. Everything after it unravels."},fail:{fx:{rep:-6},txt:"The majority ratify it at a properly convened meeting the following week. Neatly done."}},
+      {text:"Plead unfair prejudice and put the text message in the petition.",base:34,boldW:3,style:"aggressive",ok:{fx:{rep:10,inf:10,money:2600},txt:"'Uncomfortable enough' becomes the most quoted phrase in the judgment."},fail:{fx:{rep:-12},txt:"A blunt text is not a course of conduct. The petition is struck out in part, loudly."}}]};},
+
+  // 22 — the expert who was paid by the outcome
+  ()=>{const a=rnd(CO),b=rnd(CO.filter(x=>x!==a)),who=rnd(LAST);
+  return {tier:2,title:`COURT: ${a} v. ${b} — expert challenge`,deadline:rnd([3,4]),judge:true,
+    body:`${b}'s entire case rests on an engineering report by ${who}. The report is competent. The retainer behind it is not: it provides for a 'success supplement' payable only if ${b} prevails, which makes the expert a party with a chair. ${who}'s CV is also two lines longer than the version he gave a tribunal in March. The bundle holds his invoice, the retainer, and a polite letter from ${b}'s solicitors asking him to 'reconsider paragraph 41'.`,
+    opts:[
+      {text:"Instruct your own expert and fight it on the engineering.",base:100,safe:true,ok:{fx:{inf:3,bold:-4,money:-800},txt:"Two experts, one judge, and a great deal of money spent agreeing to disagree."}},
+      {text:`Move to exclude ${who}: a contingent expert is not an expert.`,base:76,style:"technical",ok:{fx:{rep:8,inf:7,money:2100},txt:"The retainer does the work. Without the report, there is very little case left."},fail:{fx:{rep:-6},txt:"The bench admits it and says weight is a matter for trial. Now you must actually try it."}},
+      {text:"Cross-examine him on paragraph 41 and the letter that asked for it.",base:33,boldW:3,style:"aggressive",ok:{fx:{rep:11,inf:9,money:2500},txt:"He reconsidered it in writing, for money. He says so himself, twice."},fail:{fx:{rep:-12},txt:"He reconsidered it because he was wrong, and he explains why for twenty minutes."}}]};},
+
+  // 23 — the insurance notification clause
+  ()=>{const a=rnd(CO),days=rnd([14,21,30]),m=rnd([300,500,800]);
+  return {tier:1,title:`CASE: ${a} coverage denial`,deadline:rnd([2,3]),
+    body:`${a}'s insurer has refused a ${money(m*1000)} claim because notification came ${days+9} days after the incident and the policy says ${days}. The incident report, however, is dated by the loss adjuster the insurer sent — and the adjuster's own visit log shows he attended on day four. There is also a broker's email confirming notification 'as discussed' on day two, an endorsement extending the window that nobody applied, and a previous late claim the same insurer paid without comment.`,
+    opts:[
+      {text:"Accept the denial and claim on the broker's negligence instead.",base:100,safe:true,ok:{fx:{inf:2,bold:-4},txt:"You sue the broker. It works, slowly, and your client's premium doubles anyway."}},
+      {text:"Rely on the adjuster's own visit log: they knew on day four.",base:81,style:"technical",ok:{fx:{rep:7,inf:6,money:1700},txt:"An insurer who sent someone to look cannot say it was never told."},fail:{fx:{rep:-5},txt:"An adjuster's visit is not notification under the policy, says the file handler, and means it."}},
+      {text:"Allege waiver on the earlier claim they paid late.",base:36,boldW:3,style:"aggressive",judge:true,ok:{fx:{rep:9,inf:8,money:2200},txt:"They chose to pay the last one. The bench finds it hard to call this one a rule."},fail:{fx:{rep:-11},txt:"One indulgence is not a course of dealing. The judgment says that in bold."}}]};},
+
+  // 24 — the AI-drafted brief nobody checked
+  ()=>{const a=rnd(CO),b=rnd(CO.filter(x=>x!==a)),n=rnd([2,3,4]);
+  return {tier:2,title:`COURT: ${a} v. ${b} — the citation problem`,deadline:rnd([3,4]),judge:true,
+    body:`${b}'s skeleton argument cites ${n} authorities that do not exist. Not misreported — invented, with plausible names, plausible years and plausible page numbers. Their junior filed it; their partner signed it. The bundle also contains the partner's covering email ('looks fine, file it'), a court order requiring verification of authorities that predates the filing, and one real case, correctly cited, that happens to support you.`,
+    opts:[
+      {text:"Write privately and let them withdraw it.",base:100,safe:true,ok:{fx:{inf:3,bold:-3,rep:2},txt:"They withdraw it quietly and remember you as decent. That is worth something, later."}},
+      {text:"File a note listing the fictional authorities.",base:78,style:"technical",ok:{fx:{rep:8,inf:7,money:1400},txt:"You are neutral, precise and devastating. The bench does the rest."},fail:{fx:{rep:-5},txt:"They correct it before the hearing and thank you, warmly, in front of the judge."}},
+      {text:"Apply for wasted costs against the partner who signed it.",base:32,boldW:3,style:"aggressive",ok:{fx:{rep:10,inf:10,money:2400},txt:"'Looks fine, file it' is read aloud. The costs order has his name on it."},fail:{fx:{rep:-12},txt:"The bench dislikes the fiction and dislikes your application more. Both firms are spoken to."}}]};},
 ];
 
 export const TEMPLATE_COUNT=TEMPLATES.length;

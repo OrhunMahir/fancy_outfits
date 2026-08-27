@@ -84,6 +84,67 @@ Tarayıcıda panel açıldı, SNEAKY 5 ile kilit board'u açıldı (3 pik), reve
 
 ---
 
+## 2026-08-27 (3) — Claude: dava havuzu — DURUŞMA tur 3/3 (v1.9.35)
+
+Duruşmanın son turu: içerik. Duruşma iki el yazması salonla çıkmıştı, yani bir kariyer
+hep aynı iki jüriyi görüyordu.
+
+### Altı yeni el yazması mahkeme davası
+
+`court3`-`court8`, her biri **kendi duruşma metniyle** (4-6 aşama, kendi gücü, kendi
+hükmü). Hepsinde kararı veren bir ipucu metnin içinde saklı:
+
+- **Bellwether Freight** — kamyonun telemetrisi hiç hareket etmediğini söylüyor, defter
+  Ohio diyor; sevkiyatçının SMS'i "log it as done, sort it Monday".
+- **Ravenscroft Bio** — patentin sahibi olduğu yöntemi kendi baş bilimcisi bir ay önce
+  konferansta anlatmış. Kendi ifşası yeniliği öldürür.
+- **Estate of Almeida** — şubatta imza atamayan kadın nisanda tapu devretmiş; bakım
+  kaydında o gün "ziyaretçi yok" yazıyor.
+- **Kepler Tower** — on yıllık tertemiz denetim kaydı, ama denetçinin faturaları 18 ay
+  önce kesilmiş ve son dört sayfa başka bir fontta.
+- **Sable & Roe** — deede eklenmiş, ikisinin de paraf attığı ek; Roe'nun kendi mesajı
+  "fine, your clients, my building".
+- **Corvid Media** — 11 milyonluk hakaret davası doksan sayfa boyunca ifadenin **yanlış
+  olduğunu bir kez bile iddia etmiyor**; iç yazışmada "a cost exercise" deniyor.
+
+### Altı yeni prosedürel şablon (18 → 24)
+
+Eşin tanıklık ettiği kefalet, işten çıkarılan çalışanın rekabet yasağı, azınlık hissedar
+tasfiyesi, sonuca bağlı ücretli bilirkişi, sigorta bildirim süresi, ve **var olmayan
+içtihat gösteren AI-yazımı dilekçe**.
+
+### Üretilen duruşmalar
+
+`buildTrial` (casegen) artık HER mahkeme dosyasına duruşma kuruyor — açılış/argüman/
+kapanış havuzları + 11 satırlık karşı taraf havuzu, hepsi dosyanın kendi isim ve
+belgelerinden. 4 veya 6 aşama. Ödül ve ceza dosyanın kendi bahsinden türetiliyor.
+
+### Test gerçek bir içerik hatası buldu
+
+Üretilen bir aşamada **hiç "güçlü" seçenek çıkmayabiliyordu** — yani ne seçersen seç
+jüriyi kaybediyordun. Oynanamayan bir tur seçim değil, o aşamaya gelmiş olmanın vergisi.
+`opts()` artık her zaman bir güçlü satır dağıtıp sırayı karıştırıyor; regresyon bunu
+zorluyor ve guard bozulunca kırılıyor.
+
+### Ölçüm
+
+| | önce | sonra |
+|---|---|---|
+| el yazması dava | 11 | **17** |
+| prosedürel şablon | 18 | **24** |
+| duruşmaya gidebilen el yazması salon | 2 | **8** |
+| 67 dosyalık kariyerde aynı şablonun tekrarı | 3.7 | **2.8** |
+
+Soak: **%66.6, medyan gün 20, integrity 0** — bant içinde (65-70). Daha çok içerik, aynı
+zorluk.
+
+### Sıradaki kesin adım
+
+Kullanıcı üç turu birden oynayacak. Sonra **GitHub Pages demo**, ardından
+**mobil layout + Capacitor**.
+
+---
+
 ## 2026-08-27 (2) — Claude: THE BENCH — hakim ilişkileri, traitler, golf, rüşvet (v1.9.34)
 
 Duruşmanın 2. turu. Tur 3 havuz genişlemesi (6 el yazması + 6 şablon).

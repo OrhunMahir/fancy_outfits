@@ -329,6 +329,237 @@ export function buildPool(){
       {text:"Decline. Report it to the partners.",base:100,safe:true,ok:{fx:{rep:6,inf:4,bold:-2},txt:"Loyalty noted in your file. Literally, there's a file."}},
       {text:"String them along, learn their case list.",base:50,boldW:2,ok:{fx:{inf:8,bold:4},txt:"Three lunches later you know their whole litigation calendar."},fail:{fx:{rep:-12},txt:"They were testing you FOR Parson Henderson. You failed the loyalty sting."}},
       {text:"Take the meeting AND bill them for lunch.",base:30,boldW:3,style:"aggressive",ok:{fx:{bold:6,money:600},txt:"They respect the audacity. The lunch was excellent."},fail:{fx:{rep:-8},txt:"Word gets back. 'Flight risk' is now your middle name."}}]});
+
+  /* ---------- SIX MORE COURTROOMS ----------
+     The trial feature shipped with two hand-written courtrooms, which meant a
+     career saw the same two juries. Each of these carries its own trial text,
+     its own strength, and a clue that decides the case if you read for it. */
+
+  P.push({id:"court3",tier:2,title:"COURT: Bellwether Freight v. Orsino",deadline:4,judge:true,
+    body:"A driver's logbook says he was in Ohio. The truck's own telematics say the vehicle never left the yard that night, and the fuel card was used four hundred miles away by someone who signed 'M. Orsino' in a hand nothing like his. Bellwether wants damages for a delivery that never happened. Also in the bundle: a maintenance ticket for a broken tachograph, dated three days AFTER the run, and a dispatcher's text reading 'log it as done, sort it Monday'.",
+    trial:{id:"bellwether_trial",strength:5,
+      verdict:{win:{rep:8,inf:8,money:2400,firm:1},lose:{rep:-8,inf:-3,money:-500},
+        winTxt:"The jury believed the truck over the paperwork. Bellwether's counsel asks, quietly, who reads telematics.",
+        loseTxt:"Twelve people decided a logbook is a logbook. Your client pays for a delivery that physically did not occur.",
+        settleTxt:"Bellwether writes off the run and keeps the dispatcher. Everyone calls it commercial."},
+      phases:[
+        {kind:"opening",prompt:"The jury has heard nothing yet. There is a truck that did not move and a piece of paper that says it did.",
+          opts:[
+            {text:"The vehicle never left the yard. Everything else is someone's typing.",weight:"strong",flavor:"bold",txt:"One fact, no adjectives. The box leans in."},
+            {text:"Walk them through freight documentation practice from the top.",weight:"weak",flavor:"technical",txt:"Nine minutes on consignment notes. Two jurors visibly leave."},
+            {text:"Put the telematics beside the logbook and read both dates aloud.",weight:"strong",flavor:"technical",txt:"Two documents disagree in front of twelve people. You say nothing while they do."}]},
+        {kind:"opposing",bad:"assumes",
+          text:"'When your client decided to falsify the run, was the dispatcher told?' — nobody has established that anything was falsified."},
+        {kind:"argument",prompt:"The dispatcher's text is the ugliest thing in the bundle. It is also not yours.",
+          opts:[
+            {text:"Read the text aloud: 'log it as done, sort it Monday.'",weight:"strong",flavor:"bold",txt:"You let Bellwether's own dispatcher testify against them by SMS."},
+            {text:"Argue the tachograph ticket proves the equipment, not the driver, failed.",weight:"strong",flavor:"technical",txt:"Careful, narrow and hard to answer."},
+            {text:"Suggest the driver was covering for a friend.",weight:"weak",flavor:"bold",txt:"Speculation from your own side. The jury notices you guessing."}]},
+        {kind:"opposing",bad:null,
+          text:"'Mr Orsino, is this your signature on the fuel receipt?' — flat, fair, and not going anywhere good for you."},
+        {kind:"closing",prompt:"Last words.",
+          opts:[
+            {text:"A truck that did not move cannot have delivered anything.",weight:"strong",flavor:"technical",txt:"You end on the one thing nobody has contradicted."},
+            {text:"Ask them to consider who benefits from a paper delivery.",weight:"weak",flavor:"bold",txt:"Motive without proof, at the last moment. It thins the ending."},
+            {text:"Thank them and sit down.",weight:"neutral",txt:"Brief. Some juries like brief."}]}]},
+    opts:[
+      {text:"Settle for the fuel card amount and move on.",base:100,safe:true,
+        ok:{fx:{inf:2,bold:-4,money:400},txt:"Small, quiet, over. Bellwether keeps the dispatcher and the habit."}},
+      {text:"Move to dismiss on the telematics record.",base:76,style:"technical",
+        ok:{fx:{rep:7,inf:6,money:1600},txt:"The judge reads the vehicle data twice and dismisses. Machines make poor liars."},
+        fail:{fx:{rep:-5},txt:"'Telematics can be wrong,' says the bench, and lets it go to a jury anyway."}},
+      {text:"Counterclaim for the dispatcher's text as evidence of fraud.",base:36,boldW:3,style:"aggressive",
+        ok:{fx:{rep:10,inf:9,money:2200},txt:"Bellwether's own SMS becomes the centrepiece of a case against Bellwether."},
+        fail:{fx:{rep:-11},txt:"A text message is not a conspiracy. The bench says so, at length, in front of your client."}}]});
+
+  P.push({id:"court4",tier:2,title:"COURT: Ravenscroft Bio patent challenge",deadline:5,judge:true,
+    body:"Ravenscroft holds a patent on an assay method and is suing everyone who breathes near it. Their priority date is March of the filing year. Your bundle contains a conference programme from the February before, listing their own chief scientist presenting the method by name, with an abstract published to attendees. Prior disclosure by the inventor kills novelty. The bundle also holds: a rival's angry blog post, a licence offer Ravenscroft made two years ago, and an internal email calling the patent 'thin but frightening'.",
+    trial:{id:"ravenscroft_trial",strength:11,
+      verdict:{win:{rep:10,inf:11,money:3400,firm:1},lose:{rep:-9,inf:-4,money:-700},
+        winTxt:"The patent is invalid on its inventor's own conference slides. Ravenscroft's licensing department has a quiet month.",
+        loseTxt:"The jury decided a conference talk is not a publication. Your client starts paying royalties on Monday.",
+        settleTxt:"Ravenscroft grants a licence at a nominal figure and stops writing letters. It is not the ruling you wanted."},
+      phases:[
+        {kind:"opening",prompt:"Patent juries switch off fast. You have one genuinely simple fact.",
+          opts:[
+            {text:"Their own scientist explained this method in public a month before they claimed it was secret.",weight:"strong",flavor:"bold",txt:"One sentence, no jargon. The whole room understands the case."},
+            {text:"Explain the statutory framework for novelty and priority.",weight:"weak",flavor:"technical",txt:"You lose the jury in the first paragraph and never fully get them back."},
+            {text:"Read the abstract, then the patent claim, and let them compare.",weight:"strong",flavor:"technical",txt:"Two paragraphs, side by side. They are the same paragraph."}]},
+        {kind:"opposing",bad:"relevance",
+          text:"'Let us talk for a moment about your client's tax structure in Ireland.'"},
+        {kind:"argument",prompt:"Ravenscroft says the conference talk was 'preliminary and confidential'.",
+          opts:[
+            {text:"Produce the attendee list. Four hundred people, no NDA.",weight:"strong",flavor:"technical",txt:"Confidential is a word with a meaning, and this is not it."},
+            {text:"Call their 'thin but frightening' email what it is.",weight:"strong",flavor:"bold",txt:"You read their own assessment of their own patent back to them."},
+            {text:"Argue the rival's blog post shows the field already knew.",weight:"weak",flavor:"bold",txt:"An angry blog is not prior art and the bench says so before you finish."}]},
+        {kind:"opposing",bad:"leading",
+          text:"'And you would accept, wouldn't you, that a conference abstract tells a skilled reader almost nothing?'"},
+        {kind:"argument",prompt:"They have pivoted to the licence offer as proof you took them seriously.",
+          opts:[
+            {text:"A licence offer is a business decision, not an admission.",weight:"strong",flavor:"technical",txt:"Simple, correct, and it closes the door."},
+            {text:"Point out they offered it two years before they found this claim.",weight:"strong",flavor:"bold",txt:"The timeline embarrasses them without you raising your voice."},
+            {text:"Ignore it and return to the framework.",weight:"weak",flavor:"technical",txt:"You leave their best point standing while you talk about statutes."}]},
+        {kind:"closing",prompt:"Last words.",
+          opts:[
+            {text:"February came before March. That is the entire case.",weight:"strong",flavor:"technical",txt:"You end on the calendar. Nobody can argue with the calendar."},
+            {text:"Warn them what happens if patents can be filed on old news.",weight:"weak",flavor:"bold",txt:"A speech about the system. The system is not on trial."},
+            {text:"Thank them and sit down.",weight:"neutral",txt:"Brief. Some juries like brief."}]}]},
+    opts:[
+      {text:"Take the licence. It is cheaper than the fight.",base:100,safe:true,
+        ok:{fx:{inf:2,bold:-5,money:-900},txt:"You pay to make it go away. Ravenscroft sends the same letter to someone else on Tuesday."}},
+      {text:"Invalidate on the February conference disclosure.",base:79,style:"technical",
+        ok:{fx:{rep:9,inf:8,money:2600},txt:"The inventor published it himself. The patent dissolves in a single hearing."},
+        fail:{fx:{rep:-6},txt:"The bench wants expert evidence on what the abstract actually disclosed. That will be months."}},
+      {text:"Countersue for the letters they sent your client's customers.",base:33,boldW:3,style:"aggressive",
+        ok:{fx:{rep:11,inf:10,money:3000},txt:"Unjustified threats, in writing, to people who owed them nothing. Expensive for Ravenscroft."},
+        fail:{fx:{rep:-12},txt:"The threats were defensible. Yours were not. The costs order is memorable."}}]});
+
+  P.push({id:"court5",tier:2,title:"COURT: Estate of Almeida — the second signature",deadline:3,judge:true,
+    body:"A deed of variation redirecting a house, signed by the widow, witnessed by her nephew. The widow had a stroke in January and has not written her own name since; her bank has held a signature waiver on file since February. The deed is dated April. Also in the bundle: a care worker's daily log noting 'no visitors' on the day of signing, a solicitor's file note recording a phone call with 'Mrs Almeida' the same afternoon, and a receipt showing the nephew bought a car eleven days later.",
+    trial:{id:"almeida_trial",strength:7,
+      verdict:{win:{rep:9,inf:8,money:2100,firm:1},lose:{rep:-8,inf:-3,money:-400},
+        winTxt:"The deed is set aside. The nephew keeps the car and nothing else.",
+        loseTxt:"The jury believed the phone call. The house goes where the nephew said it should.",
+        settleTxt:"The nephew returns most of it rather than be asked, under oath, whose voice was on that call."},
+      phases:[
+        {kind:"opening",prompt:"A jury will want to like someone here. Decide who.",
+          opts:[
+            {text:"She could not hold a pen in February. In April she signed a deed.",weight:"strong",flavor:"bold",txt:"They have the whole case in one breath, and they do not like it."},
+            {text:"Set out the law of undue influence and its presumptions.",weight:"weak",flavor:"technical",txt:"A lecture. The jury waits politely for the part that matters."},
+            {text:"Read the bank waiver, then the deed, and note the dates.",weight:"strong",flavor:"technical",txt:"You let two pieces of paper contradict each other without comment."}]},
+        {kind:"opposing",bad:"hearsay",
+          text:"'The care worker told me the widow was perfectly capable that week. That is right, isn't it?'"},
+        {kind:"argument",prompt:"The solicitor's file note is their best document.",
+          opts:[
+            {text:"Ask the solicitor whether he had ever heard her voice before.",weight:"strong",flavor:"bold",txt:"He had not. The room hears him realise it at the same time he does."},
+            {text:"Put the care log up: 'no visitors' on the day it was signed.",weight:"strong",flavor:"technical",txt:"Someone was in that room or nobody was. Both answers are bad for them."},
+            {text:"Suggest the solicitor was in on it.",weight:"weak",flavor:"bold",txt:"An accusation with nothing behind it. The bench looks up. So does the jury."}]},
+        {kind:"closing",prompt:"Last words.",
+          opts:[
+            {text:"A woman who could not sign her name signed a house away. Ask how.",weight:"strong",flavor:"bold",txt:"You leave them with a question rather than an answer, and it is the right question."},
+            {text:"Mention the car.",weight:"weak",flavor:"bold",txt:"Cheap, and they were already there. It makes you smaller, not him."},
+            {text:"Thank them and sit down.",weight:"neutral",txt:"Brief. Some juries like brief."}]}]},
+    opts:[
+      {text:"Negotiate a partial return of the estate.",base:100,safe:true,
+        ok:{fx:{inf:2,bold:-4,money:700},txt:"Half a house, no findings, no fuss. The family speaks to you again in a year."}},
+      {text:"Challenge the deed on the February signature waiver.",base:81,style:"technical",
+        ok:{fx:{rep:8,inf:6,money:1700},txt:"The bank's own file says she could not sign. The deed does not survive it."},
+        fail:{fx:{rep:-5},txt:"A waiver is not a medical finding, says the bench. You will need a doctor."}},
+      {text:"Allege the nephew forged it and put him on the stand.",base:31,boldW:3,style:"aggressive",
+        ok:{fx:{rep:11,inf:9,money:2400},txt:"He explains the car for six minutes. Nobody asked him about the car."},
+        fail:{fx:{rep:-13},txt:"He is grieving, plausible, and entirely undisturbed by your questions. The jury takes his side."}}]});
+
+  P.push({id:"court6",tier:2,title:"COURT: Kepler Tower — the missing inspection",deadline:4,judge:true,
+    body:"A tenant fell through a stairwell landing. The building's owner produces a full inspection record; every quarter, signed, ten years deep. Two things sit in the bundle unexplained: the inspector's own invoices stop eighteen months before the accident, and the last four inspection sheets are printed in a font the previous ones do not use. There is also a resident's complaint about the landing, filed nine months earlier, and a contractor's quote to repair it that was never accepted.",
+    trial:{id:"kepler_trial",strength:3,
+      verdict:{win:{rep:9,inf:9,money:2800,firm:1},lose:{rep:-9,inf:-4,money:-600},
+        winTxt:"The jury found the inspections were written after the fact. The building changes hands within the year.",
+        loseTxt:"Ten years of paperwork beat one font. Your client is told the stairwell was maintained to standard.",
+        settleTxt:"The owner pays for the landing, the physiotherapy, and the silence. Mostly the silence."},
+      phases:[
+        {kind:"opening",prompt:"They will hand the jury ten years of tidy paperwork. Decide what you hand them.",
+          opts:[
+            {text:"The inspector stopped billing eighteen months before he stopped inspecting.",weight:"strong",flavor:"bold",txt:"The jury does the subtraction themselves, which is always better."},
+            {text:"Take them through the statutory duty on common parts.",weight:"weak",flavor:"technical",txt:"Correct and forgettable. They came for a stairwell, not a statute."},
+            {text:"Put the last four sheets beside the earlier ones and say nothing.",weight:"strong",flavor:"technical",txt:"You do not need to mention the font. Someone in the box notices it first."}]},
+        {kind:"opposing",bad:"argumentative",
+          text:"'Does your client habitually walk down stairs without looking at them?'"},
+        {kind:"argument",prompt:"The resident's complaint is nine months older than the accident.",
+          opts:[
+            {text:"Read the complaint, then the unaccepted repair quote.",weight:"strong",flavor:"technical",txt:"They knew, they priced it, and they did not do it. Three documents, one conclusion."},
+            {text:"Ask the owner what happened to the quote.",weight:"strong",flavor:"bold",txt:"He does not know. He is the sort of man who does not know things on purpose."},
+            {text:"Suggest the inspector was paid to sign blank sheets.",weight:"weak",flavor:"bold",txt:"You accuse a man who is not in the room and cannot answer. It reads as reaching."}]},
+        {kind:"opposing",bad:"compound",
+          text:"'Did you inspect the landing in March, and did you report what you found to the managing agent?'"},
+        {kind:"closing",prompt:"Last words.",
+          opts:[
+            {text:"They had a complaint, a quote, and eighteen months. They chose paperwork.",weight:"strong",flavor:"bold",txt:"You end on the choice rather than the fall, and the jury stays with you."},
+            {text:"Describe the injuries once more.",weight:"weak",flavor:"bold",txt:"They have heard it. Repeating it now looks like you have run out of documents."},
+            {text:"Thank them and sit down.",weight:"neutral",txt:"Brief. Some juries like brief."}]}]},
+    opts:[
+      {text:"Accept the insurer's early offer.",base:100,safe:true,
+        ok:{fx:{inf:2,bold:-4,money:900},txt:"Enough for the physiotherapy, not enough for the anger. Your client signs anyway."}},
+      {text:"Attack the inspection records on the invoice gap.",base:74,style:"technical",
+        ok:{fx:{rep:8,inf:7,money:2000},txt:"Nobody was paid to inspect anything for eighteen months. The records stop being records."},
+        fail:{fx:{rep:-6},txt:"'Invoices go missing,' says the bench, and lets the record stand."}},
+      {text:"Plead a cover-up and demand the original files.",base:34,boldW:3,style:"aggressive",
+        ok:{fx:{rep:10,inf:10,money:2600},txt:"The originals do not exist. What arrives instead is an offer with a lot of zeroes."},
+        fail:{fx:{rep:-12},txt:"The originals arrive, complete and boring, and you have called someone a liar in open court."}}]});
+
+  P.push({id:"court7",tier:2,title:"COURT: Sable & Roe partnership dissolution",deadline:5,judge:true,
+    body:"Two founders, one accounting firm, and a dissolution nobody wanted. Roe says Sable took clients on the way out. Sable says the client list was his before the partnership existed. The deed of partnership is silent on goodwill — but an annexe, initialled by both and stapled to the back, allocates 'originated relationships' to the originating partner. The annexe is dated after the deed, which Roe says makes it a draft. Also in the bundle: eleven client emails, a bar receipt from the night it was initialled, and a text from Roe reading 'fine, your clients, my building'.",
+    trial:{id:"sable_trial",strength:-2,
+      verdict:{win:{rep:8,inf:9,money:2500,firm:1},lose:{rep:-8,inf:-4,money:-500},
+        winTxt:"The annexe held. Roe keeps the building and a lesson about stapling things.",
+        loseTxt:"The jury decided a document initialled in a bar is a document initialled in a bar.",
+        settleTxt:"They split the list along lines they could both have drawn on day one, two years and one trial late."},
+      phases:[
+        {kind:"opening",prompt:"Partnership juries are told two men are lying. Decide which story you are telling.",
+          opts:[
+            {text:"They wrote down who owned what, initialled it, and one of them now regrets it.",weight:"strong",flavor:"bold",txt:"Simple, human, and it makes the annexe the whole case."},
+            {text:"Explain the law of partnership goodwill and its default rules.",weight:"weak",flavor:"technical",txt:"Defaults only matter if the annexe fails. You have just told them it might."},
+            {text:"Read the text message: 'fine, your clients, my building'.",weight:"strong",flavor:"technical",txt:"Roe's own phone summarises the deal in six words."}]},
+        {kind:"opposing",bad:"speculation",
+          text:"'What do you suppose Mr Roe believed he was initialling that evening?'"},
+        {kind:"argument",prompt:"They are making a great deal of the bar receipt.",
+          opts:[
+            {text:"Point out the receipt shows two drinks across three hours.",weight:"strong",flavor:"technical",txt:"Not a bar story any more. Just two men in a quiet pub agreeing something."},
+            {text:"Ask Roe to read his own text aloud.",weight:"strong",flavor:"bold",txt:"He reads it. Then he explains it. The explaining is the part that hurts him."},
+            {text:"Argue the venue is irrelevant as a matter of law.",weight:"weak",flavor:"technical",txt:"Legally right and rhetorically deaf. The jury cares where it was signed."}]},
+        {kind:"opposing",bad:null,
+          text:"'Mr Sable, on what date did the annexe come into existence?'"},
+        {kind:"closing",prompt:"Last words.",
+          opts:[
+            {text:"He wrote it, he initialled it, he texted it. Three times, one answer.",weight:"strong",flavor:"technical",txt:"You stack his own conduct into a wall he cannot climb."},
+            {text:"Say Roe is a man who changes his mind when money appears.",weight:"weak",flavor:"bold",txt:"You attack him instead of the document, at the last possible moment."},
+            {text:"Thank them and sit down.",weight:"neutral",txt:"Brief. Some juries like brief."}]}]},
+    opts:[
+      {text:"Broker a split of the client list.",base:100,safe:true,
+        ok:{fx:{inf:3,bold:-4,money:800},txt:"Neither founder is happy, which is roughly what a fair split feels like."}},
+      {text:"Enforce the annexe as an executed variation.",base:73,style:"technical",
+        ok:{fx:{rep:7,inf:7,money:1900},txt:"Initials are initials. The annexe stands and the client list goes with it."},
+        fail:{fx:{rep:-6},txt:"'A stapled afterthought,' says the bench, and reads the deed without it."}},
+      {text:"Put Roe's text message in front of a jury and let him explain it.",base:37,boldW:3,style:"aggressive",
+        ok:{fx:{rep:9,inf:9,money:2300},txt:"He explains it for eleven minutes. Nobody in the room believes minute four."},
+        fail:{fx:{rep:-11},txt:"He explains it in one sentence and it is a good sentence. You have handed him the room."}}]});
+
+  P.push({id:"court8",tier:2,title:"COURT: Corvid Media anti-SLAPP",deadline:3,judge:true,
+    body:"Corvid Media is suing a food blogger for eleven million over a review. The review said a restaurant's supplier had been fined for hygiene breaches — which is true, published in the regulator's own register, and linked in the post. Corvid's claim runs to ninety pages and never once alleges the statement is false. Also in the bundle: an internal Corvid email describing the suit as 'a cost exercise', a demand letter sent before any complaint was made, and a second blogger who deleted a similar post last year.",
+    trial:{id:"corvid_trial",strength:13,
+      verdict:{win:{rep:11,inf:10,money:2900,firm:1},lose:{rep:-9,inf:-4,money:-600},
+        winTxt:"Struck out with costs. The 'cost exercise' email is read aloud in the ruling, which is the part that travels.",
+        loseTxt:"The jury did not like the blogger's tone. Eleven million becomes a number she will live inside.",
+        settleTxt:"Corvid withdraws quietly and pays her fees. She keeps the post up, which was the only thing she wanted."},
+      phases:[
+        {kind:"opening",prompt:"Ninety pages and no allegation of falsity. Decide whether the jury hears that first.",
+          opts:[
+            {text:"In ninety pages they never once say she was wrong. That is the case.",weight:"strong",flavor:"bold",txt:"The jury looks at the ninety pages differently for the rest of the trial."},
+            {text:"Set out the elements of defamation and take them through each.",weight:"weak",flavor:"technical",txt:"You teach a class. They wanted the point you just buried on slide six."},
+            {text:"Read the regulator's register entry, then the sentence she wrote.",weight:"strong",flavor:"technical",txt:"Identical. One is a public record; the other is eleven million pounds."}]},
+        {kind:"opposing",bad:"asked",
+          text:"'One more time, since you seem unsure: did you contact the restaurant before publishing?'"},
+        {kind:"argument",prompt:"Their 'cost exercise' email is the ugliest document in the room.",
+          opts:[
+            {text:"Read it aloud and let it sit.",weight:"strong",flavor:"bold",txt:"You do not editorialise. The email does not need help."},
+            {text:"Show the demand letter predates any complaint to the restaurant.",weight:"strong",flavor:"technical",txt:"They wrote the threat before they had a grievance. The order tells the story."},
+            {text:"Bring up the other blogger who deleted her post.",weight:"weak",flavor:"bold",txt:"A different person, a different post, and now you are the one reaching."}]},
+        {kind:"opposing",bad:"leading",
+          text:"'And you would accept, wouldn't you, that you wrote it to get attention?'"},
+        {kind:"closing",prompt:"Last words.",
+          opts:[
+            {text:"They never said she lied. They said it would be expensive to be right.",weight:"strong",flavor:"bold",txt:"You end on their own words and stop, which is the hardest part."},
+            {text:"Talk about press freedom in general terms.",weight:"weak",flavor:"bold",txt:"A principle where a document would have done. It floats away."},
+            {text:"Thank them and sit down.",weight:"neutral",txt:"Brief. Some juries like brief."}]}]},
+    opts:[
+      {text:"Advise the client to take the post down and apologise.",base:100,safe:true,
+        ok:{fx:{inf:1,bold:-6,rep:-2},txt:"She takes it down. Corvid sends the same letter to two more people that month."}},
+      {text:"Strike out: the claim never alleges falsity.",base:80,style:"technical",
+        ok:{fx:{rep:9,inf:8,money:2200},txt:"Ninety pages die on the one thing they forgot to say. Costs follow."},
+        fail:{fx:{rep:-6},txt:"The bench lets them amend. You have bought her four more months of this."}},
+      {text:"Counterclaim for abuse of process and publish the 'cost exercise' email.",base:32,boldW:3,style:"aggressive",
+        ok:{fx:{rep:12,inf:11,money:2700},txt:"Their strategy becomes the story. Two other bloggers write about it by Friday."},
+        fail:{fx:{rep:-13},txt:"Abuse of process is a serious allegation and you could not make it stick. The bench says so twice."}}]});
+
   return P;
 }
 

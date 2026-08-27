@@ -8,6 +8,7 @@ import { choose, deferCase, resolveCrisis, dismissSummary, advanceIntro, closeIn
          refreshRoomTone } from "./game/engine.js";
 import StartScreen from "./components/StartScreen.jsx";
 import IntroOverlay from "./components/IntroOverlay.jsx";
+import TrialOverlay from "./components/TrialOverlay.jsx";
 import DevPanel from "./components/DevPanel.jsx";
 import Topbar from "./components/Topbar.jsx";
 import OfficeScene from "./components/OfficeScene.jsx";
@@ -94,6 +95,7 @@ export default function App(){
       {S.infoOpen && <InfoOverlay />}
       {S.event && <EventOverlay ev={S.event} />}
       {S.actionChallenge && <ActionMinigameOverlay />}
+      {(S.trial||S.trialResult) && <TrialOverlay trial={S.trial} result={S.trialResult} />}
       {S.summary && <SummaryOverlay sum={S.summary} />}
       {S.introStep!=null && <IntroOverlay />}
       {import.meta.env.DEV && !devOpen && (

@@ -81,6 +81,17 @@ export function devOpenBoard(kind,{sneaky=0,reroll=true}={}){
   return S.actionChallenge;
 }
 
+/* Trials only appear on files that carry one, and only two do so far. */
+export function devOpenTrial(caseId="court2"){
+  const c=devSpawnCase(caseId);
+  if(!c) return null;
+  const o=c.opts.find(x=>x.trial);
+  if(!o) return null;
+  engine.choose(c,o);
+  notify();
+  return S.trial;
+}
+
 /* The bar heat is hidden from the player on purpose, so the only way to see a
    letter in development is to ask for one directly. */
 export function devOpenBarLetter(stage=1){

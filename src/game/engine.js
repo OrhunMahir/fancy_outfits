@@ -33,6 +33,9 @@ import { LOCK_MIN, LOCK_MAX, LOCK_HINT_SPREAD, LOCK_HOLD_MS, LOCK_WEAR_MAX, POWE
 import { SFX, startAmbience, stopAmbience, applyBgmVolume, setRoomTone } from "./sound.js";
 import { createBarHeat, barStageFor, barRecord, buildBarEvent, barValidationError, barEventValidationError,
          BAR_WEIGHTS, BAR_DECAY, BAR_MAX, BAR_STAGE_MAX } from "./ethics.js";
+import { createTrial, trialPhase, trialFinished, applySwing, verdictChance, roomLine,
+         trialValidationError, offerValue, OFFER_AT, SWING, GROUND_IDS, JURY_START_MIN, JURY_START_MAX,
+         clampJuryValue } from "./trial.js";
 import { settings, setSetting } from "./settings.js";
 import { buildPool, JUDGES, crises, SCENARIOS, buildWeekend } from "./content.js";
 import { genCase } from "./casegen.js";
@@ -87,7 +90,7 @@ const finalWarningConfig=()=>{
 
 /* The clock stops whenever any overlay is up, the player hit PAUSE, or the
    character is walking out. Replaces the old S.paused flag. */
-export const isPaused=()=>!!(S.infoOpen||S.event||S.summary||S.userPaused||S.settingsOpen||S.rosterOpen||S.archiveOpen||S.actionChallenge||S.leaving||S.introStep!=null);
+export const isPaused=()=>!!(S.infoOpen||S.event||S.summary||S.userPaused||S.settingsOpen||S.rosterOpen||S.archiveOpen||S.actionChallenge||S.trial||S.trialResult||S.leaving||S.introStep!=null);
 export const disrespected=()=>S.rep<30;
 export function finalWarningInfo(){
   if(!S) return null;
@@ -521,6 +524,9 @@ export function apply(fx,quiet,source="other",endingContext){
 /* success chance for an option — the game's balance lives here, edit with care */
 export function chance(o,c){
   if(o&&o.action) return null; // COVERT ACTIONS are executed, not resolved by the case die
+  /* A TRIAL has no odds to show. The jury standing is built inside the room and
+     rolled once at the end, so there is deliberately no number here to leak. */
+  if(o&&o.trial) return null;
   if(o.base>=100) return 100;
   let p=o.base+(o.boldW||0)*(S.bold-40)/10*5; // each 10 bold over 40 adds boldW*5
   const j=c&&c.judge;
@@ -757,6 +763,14 @@ export function instantiateCase(c){
   if(S.golfEdge&&inst.judge){ // weekend golf pays off: this judge is pre-read
     inst.dossier=true; S.golfEdge=false;
     log("Weekend golf pays off: you know exactly how "+inst.judge.name+" thinks. (dossier attached)","sys");
+  }
+  /* A file that can be tried gets the option to try it. Deliberately the LAST
+     thing added after the shuffle, next to the bribe, so it always sits at the
+     bottom of the list: taking a case to trial is a decision you scroll down to
+     make, not one your thumb lands on. */
+  if(plain(inst.trial)&&Array.isArray(inst.trial.phases)&&inst.trial.phases.length){
+    inst.opts.push({text:"TAKE IT TO TRIAL. Let twelve people decide.",style:"trial",trial:true,
+      ok:{fx:{},txt:""},fail:{fx:{},txt:""}});
   }
   if(inst.judge&&inst.judge.corrupt>=40){
     const cost=900+300*S.rank;
@@ -1096,6 +1110,182 @@ function stakeScale(c){
   const tier=c&&Number.isFinite(c.tier)?Math.min(1,c.tier/2):0;
   return clamp(rank*.65+tier*.35,0,1);
 }
+
+/* One builder for the late-night confirmation: a trial can run past the lights
+   exactly like any other play, and two copies of this prompt would drift. */
+function lateWorkEvent(cost){
+  const over=Math.max(0,cost-S.hours), extra=Math.round(over*LATE_FATIGUE);
+  return {id:"latework",title:wallTime()+" — THE DAY IS ENDING",
+    body:"This play needs "+cost+"h. You have "+S.hours+"h before the building empties. "+
+      "Finishing tonight means "+over+"h into the dark — and that kind of hour bills YOU: +"+extra+" FATIGUE on top of the usual. "+
+      (S.fatigue>=50?"You're already running on fumes. ":"")+
+      "Are you sure you want to see this through?",
+    opts:[
+      {text:"Push through. Finish it tonight. (+"+extra+" extra FATIGUE)",base:100,safe:true,lateGo:true,ok:{fx:{},txt:""}},
+      {text:"Step back. The file waits for the morning.",base:100,safe:true,lateNo:true,ok:{fx:{},txt:""}}]};
+}
+
+/* ---------- TRIAL ----------
+   The one part of the game with no odds on screen. A jury standing is built out
+   of every decision made in the room and then rolled against once, at the end.
+   The player is told nothing but what the room does — which is why every swing
+   carries a line of prose, and why the settlement offer exists at all.
+
+   Cost is paid up front like any other play; settling mid-trial hands the
+   unspent hours back, because you did not use the afternoon. */
+export const TRIAL_HOURS=[4,5,6];
+export const trialCost=trial=>TRIAL_HOURS[Math.min(TRIAL_HOURS.length-1,
+  Math.max(0,Math.floor(((trial.phases||[]).length-3)/2)))];
+
+export function beginTrial(c,o,confirmedLate){
+  if(!S||S.trial||S.actionChallenge||!plain(c.trial)) return false;
+  const strength=clamp(Math.trunc(Number(c.trial.strength)||0),-20,20);
+  const spread=JURY_START_MAX-JURY_START_MIN;
+  // Where the file itself stands before anyone has said a word.
+  const jury=clampJuryValue(JURY_START_MIN+spread/2+strength);
+  const phases=JSON.parse(JSON.stringify(c.trial.phases));
+  const trial=createTrial({caseId:c.id,jury,phases,strength});
+  const cost=trialCost(trial);
+  if(!confirmedLate&&cost>S.hours&&S.hours>0){
+    S.pendingChoice={c,o};
+    S.event=lateWorkEvent(cost);
+    notify(); return true;
+  }
+  const lateExtra=Math.round(Math.max(0,cost-S.hours)*LATE_FATIGUE);
+  if(lateExtra) log("The trial runs past the lights. (+"+lateExtra+" FATIGUE)","bad");
+  spendHours(cost,Math.round(cost*2)+6+lateExtra);
+  S.trial={...trial,optionIndex:c.opts.indexOf(o),startedDay:S.day,
+    caseTitle:c.title,judgeName:c.judge?c.judge.name:"the bench",cost};
+  c.trialInProgress=c.trial.id||c.id;
+  S.openCase=null;
+  SFX.crisis();
+  log("TRIAL: "+c.title+" goes to a jury. ("+cost+"h)","sys");
+  saveGame(); notify();
+  return true;
+}
+
+const trialCase=()=>S&&S.trial?S.inbox.find(item=>!item.msg&&item.id===S.trial.caseId):null;
+const trialPush=(t,line)=>({...t,log:[...t.log,line].slice(-40)});
+
+/* Every advance goes through here so the prose, the counters and the offer
+   check can never drift apart from the standing they describe. */
+function trialAdvance(t,delta,line){
+  let next=applySwing(t,delta);
+  next=trialPush(next,line);
+  if(delta>0) next.strongPlays++; else if(delta<0) next.weakPlays++;
+  next.step++;
+  // Opposing counsel only blinks when they are genuinely behind. This is the
+  // only readout of the meter the player ever gets, and it stays coarse.
+  /* They make an offer once. Asking again every phase turned a dramatic beat into
+     a nag — and worse, it let the player poll the hidden meter for free. After a
+     refusal they only come back if the case has moved materially against them. */
+  const floor=Number.isFinite(next.offerFloor)?next.offerFloor:OFFER_AT;
+  if(!trialFinished(next)&&next.offer==null&&next.jury>=floor&&next.step>=2)
+    next.offer=Math.round(offerValue(next.jury)*100)/100;
+  return next;
+}
+
+export function trialPlay(index){
+  if(!S||!S.trial||S.trial.done) return;
+  const phase=trialPhase(S.trial);
+  if(!phase||phase.kind==="opposing") return;
+  const opt=(phase.opts||[])[index];
+  if(!opt) return;
+  const weight=opt.weight==="strong"?1:opt.weight==="weak"?-1:0;
+  const key=phase.kind==="closing"?"closing":phase.kind==="opening"?"opening":"argument";
+  const delta=weight>0?SWING[key+"Strong"]:weight<0?SWING[key+"Weak"]:0;
+  SFX.click();
+  S.trial=trialAdvance(S.trial,delta,(opt.txt||opt.text)+" — "+roomLine(delta,S.trial.step+index));
+  if(trialFinished(S.trial)) finishTrial();
+  else { saveGame(); notify(); }
+}
+
+/* Objecting is a reading test, not a reflex test: the argument is on the page,
+   the grounds are a fixed list, and being right means naming the right one.
+   Staying silent on a clean argument is correct and costs nothing — the only
+   punished silence is letting an improper argument stand. */
+export function trialObject(groundId){
+  if(!S||!S.trial||S.trial.done) return;
+  const phase=trialPhase(S.trial);
+  if(!phase||phase.kind!=="opposing") return;
+  const bad=phase.bad||null;
+  let delta,line,t=S.trial;
+  if(groundId==null){
+    if(bad){ delta=SWING.improperMissed; t={...t,missed:t.missed+1};
+      line="You let it stand. It is in the record now, and the jury heard it."; }
+    else { delta=0; line="You stay in your seat. There was nothing there to take."; }
+  } else if(!GROUND_IDS.includes(groundId)) return;
+  else if(bad&&groundId===bad){
+    delta=SWING.objectionSustained; t={...t,sustained:t.sustained+1};
+    line="SUSTAINED. Struck from the record — and the jury watched it happen.";
+  } else {
+    delta=SWING.objectionOverruled; t={...t,overruled:t.overruled+1};
+    line=bad?"OVERRULED. The right instinct, the wrong ground. It stands."
+            :"OVERRULED. There was nothing improper about the question, and now everyone knows you thought there was.";
+  }
+  if(delta>0) SFX.open(); else if(delta<0) SFX.lose(); else SFX.click();
+  S.trial=trialAdvance(t,delta,line+" "+roomLine(delta,t.step+7));
+  if(trialFinished(S.trial)) finishTrial();
+  else { saveGame(); notify(); }
+}
+
+/* The verdict. The standing the player built IS the chance — there is no second
+   hidden check, which is what makes "I earned that" and "I threw that away" both
+   land honestly. Stakes are deliberately steeper than a normal file in both
+   directions: a trial eats most of a day, so it has to be worth the day. */
+export const TRIAL_WIN_MULT=2, TRIAL_LOSS_MULT=1.5;
+function finishTrial(){
+  const t=S.trial, c=trialCase();
+  if(!t||!c){ S.trial=null; notify(); return; }
+  const settled=!!t.settled;
+  const p=verdictChance(t);
+  const win=settled?true:rand()*100<p;
+  const scaleFx=(fx,m)=>{
+    const out={};
+    for(const [k,v] of Object.entries(fx||{})) out[k]=Math.round(v*m);
+    return out;
+  };
+  const base=c.trial.verdict||{};
+  let fx,txt;
+  if(settled){
+    // A settlement pays a fraction of the win, scaled by how worried they were.
+    fx=scaleFx(base.win,Math.max(.25,Math.min(.8,t.offer||.4)));
+    txt=base.settleTxt||"You take the number. It is smaller than the one you wanted and larger than the one they meant to offer.";
+  } else if(win){
+    fx=scaleFx(base.win,TRIAL_WIN_MULT);
+    txt=base.winTxt||"The foreman reads it out. Your client does not understand the wording and understands the result perfectly.";
+  } else {
+    fx=scaleFx(base.lose,TRIAL_LOSS_MULT);
+    txt=base.loseTxt||"The foreman reads it out. Your client understands this one immediately.";
+  }
+  delete c.trialInProgress;
+  S.inbox=S.inbox.filter(item=>item!==c);
+  S.today.resolved++;
+  if(win) S.today.wins++;
+  archiveCase(c,settled?"settled at trial":"tried to verdict",win,txt,settled?"trial — settled":"trial — verdict");
+  rememberJudgeOutcome(c,{style:"technical"},win);
+  if(win){ SFX.win(stakeScale(c)); log("[TRIAL] "+txt,"good"); apply(fx,false,"case");
+    if(!settled) awardXp(caseXpFor(c,{style:"technical"},true),"TRIAL · "+c.title);
+    apply({firm:1},true,"case"); maybeImpressClient(c); }
+  else { SFX.lose(stakeScale(c)); log("[TRIAL] "+txt,"bad"); doShake(); apply(fx,false,"case");
+    awardXp(caseXpFor(c,{style:"technical"},false),"TRIAL · "+c.title);
+    apply({firm:-1},true,"case"); maybeLoseClientOnFail(); nemesisGain(3,true); }
+  S.trialResult={win,settled,jury:p,txt,title:c.title,
+    sustained:t.sustained,overruled:t.overruled,missed:t.missed,
+    strongPlays:t.strongPlays,weakPlays:t.weakPlays};
+  S.trial=null;
+  checkPromotion(); checkClock(); saveGame(); notify();
+}
+export function dismissTrialResult(){ if(S&&S.trialResult){ SFX.click(); S.trialResult=null; saveGame(); notify(); } }
+
+export function trialSettle(accept){
+  if(!S||!S.trial||S.trial.done||S.trial.offer==null) return;
+  if(!accept){ S.trial={...S.trial,offer:null,offerFloor:S.trial.jury+12,
+    log:[...S.trial.log,"You decline. Opposing counsel sits down slowly."]}; saveGame(); notify(); return; }
+  S.trial={...S.trial,settled:true,done:true};
+  finishTrial();
+}
+export function refuseSettlement(){ trialSettle(false); }
 
 /* The heat is hidden on purpose, so this never logs a number and never touches
    a stat bar. What it does is decide when a letter arrives — the letters are the
@@ -1764,18 +1954,15 @@ export function choose(c,o,confirmedLate,timelinePrepped){
   if(!confirmedLate&&cost0>S.hours&&S.hours>0){
     const over=Math.round((cost0-S.hours)*4)/4, extra=Math.round(over*LATE_FATIGUE);
     S.pendingChoice={c,o};
-    S.event={id:"latework",title:wallTime()+" — THE DAY IS ENDING",
-      body:"This play needs "+cost0+"h. You have "+S.hours+"h before the building empties. "+
-        "Finishing tonight means "+over+"h into the dark — and that kind of hour bills YOU: +"+extra+" FATIGUE on top of the usual. "+
-        (S.fatigue>=50?"You're already running on fumes. ":"")+
-        "Are you sure you want to see this through?",
-      opts:[
-        {text:"Push through. Finish it tonight. (+"+extra+" extra FATIGUE)",base:100,safe:true,lateGo:true,ok:{fx:{},txt:""}},
-        {text:"Step back. The file waits for the morning.",base:100,safe:true,lateNo:true,ok:{fx:{},txt:""}}]};
+    S.event=lateWorkEvent(cost0);
     notify(); return;
   }
   // A rare prep window opens BEFORE any money changes hands: resuming this play
   // after the challenge must not charge a bribe (or anything else) twice.
+  /* Going to trial IS the hearing. Opening a separate objection board on top of
+     it would put the player in two courtrooms at once, so the trial claims the
+     play before any board can trigger on it. */
+  if(o.trial){ beginTrial(c,o,confirmedLate); return; }
   /* A file can offer both a hearing and a chronology — the Vance deposition has
      a room full of improper questions AND a binder of dates. Trying the hearing
      first every time would quietly starve the chronology on exactly those
@@ -2476,6 +2663,11 @@ function validOption(o,depth){
   // kind of choice and must not borrow each other's label.
   if(o.action) return o.style===(["contradiction","redaction"].includes(o.action.type)?"prep":"covert")&&
     validAction(o.action)&&o.base==null&&o.ok==null&&o.fail==null;
+  /* Going to trial is not a play with odds on it — the jury standing IS the
+     odds, and it is built during the trial itself. So the option carries no
+     base and must be labelled as what it is. */
+  if(o.trial) return o.style==="trial"&&o.base==null&&o.trial===true&&
+    validOutcome(o.ok,depth)&&validOutcome(o.fail,depth);
   if(!Number.isFinite(o.base)||!validOutcome(o.ok,depth)) return false;
   if(o.style!=null&&!["technical","aggressive","bribe","neutral"].includes(o.style)) return false;
   for(const key of ["boldW","delay","bribe","hours","fatigue","relOk","relFail"])
@@ -2859,7 +3051,10 @@ const migrateV22ToV23=raw=>{
    record of what it never saw, and back-dating violations from an archive would
    be guesswork with a terminal ending attached. */
 const migrateV23ToV24=raw=>({...raw,schemaVersion:24,barHeat:plain(raw.barHeat)?raw.barHeat:createBarHeat()});
-const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6,6:migrateV6ToV7,7:migrateV7ToV8,8:migrateV8ToV9,9:migrateV9ToV10,10:migrateV10ToV11,11:migrateV11ToV12,12:migrateV12ToV13,13:migrateV13ToV14,14:migrateV14ToV15,15:migrateV15ToV16,16:migrateV16ToV17,17:migrateV17ToV18,18:migrateV18ToV19,19:migrateV19ToV20,20:migrateV20ToV21,21:migrateV21ToV22,22:migrateV22ToV23,23:migrateV23ToV24};
+/* v24 -> v25 opens the trial slot. Nothing to back-fill: a career that predates
+   trials simply has none in progress. */
+const migrateV24ToV25=raw=>({...raw,schemaVersion:25,trial:plain(raw.trial)?raw.trial:null});
+const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6,6:migrateV6ToV7,7:migrateV7ToV8,8:migrateV8ToV9,9:migrateV9ToV10,10:migrateV10ToV11,11:migrateV11ToV12,12:migrateV12ToV13,13:migrateV13ToV14,14:migrateV14ToV15,15:migrateV15ToV16,16:migrateV16ToV17,17:migrateV17ToV18,18:migrateV18ToV19,19:migrateV19ToV20,20:migrateV20ToV21,21:migrateV21ToV22,22:migrateV22ToV23,23:migrateV23ToV24,24:migrateV24ToV25};
 
 const JUDGE_MEMORY_COUNTERS=["seen","aggressiveW","aggressiveL","technicalW","technicalL","bribeW","bribeL","safe","neutralW","neutralL"];
 function validJudgeMemory(memory,day){
@@ -3107,6 +3302,20 @@ function migrateSaveData(raw){
   if(!Number.isInteger(d.day)||d.day<1) throw new SaveDataError("invalid","The saved day is invalid.");
   const barError=barValidationError(d.barHeat,d.day);
   if(barError) throw new SaveDataError("invalid",barError);
+  const trialError=trialValidationError(d.trial,d.day);
+  if(trialError) throw new SaveDataError("invalid",trialError);
+  /* A trial and its file are one thing: neither may exist without the other, or
+     a reload could hand the player a jury with no case behind it. */
+  if(d.trial){
+    const owner=d.inbox.find(item=>plain(item)&&!item.msg&&item.id===d.trial.caseId);
+    if(!owner||!plain(owner.trial)||!owner.trialInProgress)
+      throw new SaveDataError("invalid","The saved trial no longer matches its case file.");
+    if(d.trial.phases.length!==owner.trial.phases.length)
+      throw new SaveDataError("invalid","The saved trial no longer matches its own record.");
+  }
+  const orphanTrials=d.inbox.filter(item=>plain(item)&&item.trialInProgress).length;
+  if(orphanTrials!==(d.trial?1:0))
+    throw new SaveDataError("invalid","A case file is stuck inside a missing trial.");
   const fraudError=fraudRiskValidationError(d.fraudRisk,d.scenario,d.day);
   if(fraudError) throw new SaveDataError("invalid","The saved identity-pressure record is damaged ("+fraudError+").");
   if(!Number.isInteger(d.rank)||d.rank<0||d.rank>=RANKS.length) throw new SaveDataError("invalid","The saved rank is invalid.");
@@ -3405,7 +3614,7 @@ export function setSlot(n){
 
 export function saveGame(){
   if(!S||S.over||S.mode==="ironman") return true; // ironman: no net by design
-  const {infoOpen,event,summary,flash,userPaused,leaving,charAnim,openCase,settingsOpen,sceneRank,rosterOpen,archiveOpen,pendingChoice,saveError,shakeSeq,introStep,...data}=S;
+  const {infoOpen,event,summary,flash,userPaused,leaving,charAnim,openCase,settingsOpen,sceneRank,rosterOpen,archiveOpen,pendingChoice,saveError,shakeSeq,introStep,trialResult,...data}=S;
   const ev=(event&&event.id!=="overtime"&&event.id!=="latework")?event:null;
   const payload={...data,event:ev,summary:persistedSummary(summary),schemaVersion:SAVE_SCHEMA_VERSION,savedAt:Date.now(),rngState:getRngState(),
     logEntries:(data.logEntries||[]).slice(0,SAVE_LOG_LIMIT),archive:(data.archive||[]).slice(0,SAVE_ARCHIVE_LIMIT)};

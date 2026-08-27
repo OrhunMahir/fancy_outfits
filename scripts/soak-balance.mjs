@@ -385,6 +385,14 @@ function canonicalSnapshot(rngCalls) {
     money: S.money, hours: S.hours, fatigue: S.fatigue, progression:S.progression, fraudRisk:S.fraudRisk, ot: [S.otToday, S.otHours],
     over: S.over, endlessWon: S.endlessWon, runRecorded: S.runRecorded, caseSeq: S.caseSeq,
     event: S.event ? { id: S.event.id, opts: S.event.opts.map(option => option.text) } : null,
+    /* A trial advances nothing else in the world — no hours, no inbox, no stats —
+       so without it here every phase reads as a stalled career. It also belongs
+       in the replay hash: a jury standing is game state like any other. */
+    trial: S.trial ? { caseId: S.trial.caseId, step: S.trial.step, jury: S.trial.jury,
+      sustained: S.trial.sustained, overruled: S.trial.overruled, missed: S.trial.missed,
+      offer: S.trial.offer, settled: S.trial.settled, done: S.trial.done } : null,
+    trialResult: S.trialResult ? { win: S.trialResult.win, settled: S.trialResult.settled } : null,
+    barHeat: S.barHeat ? { ...S.barHeat } : null,
     pendingChoice: S.pendingChoice ? { case: S.pendingChoice.c?.id || S.pendingChoice.c?.title,
       option: S.pendingChoice.o?.text } : null,
     summary: S.summary ? { title: S.summary.title, action: S.summary.action } : null,
@@ -449,9 +457,11 @@ function assertInvariants(run, label) {
     for (const option of c.opts) {
       const before = run.gameRng.calls;
       const chance = engine.chance(option, c);
-      if(option.action){
-        if(chance!==null) fail("interactive action exposed a fake chance: " + c.title);
-        if(run.gameRng.calls!==before) fail("interactive action chance consumed RNG: "+c.title);
+      if(option.action||option.trial){
+        // Interactive plays — covert jobs and trials alike — must never show a
+        // number: their outcome is built by the player, not drawn from a die.
+        if(chance!==null) fail("interactive play exposed a fake chance: " + c.title);
+        if(run.gameRng.calls!==before) fail("interactive play chance consumed RNG: "+c.title);
         continue;
       }
       if (!Number.isFinite(chance) || chance < 5 || chance > 100) fail("invalid chance: " + c.title);
@@ -564,10 +574,18 @@ function processArchives(run) {
   for (const entry of entries) {
     if(entry.via==="delegated") run.metrics.delegatedResults[entry.win?"won":"lost"]++;
     if(entry.via==="deadline missed") run.metrics.deadlineResults++;
+    if(/^trial —/.test(entry.via||"")){
+      run.metrics.trialVerdicts=(run.metrics.trialVerdicts||0)+1;
+      if(entry.win) run.metrics.trialVerdictWins=(run.metrics.trialVerdictWins||0)+1;
+      if(entry.via==="trial — settled") run.metrics.trialSettlements=(run.metrics.trialSettlements||0)+1;
+    }
     const queue = run.pendingRolls.get((entry.id || entry.title) + "\u0000" + entry.play);
     const meta = queue?.shift();
     if (!meta) {
-      const automatic = entry.via === "delegated" || entry.via === "deadline missed" || /^\(/.test(entry.play || "");
+      /* A trial is not a die roll: its outcome is the jury standing the player
+         built, so there is no recorded chance for it to be matched against. */
+      const automatic = entry.via === "delegated" || entry.via === "deadline missed" ||
+        /^trial —/.test(entry.via || "") || /^\(/.test(entry.play || "");
       if (!automatic) throw new Error("resolved player filing was not matched to its choice: " + (entry.id || entry.title));
       continue;
     }
@@ -803,6 +821,41 @@ function driveRun(tuple, horizon, { captureTrace = false } = {}) {
         if (option.lateGo && S.pendingChoice) { metrics.lateWork++; registerChoice(run, S.pendingChoice.c, S.pendingChoice.o); }
         if (option.hours) metrics.workHours += option.hours;
         runAction(run, "event " + event.id + ": " + option.text, () => engine.resolveCrisis(option));
+        continue;
+      }
+      /* A TRIAL is modal like an event and cannot be skipped once opened — the
+         bot has to actually try the case. Skill is modelled with the POLICY rng
+         so the game stream stays untouched, and both a competent and a sloppy
+         advocate need long-run coverage. */
+      if (S.trial) {
+        metrics.trialsPlayed = (metrics.trialsPlayed || 0) + 1;
+        let guard = 0;
+        while (state.S.trial && guard++ < 40) {
+          const t = state.S.trial, phase = t.phases[t.step];
+          if (t.offer != null) {
+            // Take a good offer sometimes; a bot that never settles never
+            // exercises that branch, and one that always settles never tries a case.
+            if (run.policyRng() < .3) runAction(run, "trial: settle", () => engine.trialSettle(true));
+            else runAction(run, "trial: press on", () => engine.trialSettle(false));
+            continue;
+          }
+          if (!phase) break;
+          if (phase.kind === "opposing") {
+            const ground = phase.bad && run.policyRng() < .7 ? phase.bad
+              : run.policyRng() < .12 ? "leading" : null;
+            runAction(run, "trial: objection", () => engine.trialObject(ground));
+          } else {
+            const opts = phase.opts || [];
+            const strong = opts.findIndex(o => o.weight === "strong");
+            const pick = run.policyRng() < .68 && strong >= 0 ? strong
+              : Math.floor(run.policyRng() * opts.length);
+            runAction(run, "trial: argument", () => engine.trialPlay(pick));
+          }
+        }
+        if (state.S.trialResult) {
+          metrics.trialWins = (metrics.trialWins || 0) + (state.S.trialResult.win ? 1 : 0);
+          runAction(run, "trial: leave", () => engine.dismissTrialResult());
+        }
         continue;
       }
       // EVIDENCE TIMELINE prep is modal like an event. Bots model player skill

@@ -82,6 +82,10 @@ export default function DevPanel({onClose}){
                   onClick={()=>{ dev.devOpenCoin("heads"); setReveal(null); }}>Coin · heads</button>
           <button className="btn small" type="button"
                   onClick={()=>{ dev.devOpenCoin("tails"); setReveal(null); }}>Coin · tails</button>
+          <button className="btn small" type="button"
+                  onClick={()=>{ dev.devOpenTrial("court2"); setReveal(null); }}>Trial · Pemberton</button>
+          <button className="btn small" type="button"
+                  onClick={()=>{ dev.devOpenTrial("court1"); setReveal(null); }}>Trial · Halcyon</button>
           {[1,2,3].map(stage=>(
             <button key={"bar"+stage} className="btn small" type="button"
                     onClick={()=>{ dev.devOpenBarLetter(stage); setReveal(null); }}>Bar letter · {stage}</button>

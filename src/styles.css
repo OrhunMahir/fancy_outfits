@@ -683,6 +683,28 @@ h2{font-size:10px; color:var(--gold); margin-bottom:10px; border-bottom:2px soli
 .guide-title{margin-bottom:10px; color:var(--gold); font-size:9px; letter-spacing:1px;}
 .guide-steps{margin:0 0 12px 14px; padding:0; font-size:8px; line-height:2.1;}
 .guide-steps li{margin-bottom:5px;}
+/* ---------- TRIAL ----------
+   No meter, no percentage, nothing that could be read as a number. The record is
+   the only feedback the room gives, so it gets the paper treatment. */
+.trial-box{max-width:620px;}
+.trial-record{
+  list-style:none; margin:0 0 12px; padding:10px; max-height:190px; overflow-y:auto;
+  background:var(--paper); color:var(--paperink); border:3px solid #b7a98a;
+  font-size:8px; line-height:2;
+}
+.trial-record li{margin-bottom:7px;}
+.trial-record li:last-child{margin-bottom:0;}
+.trial-opposing{
+  margin-bottom:10px; padding:10px; font-size:9px; line-height:1.9;
+  background:#3a1f2b; border-left:4px solid var(--red);
+}
+.trial-prompt{margin-bottom:10px; font-size:8px; line-height:2; color:var(--grey);}
+.trial-grounds{display:grid; grid-template-columns:repeat(2,1fr); gap:6px; margin-bottom:10px;}
+.trial-ground{width:100%; min-height:44px; font-size:7px; text-align:center;}
+.trial-offer{border:3px solid var(--gold); padding:10px; margin-bottom:10px;}
+.trial-verdict-text{margin-bottom:12px; font-size:9px; line-height:2;}
+.trial-tally{line-height:2; margin-bottom:12px;}
+@media (max-width:520px){ .trial-grounds{grid-template-columns:1fr;} }
 .guide-note{margin-bottom:10px; font-size:7px; color:var(--gold); line-height:1.9;}
 .guide-demo{margin-bottom:10px;}
 /* The demo is the real board, so it needs no styling of its own — only a frame

@@ -84,6 +84,68 @@ Tarayıcıda panel açıldı, SNEAKY 5 ile kilit board'u açıldı (3 pik), reve
 
 ---
 
+## 2026-08-27 — Claude: DURUŞMA — tur 1, oynanabilir dilim (v1.9.33)
+
+Kullanıcının en büyük özellik talebi. 16 tasarım sorusu sorulup cevaplandı; bu tur
+**iskelet + gizli jüri + okumalı itiraz + 2 el yazması duruşma**. Tur 2 hakim
+ilişkileri/traitler/THE BENCH, tur 3 havuz genişlemesi (6+6).
+
+### Çekirdek kural: ekrana hiçbir sayı çıkmıyor
+
+`trial.js` (saf modül, `fraud.js`/`ethics.js` deseni). Jüri ikna oranı SADECE modelde
+var; `TrialOverlay.jsx` onu ne yazıyor ne hesaplıyor — regresyon dosyayı tarayıp
+`{jury}` ve `verdictChance` geçmediğini zorluyor.
+
+- **Başlangıç dosyanın kendi gücünden** (`strength`): Pemberton +9 (iki tanık gemide),
+  Halcyon −4 (jüri önünde teknik argüman zayıf). Dosyayı okumak yine asıl beceri.
+- **Salınım:** açılış ±6-8, argüman ±5-7, kapanış ±7-10, tutan itiraz +4, yersiz −3,
+  **kaçırılan geçersiz argüman −6**. Tavan 85, taban 10 — jüri hiçbir zaman kesin değil.
+- **Geri bildirim yalnız oda:** her karar bir cümle üretiyor ("jüri başkanı bir şey not
+  edip altını çiziyor" / "kutuda birisi burnundan nefes veriyor"). Yukarı, aşağı ve nötr
+  için ayrı havuzlar.
+- **Hüküm = çubuğun kendisi.** İkinci gizli kontrol yok. Ölçüm: iyi oynanan duruşma %75,
+  kötü oynanan %10'a çakılıyor.
+
+### Okumalı itiraz
+
+Karşı tarafın argümanı sayfada duruyor; oyuncu **doğru gerekçeyi** 8'li sabit listeden
+seçmek zorunda (leading/hearsay/speculation/assumes/argumentative/relevance/compound/asked).
+Doğru gerekçe → SUSTAINED. Yanlış gerekçe veya temiz argümana itiraz → OVERRULED.
+**Temiz argümana susmak doğru hamledir, bedeli yok** — cezalandırılan tek sessizlik,
+geçersiz argümanı kaçırmak. Gerçek zamanlı board duruşma dışında ve ifade almalarda kaldı.
+
+### Uzlaşma
+
+Karşı taraf **bir kez** teklif getiriyor, sadece gerçekten geriye düştüklerinde
+(`OFFER_AT`). Reddedersen eşik yükseliyor (`offerFloor = jury+12`) — ilk sürüm her
+aşamada tekrar soruyordu, bu hem dramatik anı öldürüyor hem de oyuncuya gizli çubuğu
+bedava yoklatıyordu.
+
+### Üç gerçek hata yakalandı
+
+1. **Duruşmayı seçince itiraz board'u açılıyordu** — `choose()` içinde duruşma kontrolü
+   board tetiklerinden SONRAydı. Oyuncu aynı anda iki mahkemede oluyordu.
+2. **`chance()` duruşma seçeneğine sahte bir oran üretiyordu** (soak 498 integrity hatası).
+   Artık covert aksiyonlar gibi `null` dönüyor — göstermeyecek bir sayıyı hesaplamak,
+   sızdırmanın ilk adımı.
+3. **Soak'un durum anlık görüntüsü duruşmayı hiç görmüyordu**, o yüzden her aşamayı
+   "hareketsizlik" sayıyordu. `trial`/`trialResult`/`barHeat` kanonik snapshot'a girdi —
+   jüri durumu da replay hash'inin parçası artık.
+
+### Maliyet ve denge
+
+4-6 saat (aşama sayısına göre) + ağır yorgunluk; ortada uzlaşırsan kalan saat sende kalır.
+Ödül ×2, ceza ×1.5. Devredilemez. Soak: **%65.3, medyan gün 21, integrity 0** — bot
+duruşmayı nadiren seçtiği için mevcut denge değişmedi.
+
+### Sıradaki kesin adım
+
+Kullanıcı **court2 (Pemberton)** ve **court1 (Halcyon)** duruşmalarını oynayacak.
+Geri bildirimden sonra **tur 2: hakim ilişkileri + traitler + THE BENCH paneli + golf +
+miktar girilen rüşvet**.
+
+---
+
 ## 2026-08-26 (4) — Claude: barodan atılma + bağlamsal ses (v1.9.32)
 
 ### 1. Barodan atılma — GİZLİ ısı (kullanıcının seçimi)

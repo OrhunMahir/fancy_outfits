@@ -41,6 +41,7 @@ globalThis.clearInterval = () => {};
   const progression = await import("../src/game/progression.js");
   const fraud = await import("../src/game/fraud.js");
   const ethics = await import("../src/game/ethics.js");
+  const trial = await import("../src/game/trial.js");
   const state = await import("../src/game/state.js");
   const engine = await import("../src/game/engine.js");
   const constants = await import("../src/game/constants.js");
@@ -3465,6 +3466,104 @@ globalThis.clearInterval = () => {};
       .filter(args => args.length === 4 && !args[3].startsWith("minCost"))
       .map(args => args[3]);
     assert.deepEqual(lowered, ["OBJECTION_HOURS"], "only the hearing lowers it");
+  }
+
+  // ---- TRIAL ----
+  /* The whole feature rests on one promise: no number reaches the screen. A
+     jury standing is built from decisions and rolled once, and every guard here
+     exists because breaking that promise silently would still "work". */
+  {
+    for (const file of ["src/components/TrialOverlay.jsx"]) {
+      const src = readFileSync(file, "utf8");
+      assert.ok(!/\{\s*(trial\.)?jury\s*\}/.test(src), file + " must never print the jury standing");
+      assert.ok(!/verdictChance/.test(src), file + " must not compute odds");
+    }
+    // The option itself carries no odds, and chance() refuses to invent one.
+    fresh();
+    engine.startGame("legacy", "medium");
+    utils.setSeed(11);
+    const c = engine.instantiateCase(content.buildPool().find(x => x.id === "court2"));
+    const option = c.opts.find(o => o.trial);
+    assert.ok(option, "a file with a trial offers it");
+    assert.equal(option.base, undefined, "a trial has no base chance");
+    assert.equal(engine.chance(option, c), null, "and chance() refuses to invent one");
+    assert.equal(option.style, "trial");
+    // Opening a trial costs hours up front and suspends the desk.
+    Object.assign(state.S, { inbox: [c], openCase: c, hours: 8, fatigue: 0, event: null,
+      summary: null, pendingSummary: null, clients: [], nemesis: null, objective: null });
+    engine.choose(c, option);
+    assert.ok(state.S.trial, "the trial opened");
+    assert.equal(engine.isPaused(), true, "and the desk is suspended while it runs");
+    assert.ok(state.S.hours < 8, "the day was billed for it");
+    assert.equal(c.trialInProgress, c.trial.id, "the file is marked as being tried");
+    assert.equal(trial.trialValidationError(state.S.trial, state.S.day), null);
+    const opened = state.S.trial.jury;
+    // The standing starts from the FILE, not from a constant.
+    assert.ok(opened > trial.JURY_START_MIN && opened < trial.JURY_START_MAX,
+      "a strong file walks in ahead: " + opened);
+    // Playing a strong line moves it up; a weak one moves it down.
+    const phase = trial.trialPhase(state.S.trial);
+    const strong = phase.opts.findIndex(o => o.weight === "strong");
+    engine.trialPlay(strong);
+    assert.ok(state.S.trial.jury > opened, "a strong opening is worth something");
+    assert.equal(state.S.trial.strongPlays, 1);
+    // Objections: right ground helps, wrong ground hurts, and silence on a
+    // proper argument is free. Missing an improper one is the only punished silence.
+    const objPhase = trial.trialPhase(state.S.trial);
+    assert.equal(objPhase.kind, "opposing");
+    const beforeObj = state.S.trial.jury;
+    engine.trialObject(objPhase.bad);
+    assert.ok(state.S.trial.jury > beforeObj, "the right ground is sustained");
+    assert.equal(state.S.trial.sustained, 1);
+    // A bogus ground is refused outright rather than silently scored.
+    const step = state.S.trial.step;
+    engine.trialObject("not-a-ground");
+    assert.equal(state.S.trial.step, step, "an unknown ground resolves nothing");
+    // Save and reload mid-trial: the standing and the record survive exactly.
+    engine.saveGame();
+    const mid = JSON.parse(JSON.stringify(state.S.trial));
+    assert.equal(engine.loadGame(engine.getSlot()), true, "a trial survives a reload");
+    assert.deepEqual(state.S.trial, mid);
+    // A trial with no case behind it is refused.
+    const raw = JSON.parse(localStorage.getItem(constants.SAVE_KEY + "_s" + engine.getSlot()));
+    raw.trial = { ...raw.trial, caseId: "nothing-here" };
+    localStorage.setItem(constants.SAVE_KEY + "_s" + engine.getSlot(), JSON.stringify(raw));
+    assert.notEqual(engine.inspectSave(engine.getSlot()).status, "ready",
+      "a trial without its file is refused");
+  }
+  /* The verdict is the standing — no second hidden check — and both a well-run
+     and a badly-run trial have to be reachable, or the whole thing is theatre. */
+  {
+    const play = (caseId, good) => {
+      fresh();
+      engine.startGame("legacy", "medium");
+      utils.setSeed(7);
+      const c = engine.instantiateCase(content.buildPool().find(x => x.id === caseId));
+      Object.assign(state.S, { inbox: [c], openCase: c, hours: 8, fatigue: 0, event: null,
+        summary: null, pendingSummary: null, clients: [], nemesis: null, objective: null });
+      engine.choose(c, c.opts.find(o => o.trial));
+      let guard = 0, offers = 0;
+      while (state.S.trial && guard++ < 30) {
+        const t = state.S.trial, phase = trial.trialPhase(t);
+        if (t.offer != null) { offers++; engine.trialSettle(false); continue; }
+        if (phase.kind === "opposing") engine.trialObject(good ? (phase.bad || null) : "leading");
+        else {
+          const want = good ? "strong" : "weak";
+          const index = phase.opts.findIndex(o => o.weight === want);
+          engine.trialPlay(index < 0 ? 0 : index);
+        }
+      }
+      return { result: state.S.trialResult, offers };
+    };
+    const well = play("court1", true), badly = play("court1", false);
+    assert.ok(well.result && badly.result, "both trials reached a verdict");
+    assert.ok(well.result.jury > badly.result.jury + 20,
+      "how you try it decides the case: " + well.result.jury + " vs " + badly.result.jury);
+    assert.ok(well.result.jury <= trial.JURY_MAX, "a jury is never a certainty");
+    assert.ok(badly.result.jury >= trial.JURY_MIN, "and never a foregone conclusion either");
+    // Opposing counsel makes their offer once, not every phase: otherwise the
+    // player could poll the hidden standing for free.
+    assert.ok(well.offers <= 2, "they do not keep asking: " + well.offers);
   }
 
   // ---- BAR DISCIPLINE ----

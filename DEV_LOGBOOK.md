@@ -84,6 +84,72 @@ Tarayıcıda panel açıldı, SNEAKY 5 ile kilit board'u açıldı (3 pik), reve
 
 ---
 
+## 2026-08-27 (2) — Claude: THE BENCH — hakim ilişkileri, traitler, golf, rüşvet (v1.9.34)
+
+Duruşmanın 2. turu. Tur 3 havuz genişlemesi (6 el yazması + 6 şablon).
+
+### İlişki neden `judgeMemory`'ye girmedi
+
+`judgeMemory` "bu hakim seni ne yaparken gördü"yü tutuyor ve **her kaydın arkasında en az
+bir duruşma olmak zorunda** (`seen > 0` invariantı, sıkı doğrulaması var). Oysa hiç
+görmediğin bir hakimle golf oynayabilirsin. İkisini birleştirmek, yeni bir özelliğe yer
+açmak için çalışan bir invariantı gevşetmek olurdu. Ayrı modül: `judges.js`, ayrı store
+`S.judgeRel`.
+
+### Traitler ve etkiler
+
+7 hakime isimli trait: **STICKLER** (Ironwood, Whitlock — yersiz itiraz iki kat pahalı),
+**PATIENT** (Marsh — yarı), **PEDANT** (Pelt, Okonkwo — teknik argümanı ödüllendirir),
+**SHOWMAN** (Crane, Fairway — cüretli argümanı ödüllendirir). Trial seçenekleri
+`flavor:"bold"|"technical"` taşıyor, bench ona göre ±2 veriyor.
+
+**İlişki dört yeri de etkiliyor ama hepsinde küçük** (kullanıcının açık isteği; testler
+sınırları zorluyor):
+- duruşma dışı riskli hamlede en fazla **±4**
+- tutan itirazın jüri salınımına en fazla **+2**
+- uzlaşma teklifi eşiğini en fazla **6** düşürür
+- ve tek gerçek karar değişikliği: **rel ≥ 30 iken**, argüman gerçekten geçersizken yanlış
+  gerekçe seçersen hakim senin yerine düzeltiyor ("counsel means something else, and
+  counsel is right"). **Tamamen yanılmak asla kurtarılmıyor.**
+
+**Kaynaklar:** tutan itiraz +2, yersiz itiraz −3×trait, hazırlıklı gelmek (kronoloji/
+çelişki kenarıyla) +2, o hakimin salonunda patlayan blöf −4. *Zaman israfı cezası
+eklenmedi — kullanıcı onu seçmedi.*
+
+### Golf ve rüşvet
+
+Dosyadaki sabit fiyatlı "discuss golf" butonu **kaldırıldı** (test artık hiçbir dosyanın
+rüşvet seçeneği taşımadığını zorluyor). İkisi de yeni **THE BENCH** panelinde:
+
+- **Golf:** $600 + 2h, kendi mini-sahnesi. Bıraktırmak +8, dürüst oynamak +14/−4,
+  masada iş konuşmak +10/−18. 4 gün cooldown.
+- **Rüşvet:** miktarı sen yazıyorsun ($500-$20.000). Şans = `corrupt` tabanı × azalan
+  getiri; **corrupt < 20 olan hakim hiçbir fiyata satın alınamıyor** (Ironwood, Pelt,
+  Okonkwo), Fairway $20k'da bile %29. Asla strateji değil.
+- **Ret pahalı:** para gider, ilişki −60 ve kalıcı `burned`, baro ısısı **iki kez** yazılır.
+
+### Yakalanan hata
+
+`lastGolfDay:0` "hiç oynamadım" demek, ama cooldown onu "0. günde oynadı" sanıyordu —
+**kariyerin ilk golf daveti 4. güne kadar kilitliydi.** Tarayıcıda butonun bulunamamasının
+sebebi de buydu; regresyon artık 1. günde davet edilebildiğini zorluyor.
+
+### Testler
+
+`npm test` yeşil (ilişki sınırları, rüşvet tavanı/azalan getiri, temiz hakim satın
+alınamaz, ret cezası, merhamet kuralı, save doğrulaması, 1. gün golfü — ikisi kasten
+bozulup kırıldığı doğrulandı). `npm run build` yeşil. Soak **%65.3, medyan gün 21,
+integrity 0** — değişmedi (bot golf oynamıyor, rüşvet vermiyor).
+
+Save schema **v26** + `migrateV25ToV26` (eski kariyerler boş sayfayla başlar).
+
+### Sıradaki kesin adım
+
+**Tur 3: havuz genişlemesi** — 6 yeni el yazması mahkeme davası (her biri kendi duruşma
+metniyle) + 6 yeni prosedürel şablon.
+
+---
+
 ## 2026-08-27 — Claude: DURUŞMA — tur 1, oynanabilir dilim (v1.9.33)
 
 Kullanıcının en büyük özellik talebi. 16 tasarım sorusu sorulup cevaplandı; bu tur

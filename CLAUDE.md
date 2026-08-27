@@ -348,6 +348,13 @@
 - **İçerik:** `court1` (Halcyon, 6 aşama, strength −4) ve `court2` (Pemberton, 5 aşama, +9) kendi duruşma metinleriyle. DEV panelinde "Trial · Pemberton / Halcyon".
 - **Sıradaki:** tur 2 hakim ilişkileri/traitler/THE BENCH/golf/miktarlı rüşvet, tur 3 havuz (6 el yazması + 6 şablon).
 
+**v1.9.34 eklendi (2026-08-27, DURUŞMA tur 2/3 — THE BENCH):**
+- **`judges.js` (saf modül) + `S.judgeRel`:** `judgeMemory`'den AYRI, çünkü orada "en az bir kez görülmüş olmak" invariantı var ve hiç görmediğin hakimle golf oynayabilirsin. Bant gösterilir (HOSTILE/COLD/CORDIAL/WARM/FRIENDLY), sayı asla.
+- **Traitler:** STICKLER (yersiz itiraz ×2), PATIENT (×0.5), PEDANT (technical flavour +2), SHOWMAN (bold flavour +2). Trial seçeneklerinde `flavor:"bold"|"technical"`.
+- **İlişki etkileri — hepsi KÜÇÜK** (testler sınırı zorlar): dava ±4, jüri salınımı +2, teklif eşiği −6, ve `MERCY_AT`(30) üstünde "doğru sezgi, yanlış gerekçe" itirazını hakim düzeltir (tamamen yanılmak kurtarılmaz). Kaynaklar: tutan itiraz +2, yersiz −3×trait, hazırlıklı gelmek +2, o salonda patlayan blöf −4.
+- **Dosyadaki sabit fiyatlı rüşvet butonu KALDIRILDI** (regresyon hiçbir dosyanın taşımadığını zorlar). **THE BENCH paneli** (topbar'da, hakim görüldüyse): golf ($600+2h, kendi mini-sahnesi, 4 gün cooldown) ve **miktarı sen yazdığın rüşvet** ($500-$20.000). Şans `corrupt` tabanı × azalan getiri; **corrupt<20 hiçbir fiyata satılmaz**; tavan `BRIBE_CEILING`(35)×corrupt/100. Ret: para gider, rel −60 + kalıcı `burned`, baro ısısı İKİ kez.
+- **Save schema v26** + `migrateV25ToV26`. FIX: `lastGolfDay:0` "hiç oynamadım" demek — cooldown kariyerin ilk davetini 4. güne kadar kilitliyordu.
+
 **Dış denetim notu (Codex, 2026-08-12):** Bayat/untracked `AGENTS.md` yüzünden gerçek checkpoint yanlışlıkla v1.9.1/hakim hafızası sanılmıştı. Hakim hafızası v1.9.8/v1.9.13'te bitmişti; gerçek yarım iş v1.9.16 sonrası Power Cut entegrasyonuydu. Yarım model/UI dosyaları korunup engine/content/save/CSS/test zinciri tamamlandı.
 
 **En son çalışılan konu (2026-08-18):** v1.9.21 `ea50a3894` ile pushlandı; ardından v1.9.22 (Contradiction Board, schema v17), v1.9.22.1 (gerçek madeni para yazı-tura) ve v1.9.23 (sabotaj zorluk eğrisi + ilk açılış walkthrough'u, schema v18) tamamlandı ve kullanıcının push'unu bekliyor. `npm test`, `npm run build`, `npm run test:soak` (replay 336/336, integrity 0) yeşil; tarayıcıda gerçek tıklamalarla doğrulandı. Güncel ortak handoff ve oturum günlüğü `DEV_LOGBOOK.md`'dir. Sıradaki kullanıcı-onaylı iş **mobil layout + Capacitor**; bağlamsal SFX, GitHub Pages demo ve Steam paketleme sonraki backlog'dur.

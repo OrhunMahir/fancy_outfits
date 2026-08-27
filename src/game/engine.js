@@ -33,6 +33,10 @@ import { LOCK_MIN, LOCK_MAX, LOCK_HINT_SPREAD, LOCK_HOLD_MS, LOCK_WEAR_MAX, POWE
 import { SFX, startAmbience, stopAmbience, applyBgmVolume, setRoomTone } from "./sound.js";
 import { createBarHeat, barStageFor, barRecord, buildBarEvent, barValidationError, barEventValidationError,
          BAR_WEIGHTS, BAR_DECAY, BAR_MAX, BAR_STAGE_MAX } from "./ethics.js";
+import { createJudgeRel, emptyRel, clampRel, relOf, relBand, relLabel, traitOf, traitInfo,
+         caseModifier as relCaseModifier, juryModifier as relJuryModifier, offerShift as relOfferShift,
+         grantsMercy, frivolousMultiplier, flavorBonus, bribeChance, judgeRelValidationError,
+         BRIBE_MIN, BRIBE_MAX, JUDGE_TRAITS } from "./judges.js";
 import { createTrial, trialPhase, trialFinished, applySwing, verdictChance, roomLine,
          trialValidationError, offerValue, OFFER_AT, SWING, GROUND_IDS, JURY_START_MIN, JURY_START_MAX,
          clampJuryValue } from "./trial.js";
@@ -90,7 +94,7 @@ const finalWarningConfig=()=>{
 
 /* The clock stops whenever any overlay is up, the player hit PAUSE, or the
    character is walking out. Replaces the old S.paused flag. */
-export const isPaused=()=>!!(S.infoOpen||S.event||S.summary||S.userPaused||S.settingsOpen||S.rosterOpen||S.archiveOpen||S.actionChallenge||S.trial||S.trialResult||S.leaving||S.introStep!=null);
+export const isPaused=()=>!!(S.infoOpen||S.event||S.summary||S.userPaused||S.settingsOpen||S.rosterOpen||S.archiveOpen||S.benchOpen||S.actionChallenge||S.trial||S.trialResult||S.leaving||S.introStep!=null);
 export const disrespected=()=>S.rep<30;
 export function finalWarningInfo(){
   if(!S) return null;
@@ -549,6 +553,9 @@ export function chance(o,c){
   if(S.scenario==="defector"&&!o.safe&&c&&/Snidely Fitch/.test((c.body||"")+(c.title||""))) p+=8;
   // respect: a low-rep associate gets no benefit of the doubt
   if(!o.safe){
+    // A bench that likes you tilts a close call. Four points at most, and never
+    // on a safe play — those are a contract, not a judgement.
+    if(c&&c.judge) p+=relCaseModifier(judgeRelation(c.judge));
     p-=4; // opposing counsel exists (balance v15.1: risky plays were too free)
     if(S.rep<30) p-=12; else if(S.rep>70) p+=5;
     p-=S.rank*2; // higher rank, higher stakes, sharper opponents
@@ -772,13 +779,10 @@ export function instantiateCase(c){
     inst.opts.push({text:"TAKE IT TO TRIAL. Let twelve people decide.",style:"trial",trial:true,
       ok:{fx:{},txt:""},fail:{fx:{},txt:""}});
   }
-  if(inst.judge&&inst.judge.corrupt>=40){
-    const cost=900+300*S.rank;
-    inst.opts.push({text:"Invite the judge to 'discuss golf'. (-$"+cost+")",
-      base:inst.judge.corrupt-15, boldW:1, style:"bribe", bribe:cost,
-      ok:{fx:{inf:8,money:1400},txt:"The ruling lands your way. The golf never happens. Neither did this conversation."},
-      fail:{fx:{rep:-13},txt:"The judge repeats your offer aloud. For the record. The stenographer types slowly, savoring it."}});
-  }
+  /* The fixed-price "discuss golf" button used to live here. Buying a judge is
+     now a considered decision made away from the file, in THE BENCH, where you
+     name your own number and can see who you are dealing with — not a gold
+     button that appears on a case and asks to be pressed. */
   return scaleStakes(inst);
 }
 
@@ -1125,6 +1129,110 @@ function lateWorkEvent(cost){
       {text:"Step back. The file waits for the morning.",base:100,safe:true,lateNo:true,ok:{fx:{},txt:""}}]};
 }
 
+/* ---------- THE BENCH ----------
+   What a judge thinks of you, as opposed to what they have watched you do. Kept
+   deliberately small in every direction it touches: a relationship tilts a close
+   call and never decides one. */
+export function judgeRelRecord(judge){
+  const id=judge&&judge.id;
+  if(!S||!id) return null;
+  if(!S.judgeRel[id]) S.judgeRel[id]=emptyRel();
+  return S.judgeRel[id];
+}
+export function adjustJudgeRel(judge,delta,note){
+  const rec=judgeRelRecord(judge);
+  if(!rec||!delta) return;
+  const before=rec.rel;
+  rec.rel=clampRel(rec.rel+delta);
+  if(note&&rec.rel!==before) log(judge.name+": "+note+" ("+(delta>0?"+":"")+delta+")",delta>0?"good":"bad");
+}
+export const judgeRelation=judge=>relOf(S&&S.judgeRel,judge);
+export const judgeRelationLabel=judge=>relLabel(S&&S.judgeRel,judge);
+export const judgeTrait=judge=>traitInfo(judge);
+export const judgeBribeOdds=(judge,amount)=>bribeChance(judge,amount);
+export const judgeRelBurned=judge=>{
+  const id=judge&&judge.id;
+  return !!(S&&S.judgeRel[id]&&S.judgeRel[id].burned);
+};
+/* Every judge you have actually drawn this run, for the BENCH panel. Judges you
+   have never met stay off the list: you cannot golf with a stranger. */
+export function knownJudges(){
+  if(!S) return [];
+  const seen=new Set([...Object.keys(S.judgeMemory||{}),...Object.keys(S.judgeRel||{})]);
+  for(const c of S.inbox) if(c&&c.judge&&c.judge.id) seen.add(c.judge.id);
+  return JUDGES.filter(j=>seen.has(j.id));
+}
+
+export const GOLF_COST=600, GOLF_HOURS=2, GOLF_FATIGUE=5, GOLF_COOLDOWN=4;
+export const canGolf=judge=>{
+  const rec=judge&&S?judgeRelRecord(judge):null;
+  // lastGolfDay 0 means "never played", not "played on day zero" — the cooldown
+  // must not lock out the first invitation of a career.
+  return !!rec&&!S.trial&&!S.event&&!S.actionChallenge&&S.money>=GOLF_COST&&
+    S.hours>=GOLF_HOURS&&(!rec.lastGolfDay||S.day-rec.lastGolfDay>=GOLF_COOLDOWN);
+};
+/* Golf is its own small scene rather than a purchase: the point of a legitimate
+   approach is that you can still get it wrong. */
+export function inviteToGolf(judge){
+  if(!canGolf(judge)) return false;
+  const rec=judgeRelRecord(judge);
+  rec.lastGolfDay=S.day; rec.golf++;
+  apply({money:-GOLF_COST},true);
+  spendHours(GOLF_HOURS,GOLF_FATIGUE);
+  S.benchOpen=false; // the afternoon happens away from the panel you booked it in
+  S.event={id:"golf",judgeId:judge.id,title:"FOUR HOURS AT THE COUNTRY CLUB",
+    body:judge.name+" plays badly and knows it. Somewhere around the seventh hole the conversation "+
+      "stops being about golf, and what you do with that is the entire afternoon.",
+    opts:[
+      {text:"Let them win. Say nothing about work.",base:100,safe:true,
+        ok:{fx:{},bench:{rel:8},txt:"They win by four and enjoy it more than they should. Nothing was discussed. Everything was."}},
+      {text:"Play your actual game and talk about the profession.",base:74,style:"technical",
+        ok:{fx:{inf:2},bench:{rel:14},txt:"You beat them and they respect it. Two hours of shop talk with someone who has seen everything."},
+        fail:{fx:{},bench:{rel:-4},txt:"You beat them badly and they go quiet on the back nine. Some people do not enjoy losing to juniors."}},
+      {text:"Raise the matter you have listed in front of them.",base:38,boldW:2,style:"aggressive",
+        ok:{fx:{inf:4},bench:{rel:10},txt:"They let you finish, then change the subject kindly. You have been heard, which was the point."},
+        fail:{fx:{rep:-4},bench:{rel:-18},txt:"'We are not doing this here.' The rest of the round is played in silence and you pay for lunch."}}]};
+  SFX.open(); log("You invite "+judge.name+" to play. ($"+GOLF_COST+", "+GOLF_HOURS+"h)","sys");
+  saveGame(); notify();
+  return true;
+}
+
+/* Bribery. The amount is yours to pick; the ceiling is low and a clean bench is
+   not for sale at any number. Paying is the offence, so the bar hears about it
+   whether or not it works — and a refusal is far worse than a success. */
+export function offerBribe(judge,amount){
+  if(!S||S.trial||S.event||S.actionChallenge) return false;
+  const money=Math.round(Number(amount)||0);
+  if(!judge||money<BRIBE_MIN||money>BRIBE_MAX||money>S.money) return false;
+  const rec=judgeRelRecord(judge);
+  const p=bribeChance(judge,money);
+  rec.bribesOffered++;
+  apply({money:-money},true);
+  recordBarViolation("bribe");
+  S.runStats.bribeTry++;
+  const took=rand()*100<p;
+  if(took){
+    rec.bribesTaken++;
+    adjustJudgeRel(judge,12);
+    S.runStats.bribeW++;
+    SFX.win();
+    log(judge.name+" takes it. Nothing is said, and nothing will be. ($"+money+")","good");
+  } else {
+    // A refusal is the expensive outcome: the money is gone, the bench is gone,
+    // and the profession hears about it twice.
+    rec.burned=true;
+    adjustJudgeRel(judge,-60);
+    recordBarViolation("bribe");
+    apply({rep:-8},true);
+    SFX.lose(); doShake();
+    log(judge.name+" looks at the envelope, then at you, and says nothing at all. That is worse. ($"+money+" gone)","bad");
+  }
+  checkClock(); saveGame(); notify();
+  return true;
+}
+export function openBench(){ if(!S) return; SFX.open(); S.benchOpen=true; notify(); }
+export function closeBench(){ if(!S) return; SFX.click(); S.benchOpen=false; notify(); }
+
 /* ---------- TRIAL ----------
    The one part of the game with no odds on screen. A jury standing is built out
    of every decision made in the room and then rolled against once, at the end.
@@ -1155,7 +1263,9 @@ export function beginTrial(c,o,confirmedLate){
   if(lateExtra) log("The trial runs past the lights. (+"+lateExtra+" FATIGUE)","bad");
   spendHours(cost,Math.round(cost*2)+6+lateExtra);
   S.trial={...trial,optionIndex:c.opts.indexOf(o),startedDay:S.day,
-    caseTitle:c.title,judgeName:c.judge?c.judge.name:"the bench",cost};
+    caseTitle:c.title,judgeId:c.judge?c.judge.id:null,
+    judgeName:c.judge?c.judge.name:"the bench",
+    judgeTrait:c.judge?traitOf(c.judge):null,cost};
   c.trialInProgress=c.trial.id||c.id;
   S.openCase=null;
   SFX.crisis();
@@ -1179,7 +1289,8 @@ function trialAdvance(t,delta,line){
   /* They make an offer once. Asking again every phase turned a dramatic beat into
      a nag — and worse, it let the player poll the hidden meter for free. After a
      refusal they only come back if the case has moved materially against them. */
-  const floor=Number.isFinite(next.offerFloor)?next.offerFloor:OFFER_AT;
+  const judge=next.judgeId?JUDGES.find(j=>j.id===next.judgeId):null;
+  const floor=(Number.isFinite(next.offerFloor)?next.offerFloor:OFFER_AT)-relOfferShift(judgeRelation(judge));
   if(!trialFinished(next)&&next.offer==null&&next.jury>=floor&&next.step>=2)
     next.offer=Math.round(offerValue(next.jury)*100)/100;
   return next;
@@ -1193,7 +1304,10 @@ export function trialPlay(index){
   if(!opt) return;
   const weight=opt.weight==="strong"?1:opt.weight==="weak"?-1:0;
   const key=phase.kind==="closing"?"closing":phase.kind==="opening"?"opening":"argument";
-  const delta=weight>0?SWING[key+"Strong"]:weight<0?SWING[key+"Weak"]:0;
+  const judge=S.trial.judgeId?JUDGES.find(j=>j.id===S.trial.judgeId):null;
+  // The bench leans toward the kind of advocacy it likes — a couple of points,
+  // enough to notice across a trial and never enough to carry one.
+  const delta=(weight>0?SWING[key+"Strong"]:weight<0?SWING[key+"Weak"]:0)+flavorBonus(judge,opt.flavor);
   SFX.click();
   S.trial=trialAdvance(S.trial,delta,(opt.txt||opt.text)+" — "+roomLine(delta,S.trial.step+index));
   if(trialFinished(S.trial)) finishTrial();
@@ -1209,6 +1323,8 @@ export function trialObject(groundId){
   const phase=trialPhase(S.trial);
   if(!phase||phase.kind!=="opposing") return;
   const bad=phase.bad||null;
+  const judge=S.trial.judgeId?JUDGES.find(j=>j.id===S.trial.judgeId):null;
+  const rel=judgeRelation(judge);
   let delta,line,t=S.trial;
   if(groundId==null){
     if(bad){ delta=SWING.improperMissed; t={...t,missed:t.missed+1};
@@ -1216,12 +1332,24 @@ export function trialObject(groundId){
     else { delta=0; line="You stay in your seat. There was nothing there to take."; }
   } else if(!GROUND_IDS.includes(groundId)) return;
   else if(bad&&groundId===bad){
-    delta=SWING.objectionSustained; t={...t,sustained:t.sustained+1};
+    delta=SWING.objectionSustained+relJuryModifier(rel); // a friendly bench sustains it with feeling
+    t={...t,sustained:t.sustained+1};
     line="SUSTAINED. Struck from the record — and the jury watched it happen.";
+    if(judge) adjustJudgeRel(judge,2);
+  } else if(bad&&grantsMercy(rel)){
+    /* The one ruling a relationship actually changes: you were right that the
+       question was improper and wrong about the label. A bench that knows you
+       fixes it for you. Being flatly wrong is never rescued. */
+    delta=SWING.objectionSustained; t={...t,sustained:t.sustained+1};
+    line="'I think counsel means something else, and I think counsel is right.' SUSTAINED, on grounds you did not name.";
   } else {
-    delta=SWING.objectionOverruled; t={...t,overruled:t.overruled+1};
+    const mult=frivolousMultiplier(judge);
+    delta=Math.round(SWING.objectionOverruled*mult);
+    t={...t,overruled:t.overruled+1};
     line=bad?"OVERRULED. The right instinct, the wrong ground. It stands."
             :"OVERRULED. There was nothing improper about the question, and now everyone knows you thought there was.";
+    if(mult>1) line+=" This bench does not enjoy being reached at.";
+    if(judge) adjustJudgeRel(judge,Math.round(-3*mult));
   }
   if(delta>0) SFX.open(); else if(delta<0) SFX.lose(); else SFX.click();
   S.trial=trialAdvance(t,delta,line+" "+roomLine(delta,t.step+7));
@@ -1982,6 +2110,9 @@ export function choose(c,o,confirmedLate,timelinePrepped){
     recordBarViolation("bribe"); // paying is the offence; whether it works is irrelevant
   }
   if(o.action){ beginActionChallenge(c,o,cost0); return; }
+  /* The bench notices two things outside a trial: whether you turned up having
+     done the work, and whether a bluff blew up in their courtroom. */
+  if(c&&c.judge&&(c.covertEdge||c.timelineEdge)&&!o.safe) adjustJudgeRel(c.judge,2);
   logJudgeMemory(c,o);
   const warningSnapshot=finalWarningSnapshot(); // earned record is measured before this roll
   const p=chance(o,c);
@@ -2022,6 +2153,9 @@ export function choose(c,o,confirmedLate,timelinePrepped){
     awardXp(caseXpFor(c,o,false),"CASE · "+c.title);
     apply(out.fx,false,c.favor?"favor":c.big?"big_case":"case",aggressiveFailureContext(o,warningSnapshot));
     if((c.tier||0)>=1&&!c.favor){ apply({firm:-1},true,c.big?"big_case":"case"); maybeLoseClientOnFail(); }
+    // A bluff that blows up in someone's courtroom is remembered personally,
+    // on top of what the memory system already records about it.
+    if(c.judge&&o.style==="aggressive") adjustJudgeRel(c.judge,-4);
     doShake(); if(!c.favor) nemesisGain(3,true);
   }
   if(c.favor){ // reverse favors: the relationship is the real payout
@@ -2286,6 +2420,12 @@ export function resolveCrisis(o){
   /* The letter is answered here. Cooling clears the pending marker so the next
      stage can arrive later; a failure that reads as contempt heats it further,
      which can hand you the next letter tomorrow. */
+  const resolveBenchState=()=>{
+    const effect=out&&out.bench;
+    if(!effect||!ev.judgeId) return;
+    const judge=JUDGES.find(j=>j.id===ev.judgeId);
+    if(judge&&effect.rel) adjustJudgeRel(judge,effect.rel,win?"the afternoon paid off":"that did not land");
+  };
   const resolveBarState=()=>{
     const bar=S.barHeat;
     if(!bar||!ev.barKind) return;
@@ -2307,13 +2447,13 @@ export function resolveCrisis(o){
   }
   if(win){ SFX.win(); log("[CRISIS] "+out.txt,"good");
     if(grantsCrisisXp) awardXp(CRISIS_XP[o.safe?"safe":"win"],"CRISIS · "+ev.title);
-    resolveFraudState(); resolveBarState();
+    resolveFraudState(); resolveBarState(); resolveBenchState();
     apply(out.fx,false,infSource); if(((out.fx&&out.fx.inf)||0)>=10) flash("HENDERED!"); }
   else { SFX.lose(); log("[CRISIS] "+out.txt,"bad");
     if(grantsCrisisXp) awardXp(CRISIS_XP.loss,"CRISIS · "+ev.title);
-    resolveFraudState(); resolveBarState();
+    resolveFraudState(); resolveBarState(); resolveBenchState();
     apply(out.fx,false,infSource,out.expose?null:aggressiveFailureContext(o,warningSnapshot));
-    if(!ev.barKind) apply({firm:-2},true,infSource);
+    if(!ev.barKind&&!ev.judgeId) apply({firm:-2},true,infSource);
     doShake(); nemesisGain(3,true); }
   if(out.golf) S.golfEdge=true; // the next court judge arrives pre-read
   if(out.client){ // global events move the client book
@@ -2657,6 +2797,7 @@ const validAction=a=>validActionBase(a)&&(a.type==="redaction"
   :a.type==="contradiction"
   ?validContradictionCards(a)&&[a.success,a.partial,a.miss].every(out=>validOutcome(out,0)&&out.next==null)
   :["lockpick","power_cut"].includes(a.type)&&[a.success,a.escape,a.caught].every(out=>validOutcome(out,0)&&out.next==null));
+const TRIAL_FLAVORS=new Set(["bold","technical"]);
 function validOption(o,depth){
   if(!plain(o)||typeof o.text!=="string") return false;
   // Covert jobs and honest prep both suspend the desk, but they are not the same
@@ -3054,7 +3195,10 @@ const migrateV23ToV24=raw=>({...raw,schemaVersion:24,barHeat:plain(raw.barHeat)?
 /* v24 -> v25 opens the trial slot. Nothing to back-fill: a career that predates
    trials simply has none in progress. */
 const migrateV24ToV25=raw=>({...raw,schemaVersion:25,trial:plain(raw.trial)?raw.trial:null});
-const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6,6:migrateV6ToV7,7:migrateV7ToV8,8:migrateV8ToV9,9:migrateV9ToV10,10:migrateV10ToV11,11:migrateV11ToV12,12:migrateV12ToV13,13:migrateV13ToV14,14:migrateV14ToV15,15:migrateV15ToV16,16:migrateV16ToV17,17:migrateV17ToV18,18:migrateV18ToV19,19:migrateV19ToV20,20:migrateV20ToV21,21:migrateV21ToV22,22:migrateV22ToV23,23:migrateV23ToV24,24:migrateV24ToV25};
+/* v25 -> v26 opens the bench. Old careers start with a blank slate: a judge has
+   no opinion of a lawyer they have not met yet. */
+const migrateV25ToV26=raw=>({...raw,schemaVersion:26,judgeRel:plain(raw.judgeRel)?raw.judgeRel:createJudgeRel()});
+const SAVE_MIGRATIONS={0:migrateV0ToV1,1:migrateV1ToV2,2:migrateV2ToV3,3:migrateV3ToV4,4:migrateV4ToV5,5:migrateV5ToV6,6:migrateV6ToV7,7:migrateV7ToV8,8:migrateV8ToV9,9:migrateV9ToV10,10:migrateV10ToV11,11:migrateV11ToV12,12:migrateV12ToV13,13:migrateV13ToV14,14:migrateV14ToV15,15:migrateV15ToV16,16:migrateV16ToV17,17:migrateV17ToV18,18:migrateV18ToV19,19:migrateV19ToV20,20:migrateV20ToV21,21:migrateV21ToV22,22:migrateV22ToV23,23:migrateV23ToV24,24:migrateV24ToV25,25:migrateV25ToV26};
 
 const JUDGE_MEMORY_COUNTERS=["seen","aggressiveW","aggressiveL","technicalW","technicalL","bribeW","bribeL","safe","neutralW","neutralL"];
 function validJudgeMemory(memory,day){
@@ -3302,6 +3446,8 @@ function migrateSaveData(raw){
   if(!Number.isInteger(d.day)||d.day<1) throw new SaveDataError("invalid","The saved day is invalid.");
   const barError=barValidationError(d.barHeat,d.day);
   if(barError) throw new SaveDataError("invalid",barError);
+  const benchError=judgeRelValidationError(d.judgeRel,d.day,new Set(JUDGES.map(j=>j.id)));
+  if(benchError) throw new SaveDataError("invalid",benchError);
   const trialError=trialValidationError(d.trial,d.day);
   if(trialError) throw new SaveDataError("invalid",trialError);
   /* A trial and its file are one thing: neither may exist without the other, or
@@ -3614,7 +3760,7 @@ export function setSlot(n){
 
 export function saveGame(){
   if(!S||S.over||S.mode==="ironman") return true; // ironman: no net by design
-  const {infoOpen,event,summary,flash,userPaused,leaving,charAnim,openCase,settingsOpen,sceneRank,rosterOpen,archiveOpen,pendingChoice,saveError,shakeSeq,introStep,trialResult,...data}=S;
+  const {infoOpen,event,summary,flash,userPaused,leaving,charAnim,openCase,settingsOpen,sceneRank,rosterOpen,archiveOpen,benchOpen,pendingChoice,saveError,shakeSeq,introStep,trialResult,...data}=S;
   const ev=(event&&event.id!=="overtime"&&event.id!=="latework")?event:null;
   const payload={...data,event:ev,summary:persistedSummary(summary),schemaVersion:SAVE_SCHEMA_VERSION,savedAt:Date.now(),rngState:getRngState(),
     logEntries:(data.logEntries||[]).slice(0,SAVE_LOG_LIMIT),archive:(data.archive||[]).slice(0,SAVE_ARCHIVE_LIMIT)};

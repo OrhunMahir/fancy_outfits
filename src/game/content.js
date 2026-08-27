@@ -120,11 +120,11 @@ export function buildPool(){
       phases:[
         {kind:"opening",prompt:"A jury is not a judge. The deadline argument that would win on paper has to be made to twelve people who have never heard of a filing window.",
           opts:[
-            {text:"Explain the deadline plainly, as a rule everyone lives by — including them.",weight:"strong",
+            {text:"Explain the deadline plainly, as a rule everyone lives by — including them.",weight:"strong",flavor:"technical",
              txt:"You compare it to a tax return. Three jurors nod before they catch themselves."},
             {text:"Lead with the contract's payment schedule and work forward.",weight:"weak",
              txt:"Nine minutes of dates. You lose the back row somewhere around the second quarter."},
-            {text:"Tell them Halcyon sat on this for two years and then blamed a clerk.",weight:"strong",
+            {text:"Tell them Halcyon sat on this for two years and then blamed a clerk.",weight:"strong",flavor:"bold",
              txt:"You give them a villain who is late rather than a rule that is technical."},
             {text:"Concede the delay was minor but insist the law is the law.",weight:"weak",
              txt:"You call your own argument minor. The jury writes that down."}]},
@@ -133,7 +133,7 @@ export function buildPool(){
           clean:"Asking when the witness personally sent the notice would have been fair. This is not that."},
         {kind:"argument",prompt:"The docket stamp is the centre of your case. Halcyon says it was a clerical error.",
           opts:[
-            {text:"Put the stamped copy on the screen and leave it there while you talk.",weight:"strong",
+            {text:"Put the stamped copy on the screen and leave it there while you talk.",weight:"strong",flavor:"technical",
              txt:"Twelve people spend four minutes looking at a date. It stops being technical."},
             {text:"Argue the clerk's error is Halcyon's problem, not your client's.",weight:"strong",
              txt:"Simple, and hard to answer without sounding like an excuse."},
@@ -144,13 +144,13 @@ export function buildPool(){
           clean:"There is nothing improper here. It is just a question you would rather they had not asked."},
         {kind:"argument",prompt:"They have their date. You have the two years that followed it.",
           opts:[
-            {text:"Two years of silence, then a lawsuit the week the auditors arrived.",weight:"strong",
+            {text:"Two years of silence, then a lawsuit the week the auditors arrived.",weight:"strong",flavor:"bold",
              txt:"You put the timing where the jury cannot unsee it."},
             {text:"Restate the filing rule once more, slowly.",weight:"weak",
              txt:"They heard it. Hearing it again does not make it warmer."}]},
         {kind:"closing",prompt:"Last words.",
           opts:[
-            {text:"They knew the date. They waited. Now they want the calendar rewritten.",weight:"strong",
+            {text:"They knew the date. They waited. Now they want the calendar rewritten.",weight:"strong",flavor:"bold",
              txt:"You end on their conduct, not on your rule."},
             {text:"Ask them to apply the rule without sympathy for either side.",weight:"neutral",
              txt:"Fair-minded. Also forgettable."},
@@ -201,20 +201,20 @@ export function buildPool(){
       phases:[
         {kind:"opening",prompt:"You stand first. The jury has been told nothing yet — whatever frame you give them now is the one they will hang everything else on.",
           opts:[
-            {text:"Two witnesses swore they were in a house. A cruise manifest says they were at sea. That is the whole case.",weight:"strong",
+            {text:"Two witnesses swore they were in a house. A cruise manifest says they were at sea. That is the whole case.",weight:"strong",flavor:"bold",
              txt:"You give them one impossible fact and stop talking."},
             {text:"Walk them through the estate's full history, from the first will onward.",weight:"weak",
              txt:"Twelve minutes of family chronology. Two jurors stop taking notes."},
             {text:"Tell them the deceased was a kind man who deserved better.",weight:"weak",
              txt:"Sympathy without a fact to hang it on. It slides off."},
-            {text:"Read the affidavit aloud, then the manifest. Say nothing else.",weight:"strong",
+            {text:"Read the affidavit aloud, then the manifest. Say nothing else.",weight:"strong",flavor:"technical",
              txt:"You let two documents argue with each other in front of twelve people."}]},
         {kind:"opposing",bad:"speculation",
           text:"Opposing counsel turns to the witness: 'In your view, what do you imagine the deceased WANTED to happen to his house?'",
           clean:"A question about the witness's own signature would have been fair. This is not that."},
         {kind:"argument",prompt:"Your turn with the lab report — the one calling the signature a laser-printed image rather than ink.",
           opts:[
-            {text:"Put the report up and let the examiner explain 'toner does not indent paper'.",weight:"strong",
+            {text:"Put the report up and let the examiner explain 'toner does not indent paper'.",weight:"strong",flavor:"technical",
              txt:"The examiner is boring and unshakeable. The best kind of witness."},
             {text:"Argue the family was clearly targeted by an opportunist.",weight:"weak",
              txt:"Motive without proof. The jury has already been promised proof."},
@@ -225,7 +225,7 @@ export function buildPool(){
           clean:"Asking who drafted the earlier will would have been fair. This is not that."},
         {kind:"closing",prompt:"Last words. The jury has heard the manifest, the lab report and the chart.",
           opts:[
-            {text:"Three documents. One afternoon. Pick the version of it that can be true.",weight:"strong",
+            {text:"Three documents. One afternoon. Pick the version of it that can be true.",weight:"strong",flavor:"technical",
              txt:"You hand them the arithmetic and let them do it themselves."},
             {text:"Remind them what the instructor stands to gain.",weight:"weak",
              txt:"You end on greed instead of on evidence. It is a smaller note to finish on."},

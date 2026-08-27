@@ -9,6 +9,7 @@ import { choose, deferCase, resolveCrisis, dismissSummary, advanceIntro, closeIn
 import StartScreen from "./components/StartScreen.jsx";
 import IntroOverlay from "./components/IntroOverlay.jsx";
 import TrialOverlay from "./components/TrialOverlay.jsx";
+import BenchOverlay from "./components/BenchOverlay.jsx";
 import DevPanel from "./components/DevPanel.jsx";
 import Topbar from "./components/Topbar.jsx";
 import OfficeScene from "./components/OfficeScene.jsx";
@@ -96,6 +97,7 @@ export default function App(){
       {S.event && <EventOverlay ev={S.event} />}
       {S.actionChallenge && <ActionMinigameOverlay />}
       {(S.trial||S.trialResult) && <TrialOverlay trial={S.trial} result={S.trialResult} />}
+      {S.benchOpen && <BenchOverlay />}
       {S.summary && <SummaryOverlay sum={S.summary} />}
       {S.introStep!=null && <IntroOverlay />}
       {import.meta.env.DEV && !devOpen && (

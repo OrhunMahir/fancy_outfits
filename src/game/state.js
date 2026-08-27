@@ -8,6 +8,7 @@ import { buildClientPool } from "./clients.js";
 import { createProgression } from "./progression.js";
 import { createFraudRisk } from "./fraud.js";
 import { createBarHeat } from "./ethics.js";
+import { createJudgeRel } from "./judges.js";
 
 const NEMESES=["Miles Sorren","Tripp Vanderbilt III","Ashley Kang","Bradford Lowe"];
 
@@ -42,6 +43,7 @@ export function newState(scenario,difficulty){
     progression:createProgression(scenario), // independent XP/level + SNEAKY/ENDURANCE training
     fraudRisk:createFraudRisk(scenario), // Fraud-only, persisted identity suspicion + once-daily slip checkpoint
     barHeat:createBarHeat(),             // hidden: the profession's memory of what you did after hours
+    judgeRel:createJudgeRel(),           // what each judge thinks of YOU — separate from what they have SEEN you do
     trial:null,                          // an open trial, persisted: a jury standing must survive a reload
     trialResult:null,                    // transient: the verdict card
     judgeMemory:{}, // lifetime court totals + bounded recent events, keyed by stable judge id

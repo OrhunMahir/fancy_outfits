@@ -42,6 +42,7 @@ globalThis.clearInterval = () => {};
   const fraud = await import("../src/game/fraud.js");
   const ethics = await import("../src/game/ethics.js");
   const trial = await import("../src/game/trial.js");
+  const judges = await import("../src/game/judges.js");
   const state = await import("../src/game/state.js");
   const engine = await import("../src/game/engine.js");
   const constants = await import("../src/game/constants.js");
@@ -702,19 +703,17 @@ globalThis.clearInterval = () => {};
   }
   assert.ok(caseOrders.size > 1);
 
-  // A corrupt judge's dynamic bribe remains after every shuffled base option.
-  let bribes = 0;
+  /* v1.9.34: buying a judge is no longer a gold button that appears on a case
+     file and asks to be pressed. It is a considered decision made away from the
+     work, at THE BENCH, where you name your own number — so no filing may carry
+     a bribe option at all any more. */
   for (let seed = 1; seed <= 100; seed++) {
     utils.setSeed(seed);
     const judged = engine.instantiateCase({ ...template(), judge: true });
-    const found = judged.opts.filter(o => o.bribe);
-    if (found.length) {
-      bribes++;
-      assert.equal(found.length, 1);
-      assert.equal(judged.opts.at(-1), found[0]);
-    }
+    assert.equal(judged.opts.filter(o => o.bribe).length, 0,
+      "a case file never offers to buy the bench");
   }
-  assert.ok(bribes > 0);
+  assert.equal(typeof engine.offerBribe, "function", "bribery lives at the bench instead");
 
   // v1.9.8/v1.9.13: stable identity plus bounded, recent-weighted recall.
   assert.equal(content.JUDGES.length, 7);
@@ -3466,6 +3465,105 @@ globalThis.clearInterval = () => {};
       .filter(args => args.length === 4 && !args[3].startsWith("minCost"))
       .map(args => args[3]);
     assert.deepEqual(lowered, ["OBJECTION_HOURS"], "only the hearing lowers it");
+  }
+
+  // ---- THE BENCH ----
+  /* A relationship tilts a close call and never decides one — the user was
+     explicit, and it is also the only way golf stays optional instead of a
+     chore. Every effect here is bounded, and the bounds are the test. */
+  {
+    assert.ok(judges.caseModifier(judges.REL_MAX) <= 4 && judges.caseModifier(judges.REL_MIN) >= -4,
+      "a bench can move a play by at most four points");
+    assert.ok(judges.juryModifier(judges.REL_MAX) <= 2, "and a jury swing by at most two");
+    assert.equal(judges.caseModifier(0), 0, "an indifferent bench changes nothing");
+    // A clean bench cannot be bought at any price; a corrupt one is still a bad bet.
+    const clean = content.JUDGES.find(j => j.corrupt <= 10);
+    const dirty = content.JUDGES.find(j => j.corrupt >= 85);
+    assert.equal(judges.bribeChance(clean, judges.BRIBE_MAX), 0, "some benches are not for sale");
+    assert.ok(judges.bribeChance(dirty, judges.BRIBE_MAX) <= judges.BRIBE_CEILING,
+      "and the rest are never a strategy");
+    assert.ok(judges.bribeChance(dirty, 2000) < judges.bribeChance(dirty, 10000),
+      "more money buys more chance");
+    assert.ok(judges.bribeChance(dirty, 20000) - judges.bribeChance(dirty, 10000) <
+      judges.bribeChance(dirty, 10000) - judges.bribeChance(dirty, 2000),
+      "with diminishing returns, so there is no number that solves a judge");
+    // Traits are readable in both directions.
+    assert.equal(judges.frivolousMultiplier(content.JUDGES.find(j => judges.traitOf(j) === "stickler")), 2);
+    assert.equal(judges.frivolousMultiplier(content.JUDGES.find(j => judges.traitOf(j) === "patient")), .5);
+    assert.ok(content.JUDGES.every(j => judges.traitOf(j)), "every judge has a temperament");
+
+    fresh();
+    engine.startGame("legacy", "medium");
+    /* A fresh record has lastGolfDay 0, which must read as "never played" rather
+       than "played on day zero" — the first version locked the very first
+       invitation of a career behind a four-day cooldown. */
+    const crane = content.JUDGES.find(j => j.id === "crane");
+    state.S.money = 5000;
+    assert.equal(engine.canGolf(crane), true, "you can invite a judge on day one");
+    assert.equal(engine.inviteToGolf(crane), true);
+    assert.equal(state.S.event.id, "golf");
+    assert.equal(state.S.benchOpen, false, "the afternoon happens away from the panel");
+    engine.resolveCrisis(state.S.event.opts[0]);
+    assert.ok(engine.judgeRelation(crane) > 0, "a quiet round is worth something");
+    assert.equal(engine.canGolf(crane), false, "and you cannot do it again tomorrow");
+
+    const judge = content.JUDGES.find(j => j.id === "fairway");
+    assert.equal(engine.judgeRelation(judge), 0);
+    assert.equal(engine.judgeRelationLabel(judge), "CORDIAL");
+    engine.adjustJudgeRel(judge, 40);
+    assert.equal(engine.judgeRelationLabel(judge), "WARM");
+    assert.equal(judges.judgeRelValidationError(state.S.judgeRel, state.S.day,
+      new Set(content.JUDGES.map(j => j.id))), null);
+    // A refused bribe is the expensive outcome: money gone, bench burned, and
+    // the profession hears about it twice.
+    state.S.money = 20000;
+    const heatBefore = state.S.barHeat.heat;
+    utils.setSeed(1);
+    let refusedSeed = 0;
+    for (let seed = 1; seed < 500 && !refusedSeed; seed++) {
+      utils.setSeed(seed);
+      if (utils.rand() * 100 >= judges.bribeChance(judge, 5000)) refusedSeed = seed;
+    }
+    utils.setSeed(refusedSeed);
+    assert.equal(engine.offerBribe(judge, 5000), true);
+    assert.equal(engine.judgeRelBurned(judge), true, "a refusal burns the bench");
+    assert.ok(engine.judgeRelation(judge) < 0, "and the relationship collapses");
+    assert.ok(state.S.barHeat.heat > heatBefore + ethics.BAR_WEIGHTS.bribe,
+      "the bar hears about a refusal twice over");
+    assert.equal(state.S.money, 15000, "the money is gone either way");
+    // Bribery is refused outside its own bounds, and while anything is open.
+    assert.equal(engine.offerBribe(judge, judges.BRIBE_MIN - 1), false);
+    assert.equal(engine.offerBribe(judge, judges.BRIBE_MAX + 1), false);
+    assert.equal(engine.offerBribe(judge, 999999), false, "you cannot offer money you do not have");
+    // A save carrying an impossible bench record is refused.
+    assert.ok(judges.judgeRelValidationError({ [judge.id]: { ...judges.emptyRel(), rel: 500 } },
+      5, new Set(content.JUDGES.map(j => j.id))), "an out-of-range relationship is refused");
+    assert.ok(judges.judgeRelValidationError({ nobody: judges.emptyRel() },
+      5, new Set(content.JUDGES.map(j => j.id))), "an unknown judge is refused");
+    assert.ok(judges.judgeRelValidationError({ [judge.id]: { ...judges.emptyRel(), burned: true } },
+      5, new Set(content.JUDGES.map(j => j.id))), "a bench cannot be burned without cause");
+  }
+  /* The one ruling a relationship changes: right about the substance, wrong
+     about the label. Being flatly wrong is never rescued. */
+  {
+    fresh();
+    engine.startGame("legacy", "medium");
+    utils.setSeed(11);
+    const c = engine.instantiateCase(content.buildPool().find(x => x.id === "court2"));
+    Object.assign(state.S, { inbox: [c], openCase: c, hours: 8, fatigue: 0, event: null,
+      summary: null, pendingSummary: null, clients: [], nemesis: null, objective: null });
+    engine.adjustJudgeRel(c.judge, judges.MERCY_AT);
+    engine.choose(c, c.opts.find(o => o.trial));
+    engine.trialPlay(0);
+    const phase = trial.trialPhase(state.S.trial);
+    assert.equal(phase.kind, "opposing");
+    const before = state.S.trial.jury;
+    // Wrong ground on a genuinely improper argument, in front of a bench that
+    // knows you: sustained anyway.
+    const wrong = trial.GROUND_IDS.find(g => g !== phase.bad);
+    engine.trialObject(wrong);
+    assert.equal(state.S.trial.sustained, 1, "a warm bench fixes the label for you");
+    assert.ok(state.S.trial.jury > before);
   }
 
   // ---- TRIAL ----

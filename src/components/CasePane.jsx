@@ -1,6 +1,6 @@
 // Middle panel: the desk (tip text) or the open case file with its options.
 import { useGame } from "../game/useGame.js";
-import { displayChance, displayPct, choose, deferCase, delegateCase, hireDetective, hoursFor, optHours, judgeMemoryInfo, coastingPreview } from "../game/engine.js";
+import { displayChance, displayPct, choose, deferCase, delegateCase, hireDetective, hoursFor, optHours, judgeMemoryInfo, coastingPreview, judgeRelationLabel, judgeTrait } from "../game/engine.js";
 import { delegationChance } from "../game/npcs.js";
 import { PRICES, STAKE_REWARD, STAKE_PENALTY, DELEGATE_CAP } from "../game/constants.js";
 
@@ -27,6 +27,9 @@ export default function CasePane(){
         {c.judge && <div className="judge">
           JUDGE: {c.judge.name}<br/>
           TEMPER: {c.judge.temper} · BY-THE-BOOK: {c.judge.book} · ETHICS: {c.judge.corrupt>=60?"'SOCIABLE'":c.judge.corrupt>=40?"FLEXIBLE":"GRANITE"}<br/>
+          {/* The relationship is a band, never a number: an investment you can
+              read at a glance without being handed a slider to optimise. */}
+          TOWARD YOU: {judgeRelationLabel(c.judge)}{judgeTrait(c.judge)?" · "+judgeTrait(c.judge).label:""}<br/>
           {c.judge.desc}<br/>
           <span style={{color:memory&&!memory.first?"#8a3f2b":"#6b6254"}}>COURT HISTORY: {memory&&memory.history}</span><br/>
           {memory&&!memory.first && <>

@@ -683,6 +683,16 @@ h2{font-size:10px; color:var(--gold); margin-bottom:10px; border-bottom:2px soli
 .guide-title{margin-bottom:10px; color:var(--gold); font-size:9px; letter-spacing:1px;}
 .guide-steps{margin:0 0 12px 14px; padding:0; font-size:8px; line-height:2.1;}
 .guide-steps li{margin-bottom:5px;}
+.bench-bribe{margin-top:8px; border-top:2px dashed var(--panel2); padding-top:8px;}
+.bench-bribe-row{display:flex; gap:6px; align-items:stretch; margin:6px 0;}
+.bench-amount{
+  flex:1; min-width:0; min-height:44px; padding:0 8px;
+  font-family:inherit; font-size:9px; color:var(--ink);
+  background:var(--dark); border:2px solid var(--panel2);
+}
+.bench-bribe-row .btn{flex:0 0 auto; min-height:44px;}
+.bench-odds{line-height:1.9; opacity:.85;}
+.tagline.bad{color:var(--red);}
 /* ---------- TRIAL ----------
    No meter, no percentage, nothing that could be read as a number. The record is
    the only feedback the room gives, so it gets the paper treatment. */

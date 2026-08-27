@@ -1,7 +1,7 @@
 import { useGame } from "../game/useGame.js";
 import { RANKS, DAY_HOURS, WEEK_LEN } from "../game/constants.js";
 import { settings } from "../game/settings.js";
-import { endDay, openInfo, openSettings, openRoster, openArchive, updateSetting, wallTime } from "../game/engine.js";
+import { endDay, openInfo, openSettings, openRoster, openArchive, openBench, knownJudges, updateSetting, wallTime } from "../game/engine.js";
 import { SFX } from "../game/sound.js";
 
 const WEEKDAYS=["MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY"];
@@ -29,6 +29,7 @@ export default function Topbar(){
         <button className="btn small" onClick={()=>updateSetting("bgm",settings.bgm>0?0:1)}>BGM: {settings.bgm>0?"ON":"OFF"}</button>
         <button className="btn small" onClick={openInfo}>i</button>
         <button className="btn small" onClick={openArchive}>LOG</button>
+        {knownJudges().length>0 && <button className="btn small" onClick={openBench}>BENCH</button>}
         {S.roster && <button className="btn small" style={{color:"var(--gold)"}} onClick={openRoster}>FIRM</button>}
         <button className="btn small" onClick={openSettings}>SET</button>
         <button className="btn small" onClick={()=>{SFX.click(); endDay();}}>GO HOME</button>

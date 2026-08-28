@@ -16,15 +16,27 @@ export const JURY_START_MIN=30, JURY_START_MAX=55;
    trial from becoming a formality, which is the same reason safe plays cap the
    payoff instead of the odds elsewhere. */
 export const PHASES=["opening","argument","closing"];
+/* Eight grounds, and a one-line test for each. The list is fixed on purpose:
+   after a few trials it stops being a menu and starts being a vocabulary, which
+   is the point. The `tell` is what the reference card shows — short enough to
+   check mid-question, specific enough to actually decide with. */
 export const GROUNDS=[
-  {id:"leading",     label:"LEADING"},
-  {id:"hearsay",     label:"HEARSAY"},
-  {id:"speculation", label:"CALLS FOR SPECULATION"},
-  {id:"assumes",     label:"ASSUMES FACTS NOT IN EVIDENCE"},
-  {id:"argumentative",label:"ARGUMENTATIVE"},
-  {id:"relevance",   label:"RELEVANCE"},
-  {id:"compound",    label:"COMPOUND"},
-  {id:"asked",       label:"ASKED AND ANSWERED"},
+  {id:"leading",     label:"LEADING",
+   tell:"The question contains its own answer. '...isn't it?' '...wouldn't you agree?'"},
+  {id:"hearsay",     label:"HEARSAY",
+   tell:"Asks what someone NOT in the room said. 'Your predecessor told me...'"},
+  {id:"speculation", label:"CALLS FOR SPECULATION",
+   tell:"Asks the witness to guess at someone else's mind. 'What do you suppose they wanted?'"},
+  {id:"assumes",     label:"ASSUMES FACTS NOT IN EVIDENCE",
+   tell:"Smuggles in a fact nobody proved. 'When you destroyed the file...' — nobody said it was destroyed."},
+  {id:"argumentative",label:"ARGUMENTATIVE",
+   tell:"Not a question, a jab. 'Do you always sign things you haven't read?'"},
+  {id:"relevance",   label:"RELEVANCE",
+   tell:"True or false, it has nothing to do with this case. Tax affairs, old grudges, salary."},
+  {id:"compound",    label:"COMPOUND",
+   tell:"Two questions in one, so any answer is ambiguous. 'Did you read it, AND did you tell them?'"},
+  {id:"asked",       label:"ASKED AND ANSWERED",
+   tell:"They already got their answer and are hoping for a better one. 'One more time...'"},
 ];
 export const GROUND_IDS=GROUNDS.map(g=>g.id);
 
@@ -75,6 +87,7 @@ export function roomLine(delta,pick){
    counsel offers more when they are losing. It is deliberately coarse — you
    learn "they are worried", never "you are at 62". */
 export const OFFER_AT=58;          // they only blink once you are genuinely ahead
+export const OFFER_GAIN=8;         // ...and only if YOU put them there
 export const offerValue=jury=>Math.max(.25,Math.min(.8,(jury-20)/100));
 
 export function createTrial({caseId,jury,phases,strength}){
@@ -86,8 +99,9 @@ export function createTrial({caseId,jury,phases,strength}){
     phases,                      // authored or generated, fixed at open time
     strength:strength||0,
     log:[],                      // prose the player has already seen
+    startJury:clampJury(jury), // what the file was worth before anyone spoke
     offer:null,
-    offerFloor:OFFER_AT,   // rises after a refusal: they do not keep asking
+    offerUsed:false,       // one offer per trial; a refusal is final
     settled:false,
     done:false,
     sustained:0, overruled:0, missed:0,
@@ -122,8 +136,10 @@ export function trialValidationError(trial,day){
     return "The saved trial flags are damaged.";
   if(trial.settled&&!trial.done) return "A settled trial must be finished.";
   if(!Array.isArray(trial.log)) return "The saved trial record is damaged.";
-  if(!Number.isFinite(trial.offerFloor)||trial.offerFloor<OFFER_AT)
-    return "The saved settlement threshold is out of range.";
+  if(!Number.isInteger(trial.startJury)||trial.startJury<JURY_MIN||trial.startJury>JURY_MAX)
+    return "The saved opening standing is out of range.";
+  if(typeof trial.offerUsed!=="boolean") return "The saved settlement flag is damaged.";
+  if(trial.offer!=null&&!trial.offerUsed) return "The saved settlement offer has no record.";
   if(trial.offer!=null&&!(trial.offer>0&&trial.offer<=1))
     return "The saved settlement offer is out of range.";
   return null;

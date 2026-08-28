@@ -2700,8 +2700,26 @@ globalThis.clearInterval = () => {};
   engine.declineTimelineChallenge();
   assert.equal(state.S.actionChallenge, null);
   assert.equal(state.S.hours, hoursBeforeDecline - declinedCost, "declining bills the play's own hours, never the prep's");
-  // ENDURANCE can only soften work fatigue, so the play's own raw cost is the ceiling.
-  assert.ok(state.S.fatigue <= fatigueBeforeDecline + declinedCost * 2, "declining adds no prep fatigue");
+  /* The claim is that DECLINING costs nothing beyond the play itself — so the
+     control is the same play with no chronology attached, not an arithmetic
+     guess. A raw cost*2 ceiling silently ignored the technical style's extra
+     fatigue and the scenario multiplier, and only passed on days when the DAILY
+     scenario happened to carry ENDURANCE. Fourth date-drift bug of this family;
+     this version cannot drift because it measures the thing it is comparing. */
+  const declinedFatigue = state.S.fatigue - fatigueBeforeDecline;
+  fresh("daily");
+  const control = liveDepo();
+  delete control.c.timeline;
+  const controlBefore = state.S.fatigue;
+  engine.choose(control.c, control.o);
+  assert.equal(state.S.actionChallenge, null, "the control play has no prep window");
+  assert.equal(declinedFatigue, state.S.fatigue - controlBefore,
+    "declining costs exactly what the play costs, and nothing for the prep");
+  fresh("daily");
+  depo = liveDepo();
+  assert.ok(forceTimeline());
+  engine.choose(depo.c, depo.o);
+  engine.declineTimelineChallenge();
   assert.deepEqual(depo.c.timelineEdge, { optionIndex: declinedIndex, value: constants.TIMELINE_EDGE_DECLINE },
     "going in cold stamps its own penalty on the committed play");
   const coldOdds = engine.chance(depo.o, depo.c);
@@ -3484,10 +3502,17 @@ globalThis.clearInterval = () => {};
       assert.ok(Number.isFinite(t.strength), where + ": a file walks in somewhere");
       for (const phase of t.phases) {
         if (phase.kind === "opposing") {
-          assert.ok(typeof phase.text === "string" && phase.text.length > 20,
-            where + ": opposing counsel actually says something");
-          assert.ok(phase.bad === null || phase.bad === undefined || trial.GROUND_IDS.includes(phase.bad),
-            where + ": an improper line names a ground you can actually pick");
+          /* A phase either carries one authored line or a pool the engine deals
+             from by identity, so the same courtroom is not the same
+             cross-examination twice. Both shapes have to be valid. */
+          const lines = Array.isArray(phase.lines) ? phase.lines : [phase];
+          assert.ok(lines.length >= 1, where + ": opposing counsel has something to say");
+          for (const line of lines) {
+            assert.ok(typeof line.text === "string" && line.text.length > 20,
+              where + ": opposing counsel actually says something");
+            assert.ok(line.bad === null || line.bad === undefined || trial.GROUND_IDS.includes(line.bad),
+              where + ": an improper line names a ground you can actually pick");
+          }
         } else {
           assert.ok(Array.isArray(phase.opts) && phase.opts.length >= 2,
             where + ": every turn is a real choice");
@@ -3501,8 +3526,14 @@ globalThis.clearInterval = () => {};
       // stay seated, so both kinds have to be reachable across the pool.
       return t.phases.filter(p => p.kind === "opposing");
     };
-    let clean = 0, improper = 0;
-    for (const c of courts) for (const p of checkTrial(c.trial, c.id)) p.bad ? improper++ : clean++;
+    const countLines = (phases, tally) => {
+      for (const p of phases) for (const line of (Array.isArray(p.lines) ? p.lines : [p]))
+        line.bad ? tally.improper++ : tally.clean++;
+      return tally;
+    };
+    const hand = { clean: 0, improper: 0 };
+    for (const c of courts) countLines(checkTrial(c.trial, c.id), hand);
+    const { clean, improper } = hand;
     assert.ok(improper > 0 && clean > 0,
       "hand-written trials teach both objecting and sitting still: " + improper + " improper / " + clean + " clean");
     // Generated courtrooms get the same treatment.
@@ -3513,11 +3544,40 @@ globalThis.clearInterval = () => {};
       if (!(filing.tier === 2 || filing.judge)) continue;
       generatedCourts++;
       assert.ok(filing.trial, "a generated courtroom can be tried too");
-      for (const p of checkTrial(filing.trial, filing.id)) p.bad ? generatedImproper++ : generatedClean++;
+      const tally = countLines(checkTrial(filing.trial, filing.id), { clean: 0, improper: 0 });
+      generatedClean += tally.clean; generatedImproper += tally.improper;
     }
     assert.ok(generatedCourts > 0 && generatedClean > 0 && generatedImproper > 0,
       "generated trials cover both as well");
     assert.ok(casegen.TEMPLATE_COUNT >= 24, "the template pool grew: " + casegen.TEMPLATE_COUNT);
+    /* Opposing counsel is dealt, not scripted: the same courtroom in a different
+       run must not be the same cross-examination. Every authored pool has to be
+       reachable, which needs a properly mixed identity — indexing a short list
+       with a raw hash lands on the same entry over and over. */
+    for (const id of ["court1", "court2", "court8"]) {
+      const source = content.buildPool().find(c => c.id === id);
+      const combos = source.trial.phases
+        .filter(p => p.kind === "opposing")
+        .reduce((total, p) => total * (Array.isArray(p.lines) ? p.lines.length : 1), 1);
+      assert.ok(combos >= 4, id + ": opposing counsel has more than one way to open");
+      const seen = new Set();
+      for (let run = 0; run < 80; run++) {
+        fresh();
+        engine.startGame("legacy", "medium");
+        state.S.seed = (run * 2654435761) >>> 0;
+        const c = engine.instantiateCase(content.buildPool().find(x => x.id === id));
+        Object.assign(state.S, { inbox: [c], openCase: c, hours: 8, fatigue: 0, event: null,
+          summary: null, pendingSummary: null, clients: [], nemesis: null, objective: null });
+        engine.choose(c, c.opts.find(o => o.trial));
+        seen.add(state.S.trial.phases.filter(p => p.kind === "opposing").map(p => p.text).join("|"));
+      }
+      assert.equal(seen.size, combos,
+        id + ": every cross-examination the file can give is reachable — " + seen.size + "/" + combos);
+    }
+    // The reference card has to actually explain each ground.
+    for (const g of trial.GROUNDS)
+      assert.ok(typeof g.tell === "string" && g.tell.length > 25,
+        g.id + ": the grounds card explains when to use it");
   }
 
   // ---- THE BENCH ----
@@ -3712,9 +3772,37 @@ globalThis.clearInterval = () => {};
       "how you try it decides the case: " + well.result.jury + " vs " + badly.result.jury);
     assert.ok(well.result.jury <= trial.JURY_MAX, "a jury is never a certainty");
     assert.ok(badly.result.jury >= trial.JURY_MIN, "and never a foregone conclusion either");
-    // Opposing counsel makes their offer once, not every phase: otherwise the
-    // player could poll the hidden standing for free.
-    assert.ok(well.offers <= 2, "they do not keep asking: " + well.offers);
+    /* One offer per trial, and only when the player put them there. A pure
+       threshold meant a strong file produced an offer after any decent opening,
+       which read as a reward for the file rather than for the advocacy; and a
+       refusal that reopened the door let the player poll the hidden standing. */
+    assert.ok(well.offers <= 1, "they ask once, and a refusal is final: " + well.offers);
+    assert.equal(badly.offers, 0, "and they do not blink at someone who is losing");
+    // A strong file is not enough on its own: you have to improve it.
+    fresh();
+    engine.startGame("legacy", "medium");
+    utils.setSeed(5);
+    const strongFile = engine.instantiateCase(content.buildPool().find(x => x.id === "court8"));
+    Object.assign(state.S, { inbox: [strongFile], openCase: strongFile, hours: 8, fatigue: 0,
+      event: null, summary: null, pendingSummary: null, clients: [], nemesis: null, objective: null });
+    engine.choose(strongFile, strongFile.opts.find(o => o.trial));
+    const opened = state.S.trial.jury;
+    assert.equal(state.S.trial.startJury, opened, "the trial remembers what it walked in with");
+    assert.ok(opened >= trial.OFFER_AT - 8,
+      "the fixture really is a strong file: " + opened);
+    // Play the weakest line available and confirm no offer appears.
+    const weakPhase = trial.trialPhase(state.S.trial);
+    const weakest = weakPhase.opts.findIndex(o => o.weight === "weak");
+    engine.trialPlay(weakest < 0 ? 0 : weakest);
+    assert.equal(state.S.trial.offer, null, "a strong file alone does not make them blink");
+    /* The improvement requirement is what stops a strong file from producing an
+       offer the player did not earn, so it has to bite on a file that already
+       opens near the threshold — test the rule, not one fixture's arithmetic. */
+    assert.ok(trial.OFFER_GAIN > 0, "an offer has to be earned, not inherited");
+    const floorFor = start => Math.max(trial.OFFER_AT, start + trial.OFFER_GAIN);
+    assert.ok(floorFor(trial.OFFER_AT) > trial.OFFER_AT,
+      "a file that opens at the threshold still has to be improved");
+    assert.equal(floorFor(20), trial.OFFER_AT, "and a weak file is not held to a higher bar");
   }
 
   // ---- BAR DISCIPLINE ----

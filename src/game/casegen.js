@@ -150,6 +150,17 @@ const TRIAL_LINES=[
   {bad:null,           make:f=>`'What date does the stamp on this exhibit read?'`},
   {bad:null,           make:f=>`'Who else was copied on it?'`},
   {bad:null,           make:f=>`'Was the ${f.thing} kept in the ordinary course of business?'`},
+  {bad:"leading",      make:f=>`'It is fair to say nobody at ${f.party} was watching this, isn't it?'`},
+  {bad:"hearsay",      make:f=>`'I am told the ${f.thing} was backdated. What did you hear about that?'`},
+  {bad:"speculation",  make:f=>`'If you had raised it at the time, would any of this have happened?'`},
+  {bad:"argumentative",make:f=>`'You expect this room to believe that?'`},
+  {bad:"assumes",      make:f=>`'How long had ${f.party} been keeping the second set of figures?'`},
+  {bad:"relevance",    make:f=>`'Let us discuss your own disciplinary record for a moment.'`},
+  {bad:"compound",     make:f=>`'Did you see the ${f.thing}, keep it, and pass it on?'`},
+  {bad:"asked",        make:f=>`'I will ask a third time: on what date did you receive it?'`},
+  {bad:null,           make:f=>`'Did you take notes during that call?'`},
+  {bad:null,           make:f=>`'Who at ${f.party} approved it?'`},
+  {bad:null,           make:f=>`'Is this a complete copy, to your knowledge?'`},
 ];
 export function buildTrial(f,strength,verdict){
   const draw=(pool,n)=>{ const copy=[...pool],out=[];

@@ -28,6 +28,13 @@ function JudgeRow({judge}){
         {trait?trait.label+" — "+trait.note:"No reputation to speak of."}
         {" · TEMPER "+judge.temper+" · BOOK "+judge.book}
       </div>
+      {/* What the band is actually worth, so an investment is not made blind. */}
+      <div className="tagline">
+        {band==="FRIENDLY"||band==="WARM"
+          ? "Rules a shade kinder on close calls, and will fix an objection you got right for the wrong reason."
+          : band==="CORDIAL" ? "Neutral. Nothing owed either way."
+          : "Gives you nothing you have not proved. Frivolous objections cost more here."}
+      </div>
       {burned && <div className="tagline bad">You put an envelope in front of this bench once. They have not forgotten.</div>}
       <div className="delg">
         <button className="btn small" type="button" disabled={!canGolf(judge)}

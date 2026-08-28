@@ -24,3 +24,15 @@ export function clearSeed(){ _rand=Math.random; _t=null; }
 // persist/restore the seeded cursor so DAILY stays deterministic across reloads
 export const getRngState=()=>_t;
 export function setRngState(t){ if(t==null) return; _t=t>>>0; _rand=mulberry(); }
+
+/* `hash` is fine for picking a number, but its output moves by about one when
+   the input's last character moves by one — so indexing a short list with
+   consecutive identities lands on the same entry over and over. Avalanche the
+   bits before using them to choose. (The boards learned this the hard way.) */
+export function mixKey(text){
+  let x=hash(String(text))>>>0;
+  x^=x>>>16; x=Math.imul(x,0x7feb352d)>>>0;
+  x^=x>>>15; x=Math.imul(x,0x846ca68b)>>>0;
+  x^=x>>>16;
+  return x>>>0;
+}

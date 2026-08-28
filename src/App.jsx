@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useGame } from "./game/useGame.js";
 import { S } from "./game/state.js";
+import { GROUNDS } from "./game/trial.js";
 import { choose, deferCase, resolveCrisis, dismissSummary, advanceIntro, closeIntro,
+         trialPlay, trialObject, trialSettle, dismissTrialResult,
          closeSettings, closeInfo, closeRoster, closeArchive, dismissSaveError,
          refreshRoomTone } from "./game/engine.js";
 import StartScreen from "./components/StartScreen.jsx";
@@ -36,6 +38,25 @@ function handleKey(e){
     return;
   }
   if(S.actionChallenge) return; // the minigame owns focus and keyboard input
+  /* A trial is read, then decided — exactly the shape the number keys were added
+     for on the desk. The grounds get 1-8 because there are eight of them, and 0
+     is the one thing the list does not contain: staying in your seat. */
+  if(S.trialResult){ if(k===" "||k==="Enter"){ e.preventDefault(); dismissTrialResult(); } return; }
+  if(S.trial){
+    const t=S.trial, phase=t.phases[t.step];
+    if(t.offer!=null){
+      if(k==="1") trialSettle(true);
+      else if(k==="2"||k==="Escape") trialSettle(false);
+      return;
+    }
+    if(!phase) return;
+    if(phase.kind==="opposing"){
+      const g="12345678".indexOf(k);
+      if(g>=0&&GROUNDS[g]) trialObject(GROUNDS[g].id);
+      else if(k==="0"||k===" "){ e.preventDefault(); trialObject(null); }
+    } else if(i>=0&&phase.opts&&phase.opts[i]) trialPlay(i);
+    return;
+  }
   if(S.summary){ if(k===" "||k==="Enter"){ e.preventDefault(); dismissSummary(); } return; }
   if(S.event){ if(i>=0&&S.event.opts[i]) resolveCrisis(S.event.opts[i]); return; }
   if(S.settingsOpen){ if(k==="Escape") closeSettings(); return; }

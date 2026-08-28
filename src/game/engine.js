@@ -22,7 +22,7 @@ import { RANKS, RANK_REQ, INF_EARN, INF_DECAY, DELEGATE_CAP, DAY_HOURS, TIER_HOU
          OBJECTION_HOURS, OBJECTION_FATIGUE, OBJECTION_STRICT_BOOK,
          REDACT_LINES, REDACT_EDGE_FULL, REDACT_EDGE_FLOOR,
          REDACT_OVER_REP, REDACT_OVER_SANCTION, REDACT_HOURS, REDACT_FATIGUE } from "./constants.js";
-import { clamp, rnd, rand, shuffle, hash, setSeed, clearSeed, getRngState, setRngState } from "./utils.js";
+import { clamp, rnd, rand, shuffle, hash, mixKey, setSeed, clearSeed, getRngState, setRngState } from "./utils.js";
 import { LOCK_MIN, LOCK_MAX, LOCK_HINT_SPREAD, LOCK_HOLD_MS, LOCK_WEAR_MAX, POWER_RING_COUNT, POWER_RULES, POWER_FRAME_CAP_MS, createLockpickChallenge, clampLockTension, pressLockTension, advanceLockpick, callCoin,
          createPowerCutChallenge, advancePowerCut, stopPowerCut, powerAngleAt, powerAngleDistance,
          createTimelineChallenge, moveTimelineCard, submitTimeline,
@@ -38,7 +38,7 @@ import { createJudgeRel, emptyRel, clampRel, relOf, relBand, relLabel, traitOf, 
          grantsMercy, frivolousMultiplier, flavorBonus, bribeChance, judgeRelValidationError,
          BRIBE_MIN, BRIBE_MAX, JUDGE_TRAITS } from "./judges.js";
 import { createTrial, trialPhase, trialFinished, applySwing, verdictChance, roomLine,
-         trialValidationError, offerValue, OFFER_AT, SWING, GROUND_IDS, JURY_START_MIN, JURY_START_MAX,
+         trialValidationError, offerValue, OFFER_AT, OFFER_GAIN, SWING, GROUND_IDS, JURY_START_MIN, JURY_START_MAX,
          clampJuryValue } from "./trial.js";
 import { settings, setSetting } from "./settings.js";
 import { buildPool, JUDGES, crises, SCENARIOS, buildWeekend } from "./content.js";
@@ -1142,9 +1142,16 @@ export function judgeRelRecord(judge){
 export function adjustJudgeRel(judge,delta,note){
   const rec=judgeRelRecord(judge);
   if(!rec||!delta) return;
-  const before=rec.rel;
+  const beforeBand=relBand(rec.rel);
   rec.rel=clampRel(rec.rel+delta);
-  if(note&&rec.rel!==before) log(judge.name+": "+note+" ("+(delta>0?"+":"")+delta+")",delta>0?"good":"bad");
+  const afterBand=relBand(rec.rel);
+  /* The band, not the number — but the band is the thing that changed what the
+     bench does, so crossing one is worth saying out loud. Golf that never
+     announced its effect read as money for nothing. */
+  if(note) log(judge.name+": "+note+(beforeBand!==afterBand?" ("+beforeBand+" → "+afterBand+")":""),
+    delta>0?"good":"bad");
+  else if(beforeBand!==afterBand)
+    log(judge.name+" now regards you as "+afterBand+".",delta>0?"good":"bad");
 }
 export const judgeRelation=judge=>relOf(S&&S.judgeRel,judge);
 export const judgeRelationLabel=judge=>relLabel(S&&S.judgeRel,judge);
@@ -1185,7 +1192,7 @@ export function inviteToGolf(judge){
       "stops being about golf, and what you do with that is the entire afternoon.",
     opts:[
       {text:"Let them win. Say nothing about work.",base:100,safe:true,
-        ok:{fx:{},bench:{rel:8},txt:"They win by four and enjoy it more than they should. Nothing was discussed. Everything was."}},
+        ok:{fx:{},bench:{rel:8},txt:"They win by four and enjoy it more than they should. Nothing was discussed. Everything was. A bench that knows you rules a fraction kinder on the close calls — and forgives an objection you got right for the wrong reason."}},
       {text:"Play your actual game and talk about the profession.",base:74,style:"technical",
         ok:{fx:{inf:2},bench:{rel:14},txt:"You beat them and they respect it. Two hours of shop talk with someone who has seen everything."},
         fail:{fx:{},bench:{rel:-4},txt:"You beat them badly and they go quiet on the back nine. Some people do not enjoy losing to juniors."}},
@@ -1214,6 +1221,7 @@ export function offerBribe(judge,amount){
   if(took){
     rec.bribesTaken++;
     adjustJudgeRel(judge,12);
+    log(judge.name+" now regards you as "+relBand(judgeRelation(judge))+".","good");
     S.runStats.bribeW++;
     SFX.win();
     log(judge.name+" takes it. Nothing is said, and nothing will be. ($"+money+")","good");
@@ -1222,6 +1230,7 @@ export function offerBribe(judge,amount){
     // and the profession hears about it twice.
     rec.burned=true;
     adjustJudgeRel(judge,-60);
+    log(judge.name+" now regards you as "+relBand(judgeRelation(judge))+". Permanently.","bad");
     recordBarViolation("bribe");
     apply({rep:-8},true);
     SFX.lose(); doShake();
@@ -1251,7 +1260,16 @@ export function beginTrial(c,o,confirmedLate){
   const spread=JURY_START_MAX-JURY_START_MIN;
   // Where the file itself stands before anyone has said a word.
   const jury=clampJuryValue(JURY_START_MIN+spread/2+strength);
-  const phases=JSON.parse(JSON.stringify(c.trial.phases));
+  /* Opposing counsel is dealt, not scripted. A phase may carry several lines it
+     could open with; which one you get comes from the run/case identity, so a
+     second career through the same courtroom is not the same cross-examination.
+     A phase with a single authored line still works untouched. */
+  const phases=JSON.parse(JSON.stringify(c.trial.phases)).map((phase,index)=>{
+    if(phase.kind!=="opposing"||!Array.isArray(phase.lines)||!phase.lines.length) return phase;
+    const pick=phase.lines[mixKey(`${S.seed}|${c.id}|${c.trial.id}|${index}`)%phase.lines.length];
+    const {lines,...rest}=phase;
+    return {...rest,...pick};
+  });
   const trial=createTrial({caseId:c.id,jury,phases,strength});
   const cost=trialCost(trial);
   if(!confirmedLate&&cost>S.hours&&S.hours>0){
@@ -1262,7 +1280,13 @@ export function beginTrial(c,o,confirmedLate){
   const lateExtra=Math.round(Math.max(0,cost-S.hours)*LATE_FATIGUE);
   if(lateExtra) log("The trial runs past the lights. (+"+lateExtra+" FATIGUE)","bad");
   spendHours(cost,Math.round(cost*2)+6+lateExtra);
-  S.trial={...trial,optionIndex:c.opts.indexOf(o),startedDay:S.day,
+  /* A one-line briefing, because a jury trial that opens on a list of buttons
+     tells the player nothing about what they just committed to. */
+  const brief=c.trial.brief||
+    `You are trying this to a verdict before ${c.judge?c.judge.name:"the bench"}. `+
+    `${phases.length} phases: your opening, the arguments, your closing — and whatever `+
+    `opposing counsel tries in between. Nobody will tell you how the jury is leaning.`;
+  S.trial={...trial,brief,optionIndex:c.opts.indexOf(o),startedDay:S.day,
     caseTitle:c.title,judgeId:c.judge?c.judge.id:null,
     judgeName:c.judge?c.judge.name:"the bench",
     judgeTrait:c.judge?traitOf(c.judge):null,cost};
@@ -1286,13 +1310,19 @@ function trialAdvance(t,delta,line){
   next.step++;
   // Opposing counsel only blinks when they are genuinely behind. This is the
   // only readout of the meter the player ever gets, and it stays coarse.
-  /* They make an offer once. Asking again every phase turned a dramatic beat into
-     a nag — and worse, it let the player poll the hidden meter for free. After a
-     refusal they only come back if the case has moved materially against them. */
+  /* One offer per trial, and only when YOU have moved the case. A pure threshold
+     meant a strong file produced an offer after any decent opening — so it read
+     as "they blink because the case was always good", which is not a reward for
+     anything. Requiring improvement over the standing you walked in with makes
+     the offer mean what it looks like it means. And a refusal is final: asking
+     again turned a dramatic beat into a nag, and let the player poll the hidden
+     meter for free. */
   const judge=next.judgeId?JUDGES.find(j=>j.id===next.judgeId):null;
-  const floor=(Number.isFinite(next.offerFloor)?next.offerFloor:OFFER_AT)-relOfferShift(judgeRelation(judge));
-  if(!trialFinished(next)&&next.offer==null&&next.jury>=floor&&next.step>=2)
+  const floor=Math.max(OFFER_AT,(next.startJury||0)+OFFER_GAIN)-relOfferShift(judgeRelation(judge));
+  if(!trialFinished(next)&&!next.offerUsed&&next.offer==null&&next.jury>=floor&&next.step>=2){
     next.offer=Math.round(offerValue(next.jury)*100)/100;
+    next.offerUsed=true;
+  }
   return next;
 }
 
@@ -1408,8 +1438,9 @@ export function dismissTrialResult(){ if(S&&S.trialResult){ SFX.click(); S.trial
 
 export function trialSettle(accept){
   if(!S||!S.trial||S.trial.done||S.trial.offer==null) return;
-  if(!accept){ S.trial={...S.trial,offer:null,offerFloor:S.trial.jury+12,
-    log:[...S.trial.log,"You decline. Opposing counsel sits down slowly."]}; saveGame(); notify(); return; }
+  if(!accept){ S.trial={...S.trial,offer:null,
+    log:[...S.trial.log,"You decline. Opposing counsel sits down slowly, and does not get up again."]};
+    saveGame(); notify(); return; }
   S.trial={...S.trial,settled:true,done:true};
   finishTrial();
 }
@@ -2424,7 +2455,11 @@ export function resolveCrisis(o){
     const effect=out&&out.bench;
     if(!effect||!ev.judgeId) return;
     const judge=JUDGES.find(j=>j.id===ev.judgeId);
-    if(judge&&effect.rel) adjustJudgeRel(judge,effect.rel,win?"the afternoon paid off":"that did not land");
+    if(!judge||!effect.rel) return;
+    adjustJudgeRel(judge,effect.rel);
+    /* A deliberate approach always reports where it left you. One round of golf
+       rarely moves a band, and a silent nudge reads as money for nothing. */
+    log(judge.name+" now regards you as "+relBand(judgeRelation(judge))+".",effect.rel>0?"good":"bad");
   };
   const resolveBarState=()=>{
     const bar=S.barHeat;

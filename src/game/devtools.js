@@ -7,6 +7,7 @@
    Rule it keeps: it drives the REAL engine functions. Nothing here reimplements
    game rules, so what you see in the panel is what a player would get. */
 import { S, notify } from "./state.js";
+import { createBarHeat } from "./ethics.js";
 import { buildPool } from "./content.js";
 import { genCaseFrom, TEMPLATE_COUNT } from "./casegen.js";
 import * as engine from "./engine.js";
@@ -95,7 +96,11 @@ export function devOpenTrial(caseId="court2"){
 /* The bar heat is hidden from the player on purpose, so the only way to see a
    letter in development is to ask for one directly. */
 export function devOpenBarLetter(stage=1){
-  if(!S||!S.barHeat) return null;
+  if(!S) return null;
+  // A save from before the bar existed has no file; make one rather than no-op.
+  if(!S.barHeat) S.barHeat=createBarHeat();
+  // Anything already open would block the letter, so clear the desk first.
+  S.trial=null; S.trialResult=null; S.actionChallenge=null; S.summary=null; S.benchOpen=false;
   const bar=S.barHeat;
   const want=Math.max(1,Math.min(3,Math.trunc(stage)||1));
   bar.caught=Math.max(bar.caught,4); bar.violations=Math.max(bar.violations,bar.caught);

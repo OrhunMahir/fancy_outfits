@@ -362,6 +362,15 @@
 - **FIX (test buldu):** üretilen bir aşamada hiç "strong" seçenek çıkmayabiliyordu — oynanamayan tur. `opts()` her zaman bir güçlü satır dağıtıp karıştırıyor; regresyon zorluyor.
 - Ölçüm: kariyer başına aynı şablon tekrarı 3.7→**2.8**; soak %66.6, medyan gün 20, integrity 0.
 
+**v1.9.36 eklendi (2026-08-28, ilk playtest geri bildirimi):**
+- **Uzlaşma iki hatadan arındı:** `offerUsed` — bir teklif, ret kesin (eskiden `offerFloor` kapıyı yeniden açıyordu); eşik `max(OFFER_AT, startJury+OFFER_GAIN(8))` — güçlü dosyada iyi bir açılış artık tek başına teklif üretmiyor, **davayı ilerletmen** gerekiyor. Corvid/Ravenscroft strength 13/11→9/8.
+- **Karşı taraf ezber değil:** her `opposing` fazı `lines:[…]` havuzu taşıyabilir; seçim `mixKey(runSeed|case|trial|index)` ile. **`utils.mixKey` eklendi** — düz `hash` 40 run'da 9 kombinasyondan sadece 3'ünü veriyordu (board'ların v1.9.30 dersi). Üretilen havuz 11→19 satır.
+- **Gerekçe kartı:** duruşma ekranında `i` → sekiz gerekçe + her biri için tek satırlık "ne zaman" testi (`GROUNDS[].tell`).
+- **Duruşma briefingi:** ilk fazda `trial.brief` (el yazması override edilebilir).
+- **Klavye duruşmada:** argüman 1-4, gerekçe 1-8, susmak 0/Space, uzlaşma 1/2, hüküm Space. Ekranda numaralı.
+- **Golf/rüşvet sonucu görünür:** her bilinçli yaklaşım bandı loglar; BENCH panelinde her bant ne satın aldığını yazar.
+- **TEST FIX (4. tarih-kayması):** "declining adds no prep fatigue" tavanı `cost*2` sanıyordu ama technical'ın ek yorgunluğu var; DAILY senaryosu debtor→legacy değişince kırıldı. Artık kronolojisiz aynı hamle **kontrol grubu olarak ölçülüyor**.
+
 **Dış denetim notu (Codex, 2026-08-12):** Bayat/untracked `AGENTS.md` yüzünden gerçek checkpoint yanlışlıkla v1.9.1/hakim hafızası sanılmıştı. Hakim hafızası v1.9.8/v1.9.13'te bitmişti; gerçek yarım iş v1.9.16 sonrası Power Cut entegrasyonuydu. Yarım model/UI dosyaları korunup engine/content/save/CSS/test zinciri tamamlandı.
 
 **En son çalışılan konu (2026-08-18):** v1.9.21 `ea50a3894` ile pushlandı; ardından v1.9.22 (Contradiction Board, schema v17), v1.9.22.1 (gerçek madeni para yazı-tura) ve v1.9.23 (sabotaj zorluk eğrisi + ilk açılış walkthrough'u, schema v18) tamamlandı ve kullanıcının push'unu bekliyor. `npm test`, `npm run build`, `npm run test:soak` (replay 336/336, integrity 0) yeşil; tarayıcıda gerçek tıklamalarla doğrulandı. Güncel ortak handoff ve oturum günlüğü `DEV_LOGBOOK.md`'dir. Sıradaki kullanıcı-onaylı iş **mobil layout + Capacitor**; bağlamsal SFX, GitHub Pages demo ve Steam paketleme sonraki backlog'dur.

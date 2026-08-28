@@ -697,6 +697,16 @@ h2{font-size:10px; color:var(--gold); margin-bottom:10px; border-bottom:2px soli
    No meter, no percentage, nothing that could be read as a number. The record is
    the only feedback the room gives, so it gets the paper treatment. */
 .trial-box{max-width:620px;}
+.trial-brief{
+  margin-bottom:10px; padding:9px; font-size:8px; line-height:2;
+  background:#1b2547; border-left:4px solid var(--gold); color:var(--grey);
+}
+.trial-grounds-card{margin:0 0 12px; font-size:7px; line-height:1.9;}
+.trial-grounds-card div{margin-bottom:8px; padding-bottom:8px; border-bottom:2px solid #2a3550;}
+.trial-grounds-card div:last-child{border-bottom:none;}
+.trial-grounds-card dt{color:var(--gold); margin-bottom:3px;}
+.trial-grounds-card dd{margin:0; color:var(--grey);}
+.trial-box{position:relative;}
 .trial-record{
   list-style:none; margin:0 0 12px; padding:10px; max-height:190px; overflow-y:auto;
   background:var(--paper); color:var(--paperink); border:3px solid #b7a98a;

@@ -128,9 +128,10 @@ export function buildPool(){
              txt:"You give them a villain who is late rather than a rule that is technical."},
             {text:"Concede the delay was minor but insist the law is the law.",weight:"weak",
              txt:"You call your own argument minor. The jury writes that down."}]},
-        {kind:"opposing",bad:"hearsay",
-          text:"'Your predecessor told me the notice went out on time. That is right, isn't it?' — the witness never met the predecessor.",
-          clean:"Asking when the witness personally sent the notice would have been fair. This is not that."},
+        {kind:"opposing",lines:[
+          {bad:"hearsay",text:"'Your predecessor told me the notice went out on time. That is right, isn't it?' — the witness never met the predecessor."},
+          {bad:"speculation",text:"'What do you suppose your client hoped would happen if nobody checked the date?'"},
+          {bad:"leading",text:"'And you would accept, wouldn't you, that the delay was purely administrative?'"}]},
         {kind:"argument",prompt:"The docket stamp is the centre of your case. Halcyon says it was a clerical error.",
           opts:[
             {text:"Put the stamped copy on the screen and leave it there while you talk.",weight:"strong",flavor:"technical",
@@ -139,9 +140,10 @@ export function buildPool(){
              txt:"Simple, and hard to answer without sounding like an excuse."},
             {text:"Attack the credibility of Halcyon's records custodian.",weight:"weak",
              txt:"She is pleasant, precise, and clearly telling the truth about her own filing habits."}]},
-        {kind:"opposing",bad:null,
-          text:"'What date does the stamp on this exhibit read?' — flat, factual, and not going anywhere good for you.",
-          clean:"There is nothing improper here. It is just a question you would rather they had not asked."},
+        {kind:"opposing",lines:[
+          {bad:null,text:"'What date does the stamp on this exhibit read?' — flat, factual, and not going anywhere good for you."},
+          {bad:null,text:"'Who in your office is responsible for docketing deadlines?' — a fair question with an uncomfortable answer."},
+          {bad:null,text:"'Is this the complete correspondence file?' — nothing improper. Nothing helpful either."}]},
         {kind:"argument",prompt:"They have their date. You have the two years that followed it.",
           opts:[
             {text:"Two years of silence, then a lawsuit the week the auditors arrived.",weight:"strong",flavor:"bold",
@@ -209,9 +211,10 @@ export function buildPool(){
              txt:"Sympathy without a fact to hang it on. It slides off."},
             {text:"Read the affidavit aloud, then the manifest. Say nothing else.",weight:"strong",flavor:"technical",
              txt:"You let two documents argue with each other in front of twelve people."}]},
-        {kind:"opposing",bad:"speculation",
-          text:"Opposing counsel turns to the witness: 'In your view, what do you imagine the deceased WANTED to happen to his house?'",
-          clean:"A question about the witness's own signature would have been fair. This is not that."},
+        {kind:"opposing",lines:[
+          {bad:"speculation",text:"Opposing counsel turns to the witness: 'In your view, what do you imagine the deceased WANTED to happen to his house?'"},
+          {bad:"argumentative",text:"'You sign a great many documents about days you were not present, don't you?'"},
+          {bad:"hearsay",text:"'The care home manager told me he was lucid all that week. That is right, isn't it?'"}]},
         {kind:"argument",prompt:"Your turn with the lab report — the one calling the signature a laser-printed image rather than ink.",
           opts:[
             {text:"Put the report up and let the examiner explain 'toner does not indent paper'.",weight:"strong",flavor:"technical",
@@ -220,9 +223,10 @@ export function buildPool(){
              txt:"Motive without proof. The jury has already been promised proof."},
             {text:"Read the care-home chart: sedated all that afternoon.",weight:"strong",
              txt:"A man under sedation did not sign anything at four in the afternoon."}]},
-        {kind:"opposing",bad:"assumes",
-          text:"'When the family decided to destroy the earlier will, were you consulted?' — the witness blinks. Nobody has said anything about a destroyed will.",
-          clean:"Asking who drafted the earlier will would have been fair. This is not that."},
+        {kind:"opposing",lines:[
+          {bad:"assumes",text:"'When the family decided to destroy the earlier will, were you consulted?' — the witness blinks. Nobody has said anything about a destroyed will."},
+          {bad:"compound",text:"'Did you read the will before signing it, and did you discuss its contents with the instructor?'"},
+          {bad:"asked",text:"'One more time, since your memory seems selective: where were you on the fourteenth?'"}]},
         {kind:"closing",prompt:"Last words. The jury has heard the manifest, the lab report and the chart.",
           opts:[
             {text:"Three documents. One afternoon. Pick the version of it that can be true.",weight:"strong",flavor:"technical",
@@ -348,15 +352,19 @@ export function buildPool(){
             {text:"The vehicle never left the yard. Everything else is someone's typing.",weight:"strong",flavor:"bold",txt:"One fact, no adjectives. The box leans in."},
             {text:"Walk them through freight documentation practice from the top.",weight:"weak",flavor:"technical",txt:"Nine minutes on consignment notes. Two jurors visibly leave."},
             {text:"Put the telematics beside the logbook and read both dates aloud.",weight:"strong",flavor:"technical",txt:"Two documents disagree in front of twelve people. You say nothing while they do."}]},
-        {kind:"opposing",bad:"assumes",
-          text:"'When your client decided to falsify the run, was the dispatcher told?' — nobody has established that anything was falsified."},
+        {kind:"opposing",lines:[
+          {bad:"assumes",text:"'When your client decided to falsify the run, was the dispatcher told?' — nobody has established that anything was falsified."},
+          {bad:"argumentative",text:"'Do your drivers write down whatever gets them paid?'"},
+          {bad:"relevance",text:"'Let us discuss your client's insurance claims history for a moment.'"}]},
         {kind:"argument",prompt:"The dispatcher's text is the ugliest thing in the bundle. It is also not yours.",
           opts:[
             {text:"Read the text aloud: 'log it as done, sort it Monday.'",weight:"strong",flavor:"bold",txt:"You let Bellwether's own dispatcher testify against them by SMS."},
             {text:"Argue the tachograph ticket proves the equipment, not the driver, failed.",weight:"strong",flavor:"technical",txt:"Careful, narrow and hard to answer."},
             {text:"Suggest the driver was covering for a friend.",weight:"weak",flavor:"bold",txt:"Speculation from your own side. The jury notices you guessing."}]},
-        {kind:"opposing",bad:null,
-          text:"'Mr Orsino, is this your signature on the fuel receipt?' — flat, fair, and not going anywhere good for you."},
+        {kind:"opposing",lines:[
+          {bad:null,text:"'Mr Orsino, is this your signature on the fuel receipt?' — flat, fair, and not going anywhere good for you."},
+          {bad:null,text:"'Who had access to the fuel card that week?' — a proper question you would rather answer later."},
+          {bad:null,text:"'Was the tachograph working on the night in question?' — fair, and the answer is not simple."}]},
         {kind:"closing",prompt:"Last words.",
           opts:[
             {text:"A truck that did not move cannot have delivered anything.",weight:"strong",flavor:"technical",txt:"You end on the one thing nobody has contradicted."},
@@ -374,7 +382,7 @@ export function buildPool(){
 
   P.push({id:"court4",tier:2,title:"COURT: Ravenscroft Bio patent challenge",deadline:5,judge:true,
     body:"Ravenscroft holds a patent on an assay method and is suing everyone who breathes near it. Their priority date is March of the filing year. Your bundle contains a conference programme from the February before, listing their own chief scientist presenting the method by name, with an abstract published to attendees. Prior disclosure by the inventor kills novelty. The bundle also holds: a rival's angry blog post, a licence offer Ravenscroft made two years ago, and an internal email calling the patent 'thin but frightening'.",
-    trial:{id:"ravenscroft_trial",strength:11,
+    trial:{id:"ravenscroft_trial",strength:8,
       verdict:{win:{rep:10,inf:11,money:3400,firm:1},lose:{rep:-9,inf:-4,money:-700},
         winTxt:"The patent is invalid on its inventor's own conference slides. Ravenscroft's licensing department has a quiet month.",
         loseTxt:"The jury decided a conference talk is not a publication. Your client starts paying royalties on Monday.",
@@ -385,15 +393,19 @@ export function buildPool(){
             {text:"Their own scientist explained this method in public a month before they claimed it was secret.",weight:"strong",flavor:"bold",txt:"One sentence, no jargon. The whole room understands the case."},
             {text:"Explain the statutory framework for novelty and priority.",weight:"weak",flavor:"technical",txt:"You lose the jury in the first paragraph and never fully get them back."},
             {text:"Read the abstract, then the patent claim, and let them compare.",weight:"strong",flavor:"technical",txt:"Two paragraphs, side by side. They are the same paragraph."}]},
-        {kind:"opposing",bad:"relevance",
-          text:"'Let us talk for a moment about your client's tax structure in Ireland.'"},
+        {kind:"opposing",lines:[
+          {bad:"relevance",text:"'Let us talk for a moment about your client's tax structure in Ireland.'"},
+          {bad:"argumentative",text:"'Is copying other people's work simply how your client does research?'"},
+          {bad:"assumes",text:"'When your client decided to ignore the patent, who signed that off?'"}]},
         {kind:"argument",prompt:"Ravenscroft says the conference talk was 'preliminary and confidential'.",
           opts:[
             {text:"Produce the attendee list. Four hundred people, no NDA.",weight:"strong",flavor:"technical",txt:"Confidential is a word with a meaning, and this is not it."},
             {text:"Call their 'thin but frightening' email what it is.",weight:"strong",flavor:"bold",txt:"You read their own assessment of their own patent back to them."},
             {text:"Argue the rival's blog post shows the field already knew.",weight:"weak",flavor:"bold",txt:"An angry blog is not prior art and the bench says so before you finish."}]},
-        {kind:"opposing",bad:"leading",
-          text:"'And you would accept, wouldn't you, that a conference abstract tells a skilled reader almost nothing?'"},
+        {kind:"opposing",lines:[
+          {bad:"leading",text:"'And you would accept, wouldn't you, that a conference abstract tells a skilled reader almost nothing?'"},
+          {bad:"speculation",text:"'What do you imagine the audience in that room actually understood?'"},
+          {bad:"compound",text:"'Did you attend the conference, and did you report back on what was disclosed there?'"}]},
         {kind:"argument",prompt:"They have pivoted to the licence offer as proof you took them seriously.",
           opts:[
             {text:"A licence offer is a business decision, not an admission.",weight:"strong",flavor:"technical",txt:"Simple, correct, and it closes the door."},
@@ -427,8 +439,10 @@ export function buildPool(){
             {text:"She could not hold a pen in February. In April she signed a deed.",weight:"strong",flavor:"bold",txt:"They have the whole case in one breath, and they do not like it."},
             {text:"Set out the law of undue influence and its presumptions.",weight:"weak",flavor:"technical",txt:"A lecture. The jury waits politely for the part that matters."},
             {text:"Read the bank waiver, then the deed, and note the dates.",weight:"strong",flavor:"technical",txt:"You let two pieces of paper contradict each other without comment."}]},
-        {kind:"opposing",bad:"hearsay",
-          text:"'The care worker told me the widow was perfectly capable that week. That is right, isn't it?'"},
+        {kind:"opposing",lines:[
+          {bad:"hearsay",text:"'The care worker told me the widow was perfectly capable that week. That is right, isn't it?'"},
+          {bad:"speculation",text:"'What do you suppose she wanted done with the house?'"},
+          {bad:"leading",text:"'She was entirely herself that afternoon, wasn't she?'"}]},
         {kind:"argument",prompt:"The solicitor's file note is their best document.",
           opts:[
             {text:"Ask the solicitor whether he had ever heard her voice before.",weight:"strong",flavor:"bold",txt:"He had not. The room hears him realise it at the same time he does."},
@@ -462,15 +476,19 @@ export function buildPool(){
             {text:"The inspector stopped billing eighteen months before he stopped inspecting.",weight:"strong",flavor:"bold",txt:"The jury does the subtraction themselves, which is always better."},
             {text:"Take them through the statutory duty on common parts.",weight:"weak",flavor:"technical",txt:"Correct and forgettable. They came for a stairwell, not a statute."},
             {text:"Put the last four sheets beside the earlier ones and say nothing.",weight:"strong",flavor:"technical",txt:"You do not need to mention the font. Someone in the box notices it first."}]},
-        {kind:"opposing",bad:"argumentative",
-          text:"'Does your client habitually walk down stairs without looking at them?'"},
+        {kind:"opposing",lines:[
+          {bad:"argumentative",text:"'Does your client habitually walk down stairs without looking at them?'"},
+          {bad:"assumes",text:"'When your client ignored the warning signage, was anyone with her?'"},
+          {bad:"relevance",text:"'How much does your client currently receive in benefits?'"}]},
         {kind:"argument",prompt:"The resident's complaint is nine months older than the accident.",
           opts:[
             {text:"Read the complaint, then the unaccepted repair quote.",weight:"strong",flavor:"technical",txt:"They knew, they priced it, and they did not do it. Three documents, one conclusion."},
             {text:"Ask the owner what happened to the quote.",weight:"strong",flavor:"bold",txt:"He does not know. He is the sort of man who does not know things on purpose."},
             {text:"Suggest the inspector was paid to sign blank sheets.",weight:"weak",flavor:"bold",txt:"You accuse a man who is not in the room and cannot answer. It reads as reaching."}]},
-        {kind:"opposing",bad:"compound",
-          text:"'Did you inspect the landing in March, and did you report what you found to the managing agent?'"},
+        {kind:"opposing",lines:[
+          {bad:"compound",text:"'Did you inspect the landing in March, and did you report what you found to the managing agent?'"},
+          {bad:"hearsay",text:"'The managing agent told me the landing was sound. Correct?'"},
+          {bad:"asked",text:"'I will ask again, since you seem uncertain: who signed the March sheet?'"}]},
         {kind:"closing",prompt:"Last words.",
           opts:[
             {text:"They had a complaint, a quote, and eighteen months. They chose paperwork.",weight:"strong",flavor:"bold",txt:"You end on the choice rather than the fall, and the jury stays with you."},
@@ -499,15 +517,19 @@ export function buildPool(){
             {text:"They wrote down who owned what, initialled it, and one of them now regrets it.",weight:"strong",flavor:"bold",txt:"Simple, human, and it makes the annexe the whole case."},
             {text:"Explain the law of partnership goodwill and its default rules.",weight:"weak",flavor:"technical",txt:"Defaults only matter if the annexe fails. You have just told them it might."},
             {text:"Read the text message: 'fine, your clients, my building'.",weight:"strong",flavor:"technical",txt:"Roe's own phone summarises the deal in six words."}]},
-        {kind:"opposing",bad:"speculation",
-          text:"'What do you suppose Mr Roe believed he was initialling that evening?'"},
+        {kind:"opposing",lines:[
+          {bad:"speculation",text:"'What do you suppose Mr Roe believed he was initialling that evening?'"},
+          {bad:"argumentative",text:"'Do you make a habit of getting partners to sign things in bars?'"},
+          {bad:"leading",text:"'The annexe was always understood to be a draft, wasn't it?'"}]},
         {kind:"argument",prompt:"They are making a great deal of the bar receipt.",
           opts:[
             {text:"Point out the receipt shows two drinks across three hours.",weight:"strong",flavor:"technical",txt:"Not a bar story any more. Just two men in a quiet pub agreeing something."},
             {text:"Ask Roe to read his own text aloud.",weight:"strong",flavor:"bold",txt:"He reads it. Then he explains it. The explaining is the part that hurts him."},
             {text:"Argue the venue is irrelevant as a matter of law.",weight:"weak",flavor:"technical",txt:"Legally right and rhetorically deaf. The jury cares where it was signed."}]},
-        {kind:"opposing",bad:null,
-          text:"'Mr Sable, on what date did the annexe come into existence?'"},
+        {kind:"opposing",lines:[
+          {bad:null,text:"'Mr Sable, on what date did the annexe come into existence?'"},
+          {bad:null,text:"'Which of the eleven clients did you personally introduce?' — fair, and tedious for you."},
+          {bad:null,text:"'Was the deed of partnership ever formally amended?' — proper, and pointed."}]},
         {kind:"closing",prompt:"Last words.",
           opts:[
             {text:"He wrote it, he initialled it, he texted it. Three times, one answer.",weight:"strong",flavor:"technical",txt:"You stack his own conduct into a wall he cannot climb."},
@@ -525,7 +547,7 @@ export function buildPool(){
 
   P.push({id:"court8",tier:2,title:"COURT: Corvid Media anti-SLAPP",deadline:3,judge:true,
     body:"Corvid Media is suing a food blogger for eleven million over a review. The review said a restaurant's supplier had been fined for hygiene breaches — which is true, published in the regulator's own register, and linked in the post. Corvid's claim runs to ninety pages and never once alleges the statement is false. Also in the bundle: an internal Corvid email describing the suit as 'a cost exercise', a demand letter sent before any complaint was made, and a second blogger who deleted a similar post last year.",
-    trial:{id:"corvid_trial",strength:13,
+    trial:{id:"corvid_trial",strength:9,
       verdict:{win:{rep:11,inf:10,money:2900,firm:1},lose:{rep:-9,inf:-4,money:-600},
         winTxt:"Struck out with costs. The 'cost exercise' email is read aloud in the ruling, which is the part that travels.",
         loseTxt:"The jury did not like the blogger's tone. Eleven million becomes a number she will live inside.",
@@ -536,15 +558,19 @@ export function buildPool(){
             {text:"In ninety pages they never once say she was wrong. That is the case.",weight:"strong",flavor:"bold",txt:"The jury looks at the ninety pages differently for the rest of the trial."},
             {text:"Set out the elements of defamation and take them through each.",weight:"weak",flavor:"technical",txt:"You teach a class. They wanted the point you just buried on slide six."},
             {text:"Read the regulator's register entry, then the sentence she wrote.",weight:"strong",flavor:"technical",txt:"Identical. One is a public record; the other is eleven million pounds."}]},
-        {kind:"opposing",bad:"asked",
-          text:"'One more time, since you seem unsure: did you contact the restaurant before publishing?'"},
+        {kind:"opposing",lines:[
+          {bad:"asked",text:"'One more time, since you seem unsure: did you contact the restaurant before publishing?'"},
+          {bad:"argumentative",text:"'You enjoy the attention these posts bring you, don't you?'"},
+          {bad:"relevance",text:"'How much advertising revenue does your blog generate annually?'"}]},
         {kind:"argument",prompt:"Their 'cost exercise' email is the ugliest document in the room.",
           opts:[
             {text:"Read it aloud and let it sit.",weight:"strong",flavor:"bold",txt:"You do not editorialise. The email does not need help."},
             {text:"Show the demand letter predates any complaint to the restaurant.",weight:"strong",flavor:"technical",txt:"They wrote the threat before they had a grievance. The order tells the story."},
             {text:"Bring up the other blogger who deleted her post.",weight:"weak",flavor:"bold",txt:"A different person, a different post, and now you are the one reaching."}]},
-        {kind:"opposing",bad:"leading",
-          text:"'And you would accept, wouldn't you, that you wrote it to get attention?'"},
+        {kind:"opposing",lines:[
+          {bad:"leading",text:"'And you would accept, wouldn't you, that you wrote it to get attention?'"},
+          {bad:"speculation",text:"'What effect do you imagine your post had on their bookings?'"},
+          {bad:"hearsay",text:"'A colleague of yours told me you were asked to take it down. Correct?'"}]},
         {kind:"closing",prompt:"Last words.",
           opts:[
             {text:"They never said she lied. They said it would be expensive to be right.",weight:"strong",flavor:"bold",txt:"You end on their own words and stop, which is the hardest part."},

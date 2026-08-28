@@ -1,10 +1,34 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { trialPlay, trialObject, trialSettle, dismissTrialResult } from "../game/engine.js";
 import { GROUNDS, trialPhase } from "../game/trial.js";
 
 /* The trial screen shows no odds. Not a bar, not a percentage, not a hint in a
    tooltip — the jury standing exists only in the model. What the player reads is
    the room, which is why the record below is the whole feedback channel. */
+
+/* The reference card. Eight grounds is a vocabulary, not a menu — but nobody is
+   born knowing it, and guessing is not the skill this board is testing. */
+function GroundsCard({onClose}){
+  const closeRef=useRef(null);
+  useEffect(()=>{ closeRef.current?.focus({preventScroll:true}); },[]);
+  return (
+    <div className="guide-overlay" role="dialog" aria-modal="true" aria-label="Grounds for objection">
+      <section className="guide-box">
+        <h3 className="guide-title">GROUNDS FOR OBJECTION</h3>
+        <p className="guide-note">Object only when one of these fits. Naming the wrong one is an overruled objection.</p>
+        <dl className="trial-grounds-card">
+          {GROUNDS.map(g=>(
+            <div key={g.id}>
+              <dt>{g.label}</dt>
+              <dd>{g.tell}</dd>
+            </div>
+          ))}
+        </dl>
+        <button ref={closeRef} className="btn safe action-primary" type="button" onClick={onClose}>GOT IT</button>
+      </section>
+    </div>
+  );
+}
 
 function Record({lines}){
   const endRef=useRef(null);
@@ -41,6 +65,7 @@ function Verdict({result}){
 
 export default function TrialOverlay({trial,result}){
   const firstRef=useRef(null);
+  const [card,setCard]=useState(false);
   useEffect(()=>{ firstRef.current?.focus(); },[trial&&trial.step]);
   if(result) return <Verdict result={result} />;
   if(!trial) return null;
@@ -51,8 +76,13 @@ export default function TrialOverlay({trial,result}){
   return (
     <div className="overlay trial-overlay">
       <section className="box panel trial-box" role="dialog" aria-modal="true" aria-labelledby="trial-title">
+        <button className="btn small guide-open" type="button" title="Grounds for objection"
+                aria-label="Grounds for objection" onClick={()=>setCard(true)}>i</button>
         <div className="action-kicker">IN TRIAL · {trial.judgeName} · PHASE {stage}/{trial.phases.length}</div>
         <h2 id="trial-title">{trial.caseTitle}</h2>
+        {/* What this is, before the first word is spoken. Shown once, at the top,
+            because a jury trial with no framing is just a list of buttons. */}
+        {trial.step===0 && <p className="trial-brief">{trial.brief}</p>}
 
         <Record lines={trial.log} />
 
@@ -64,10 +94,10 @@ export default function TrialOverlay({trial,result}){
             </p>
             <div className="opts">
               <button ref={firstRef} className="btn safe" type="button" onClick={()=>trialSettle(true)}>
-                Take the settlement. End it here.
+                1. Take the settlement. End it here.
               </button>
               <button className="btn" type="button" onClick={()=>trialSettle(false)}>
-                Decline. See it through to a verdict.
+                2. Decline. See it through to a verdict.
               </button>
             </div>
           </div>
@@ -81,12 +111,12 @@ export default function TrialOverlay({trial,result}){
             <div className="trial-grounds">
               {GROUNDS.map((g,i)=>(
                 <button key={g.id} ref={i===0?firstRef:null} className="btn small trial-ground" type="button"
-                        onClick={()=>trialObject(g.id)}>{g.label}</button>
+                        onClick={()=>trialObject(g.id)}>{i+1}. {g.label}</button>
               ))}
             </div>
             <div className="opts">
               <button className="btn" type="button" onClick={()=>trialObject(null)}>
-                Say nothing. Let it stand.
+                0. Say nothing. Let it stand.
               </button>
             </div>
           </>
@@ -101,6 +131,7 @@ export default function TrialOverlay({trial,result}){
             </div>
           </>
         )}
+        {card && <GroundsCard onClose={()=>setCard(false)} />}
       </section>
     </div>
   );

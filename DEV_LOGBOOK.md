@@ -84,6 +84,83 @@ Tarayıcıda panel açıldı, SNEAKY 5 ile kilit board'u açıldı (3 pik), reve
 
 ---
 
+## 2026-08-28 — Claude: oynanış geri bildirimi — uzlaşma, ezber, gerekçe kartı (v1.9.36)
+
+Kullanıcının ilk gerçek playtest'inden gelen maddeler.
+
+### 1. Uzlaşma teklifi — iki ayrı hata
+
+**"Reddetmeme rağmen birden fazla geldi"** ve **"ilk itirazı yanlış yapsam bile teklif
+ettiler."** İkisi de doğruydu ama sebepleri farklıydı:
+
+- `offerFloor = jury+12` reddedişten sonra kapıyı yeniden açıyordu. Jüri yükselmeye devam
+  ederse üç kez teklif gelebiliyordu. Artık **`offerUsed`: bir teklif, ret kesin.**
+- Eşik mutlaktı (58), o yüzden **güçlü bir dosyada iyi bir açılış zaten eşiği aşıyordu** —
+  yani teklif, oyuncunun yaptığı bir şeyin değil dosyanın ödülü gibi okunuyordu. Artık
+  eşik `max(OFFER_AT, açılış+8)`: karşı taraf ancak **sen davayı ilerlettiysen** gözünü
+  kırpıyor. Zayıf dosya daha yüksek bir bara tutulmuyor.
+
+Corvid ve Ravenscroft'un gücü de 13/11 → **9/8**'e çekildi. Ölçüm (aynı seed):
+iyi oyun 70-85, kötü oyun 10-32, teklif iyi oyunda 1 / kötü oyunda 0.
+
+### 2. "Her duruşmada karşı taraf aynı şeyleri soruyor"
+
+Haklıydı: el yazması duruşmaların çapraz sorguları sabitti. Artık her karşı-taraf fazı
+**üç satırlık bir havuz** taşıyor ve hangisini gördüğün `runSeed|dava|duruşma|faz`
+kimliğinden geliyor. Üretilen havuz da 11→19 satıra çıktı.
+
+**Ve bir hata daha:** ilk sürüm `hash()` ile seçiyordu — `hash` çıktısı girdiyle ~1
+oynadığı için 40 run'da sadece 3 farklı sorgu çıktı. Board'ların v1.9.30'da öğrendiği
+dersin aynısı. `utils.mixKey()` eklendi (avalanche); artık 9 kombinasyonun 9'u da
+erişilebilir ve regresyon bunu sayıyor.
+
+### 3. İtiraz gerekçeleri kartı
+
+Duruşma ekranının sağ üstünde **i** butonu: sekiz gerekçe ve her biri için tek satırlık
+"ne zaman kullanılır" testi. Ezberlenecek bir menü değil, kontrol edilecek bir sözlük.
+
+### 4. Duruşma başlangıcında özet
+
+İlk fazda tek satırlık briefing: hangi hakim, kaç aşama, ve "jürinin nereye yaslandığını
+kimse sana söylemeyecek". El yazması duruşmalar kendi `brief`'ini taşıyabilir.
+
+### 5. Klavye
+
+Davalarda 1-4 zaten vardı; duruşmaya taşındı. Argümanlarda **1-4**, gerekçelerde **1-8**,
+susmak için **0/Space**, uzlaşmada **1/2**, hükümde **Space**. Ekranda numaralar görünüyor.
+
+### 6. Golf ne işe yaradı
+
+Görünmüyordu. Artık her bilinçli yaklaşım (golf, rüşvet) sonucu söylüyor:
+"Hon. D. Crane Jr. now regards you as WARM." THE BENCH panelinde her bant ne satın
+aldığını yazıyor.
+
+### 7. DEV paneli
+
+Sekiz duruşmanın hepsi ayrı buton (Corvid ve Ravenscroft'a bakılamıyordu).
+`devOpenBarLetter` artık eksik `barHeat`'i kuruyor ve açık her şeyi temizliyor.
+
+### Ayrıca: dördüncü tarih-kayması hatası
+
+`npm test` HEAD'de kırıktı — benim değişikliklerimden değil. "Declining adds no prep
+fatigue" kontrolü tavanı `cost*2` sanıyordu, ama technical hamlelerin ek yorgunluğu var;
+dünkü DAILY senaryosu (ENDURANCE'lı debtor) bunu tesadüfen örtüyordu, bugünkü (legacy)
+örtmedi. Artık **kontrol grubu ölçülüyor**: kronolojisi olmayan aynı hamle. Bu sürüm
+kayamaz çünkü karşılaştırdığı şeyi ölçüyor.
+
+### Testler
+
+`npm test` yeşil (yeni: tek teklif, kazanılmış teklif kuralı, dokuz kombinasyonun
+erişilebilirliği, gerekçe kartı içeriği — üçü kasten bozulup kırıldığı doğrulandı).
+`npm run build` yeşil. `npm run test:soak` 348/348, integrity 0.
+
+### Cevaplar
+
+- **Klavye mantıklı mı?** Zaten vardı (v1.1, davalar ve krizler için); eksik olan duruşmaydı, eklendi.
+- **Kaydedip çıkma?** v1.9.31'de eklenmişti — **SET → SAVE & QUIT TO TITLE**. IRONMAN'de yok (kaydı yok).
+
+---
+
 ## 2026-08-27 (3) — Claude: dava havuzu — DURUŞMA tur 3/3 (v1.9.35)
 
 Duruşmanın son turu: içerik. Duruşma iki el yazması salonla çıkmıştı, yani bir kariyer

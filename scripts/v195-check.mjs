@@ -3580,6 +3580,76 @@ globalThis.clearInterval = () => {};
         g.id + ": the grounds card explains when to use it");
   }
 
+  // ---- REPETITION ----
+  /* Measured, not assumed: a favour fires on about a third of mornings — roughly
+     ten a career — which made it the most-repeated screen in the game when every
+     colleague asked for the same three things. The pools that a player sees MOST
+     need to be the ones with the most in them. */
+  {
+    fresh();
+    engine.startGame("legacy", "medium");
+    const bodies = new Set(), options = new Set();
+    for (const n of state.S.npcs) {
+      for (let day = 1; day <= 9; day++) {
+        const favor = npcs.buildFavor(n, day);
+        assert.ok(favor, n.id + " has a favour to ask");
+        bodies.add(favor.body);
+        for (const o of favor.opts) options.add(o.text);
+        assert.equal(favor.opts.length, 3, "a favour is still a three-way choice");
+        assert.ok(favor.opts.some(o => o.relOk > 0), n.id + ": helping is worth something");
+        assert.ok(favor.opts.some(o => o.relOk < 0), n.id + ": and declining costs something");
+      }
+    }
+    assert.ok(bodies.size >= 12, "colleagues do not repeat the same ask: " + bodies.size);
+    assert.ok(options.size >= 12,
+      "and helping one colleague is not the same act as helping another: " + options.size);
+    /* The written scenes were gated at rel 40, which favours alone can never
+       reach — three of the four existed and were never seen. */
+    /* Roughly ten favours a career spread over four colleagues means about two
+       or three land on any one of them, at +10 each. The bar has to sit inside
+       that, or the scenes behind it are written for nobody. */
+    const favourReward = npcs.buildFavor(state.S.npcs[0], 1).opts
+      .reduce((best, o) => Math.max(best, o.relOk || 0), 0);
+    /* The bar was 40 — unreachable, so three of four scenes were written for
+       nobody. It is not free to lower, either: paired soak cohorts put 25 at
+       62.5% and 40 at 66.9%, because every extra scene is another event with a
+       risky branch in it. 30 opens the content to a couple of colleagues without
+       turning "help everyone" into the difficulty setting. */
+    assert.ok(engine.STORY_AT <= favourReward * 3,
+      "a colleague's scene is reachable by helping them: " + engine.STORY_AT +
+      " needs " + Math.ceil(engine.STORY_AT / favourReward) + " favours");
+    assert.ok(engine.STORY_AT > favourReward * 2,
+      "and it still asks for a real pattern, not two errands: " + engine.STORY_AT);
+    for (const n of state.S.npcs)
+      assert.ok(npcs.buildStory(n), n.id + " has a scene behind that door");
+    // A weekend comes round every five days; one fixed card meant seeing it every time.
+    const weekends = new Set();
+    for (let seed = 0; seed < 120; seed++) {
+      utils.setSeed(seed);
+      const w = content.buildWeekend();
+      assert.equal(w.opts.length, 3);
+      assert.ok(w.opts[0].fatigue < 0, "a weekend can always be spent resting");
+      weekends.add(w.opts.map(o => o.text).join("|"));
+    }
+    assert.ok(weekends.size >= 6, "Saturdays differ: " + weekends.size);
+    /* Errands and Saturdays are not legal plays. Tagging one technical or
+       aggressive makes every system that reads style — coasting, judge memory,
+       and any policy that picks by it — treat running an errand as trying a
+       case, which measurably moved the win rate the first time it happened.
+       `boldW` is the right way to mark a gamble here. */
+    const LEGAL_STYLES = ["technical", "aggressive"];
+    for (const n of state.S.npcs)
+      for (const o of npcs.buildFavor(n, 1).opts)
+        assert.ok(!LEGAL_STYLES.includes(o.style),
+          "a favour is an errand, not a legal play: " + n.id + " / " + o.text.slice(0, 30));
+    for (let seed = 0; seed < 60; seed++) {
+      utils.setSeed(seed);
+      for (const o of content.buildWeekend().opts)
+        assert.ok(!LEGAL_STYLES.includes(o.style),
+          "a Saturday is not a legal play: " + o.text.slice(0, 30));
+    }
+  }
+
   // ---- THE BENCH ----
   /* A relationship tilts a close call and never decides one — the user was
      explicit, and it is also the only way golf stays optional instead of a

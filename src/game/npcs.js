@@ -24,24 +24,84 @@ export const relNpc=(n,d)=>{ n.rel=clamp(n.rel+d,-100,100); };
 
 /* Reverse favors: sometimes THEY need YOU. Helping builds rel; declining costs it.
    relOk/relFail on options are handled by choose() (fx stays stats-only). */
+/* Favours fire on about a third of mornings — roughly ten a career — which made
+   them the most-repeated screen in the game when every colleague asked for the
+   same three things. Now the ask AND the answers belong to the person: helping
+   Dana is not the same act as helping Harold, and the options say so. Three
+   bodies each, so the same colleague rarely repeats either. */
 const FAVOR_BODIES={
-  dana:"Dana needs the partners' phones covered for two hours while she attends 'a funeral' (a sample sale). One of the phones is Hardwick's private line. It rings. It always rings.",
-  raquel:"Raquel's night-school appellate brief is due at 9am and she's been assigned to three depositions at once. She slides it onto your desk without making eye contact. It's good. It needs to be perfect.",
-  harold:"Harold double-booked two depositions and is currently hyperventilating into a redweld folder. One of the deponents is a screamer from Snidely Fitch. Harold would not survive the screamer.",
-  katrina:"Katrina needs a witness prepped by lunch and refuses to say the word 'help'. She has instead said 'you will prep this witness', which is different, technically.",
+  dana:[
+    "Dana needs the partners' phones covered for two hours while she attends 'a funeral' (a sample sale). One of the phones is Hardwick's private line. It rings. It always rings.",
+    "Dana's been keeping the floor's holiday rota for nine years and someone has quietly rewritten it in her handwriting. She wants a second pair of eyes before she decides who to ruin.",
+    "A courier is downstairs with something Dana ordered under the firm's account and would rather nobody itemise. She needs someone to sign for it who does not ask questions.",
+  ],
+  raquel:[
+    "Raquel's night-school appellate brief is due at 9am and she's been assigned to three depositions at once. She slides it onto your desk without making eye contact. It's good. It needs to be perfect.",
+    "Raquel found a citation error in a partner's filed brief. Not hers to find, not hers to raise, and the filing goes out at noon.",
+    "Raquel has been asked to 'sit in and take notes' at a meeting where she is the only person qualified to speak. She would like someone in the room who knows that.",
+  ],
+  harold:[
+    "Harold double-booked two depositions and is currently hyperventilating into a redweld folder. One of the deponents is a screamer from Snidely Fitch. Harold would not survive the screamer.",
+    "Harold has lost a signed original. Not misplaced — lost. He has been retracing his morning out loud for twenty minutes and has reached breakfast.",
+    "Harold's client keeps calling him directly and he has stopped answering. There are now nine voicemails and a deadline neither of them has mentioned.",
+  ],
+  katrina:[
+    "Katrina needs a witness prepped by lunch and refuses to say the word 'help'. She has instead said 'you will prep this witness', which is different, technically.",
+    "Katrina wants a second signature on something she has already decided to do. She is not asking for advice and will be irritated if you offer any.",
+    "Katrina's biggest client wants a meeting at an hour she has promised her daughter. She mentions this the way other people mention the weather.",
+  ],
 };
-export function buildFavor(n){
+/* One set of options per colleague. The shape of the choice matches the person:
+   Deliberately UNSTYLED: a favour is an errand, not a legal play. Tagging these
+   technical/aggressive made every system that reads style — coasting, judge
+   memory, and any policy that picks by it — treat running an errand as trying a
+   case. `boldW` still marks the ones that are a gamble.
+   Dana trades in discretion, Raquel in credit, Harold in dignity, Katrina in
+   leverage — so ten favours a career are ten different decisions. */
+const FAVOR_OPTS={
+  dana:n=>[
+    {text:"Cover the line. Take messages. Forget them afterwards.",base:100,safe:true,relOk:10,
+      ok:{fx:{bold:-2,inf:1},txt:"You hand her four notes and no commentary. Dana files that away under the only heading she keeps."}},
+    {text:"Cover it — and read what crosses the desk.",base:58,boldW:1,relOk:2,relFail:-10,
+      ok:{fx:{inf:6},txt:"Two hours of other people's business. Most of it dull. Not all of it."},
+      fail:{fx:{rep:-4},txt:"Dana returns early. She does not say anything, which is how you know."}},
+    {text:"Tell her to ask someone whose name is on fewer files.",base:100,safe:true,relOk:-8,
+      ok:{fx:{inf:1},txt:"'Of course,' she says, and writes nothing down. Dana never needs to write it down."}}],
+  raquel:n=>[
+    {text:"Fix it properly and put her name on it alone.",base:100,safe:true,relOk:10,
+      ok:{fx:{bold:-2,inf:1},txt:"It goes out under her name. She reads the sent folder twice."}},
+    {text:"Fix it and co-sign — the partners should see you both.",base:55,boldW:1,relOk:4,relFail:-6,
+      ok:{fx:{inf:5},txt:"Two names, one good brief. Useful for exactly one of you, and she knows which."},
+      fail:{fx:{rep:-4},txt:"It reads as your work with her name attached for decoration. She notices first."}},
+    {text:"Hand it back. She has to learn to say no to three of them.",base:100,safe:true,relOk:-8,
+      ok:{fx:{inf:1},txt:"Correct, and useless to her tonight. She does all three anyway."}}],
+  harold:n=>[
+    {text:"Take the screamer yourself. Harold takes the other one.",base:100,safe:true,relOk:10,
+      ok:{fx:{bold:-2,inf:1},txt:"You spend two hours being shouted at by a professional. Harold spends them being competent."}},
+    {text:"Sit in with him. He runs it, you catch what falls.",base:62,relOk:6,relFail:-4,
+      ok:{fx:{inf:4,rep:2},txt:"He gets through it himself, which is worth more to him than surviving it would have been."},
+      fail:{fx:{rep:-3},txt:"He freezes, you take over mid-sentence, and everyone in the room understands what happened."}},
+    {text:"Tell him to reschedule and take the hit.",base:100,safe:true,relOk:-8,
+      ok:{fx:{inf:1},txt:"He reschedules. The client notices. Harold notices the client noticing."}}],
+  katrina:n=>[
+    {text:"Do it without comment, the way she asked.",base:100,safe:true,relOk:10,
+      ok:{fx:{bold:-2,inf:1},txt:"No thanks, no acknowledgement. With Katrina that IS the acknowledgement."}},
+    {text:"Do it, and ask for something in return.",base:50,boldW:2,relOk:6,relFail:-12,
+      ok:{fx:{inf:7,bold:3},txt:"'Finally,' she says. 'I was starting to think you were nice.'"},
+      fail:{fx:{rep:-5},txt:"'That is not how this works yet.' The 'yet' is doing a great deal of work."}},
+    {text:"Decline. She did not ask nicely and you are not staff.",base:100,safe:true,relOk:-8,
+      ok:{fx:{bold:3},txt:"She looks at you properly for the first time in weeks. Hard to tell if that is good."}}],
+};
+export function buildFavor(n,day){
+  const bodies=FAVOR_BODIES[n.id]||[];
+  const opts=FAVOR_OPTS[n.id];
+  if(!bodies.length||!opts) return null;
+  // Rotate the ask so the same colleague does not repeat within a career.
+  const body=bodies[Math.abs(Math.trunc(Number(day)||0)+n.id.length)%bodies.length];
   return {id:"favor_"+n.id, favor:true, npc:n.id, tier:0, deadline:1,
     title:"FAVOR: "+n.name.split(" ")[0]+" needs a hand",
-    body:FAVOR_BODIES[n.id],
-    opts:[
-      {text:"Do it properly. No credit needed.",base:100,safe:true,relOk:10,
-        ok:{fx:{bold:-2,inf:1},txt:"Done quietly. They notice. Their kind always notices."}},
-      {text:"Do it — and make sure the partners hear about it.",base:55,boldW:1,relOk:4,relFail:-6,
-        ok:{fx:{inf:5},txt:"Helpful AND visible. A dangerous combination."},
-        fail:{fx:{rep:-4},txt:"It reads like you hijacked their crisis for applause. Because you did."}},
-      {text:"Decline. Billables come first.",base:100,safe:true,relOk:-8,
-        ok:{fx:{inf:1},txt:"They smile politely. People here smile like invoices."}}]};
+    body,
+    opts:opts(n)};
 }
 
 /* ---------- the Name Partner's roster (endless endgame) ----------

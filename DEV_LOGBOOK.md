@@ -84,6 +84,80 @@ Tarayıcıda panel açıldı, SNEAKY 5 ile kilit board'u açıldı (3 pik), reve
 
 ---
 
+## 2026-08-28 (2) — Claude: tekrar taraması ve en görünür tekrarın kaldırılması (v1.9.37)
+
+Kullanıcı "oyuncular sıkılır mı, çok tekrar var mı" diye sordu. Tahmin yerine sayıldı.
+
+### Ölçüm: nerede tekrar VAR, nerede YOK
+
+| içerik | havuz | kariyerde | değerlendirme |
+|---|---|---|---|
+| el yazması dava | 17 | her biri 1 kez | sorun yok |
+| prosedürel dava | 24 şablon | ~2.1 kez | tür için normalin üstünde |
+| kriz | 8 | `usedCrises` her birini 1 kez işaretliyor | tekrar imkânsız |
+| duruşma | 8 salon + üretilen | — | bu turda zaten çözülmüştü |
+| **favor** | **1 şablon / 3 seçenek** | **~10 kez** | **oyundaki en tekrarlı şey, farkla** |
+| hafta sonu kartı | 3 | ~5 kez | her biri ~1.7 kez |
+| NPC hikâyesi | 4 yazılmış | ~1 açılıyor | yazılanın dörtte üçü hiç görülmüyor |
+
+30 günlük bir kariyerde okuduğun dava metinlerinin **%25'i tamamen benzersiz**, gerisi
+varyasyon. Sıkılma riski mekanikte değildi — her sabah karşına çıkan favor kartındaydı.
+
+### 1. Favor: 3 seçenek → 12
+
+Her meslektaşın artık **kendi seçenekleri** var, çünkü Dana'ya yardım etmekle Harold'a
+yardım etmek aynı şey değil: Dana ketumlukla, Raquel krediyle, Harold onuruyla, Katrina
+kozla iş yapıyor. Gövde de 4→12 (her NPC için üç ayrı istek, güne göre dönüyor).
+
+Ölçüm: **12 gövde, 12 farklı seçenek** (önce 4 ve 3).
+
+**Ve bir tuzak:** ilk sürümde hem favor hem hafta sonu seçeneklerine
+`style:"technical"/"aggressive"` yazmıştım. Soak %66.6 → **%61.3**'e düştü. Sebep denge
+değildi: **favor bir angarya, cumartesi bir gün — ikisi de hukuki hamle değil** — ama stil
+etiketi verince stile göre karar veren her sistem (coasting, hakim hafızası, politika
+botları) ayak işini dava sanmaya başladı. İki dosyadan da kaldırıldı, `boldW` kaldı ve
+**kalıcı regresyon** artık hiçbir favor/hafta sonu seçeneğinin bu etiketleri taşımamasını
+zorluyor (bozulunca kırıldığı doğrulandı).
+
+### 2. Yazılmış ama görülmeyen içerik — ve bedeli
+
+NPC hikâye eşiği **40'tı**. Favor +10 veriyor ve kariyerde bir NPC'ye ~2.5 kez düşüyor —
+yani favorla ulaşılabilecek tavan **+25**. Dört sahne yazılmış, biri açılıyordu.
+
+Ama eşiği düşürmek bedava DEĞİL: her ek sahne, riskli kolu olan bir event daha demek.
+Aynı seed'lerle eşleştirilmiş ölçüm:
+
+| STORY_AT | kazanma | kovulma |
+|---|---|---|
+| 40 (eski) | %66.9 | %9.1 |
+| 25 (ilk deneme) | **%62.5** | %10.3 |
+| **30 (seçilen)** | **%66.6** | **%9.7** |
+
+**30** seçildi: içeriği bir-iki meslektaşa açıyor ama "herkese yardım et"i zorluk ayarına
+çevirmiyor. Regresyon hem alt hem üst sınırı favor ödülünden türetiyor — ödül değişirse
+test kırılır.
+
+### 3. Hafta sonu: 3 sabit kart → 6'dan 3
+
+Altı kart havuzu, üçü dağıtılıyor ve **dinlenme seçeneği her zaman içeride** (dinlenilemeyen
+bir hafta sonu seçim değil, program). Yeni kartlar farklı yönlere çekiyor: akşam yemeği
+(dinlenme+REP), baro kokteyli (INF), "normalde hayır diyeceğin şeye evet de" (kumar).
+Ölçüm: 1 kombinasyon → **20**.
+
+### Son ölçüm
+
+Tam matris (320 kariyer): **%66.6 kazanma, medyan gün 20, integrity 0** — bu batch
+öncesiyle aynı bant. Daha çok içerik, aynı zorluk.
+
+### Testler
+
+`npm test` yeşil — yeni blok favor gövde/seçenek çeşitliliğini, her seçenekte yardımın
+artı ve reddin eksi olmasını, hikâye eşiğinin favorla ulaşılabilirliğini ve hafta sonunun
+her zaman dinlenilebilir olmasını zorluyor. Guard'ın bozulunca kırıldığı doğrulandı
+(seçenekler tek sete indirilince "helping one colleague is not the same act" düştü).
+
+---
+
 ## 2026-08-28 — Claude: oynanış geri bildirimi — uzlaşma, ezber, gerekçe kartı (v1.9.36)
 
 Kullanıcının ilk gerçek playtest'inden gelen maddeler.

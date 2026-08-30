@@ -371,6 +371,12 @@
 - **Golf/rüşvet sonucu görünür:** her bilinçli yaklaşım bandı loglar; BENCH panelinde her bant ne satın aldığını yazar.
 - **TEST FIX (4. tarih-kayması):** "declining adds no prep fatigue" tavanı `cost*2` sanıyordu ama technical'ın ek yorgunluğu var; DAILY senaryosu debtor→legacy değişince kırıldı. Artık kronolojisiz aynı hamle **kontrol grubu olarak ölçülüyor**.
 
+**v1.9.37 eklendi (2026-08-28, tekrar taraması):**
+- **Ölçüm:** 30 günlük kariyerde dava metinlerinin %25'i benzersiz, gerisi varyasyon (17 el yazması + 24 şablon × ~2.1). Krizler `usedCrises` ile run başına 1 kez — tekrar imkânsız. **Tek gerçek tekrar favordu:** 1 şablon, 3 seçenek, kariyerde ~10 kez.
+- **Favor 3→12 seçenek:** her NPC'nin kendi seçenekleri (Dana ketumluk, Raquel kredi, Harold onur, Katrina koz) + gövde 4→12, güne göre döner. **UYARI:** favor VE hafta sonu seçeneklerine `style` YAZMA — angarya ve cumartesi hukuki hamle değil; stil etiketi coasting/hakim hafızası/politika botlarını yanıltır ve soak'ı %66.6→%61.3 düşürür (ölçüldü). `boldW` kullan; regresyon bunu zorlar.
+- **NPC hikâye eşiği 40→30 (`STORY_AT`):** favor +10 verir ve bir NPC'ye kariyerde ~2.5 kez düşer, yani eski 40 tavanı ulaşılamazdı — dört sahne yazılmış, biri açılıyordu. Ama düşürmek bedava DEĞİL (her sahne riskli kolu olan bir event): eşleştirilmiş soak 40→%66.9, 25→%62.5, **30→%66.6**. Regresyon eşiğin hem alt hem üst sınırını favor ödülünden türetir.
+- **Hafta sonu 3 sabit kart → 6'dan 3 dağıtılır** (dinlenme her zaman içeride). 1 kombinasyon → 20.
+
 **Dış denetim notu (Codex, 2026-08-12):** Bayat/untracked `AGENTS.md` yüzünden gerçek checkpoint yanlışlıkla v1.9.1/hakim hafızası sanılmıştı. Hakim hafızası v1.9.8/v1.9.13'te bitmişti; gerçek yarım iş v1.9.16 sonrası Power Cut entegrasyonuydu. Yarım model/UI dosyaları korunup engine/content/save/CSS/test zinciri tamamlandı.
 
 **En son çalışılan konu (2026-08-18):** v1.9.21 `ea50a3894` ile pushlandı; ardından v1.9.22 (Contradiction Board, schema v17), v1.9.22.1 (gerçek madeni para yazı-tura) ve v1.9.23 (sabotaj zorluk eğrisi + ilk açılış walkthrough'u, schema v18) tamamlandı ve kullanıcının push'unu bekliyor. `npm test`, `npm run build`, `npm run test:soak` (replay 336/336, integrity 0) yeşil; tarayıcıda gerçek tıklamalarla doğrulandı. Güncel ortak handoff ve oturum günlüğü `DEV_LOGBOOK.md`'dir. Sıradaki kullanıcı-onaylı iş **mobil layout + Capacitor**; bağlamsal SFX, GitHub Pages demo ve Steam paketleme sonraki backlog'dur.

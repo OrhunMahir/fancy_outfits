@@ -4,7 +4,7 @@
 //   { text, base, boldW?, style?, safe?, delay?, ok:{fx,txt}, fail:{fx,txt} }
 //   or a rare { text, style:"covert", action:{...} } interactive action. ] }
 import { S } from "./state.js";
-import { rnd } from "./utils.js";
+import { rnd, rand } from "./utils.js";
 
 export function buildPool(){
   const P=[];
@@ -655,20 +655,44 @@ export function crises(){
 
 /* the Saturday interlude: fires the morning after every Friday review.
    rest = big fatigue wipe; golf = INF gamble + next judge pre-read; office = head start, tired. */
+/* Saturdays come round every five days — about five a career — and three cards
+   meant seeing each one twice. Six is enough that a weekend rarely repeats, and
+   they pull in different directions: rest, money, standing, or a head start.
+   UNSTYLED on purpose, like favours: a Saturday is not a legal play, and tagging
+   one technical/aggressive makes every system that reads style treat a night out
+   as a case. `boldW` still marks the gambles. */
+const WEEKEND_CARDS=[
+  ()=>({text:"Sleep. Curtains closed. Phone in a drawer.",base:100,safe:true,fatigue:-30,
+    ok:{fx:{},txt:"By Sunday evening you feel almost human. Almost. (-30 FATIGUE)"}}),
+  ()=>({text:"Networking golf at Pinewood Glen. (-$200, -10 FATIGUE)",base:55,boldW:1,fatigue:-10,
+    ok:{fx:{money:-200,inf:5,rep:2},golf:true,txt:"Eighteen holes with people who matter. You now know a judge's handicap, swing, and weaknesses. Fresh air helped, too."},
+    fail:{fx:{money:-200,bold:-2},txt:"You lost eleven balls and the thread of every conversation. The club sends a lost-and-found invoice. At least the sun was nice."}}),
+  ()=>({text:"Go to the office. The files miss you.",base:100,safe:true,hours:-2,fatigue:10,
+    ok:{fx:{inf:1},txt:"You pre-read Monday's files in a silent building. +2h head start. The plants judge you."}}),
+  ()=>({text:"Dinner with people who do not know what a tolling agreement is. (-$150, -18 FATIGUE)",base:100,safe:true,fatigue:-18,
+    ok:{fx:{money:-150,rep:2,bold:-2},txt:"Nobody asks about work. Somebody asks about you, and you have to think about the answer."}}),
+  ()=>({text:"Bar association mixer. Warm wine, cold room. (-10 FATIGUE)",base:62,fatigue:-10,
+    ok:{fx:{inf:6},txt:"Two useful conversations out of forty. That is a good night at one of these."},
+    fail:{fx:{bold:-3},txt:"You stand near the cheese for an hour and leave having handed out no cards at all."}}),
+  ()=>({text:"Say yes to something you would normally decline.",base:48,boldW:2,fatigue:-12,
+    ok:{fx:{inf:5,bold:5},txt:"You do not remember agreeing to it and you would do it again."},
+    fail:{fx:{rep:-3,money:-300},txt:"Monday arrives holding a receipt and a photograph. Neither is flattering."}}),
+];
 export function buildWeekend(){
+  /* Three of six, always including the option to actually rest — a weekend that
+     cannot be spent resting is not a choice, it is a schedule. */
+  const rest=WEEKEND_CARDS[0]();
+  const pool=WEEKEND_CARDS.slice(1);
+  const draw=[];
+  for(let i=0;i<2&&pool.length;i++) draw.push(pool.splice(Math.floor(rand()*pool.length),1)[0]());
   return {id:"weekend",weekend:true,title:"SATURDAY — THE WEEK RELEASES YOU",
     body:"Five days of billing are behind you. The building exhales. Two days belong — theoretically — to you. "+
       rnd(["Your phone is already lit with 'quick questions'.",
            "Somewhere, a partner is drafting a Sunday-night email.",
-           "The espresso machine gets the weekend off. You might too."]),
-    opts:[
-      {text:"Sleep. Curtains closed. Phone in a drawer.",base:100,safe:true,fatigue:-30,
-        ok:{fx:{},txt:"By Sunday evening you feel almost human. Almost. (-30 FATIGUE)"}},
-      {text:"Networking golf at Pinewood Glen. (-$200, -10 FATIGUE)",base:55,boldW:1,fatigue:-10,
-        ok:{fx:{money:-200,inf:5,rep:2},golf:true,txt:"Eighteen holes with people who matter. You now know a judge's handicap, swing, and weaknesses. Fresh air helped, too."},
-        fail:{fx:{money:-200,bold:-2},txt:"You lost eleven balls and the thread of every conversation. The club sends a lost-and-found invoice. At least the sun was nice."}},
-      {text:"Go to the office. The files miss you.",base:100,safe:true,hours:-2,fatigue:10,
-        ok:{fx:{inf:1},txt:"You pre-read Monday's files in a silent building. +2h head start. The plants judge you."}}]};
+           "The espresso machine gets the weekend off. You might too.",
+           "Nobody has emailed since Friday, which is its own kind of alarming.",
+           "There is a voicemail you have decided to hear on Monday."]),
+    opts:[rest,...draw]};
 }
 
 export const SCENARIOS={

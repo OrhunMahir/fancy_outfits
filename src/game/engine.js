@@ -1077,9 +1077,12 @@ function continueMorning(){
     const ge=buildGlobalEvent(S.clients);
     if(ge){ SFX.crisis(); S.event=ge; S.runStats.crises++; }
   }
-  // a colleague you've earned (rel 40+) may open a door — once per run each
+  /* A colleague you've earned may open a door — once per run each. The bar used
+     to be 40, which favours alone can never reach (about +25 across a career),
+     so three of the four scenes were written and never seen. 30 still asks for
+     a run of quiet help, and now more than one colleague can get there. */
   if(!S.event){
-    const friend=S.npcs.find(n=>n.rel>=40&&!S.npcStories.includes(n.id));
+    const friend=S.npcs.find(n=>n.rel>=STORY_AT&&!S.npcStories.includes(n.id));
     if(friend){ const st=buildStory(friend); if(st){ S.npcStories.push(friend.id); SFX.open(); S.event=st; } }
   }
   clientAcquisition();
@@ -1170,6 +1173,12 @@ export function knownJudges(){
   return JUDGES.filter(j=>seen.has(j.id));
 }
 
+/* The bar a colleague's scene sits behind. It was 40, which nothing short of a
+   perfect run of delegations could reach — so three of the four written scenes
+   existed and were never seen. Favours give +10 and land on one colleague about
+   two or three times a career; a won delegation gives +6. 25 asks for a real
+   pattern of helping the same person without asking for a statistical miracle. */
+export const STORY_AT=30;
 export const GOLF_COST=600, GOLF_HOURS=2, GOLF_FATIGUE=5, GOLF_COOLDOWN=4;
 export const canGolf=judge=>{
   const rec=judge&&S?judgeRelRecord(judge):null;
@@ -2364,7 +2373,9 @@ export function pitchTurnaround(){
 export function spawnFavor(){
   if(!S.npcs.length) return; // endless: you may have fired the entire floor
   const n=rnd(S.npcs);
-  S.inbox.unshift(instantiateCase(buildFavor(n)));
+  const favor=buildFavor(n,S.day);
+  if(!favor) return;
+  S.inbox.unshift(instantiateCase(favor));
   log(n.name.split(" ")[0]+" left a favor on your desk. Due today.","sys");
   notify();
 }

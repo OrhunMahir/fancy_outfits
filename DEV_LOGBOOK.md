@@ -18,6 +18,65 @@ Her çalışma oturumunda:
 
 ---
 
+## 2026-09-03 — Claude: Steam hazırlık turu (v1.9.39)
+
+### Ne yapıldı
+
+Logbook'taki üç maddenin üçü de kapandı.
+
+1. **Versiyon** — `package.json` `0.3.0` → `1.9.38` → `1.9.39`. Başka yerde referans yoktu.
+2. **Font yerelleştirildi** — `styles.css`'teki Google Fonts `@import`'u gitti. `src/fonts/`
+   altında latin (4.7 KB) + latin-ext (3.7 KB) woff2, `@font-face` ile. Lisans `src/fonts/OFL.txt`
+   (SIL OFL 1.1, Press Start 2P Project Authors). `index.html` CSP'sinden `fonts.googleapis.com`
+   ve `fonts.gstatic.com` çıkarıldı. `font-display:block` seçildi (`swap` değil): monospace
+   flash'ı 8px tipografide bütün panelleri reflow ettiriyor.
+   Not: latin-ext 4096 byte altında olduğu için Vite onu base64 data URI'ye gömüyor — CSP'de
+   `font-src 'self' data:` zaten var, sorun değil.
+3. **Save'ler dosyaya taşındı** — Steam Cloud dosya senkronize ediyor, Chromium LevelDB'sini
+   edemiyor.
+   - `src/game/store.js` — tek adaptör. Tarayıcıda `localStorage`, Electron'da `window.foStore`.
+   - `electron/store.js` — anahtar başına bir dosya, `userData/saves` altında. **Electron
+     gerektirmeden test edilebilsin diye main.js'ten ayrı tutuldu.**
+   - `electron/preload.js` — sandbox'lı, `fs` yok, `contextBridge` + `sendSync`.
+   - `engine.js` / `achievements.js` / `settings.js` / `intro.js` → `store.*`.
+
+### Tuzaklar (biri gerçek regresyondu)
+
+1. **`getItem` throw'u yutmak yasak.** İlk sürümde `catch(e){return null}` yazdım; engine
+   "storage kapalı" (`unavailable`) ile "slot boş" (`empty`) ayrımını **okumanın throw etmesiyle**
+   yapıyor. Test yakaladı. Aynı sebeple dosya deposu da `{ok,data}` döndürüyor: dizin yoksa
+   ilk açılış (`ok`), okunamıyorsa arıza (`!ok`) — ikincisinde renderer'da okuma throw eder.
+   Aksi halde erişilemeyen save'ler boş görünür ve oyuncu üzerine yazmaya davet edilir.
+2. **Yazma atomik**: tmp + rename. Yarıda kalan yazım eski save'i bozmuyor.
+3. **Anahtar sanitizasyonu** `^[A-Za-z0-9_.-]{1,120}$` — `../` kaçışı reddediliyor.
+4. **`sendSync` bilinçli tercih.** Fire-and-forget olsaydı yazma hatası bildirilemezdi ve
+   AUTO-SAVE FAILED bandı sessizce ölürdü. Payload onlarca KB, disk yerel.
+5. esbuild ESM bundle'ı CJS `require`'ı desteklemiyordu; `run-v195-check.cjs`'e `createRequire`
+   banner'ı eklendi.
+
+### Testler
+
+`npm run build` ✓ · `npm test` ✓ · tarayıcıda font + sıfır Google isteği doğrulandı ·
+`npx electron .` temiz açıldı · **uçtan uca smoke**: gerçek `preload.js` → gerçek ipc kanalları
+→ gerçek `store.js` (write/read/remove/kötü anahtar) elle çalıştırıldı ve geçti.
+
+Yeni kalıcı guard'lar: CSP ve stylesheet'te uzak host yok, `styles.css`'in gösterdiği her woff2
+repoda **var mı** diye kontrol ediliyor, persist eden her modül `store.js`'ten geçiyor, dosya
+deposu round-trip/atomik/kötü-anahtar/eksik-dizin davranışları. **Üçünü de bilerek kırıp
+gerçekten fail ettiklerini doğruladım** — ilk font guard'ı ikinci `@font-face` yüzünden
+ısırmıyordu, dosya varlığı kontrolüne çevrildi.
+
+### Sıradaki kesin adım
+
+Kullanıcı mobil-mi-Steam-mi diye sordu; cevap turun sonunda verildi. Teknik olarak bu turun
+üçü de **her iki hedefe** yarıyor (Capacitor da yerel font ve dosya tabanlı depolama ister).
+
+Sırada: DEV panelinin paketlenmiş build'de kapalı olduğunu doğrulamak, `electron-builder`
+(ikonlar `assets/logo/` altında hazır), gerçek Windows testi (v1.9.3 donma düzeltmesi hâlâ
+doğrulanmadı), `steamworks.js`. Onaylı backlog: mobil layout + Capacitor, GitHub Pages demo.
+
+---
+
 ## 2026-09-03 — Claude: logo (v1.9.38)
 
 ### Karar

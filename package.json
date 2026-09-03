@@ -1,7 +1,7 @@
 {
   "name": "fancy-outfits",
   "productName": "FANCY OUTFITS",
-  "version": "0.3.0",
+  "version": "1.9.39",
   "description": "A pixel-styled lawyer career simulation. Read case files, pick your words, become Name Partner.",
   "main": "electron/main.js",
   "scripts": {

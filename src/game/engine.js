@@ -55,6 +55,7 @@ import { CASE_XP, COVERT_XP, CRISIS_XP, DELEGATED_XP, MAX_SKILL, SKILL_IDS, SKIL
 import { FRAUD_RISK_VERSION, buildFraudAuditEvent, buildFraudInquiryEvent, buildFraudSlipEvent,
          createFraudRisk, createFraudRiskV1, fraudEventValidationError, fraudRiskInfo as getFraudRiskInfo,
          fraudRiskV1ValidationError, fraudRiskValidationError, fraudSlipChance } from "./fraud.js";
+import * as store from "./store.js";
 export { buildDemand, buildBigMatter }; // re-export: dev console + tests poke these directly
 
 let flashSeq=0;
@@ -2775,9 +2776,9 @@ export function hireDetective(c){
   saveGame();
 }
 
-/* ---------- versioned save/load (localStorage, 3 slots) ---------- */
+/* ---------- versioned save/load (3 slots, via store.js) ---------- */
 const normalizeSlot=n=>clamp(Number.isFinite(Number(n))?Math.floor(Number(n)):1,1,3);
-let activeSlot=(()=>{ try{ return normalizeSlot(Number(localStorage.getItem("fo_slot"))||1); }catch(e){ return 1; } })();
+let activeSlot=(()=>{ try{ return normalizeSlot(Number(store.getItem("fo_slot"))||1); }catch(e){ return 1; } })();
 const slotKey=n=>SAVE_KEY+"_s"+normalizeSlot(n==null?activeSlot:n);
 const plain=v=>!!v&&typeof v==="object"&&!Array.isArray(v);
 const validSummary=sum=>plain(sum)&&["nextDay","dismiss","reload"].includes(sum.action)&&typeof sum.title==="string"&&Array.isArray(sum.lines)&&typeof sum.btnTxt==="string";
@@ -3786,13 +3787,13 @@ function writeFailure(error){
 // empty or damaged, and never delete the only healthy copy.
 export function migrateLegacySave(){
   try{
-    const legacy=localStorage.getItem(SAVE_KEY);
-    const target=localStorage.getItem(slotKey(1));
+    const legacy=store.getItem(SAVE_KEY);
+    const target=store.getItem(slotKey(1));
     const resumable=raw=>{ try{ const d=migrateSaveData(JSON.parse(raw)); return !d.over; }catch(e){ return false; } };
     if(legacy&&resumable(legacy)&&!resumable(target)){
-      localStorage.setItem(slotKey(1),legacy);
-      if(localStorage.getItem(slotKey(1))===legacy) localStorage.removeItem(SAVE_KEY);
-    } else if(legacy&&resumable(target)) localStorage.removeItem(SAVE_KEY);
+      store.setItem(slotKey(1),legacy);
+      if(store.getItem(slotKey(1))===legacy) store.removeItem(SAVE_KEY);
+    } else if(legacy&&resumable(target)) store.removeItem(SAVE_KEY);
   }catch(e){}
 }
 migrateLegacySave();
@@ -3800,7 +3801,7 @@ migrateLegacySave();
 export const getSlot=()=>activeSlot;
 export function setSlot(n){
   activeSlot=normalizeSlot(n);
-  try{ localStorage.setItem("fo_slot",String(activeSlot)); return true; }
+  try{ store.setItem("fo_slot",String(activeSlot)); return true; }
   catch(e){ return false; }
 }
 
@@ -3814,7 +3815,7 @@ export function saveGame(){
   try{ json=JSON.stringify(payload); }
   catch(e){ return storageFailure("serialize","The run contains data the save system cannot serialize. This session is still playable."); }
   try{
-    localStorage.setItem(slotKey(S.slot),json);
+    store.setItem(slotKey(S.slot),json);
     if(S.saveError){ S.saveError=null; log("AUTO-SAVE RESTORED: this run is protected again.","sys"); notify(); }
     return true;
   }catch(e){ return writeFailure(e); }
@@ -3823,7 +3824,7 @@ export function saveGame(){
 export function inspectSave(n){
   const slot=normalizeSlot(n);
   let raw;
-  try{ raw=localStorage.getItem(slotKey(slot)); }
+  try{ raw=store.getItem(slotKey(slot)); }
   catch(e){ return {slot,status:"unavailable",save:null,message:"Browser storage is unavailable."}; }
   if(raw===null) return {slot,status:"empty",save:null};
   let parsed;
@@ -3866,7 +3867,7 @@ export function loadGame(n){
 }
 
 export function clearSaveSlot(n){
-  try{ localStorage.removeItem(slotKey(n)); return true; }
+  try{ store.removeItem(slotKey(n)); return true; }
   catch(e){ if(S) writeFailure(e); return false; }
 }
 function clearSave(){ return S&&S.mode==="ironman"?true:clearSaveSlot(S&&S.slot); }
@@ -3886,20 +3887,20 @@ export function quitToMenu(){
 }
 export function dismissSaveError(){ if(S&&S.saveError){ S.saveError=null; notify(); } }
 export function getStats(){
-  try{ return JSON.parse(localStorage.getItem(STATS_KEY)); }catch(e){ return null; }
+  try{ return JSON.parse(store.getItem(STATS_KEY)); }catch(e){ return null; }
 }
 function recordRun(won,cause){
   try{
     const st=getStats()||{runs:0,wins:0,bestDay:0,bestRank:0,causes:{}};
     if(S.runRecorded){ // ENDLESS already counted the win; still preserve the true final career length
       st.bestDay=Math.max(st.bestDay,S.day); st.bestRank=Math.max(st.bestRank,S.rank);
-      localStorage.setItem(STATS_KEY,JSON.stringify(st)); return;
+      store.setItem(STATS_KEY,JSON.stringify(st)); return;
     }
     S.runRecorded=true; // endless: the win counts once, the eventual fall doesn't double-count
     st.runs++; if(won) st.wins++;
     st.bestDay=Math.max(st.bestDay,S.day); st.bestRank=Math.max(st.bestRank,S.rank);
     if(!won) st.causes[cause]=(st.causes[cause]||0)+1;
-    localStorage.setItem(STATS_KEY,JSON.stringify(st));
+    store.setItem(STATS_KEY,JSON.stringify(st));
   }catch(e){}
 }
 

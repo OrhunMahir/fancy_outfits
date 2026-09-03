@@ -1,9 +1,21 @@
 "use strict";
 // Electron shell for FANCY OUTFITS. The game is a Vite+React app under src/;
 // this wrapper loads the built output (dist/) for the Steam desktop target.
-const { app, BrowserWindow, Menu } = require("electron");
+const { app, BrowserWindow, Menu, ipcMain } = require("electron");
 const path = require("path");
 const { pathToFileURL } = require("url");
+
+// ---- persistence ---------------------------------------------------------
+// Saves live as files under userData/saves, NOT in localStorage: Steam Cloud
+// syncs files by path and cannot sync Chromium's LevelDB. The store itself is
+// in electron/store.js so it can be tested without booting Electron.
+const { createFileStore } = require("./store.js");
+let store = null;
+const saveStore = () => (store || (store = createFileStore(path.join(app.getPath("userData"), "saves"))));
+
+ipcMain.on("fo-store:read-all", e => { e.returnValue = saveStore().readAll(); });
+ipcMain.on("fo-store:write", (e, key, value) => { e.returnValue = saveStore().write(String(key), String(value)); });
+ipcMain.on("fo-store:remove", (e, key) => { e.returnValue = saveStore().remove(String(key)); });
 
 const LOCAL_DEV_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 function safeDevUrl(raw){
@@ -27,7 +39,10 @@ function createWindow(){
     backgroundColor: "#1a1c2c",                 // matches --bg so startup doesn't flash white
     title: "FANCY OUTFITS",
     show: false,                                // reveal only once painted (no blank/frozen window)
-    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true }
+    webPreferences: {
+      contextIsolation: true, nodeIntegration: false, sandbox: true,
+      preload: path.join(__dirname, "preload.js")
+    }
   });
 
   // Launch MAXIMIZED, not forced-fullscreen: fullscreen-at-launch is the other

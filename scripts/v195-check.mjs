@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createFileStore } from "../electron/store.js";
 
 const storage = new Map([
   ["fo_settings_v1", JSON.stringify({ dayLen: 8, sfx: 0, bgm: 0, shake: false })],
@@ -4031,6 +4034,74 @@ globalThis.clearInterval = () => {};
     .filter(line => /state\.S\.fatigue/.test(line) && /\[[^\]]*\b(?:6|7|8|9)\b/.test(line) && !/toil\(/.test(line) && !/fatigue-literal-ok/.test(line));
   assert.deepEqual(hardcodedFatigue, [],
     "work-fatigue expectations must be derived through toil(), never written as a literal");
+
+  // The desktop build must open with no network at all: a Steam player on a plane
+  // still needs the pixel font, and an 8px layout falls apart in monospace.
+  const stylesSource = readFileSync("src/styles.css", "utf8");
+  assert.doesNotMatch(stylesSource, /@import[^;]*https?:/,
+    "styles.css must not pull a stylesheet off the network");
+  assert.doesNotMatch(stylesSource, /url\(\s*['"]?https?:/,
+    "every font and image styles.css references must ship with the game");
+  const fontRefs = [...stylesSource.matchAll(/url\(\s*['"]?(\.\/[^'")]+\.woff2)['"]?\s*\)/g)].map(m => m[1]);
+  assert.ok(fontRefs.length >= 1, "Press Start 2P has to be declared from a local file");
+  for (const ref of fontRefs) {
+    assert.ok(existsSync(join("src", ref.replace(/^\.\//, ""))),
+      `styles.css points at ${ref}, which is not in the repo — the build would ship a broken font`);
+  }
+  for (const host of ["fonts.googleapis.com", "fonts.gstatic.com"]) {
+    assert.ok(!readFileSync("index.html", "utf8").includes(host),
+      `index.html CSP still allows ${host}; the font is local now`);
+  }
+
+  // Every module that persists anything goes through store.js, so the desktop
+  // build can put it in a file Steam Cloud syncs. A stray localStorage call
+  // would silently keep that key out of the cloud.
+  for (const file of ["src/game/engine.js", "src/game/achievements.js",
+                      "src/game/settings.js", "src/game/intro.js"]) {
+    const src = readFileSync(file, "utf8").replace(/^\s*\/\/.*$/gm, "");
+    assert.doesNotMatch(src, /\blocalStorage\s*\./,
+      `${file} must persist through store.js, not localStorage directly`);
+  }
+
+  // The file store behind the desktop build: round trip, atomic replace, a
+  // missing folder reading as a fresh install, and unknown keys refused.
+  {
+    const dir = mkdtempSync(join(tmpdir(), "fo-store-"));
+    const target = join(dir, "saves");
+    const fileStore = createFileStore(target);
+    const fresh = fileStore.readAll();
+    assert.deepEqual(fresh, { ok: true, data: {} }, "a first launch is not a failure");
+    assert.equal(fileStore.write("fo_save_v1_s1", '{"day":3}'), null);
+    assert.deepEqual(fileStore.readAll().data, { fo_save_v1_s1: '{"day":3}' });
+    assert.equal(fileStore.write("fo_save_v1_s1", '{"day":4}'), null);
+    assert.deepEqual(fileStore.readAll().data, { fo_save_v1_s1: '{"day":4}' },
+      "a second write replaces the file rather than appending");
+    assert.deepEqual(readdirSync(target).filter(n => n.endsWith(".tmp")), [],
+      "the temp file used for the atomic rename must not survive");
+    assert.ok(fileStore.write("../escape", "x"), "a key outside the store is refused");
+    assert.ok(fileStore.remove("../escape"), "so is removing one");
+    assert.equal(fileStore.remove("fo_save_v1_s1"), null);
+    assert.deepEqual(fileStore.readAll().data, {});
+    rmSync(dir, { recursive: true, force: true });
+  }
+
+  // ...and the shell actually wires that store to the renderer. The smoke path
+  // (preload -> ipc -> store) is verified by hand; this keeps the three seams
+  // from being renamed apart.
+  {
+    const mainSource = readFileSync("electron/main.js", "utf8");
+    const preloadSource = readFileSync("electron/preload.js", "utf8");
+    for (const channel of ["fo-store:read-all", "fo-store:write", "fo-store:remove"]) {
+      assert.ok(mainSource.includes(`ipcMain.on("${channel}"`), `main.js must serve ${channel}`);
+      assert.ok(preloadSource.includes(`"${channel}"`), `preload.js must call ${channel}`);
+    }
+    assert.match(mainSource, /createFileStore\(path\.join\(app\.getPath\("userData"\)/,
+      "the desktop store must live in userData, where Steam Cloud can be pointed at it");
+    assert.match(preloadSource, /contextBridge\.exposeInMainWorld\("foStore"/,
+      "the renderer reaches the store only through the context bridge");
+    assert.doesNotMatch(preloadSource, /\brequire\(\s*['"](?:fs|path)['"]/,
+      "the preload is sandboxed: file work belongs in the main process");
+  }
 
   // Production CSP has no loopback WebSocket escape hatch; Vite adds it only in dev.
   const indexHtml = readFileSync("index.html", "utf8");

@@ -1,6 +1,7 @@
-// First-run walkthrough. Pure data + a localStorage flag, kept OUT of the run
+// First-run walkthrough. Pure data + a persisted flag, kept OUT of the run
 // save: it is a property of the player, not of a career. Four cards, because a
 // fifth is where people start clicking through without reading.
+import * as store from "./store.js";
 const INTRO_KEY="fo_intro_v1";
 
 export const INTRO_STEPS=[
@@ -20,16 +21,16 @@ export const INTRO_STEPS=[
 ];
 
 export function introSeen(){
-  try{ return localStorage.getItem(INTRO_KEY)==="1"; }
+  try{ return store.getItem(INTRO_KEY)==="1"; }
   catch(e){ return true; } // storage blocked: never trap the player behind a modal
 }
 
 export function markIntroSeen(){
-  try{ localStorage.setItem(INTRO_KEY,"1"); }
+  try{ store.setItem(INTRO_KEY,"1"); }
   catch(e){ /* a walkthrough that cannot be remembered is still worth showing once */ }
 }
 
 export function resetIntro(){
-  try{ localStorage.removeItem(INTRO_KEY); }
+  try{ store.removeItem(INTRO_KEY); }
   catch(e){}
 }

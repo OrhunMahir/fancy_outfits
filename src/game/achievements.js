@@ -1,6 +1,8 @@
-// Achievements — persisted in localStorage across all runs (fo_ach_v1).
+// Achievements — persisted across all runs (fo_ach_v1), via store.js so the
+// desktop build keeps them in a file Steam Cloud can sync.
 // Designed to map 1:1 onto Steamworks achievements later. Engine calls
 // unlock(id); it returns true only on a FIRST unlock so the caller can log it.
+import * as store from "./store.js";
 export const ACHIEVEMENTS=[
   {id:"win",          name:"PARTNER MATERIAL",    desc:"Make Name Partner."},
   {id:"win_realistic",name:"NO NUMBERS, NO FEAR", desc:"Win on REALISTIC difficulty."},
@@ -18,13 +20,13 @@ export const ACHIEVEMENTS=[
 const KEY="fo_ach_v1";
 let unlocked=null;
 function load(){ if(unlocked) return unlocked;
-  try{ unlocked=JSON.parse(localStorage.getItem(KEY))||{}; }catch(e){ unlocked={}; }
+  try{ unlocked=JSON.parse(store.getItem(KEY))||{}; }catch(e){ unlocked={}; }
   return unlocked; }
 export const getUnlocked=()=>load();
 export function unlock(id){
   const u=load();
   if(u[id]) return false;
   u[id]=true;
-  try{ localStorage.setItem(KEY,JSON.stringify(u)); }catch(e){}
+  try{ store.setItem(KEY,JSON.stringify(u)); }catch(e){}
   return true;
 }

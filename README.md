@@ -30,6 +30,26 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.39 — Ready to be packaged *(2026-09-03)*
+- **The game opens with no network.** Press Start 2P used to come from Google Fonts, which
+  meant a desktop build launched offline fell back to monospace — and a layout sized in 8px
+  pixel type comes apart when the type changes. Both subsets now ship with the game (SIL OFL
+  1.1, `src/fonts/OFL.txt`) and the Content-Security-Policy no longer allows any remote host.
+- **Saves are files now, not browser storage.** Steam Cloud syncs files by path; it cannot
+  sync Chromium's LevelDB. The desktop build writes one small file per key under the app's
+  user-data folder, so a career survives a reinstall and can follow you to another machine —
+  and a cloud conflict can only ever cost a single slot instead of the whole profile. In a
+  browser nothing changes: it is still localStorage.
+- Writes are atomic — temp file, then rename — so a crash mid-save leaves the previous save
+  intact rather than a truncated one the loader would refuse. A folder it cannot read reports
+  **storage unavailable** rather than showing an empty slot you are invited to overwrite.
+- The version number finally matches the game: `package.json` said `0.3.0` while the game was
+  on v19.38. Electron and Steam both read that field.
+- New guards in `npm test`: no remote host in the CSP or the stylesheet, every referenced font
+  file actually present in the repo, every module that persists anything going through
+  `store.js`, and the desktop file store round-tripping, replacing atomically, refusing keys
+  outside its folder and reading a missing folder as a first launch rather than a failure.
+
 ### v19.38 — The mark *(2026-09-03)*
 - **The game has a logo.** A suit torso — notched lapels, a gold tie, a centre seam and two
   welt pockets — with a manila case file standing upright in the breast pocket. The file has

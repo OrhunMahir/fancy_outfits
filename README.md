@@ -30,6 +30,32 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.38 — The mark *(2026-09-03)*
+- **The game has a logo.** A suit torso — notched lapels, a gold tie, a centre seam and two
+  welt pockets — with a manila case file standing upright in the breast pocket. The file has
+  been given a quarter turn, so the name runs down its length and the pocket line cuts
+  straight through the middle of the C: **FANC** over **OUTF**. The mark never spells the
+  title, which is the point. You finish the word yourself.
+- **It is drawn, not stored.** `src/game/logo.js` builds it as a flat list of rects, the same
+  way `OfficeScene` builds the office. Nothing in the repo is a hand-maintained picture; the
+  files under `assets/logo/` come out of `node scripts/build-logo.mjs`, so a file on disk can
+  never disagree with what the start screen draws.
+- **The lettering is geometry, not a font call.** Press Start 2P was sampled once into 7×7 ink
+  grids on an 8-unit advance and frozen into the builder. A live `<text>` element would let a
+  substituted face slide the cut off the middle of the C — the one thing the mark cannot
+  survive. It also renders identically with no font loaded at all.
+- **Three variants, one drawing.** The lettered mark for 96px and up; a lettering-free icon in
+  a gold bevel for surfaces we don't control (Steam's shelf, a taskbar, a browser tab, where a
+  dark jacket otherwise dissolves into the background); and an unframed one for inside the
+  game, where the ground is already our navy. Below about 226px the lettering cannot resolve a
+  single device pixel per glyph pixel, so the small sizes drop it and the title gets written
+  beside the mark instead.
+- **The start screen wears it.** The unframed icon sits beside FANCY OUTFITS in the header,
+  104px on desktop and 72px on a phone.
+- Ships `assets/logo/fancy-outfits.ico` and `.icns` for the eventual `electron-builder` step.
+  Those two are the honest exception to the no-asset-files rule: they need a rasteriser and
+  `iconutil` to build, which not every machine has.
+
 ### v19.33–19.35 — Trials *(2026-08-27)*
 - **You can take a case to a jury.** Openings, arguments, a closing — and no odds anywhere
   on the screen. A jury's standing is built out of every decision you make in the room and

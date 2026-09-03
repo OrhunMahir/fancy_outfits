@@ -4,6 +4,7 @@ import { RANKS } from "../game/constants.js";
 import { startGame, loadGame, inspectSave, clearSaveSlot, canStartWithSlot, getStats, getSlot, setSlot } from "../game/engine.js";
 import { ACHIEVEMENTS, getUnlocked } from "../game/achievements.js";
 import { rnd } from "../game/utils.js";
+import Logo from "./Logo.jsx";
 
 const DIFFS=[
   ["easy","EASY","odds shown as a tight range · forgiving boards"],
@@ -48,8 +49,13 @@ export default function StartScreen(){
   return (
     <div className="overlay" style={{overflowY:"auto"}}>
       <div className="box panel" style={{margin:"auto"}}>
-        <h2 style={{fontSize:16}}>FANCY OUTFITS</h2>
-        <div className="subtitle">A pixel legal drama. Read the file. Pick your line.<br/>Don't get HENDERED.</div>
+        <div className="titlerow">
+          <Logo lettering={false} fill/>
+          <div>
+            <h2 style={{fontSize:16}}>FANCY OUTFITS</h2>
+            <div className="subtitle">A pixel legal drama. Read the file. Pick your line.<br/>Don't get HENDERED.</div>
+          </div>
+        </div>
         <div className="kv">DIFFICULTY — blurs what you KNOW and sharpens what you PLAY, never the dice:</div>
         <div className="diffrow">
           {DIFFS.map(([k,label])=>(

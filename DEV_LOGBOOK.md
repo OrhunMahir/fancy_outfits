@@ -18,6 +18,68 @@ Her çalışma oturumunda:
 
 ---
 
+## 2026-09-03 — Claude: logo (v1.9.38)
+
+### Karar
+
+Kullanıcı sekiz tur tasarım sonrası **"THROUGH THE C"**'yi seçti: takım gövdesi + göğüs cebinde
+**dik duran** dosya, saat yönünde çeyrek tur döndürülmüş, isim boyunca aşağı akıyor, cep çizgisi
+FANCY'nin **C'sinin tam ortasından** kesiyor → `FANC / OUTF`. Marka ismi asla hecelemiyor;
+tasarımın amacı bu, o yüzden isim her zaman yanına yazılır.
+
+Kesim derinliği zevkle değil **harf formuyla** sınırlı: bir tık daha derin gidince C dikleşip
+I'ya dönüşüyor. Nokta ölçümle bulundu — Press Start 2P'de mürekkep em kutusunu doldurmadığı için
+"4. karakterin yarısı" 3.5 değil **3.6** çıktı.
+
+### Ne var
+
+- **`src/game/logo.js`** — saf builder, düz rect listesi döndürür (`OfficeScene`'in `buildScene`
+  kalıbı). React import etmez. **Tek kaynak budur.**
+- **`src/components/Logo.jsx`** — listeyi `<rect>`'lere map'ler, başka bir şey yapmaz.
+- **`scripts/build-logo.mjs`** — `assets/logo/` altındaki SVG'leri **aynı builder'dan** yazar.
+  Diskteki dosya oyunun çizdiğinden ayrışamaz.
+- **`assets/logo/`** — 3 SVG + 18 PNG + `.ico` + `.icns` + kendi README'si.
+- **Başlık ekranı** — `.titlerow`: yazısız marka solda (104px, ≤600px'te 72px, `--panel2`
+  kenarlıklı), isim ve alt başlık sağda.
+
+### Kurallar / tuzaklar
+
+1. **Yazı font çağrısı DEĞİL.** Press Start 2P bir kez 7×7 mürekkep ızgarasına (8 birim advance)
+   örneklenip builder'a donduruldu. Canlı `<text>` kullanırsan ikame edilen bir font kesimi
+   C'nin ortasından kaydırır — markanın kaldıramayacağı tek şey bu. Fontsuz render doğrulandı.
+2. **90° dönüş transform değil, koordinata pişirilmiş** (`turn()`), böylece çıktı düz rect
+   listesi kalıyor ve hem React hem script aynı sayıları kullanıyor.
+3. **`assets/` "asset dosyası ekleme" kuralını delmiyor**: SVG'ler üretiliyor, elle çizilmiyor —
+   `sound.js` seslerini nasıl sentezliyorsa öyle. `.ico`/`.icns` bilinçli istisna; rasterizer ve
+   `iconutil` gerektiriyor, her makinede yok.
+4. **~226px altında yazı çözünmüyor** (glyph pikseli 0.425 birim). Küçük boyutlarda yazısız
+   varyant kullanılır, isim markanın yanına yazılır.
+5. **Çerçeveli ikon**: bizim olmayan zeminler için. Onay turundaki render'da altta koyu bir bant
+   vardı; sebebi `clip-path`'in grubun transform'undan sonra uygulanmasıydı (yanlış uzayda
+   kırpma). Kod sürümü doğru kırpıyor, takım çerçevenin iç kenarına kadar doluyor — küçük
+   boyutta biraz daha iyi. Kullanıcıya bildirildi, bant istenirse geri konabilir.
+
+### Testler
+
+`npm run build` ✓ · `npm test` ✓ (v1.9.5–v1.9.25 zinciri, değişiklik yok) · konsol hatası yok ·
+1280px ve 380px'te tarayıcıda göz kontrolü ✓ · builder çıktısı onaylanan master'la **pixel
+identical** (mark ve çerçevesiz ikon; ilk turda eksik ceket düğmesi bu karşılaştırmayla yakalandı).
+
+### Sıradaki kesin adım
+
+Steam hazırlığı, bu sırayla — üçü de oyuncuya görünmez ama yayında baş ağrıtır:
+
+1. **Versiyon birliği** — `package.json` hâlâ `0.3.0`, oyun v1.9.38. Electron ve Steam bunu okur.
+2. **Fontu yerelleştirmek** — `Press Start 2P` hâlâ Google Fonts `@import`'u. Logo artık bağlı
+   değil ama **arayüzün tamamı bağlı**; internetsiz Electron build'inde monospace'e düşer.
+3. **Save'leri dosyaya taşımak** — `localStorage` Steam Cloud ile senkronize olmuyor.
+
+Sonra: DEV panelinin paketlenmiş build'de kapalı olduğunu doğrulamak, `electron-builder`
+(ikonlar hazır), gerçek Windows testi (v1.9.3 donma düzeltmesi hâlâ doğrulanmadı),
+`steamworks.js`. Onaylı backlog: mobil layout + Capacitor, GitHub Pages demo.
+
+---
+
 ## 2026-08-22 — Claude: DEV panel (v1.9.28)
 
 ### Karar

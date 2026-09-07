@@ -1,7 +1,7 @@
 {
   "name": "fancy-outfits",
   "productName": "FANCY OUTFITS",
-  "version": "1.9.39",
+  "version": "1.9.40",
   "description": "A pixel-styled lawyer career simulation. Read case files, pick your words, become Name Partner.",
   "main": "electron/main.js",
   "scripts": {
@@ -11,7 +11,10 @@
     "test:soak": "node scripts/run-soak-balance.cjs --seeds 8 --standard-days 30 --endless-days 30",
     "soak": "node scripts/run-soak-balance.cjs",
     "preview": "vite preview",
-    "start": "npm run build && electron ."
+    "start": "npm run build && electron .",
+    "pack": "npm run build && electron-builder --dir",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:win": "npm run build && electron-builder --win"
   },
   "author": "Orhun Mahiroğulları",
   "license": "UNLICENSED",
@@ -26,6 +29,7 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^5.2.0",
     "electron": "^43.3.0",
+    "electron-builder": "^26.15.3",
     "esbuild": "^0.28.1",
     "vite": "^7.3.6"
   }

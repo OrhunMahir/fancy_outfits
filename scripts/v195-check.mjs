@@ -4103,6 +4103,23 @@ globalThis.clearInterval = () => {};
       "the preload is sandboxed: file work belongs in the main process");
   }
 
+  // Packaging invariants. productName decides app.getPath("userData") — the folder
+  // every installed player's saves live in — so renaming it silently orphans them.
+  {
+    const builder = readFileSync("electron-builder.yml", "utf8");
+    const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+    assert.match(builder, /^productName: FANCY OUTFITS$/m,
+      "renaming productName moves the save folder; migrate it in main.js at the same time");
+    assert.match(builder, /!node_modules/,
+      "react is already bundled into dist/; node_modules must stay out of the asar");
+    for (const needed of ["dist/**/*", "electron/**/*", "package.json"]) {
+      assert.ok(builder.includes(needed), `the packaged app needs ${needed}`);
+    }
+    assert.ok(!/^\s*-\s*src\//m.test(builder), "source must not ship inside the app");
+    assert.equal(pkg.main, "electron/main.js");
+    assert.match(pkg.version, /^\d+\.\d+\.\d+$/, "Electron and Steam both read package.json version");
+  }
+
   // Production CSP has no loopback WebSocket escape hatch; Vite adds it only in dev.
   const indexHtml = readFileSync("index.html", "utf8");
   const viteConfig = readFileSync("vite.config.mjs", "utf8");

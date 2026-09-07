@@ -1,0 +1,56 @@
+# Packaging for the desktop build. Kept in its own file rather than package.json
+# so the choices below can carry the reasons for them.
+appId: com.orhun.fancyoutfits
+productName: FANCY OUTFITS
+copyright: © 2026 Orhun Mahiroğulları. All rights reserved.
+
+directories:
+  output: release
+  buildResources: assets/logo
+
+# Only what the shell actually loads at runtime. src/, scripts/, the soak
+# harness and the logo pack's working files have no business in a shipped app.
+files:
+  - dist/**/*
+  - electron/**/*
+  - package.json
+  # Vite already bundles react into dist/; the shell itself requires nothing but
+  # electron builtins. Shipping node_modules again is a megabyte of dead weight.
+  - "!node_modules/**/*"
+
+asar: true
+
+# productName decides app.getPath("userData"), which is where saves live. Change
+# it and every installed player's career becomes invisible — so if this ever has
+# to change, migrate the folder in main.js at the same time.
+mac:
+  category: public.app-category.games
+  icon: assets/logo/fancy-outfits.icns
+  # Unsigned for now. electron-builder otherwise finds the "Apple Development"
+  # identity in the keychain and blocks on a keychain prompt. A real macOS
+  # release needs a Developer ID certificate and notarisation (Apple Developer
+  # Program) — that is a separate decision, and this line changes with it.
+  identity: null
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+
+win:
+  icon: assets/logo/fancy-outfits.ico
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: zip          # zip needs no Wine, so a Windows build can be cut from macOS
+      arch: [x64]
+
+nsis:
+  oneClick: false                        # a silent installer is a bad first impression
+  allowToChangeInstallationDirectory: true
+  shortcutName: FANCY OUTFITS
+
+linux:
+  category: Game
+  icon: assets/logo/png
+  target: [AppImage]

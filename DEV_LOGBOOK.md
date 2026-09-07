@@ -18,6 +18,57 @@ Her çalışma oturumunda:
 
 ---
 
+## 2026-09-03 — Claude: paketleme (v1.9.40)
+
+### Ne yapıldı
+
+`electron-builder` (devDependency) + `electron-builder.yml`. Scriptler: `pack` (hızlı, --dir),
+`dist:mac`, `dist:win`. `release/` gitignore'da.
+
+Üretilenler ve doğrulananlar:
+
+- `release/mac-arm64/FANCY OUTFITS.app` — 276 MB, asar **612 KB / 11 dosya**.
+- `release/FANCY OUTFITS Setup 1.9.39.exe` — NSIS, 99.8 MB, geçerli PE32 GUI.
+- `release/FANCY OUTFITS-1.9.39-win.zip` — 139.7 MB taşınabilir.
+- **Windows hedefleri macOS'tan Wine olmadan çıktı** (electron-builder 26 kendi araçlarını
+  indiriyor).
+
+### Tuzaklar
+
+1. **`node_modules` asar'a giriyordu.** electron-builder production `dependencies`'i her zaman
+   paketliyor; react/react-dom orada duruyor ama Vite onları zaten `dist/`e bundle ediyor ve
+   shell yalnız electron builtin'leri require ediyor. `- "!node_modules/**/*"` eklendi:
+   asar 5.5 MB → **612 KB**. (Dependency sınıflandırmasına dokunulmadı — CLAUDE.md'deki
+   react/react-dom tanımı korunuyor.)
+2. **İmzalama keychain'e kilitlendi.** electron-builder keychain'deki "Apple Development"
+   kimliğini bulup `codesign` çalıştırdı ve prompt'ta asılı kaldı; build 7+ dakika ilerlemedi.
+   `mac.identity: null` ile kapatıldı. **Gerçek macOS sürümü Developer ID + notarization
+   ister** (Apple Developer Program) — o satır o zaman değişecek. Windows exe'si de imzasız,
+   SmartScreen uyarır; Steam üzerinden dağıtım normal çözümü.
+3. **`productName` save klasörünü belirliyor** (`app.getPath("userData")`). Değiştirilirse kurulu
+   her oyuncunun kariyeri görünmez olur. Guard eklendi + main.js'te yorum var.
+
+### Testler
+
+`npm run build` ✓ · `npm test` ✓ (yeni packaging guard'ları dahil; productName rename ve
+node_modules exclusion bilerek kırılıp fail ettikleri doğrulandı).
+
+**Paketlenmiş build üzerinde** (dev server'da değil), `--remote-debugging-port` + CDP
+`Runtime.evaluate` ile: `foStore` köprüsü var, dosya deposu `ok`, Press Start 2P yüklü,
+**`performance.getEntriesByType('resource')` içinde 0 uzak istek**, başlık ekranı logoyu
+çiziyor (50 rect), DEV paneli yok. Senaryo butonuna programatik tıklandı →
+`~/Library/Application Support/FANCY OUTFITS/saves/fo_save_v1_s1.json` yazıldı → uygulama
+yeniden başlatıldı → `SLOT 1 · DAY 1` + CONTINUE okundu. Test kariyeri sonra silindi.
+
+### Sıradaki kesin adım
+
+**Kullanıcı `.exe`yi Windows'taki arkadaşına göndermeli.** v1.9.3'teki donma düzeltmesi
+(`disableHardwareAcceleration` + `maximize`) hâlâ hiç doğrulanmadı ve çıkış öncesi en büyük
+bilinmeyen. Bu cevap gelene kadar ilerlenebilecekler: GitHub Pages demo, `steamworks.js`
+(App ID 480 ile test edilebilir; gerçek entegrasyon Steamworks hesabı ister).
+
+---
+
 ## 2026-09-03 — Claude: Steam hazırlık turu (v1.9.39)
 
 ### Ne yapıldı

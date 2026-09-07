@@ -30,6 +30,24 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.40 — It installs *(2026-09-03)*
+- **The game packages into an installable app.** `electron-builder` produces a macOS `.app`
+  (and `.dmg`/`.zip`), a Windows installer and a portable Windows `.zip` — the Windows ones
+  buildable from a Mac, no Wine involved. Icons come from `assets/logo/`.
+- **The shipped bundle is 612 KB of app**, not a copy of `node_modules`: Vite already bundles
+  react into `dist/`, and the Electron shell requires nothing but builtins. Only `dist/`,
+  `electron/` and `package.json` go into the asar.
+- **Verified against the packaged build, not the dev server:** the context bridge is present,
+  the file store reads and writes, the bundled font loads, the start screen draws the logo,
+  the dev panel is absent, **zero network requests are made**, and starting a run writes a real
+  save to the app's user-data folder which a relaunch reads back as CONTINUE SLOT 1.
+- macOS builds are unsigned for now — a real release wants a Developer ID and notarisation.
+  Windows builds are unsigned too, so SmartScreen will warn on a direct download; launching
+  through Steam is the normal way around that.
+- New guards in `npm test` cover the packaging config, including the one that quietly destroys
+  save compatibility: `productName` decides where saves live, so renaming it has to be a
+  deliberate act with a migration beside it.
+
 ### v19.39 — Ready to be packaged *(2026-09-03)*
 - **The game opens with no network.** Press Start 2P used to come from Google Fonts, which
   meant a desktop build launched offline fell back to monospace — and a layout sized in 8px

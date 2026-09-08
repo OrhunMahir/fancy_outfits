@@ -31,7 +31,12 @@ function safeDevUrl(raw){
 // Windows: some GPU drivers leave the Electron window unpainted/frozen when
 // hardware acceleration is on. This is a 2D pixel game — software compositing
 // is plenty, and it removes the most common "hangs on startup" report.
-app.disableHardwareAcceleration();
+//
+// FO_GPU=1 puts it back. That exists so the freeze can be A/B'd on a machine
+// that actually shows it: "hangs with GPU on, fine with it off" identifies the
+// cause, where "it didn't hang" only says the workaround is still in place.
+const GPU_FORCED = process.env.FO_GPU === "1";
+if(!GPU_FORCED) app.disableHardwareAcceleration();
 
 function createWindow(){
   const win = new BrowserWindow({

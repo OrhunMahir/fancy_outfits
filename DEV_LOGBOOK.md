@@ -18,6 +18,47 @@ Her çalışma oturumunda:
 
 ---
 
+## 2026-09-03 — Claude: GPU anahtarı + AGENTS.md tazelendi (v1.9.41)
+
+### Ölçüm: yazılımsal render board zamanlamasını bozuyor mu?
+
+Paketleme turunda kendi çıkardığım riski ölçtüm. `disableHardwareAcceleration()` macOS'ta da
+geçerli olduğu için A/B burada yapılabiliyor. Dev sunucusuna bağlı Electron + CDP ile DEV
+paneli açılıp **Power Cut** board'u (oyundaki en animasyon yoğun ekran, 29 hareketli eleman)
+dağıtıldı, `requestAnimationFrame` deltaları ölçüldü:
+
+| | medyan | p95 | >25ms |
+|---|---|---|---|
+| Yazılımsal (bugün ship edilen) | 8.3 ms | 9.3 ms | 3/149 |
+| Donanım (`FO_GPU=1`) | 8.3 ms | 9.3 ms | 1/149 |
+
+**Fark yok.** Oyun 2D DOM/SVG; yazılımsal kompozisyon için önemsiz. Riski fazla büyütmüşüm —
+en azından macOS'ta temelsiz. Windows'ta kanıtlanmış sayılmaz ama beklenti artık "sorun yok".
+(Not: `worst` sütunu iki koşuda da anlamsız outlier verdi — pencere arka plana düşünce rAF
+duruyor, render'la ilgisi yok. Ölçüm öncesi `Page.bringToFront` gerekiyor.)
+
+### FO_GPU anahtarı
+
+`electron/main.js`: `disableHardwareAcceleration()` artık `FO_GPU=1` ile atlanabiliyor.
+Amaç Windows'ta **A/B** yapabilmek: "GPU açıkken donuyor, kapalıyken donmuyor" cevabı sebebi
+kanıtlar; "donmadı" cevabı yalnız workaround'un yerinde olduğunu söyler.
+
+### AGENTS.md yeniden yazıldı
+
+Bayattı: 2026-08-18'de kalmış, v1.9.24'ten bahsediyordu, proje v1.9.40'taydı. `CLAUDE.md`'nin
+491 satırlık çürümüş bir kopyasıydı ve bir ajanı zaten bir kez yanlış checkpoint'e götürmüştü.
+**Tekrar eden içerik tamamen silindi**; yerine çürümeyecek bir yönlendirici kondu: hangi dosya
+hangi sırayla okunur, pazarlığa kapalı kurallar, doğrulama komutları, oturum sonu protokolü.
+Güncel durum tek yerde — `DEV_LOGBOOK.md`'nin en üstü.
+
+### Hâlâ doğrulanmamış (ve buradan doğrulanamaz)
+
+Windows'ta: açılışta pencerenin boyanması, SmartScreen akışı, `%APPDATA%` save yolu, gerçek
+donma semptomu. Bunlar GPU sürücüsüne ve işletim sistemine özgü; `.exe` bir Windows makinesinde
+çalıştırılmadan bilinemez.
+
+---
+
 ## 2026-09-03 — Claude: paketleme (v1.9.40)
 
 ### Ne yapıldı

@@ -1,0 +1,13 @@
+# Git on Windows rewrites line endings in anything it guesses is text. Its guess
+# is a heuristic, and a font or an icon that gets CRLF'd is corrupt in a way that
+# looks like a mysterious runtime bug rather than a checkout problem. Be explicit.
+* text=auto eol=lf
+
+*.woff2 binary
+*.ico   binary
+*.icns  binary
+*.png   binary
+*.jpg   binary
+*.zip   binary
+*.exe   binary
+*.dmg   binary

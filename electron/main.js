@@ -38,11 +38,55 @@ function safeDevUrl(raw){
 const GPU_FORCED = process.env.FO_GPU === "1";
 if(!GPU_FORCED) app.disableHardwareAcceleration();
 
+// A freeze test is only worth running if you can tell the two runs apart. The
+// title bar says which mode you are in, and a file written BEFORE the window
+// opens means even a launch that never paints leaves evidence behind.
+function writeDiagnostics(){
+  const fs = require("fs");
+  const file = path.join(app.getPath("userData"), "launch-diagnostics.txt");
+  const head = [
+    "FANCY OUTFITS launch diagnostics",
+    "version:        " + app.getVersion(),
+    "FO_GPU:         " + (GPU_FORCED ? "1 (hardware acceleration ON)" : "unset (hardware acceleration OFF)"),
+    "platform:       " + process.platform + " " + process.arch + " / " + require("os").release(),
+    "electron:       " + process.versions.electron + "  chrome " + process.versions.chrome,
+    "started:        " + new Date().toISOString(),
+  ].join("\n");
+  const put = text => {
+    try{
+      fs.mkdirSync(app.getPath("userData"), { recursive: true });
+      fs.writeFileSync(file, text + "\n", "utf8");
+    }catch(e){}
+    console.log(text);
+  };
+  // Write the decisive lines FIRST and synchronously: a launch that hangs before
+  // painting still has to leave behind which mode it was in.
+  put(head + "\ngpu status:     (waiting for the GPU process…)");
+  // getGPUFeatureStatus() straight after ready reports the pre-init defaults —
+  // identical in both modes, which would defeat the whole point. getGPUInfo
+  // resolves only once the GPU process has actually reported in.
+  // With acceleration off there is no GPU process, so getGPUInfo never settles.
+  // Race it, or the file sits on "waiting…" forever and reads like a bug.
+  const timeout = new Promise((_, rej) => setTimeout(() => rej("no GPU process"), 4000));
+  Promise.race([app.getGPUInfo("basic"), timeout]).then(info => {
+    let status = {};
+    try{ status = app.getGPUFeatureStatus() || {}; }catch(e){ status = { error: String(e) }; }
+    put(head +
+      "\ngpu compositing: " + (status.gpu_compositing || "unknown") +
+      "\n2d canvas:       " + (status.gl || status["2d_canvas"] || "unknown") +
+      "\ngpu info:       " + JSON.stringify(info, null, 2) +
+      "\nfeature status: " + JSON.stringify(status, null, 2));
+  }).catch(e => put(head + "\ngpu compositing: none — " + e +
+    (GPU_FORCED ? " (unexpected: FO_GPU=1 was set)" : " (expected: acceleration is off)")));
+}
+
 function createWindow(){
   const win = new BrowserWindow({
     width: 1280, height: 800, minWidth: 960, minHeight: 640,
     backgroundColor: "#1a1c2c",                 // matches --bg so startup doesn't flash white
-    title: "FANCY OUTFITS",
+    // The suffix only appears when the switch is on, so a tester can see at a
+    // glance which run this is. Normal players never get it.
+    title: GPU_FORCED ? "FANCY OUTFITS — GPU ON (test build)" : "FANCY OUTFITS",
     show: false,                                // reveal only once painted (no blank/frozen window)
     webPreferences: {
       contextIsolation: true, nodeIntegration: false, sandbox: true,
@@ -84,6 +128,7 @@ function createWindow(){
 
 Menu.setApplicationMenu(null);
 app.whenReady().then(() => {
+  writeDiagnostics();
   createWindow();
   app.on("activate", () => { if(BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });

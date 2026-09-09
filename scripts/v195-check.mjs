@@ -3,6 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createFileStore } from "../electron/store.js";
+import * as store from "../src/game/store.js";
 
 const storage = new Map([
   ["fo_settings_v1", JSON.stringify({ dayLen: 8, sfx: 0, bgm: 0, shake: false })],
@@ -4083,6 +4084,47 @@ globalThis.clearInterval = () => {};
     assert.equal(fileStore.remove("fo_save_v1_s1"), null);
     assert.deepEqual(fileStore.readAll().data, {});
     rmSync(dir, { recursive: true, force: true });
+  }
+
+  // A build that used to keep saves in localStorage must hand them over the
+  // first time it runs against an empty file store, or the player's career sits
+  // unreachable one layer below an apparently fresh install.
+  {
+    const fakeWeb = (entries) => {
+      const m = new Map(entries);
+      return { get length(){ return m.size; }, key: i => [...m.keys()][i],
+        getItem: k => (m.has(k) ? m.get(k) : null),
+        setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k) };
+    };
+    const fakeBridge = (files, failOn) => ({
+      readAll: () => ({ ok: true, data: { ...files } }),
+      write: (k, v) => (k === failOn ? "disk full" : (files[k] = v, null)),
+      remove: k => (delete files[k], null),
+    });
+
+    const old = [["fo_save_v1_s1", '{"day":9}'], ["fo_ach_v1", "{}"], ["unrelated", "x"]];
+    const files = {};
+    const moved = store.createStore(fakeBridge(files), fakeWeb(old));
+    assert.deepEqual(moved.handedOver().sort(), ["fo_ach_v1", "fo_save_v1_s1"],
+      "only the game's own keys move across");
+    assert.equal(moved.getItem("fo_save_v1_s1"), '{"day":9}');
+    assert.equal(files.unrelated, undefined, "someone else's localStorage key is not ours to copy");
+
+    // A file store that already has saves is never touched by the old storage.
+    const existing = { fo_save_v1_s1: '{"day":40}' };
+    const kept = store.createStore(fakeBridge(existing), fakeWeb(old));
+    assert.deepEqual(kept.handedOver(), [], "an established install does not re-import");
+    assert.equal(kept.getItem("fo_save_v1_s1"), '{"day":40}', "and keeps the newer save");
+
+    // The originals survive: if the hand-over were wrong the data is still there.
+    const web = fakeWeb(old);
+    store.createStore(fakeBridge({}), web);
+    assert.equal(web.getItem("fo_save_v1_s1"), '{"day":9}', "legacy storage is copied, never emptied");
+
+    // A failing disk stops rather than half-migrating into a broken state.
+    const partial = {};
+    const halted = store.createStore(fakeBridge(partial, "fo_ach_v1"), fakeWeb(old));
+    assert.ok(halted.handedOver().length < 2, "a write failure ends the hand-over");
   }
 
   // ...and the shell actually wires that store to the renderer. The smoke path

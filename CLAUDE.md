@@ -379,7 +379,9 @@
 
 **Dış denetim notu (Codex, 2026-08-12):** Bayat/untracked `AGENTS.md` yüzünden gerçek checkpoint yanlışlıkla v1.9.1/hakim hafızası sanılmıştı. Hakim hafızası v1.9.8/v1.9.13'te bitmişti; gerçek yarım iş v1.9.16 sonrası Power Cut entegrasyonuydu. Yarım model/UI dosyaları korunup engine/content/save/CSS/test zinciri tamamlandı.
 
-**En son çalışılan konu (2026-08-18):** v1.9.21 `ea50a3894` ile pushlandı; ardından v1.9.22 (Contradiction Board, schema v17), v1.9.22.1 (gerçek madeni para yazı-tura) ve v1.9.23 (sabotaj zorluk eğrisi + ilk açılış walkthrough'u, schema v18) tamamlandı ve kullanıcının push'unu bekliyor. `npm test`, `npm run build`, `npm run test:soak` (replay 336/336, integrity 0) yeşil; tarayıcıda gerçek tıklamalarla doğrulandı. Güncel ortak handoff ve oturum günlüğü `DEV_LOGBOOK.md`'dir. Sıradaki kullanıcı-onaylı iş **mobil layout + Capacitor**; bağlamsal SFX, GitHub Pages demo ve Steam paketleme sonraki backlog'dur.
+**En son çalışılan konu için `DEV_LOGBOOK.md`'nin EN ÜSTTEKİ kaydına bak — aşağıdaki paragraf tarihsel bir kayıttır, güncel değildir.**
+
+**Eski not (2026-08-18):** v1.9.21 `ea50a3894` ile pushlandı; ardından v1.9.22 (Contradiction Board, schema v17), v1.9.22.1 (gerçek madeni para yazı-tura) ve v1.9.23 (sabotaj zorluk eğrisi + ilk açılış walkthrough'u, schema v18) tamamlandı ve kullanıcının push'unu bekliyor. `npm test`, `npm run build`, `npm run test:soak` (replay 336/336, integrity 0) yeşil; tarayıcıda gerçek tıklamalarla doğrulandı. Güncel ortak handoff ve oturum günlüğü `DEV_LOGBOOK.md`'dir. Sıradaki kullanıcı-onaylı iş **mobil layout + Capacitor**; bağlamsal SFX, GitHub Pages demo ve Steam paketleme sonraki backlog'dur.
 
 **Aklında tut (kullanıcı onaylı bekleyenler):** mobil layout + Capacitor; bağlamsal SFX; Steam paketleme (electron-builder + steamworks.js).
 
@@ -389,7 +391,7 @@
 
 - **Framework:** React 18 + Vite 7 (ilk React/Vite kararı: 2026-07-05; Vite 7 güvenlik güncellemesi: 2026-08-07). JSX, ES modülli config (`vite.config.mjs`). Node ≥22.12.
 - **State:** Framework state kütüphanesi YOK. Tek global mutable obje `S` (`src/game/state.js`) + minimal store: engine `S`'i mutasyona uğratır, `notify()` çağırır; React `useSyncExternalStore` ile dinler (`useGame()` hook'u). Oyun mantığı React'ten tamamen bağımsız saf JS modülleri.
-- **Dış bağımlılık (runtime):** react, react-dom + Google Fonts'tan `Press Start 2P` (CSS `@import`; internet yoksa monospace fallback). Başka runtime bağımlılığı EKLENMEZ.
+- **Dış bağımlılık (runtime):** yalnız react + react-dom. `Press Start 2P` v1.9.39'dan beri `src/fonts/` altında GÖMÜLÜ (SIL OFL); CDN yok, CSP uzak host'a izin vermiyor, oyun çevrimdışı açılır. Başka runtime bağımlılığı EKLENMEZ.
 - **Ses:** Web Audio API ile runtime sentez — hiçbir ses dosyası yok (`src/game/sound.js`).
 - **Grafik:** CSS (chunky border, scanline overlay) + ofis sahnesi için runtime üretilen inline SVG (`OfficeScene.jsx`). Hiçbir görsel asset dosyası yok.
 - **Build/deploy:** `npm run dev` (Vite dev server, tarayıcı), `npm run build` (statik `dist/` — GitHub Pages/itch.io'ya konabilir), `npm start` (build + Electron masaüstü penceresi, Steam hedefi). `vite.config.mjs`'te `base:'./'` — Electron `file://` ve Pages alt yolları için gerekli, bozma.
@@ -502,7 +504,7 @@ Kullanıcı tıklar → component, engine fonksiyonunu çağırır (choose/resol
 - **Katman ayrımı:** `src/game/` react import etmez (`useGame.js` hariç); componentler oyun kuralı içermez (zar atma, stat hesabı vs. hepsi engine'de).
 - **Yapma:**
   - Yeni runtime npm bağımlılığı ekleme (react/react-dom dışında; state kütüphanesi, UI kit vs. YASAK).
-  - `localStorage` dışında storage varsayma; save eklenirse `localStorage` + JSON.
+  - Depolamayı doğrudan çağırma; her şey `src/game/store.js` üzerinden geçer (tarayıcıda `localStorage`, Electron'da dosya deposu — Steam Cloud dosya senkronize ediyor).
   - Ses dosyası/görsel asset ekleme — her şey prosedürel (SFX sentez, SVG runtime).
   - `apply()`'ı bypass edip stat değiştirme; engine dışında S mutasyonu.
   - `dangerouslySetInnerHTML` kullanma.

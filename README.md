@@ -30,6 +30,23 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.41 — Tell the two runs apart *(2026-09-03)*
+- **Old careers are carried across.** The desktop build moved saves from browser storage to
+  files last version, and simply stopped reading the old place — so anyone updating would have
+  opened the game to empty slots with their career sitting unreachable one layer below. The
+  first launch against an empty file store now hands the old keys over, and never deletes the
+  originals: if the hand-over is wrong, the data is still where it was.
+- **`FO_GPU=1` re-enables hardware acceleration**, so the Windows freeze can be A/B'd instead
+  of guessed at. Two runs are only worth comparing if you can tell them apart, so the switch
+  announces itself: the title bar reads *GPU ON (test build)*, and every launch writes a
+  `launch-diagnostics.txt` next to the saves with the version, the mode and what the GPU
+  process actually reported.
+- That file is written **before** the window opens, so a launch that hangs without ever
+  painting still leaves evidence behind.
+- Measured the software-rendering worry from last version on the Power Cut board: median and
+  95th-percentile frame times are identical with acceleration on or off. The concern was
+  overstated — this is a 2D game and software compositing is not straining.
+
 ### v19.40 — It installs *(2026-09-03)*
 - **The game packages into an installable app.** `electron-builder` produces a macOS `.app`
   (and `.dmg`/`.zip`), a Windows installer and a portable Windows `.zip` — the Windows ones

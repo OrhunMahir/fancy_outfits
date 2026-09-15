@@ -20,6 +20,10 @@ kurallar.
 Sürüm numarası için `package.json`'a bak; `README.md` changelog'unun en üstteki girdisiyle
 aynı olmalı.
 
+## Windows doğrulama turundaysan
+
+`WINDOWS_TEST.md` oku ve onu uygula. O tur kod değişikliği değil ölçüm turudur; commit/push yok.
+
 ## Başlamadan
 
 ```bash

@@ -18,6 +18,66 @@ Her çalışma oturumunda:
 
 ---
 
+## 2026-09-15 — Claude: mağaza hazırlığı (v1.9.43)
+
+### Bağlam
+
+Kullanıcı yayınlamak istiyor, Steamworks hesabı açıyor. Talimat: "hesap gelene kadar
+yapabileceğin her şeyi yap." App ID gerektirmeyen her şey bu turda kapandı.
+
+### CI'ın ilk koşusu (gerçek Windows, `windows-latest`)
+
+Install ✓ Build ✓ `npm test` ✓ **desktop smoke 12/12 ✓** — Windows'ta açılış, boyama, köprü,
+dosya deposu, gömülü font, sıfır ağ isteği, logo, DEV paneli yokluğu, kayıt yazma, teşhis
+dosyası, yeniden açılışta CONTINUE. **`npm run dist:win` adımı düştü** (exit 1); log GitHub
+girişi istiyor, API 403, Chrome eklentisi bağlı değil — sebep okunamadı. Workflow'a "hata
+olursa son 60 satırı `$GITHUB_STEP_SUMMARY`'ye yaz" eklendi (özet herkese açık görünüyor);
+action'lar v7'ye çekildi (Node 20 uyarısı). Bir sonraki push'ta sebep görünecek.
+**Yayını bloke etmiyor** — exe Mac'te üretiliyor ve içi doğrulanmış.
+
+### Üretilenler (`assets/store/`)
+
+- **Kapsüller** — `scripts/store-capsules.mjs` + `scripts/lib/capture-main.cjs`. Boyutlar
+  resmi dokümandan okundu (store/assets/standard + libraryassets): 920×430, 462×174,
+  1232×706, 748×896, 600×900, 920×430, 3840×1240, 1280×720 (şeffaf), 184×184. Aynı
+  `buildLogo`'dan; font gömülü woff2'den `file://` ile.
+- **Ekran görüntüleri** — `scripts/store-screenshots.mjs`: Electron + dev sunucusu + CDP,
+  DEV paneliyle her board dağıtılıp çekiliyor. 9 adet, 1920×1080.
+- **Metin** — `STORE_COPY.md`: kısa (213 kr.) + uzun açıklama, özellikler, etiketler, sistem
+  gereksinimleri, mature content cevapları, tek satırlıklar.
+- **`STEAM_RELEASE.md`** — App ID günü sıralı checklist; Cloud yolları, depot yapısı.
+
+### Tuzaklar
+
+1. **Electron SIGTRAP**: her görsel için pencere yaratıp yok etmek (debugger takılıyken)
+   ikinci işte çöktü. Tek offscreen pencere, `setContentSize` ile yeniden kullanılıyor.
+2. **"Close open board" duruşmayı kapatmıyor** — ilk çekimde 05–10 hep duruşma penceresini
+   gösterdi. Sıra: board'lar önce, duruşma en son.
+3. **1080p'de arayüz küçük** (masa lacivert içinde kayboluyor). Çözüm 1280×720 @
+   `deviceScaleFactor:1.5` — dosya yine 1920×1080, arayüz %50 büyük. Steam'in minimumu
+   tutuyor, görüntü dolu.
+4. Boş arşiv görüntüsü (`CASE ARCHIVE (0)`) mağazaya girmez, çıkarıldı.
+5. Kontak baskı HTML'i eski dosya adlarını tutuyordu — "kırık görüntüler" sanılan şey bayat
+   sayfaydı, çekimler sağlamdı. Sayfayı yeniden üretmeden yargıya varma.
+6. Şeffaf PNG: `Emulation.setDefaultBackgroundColorOverride` ile; IHDR color type 6 ve köşe
+   alfa 0 olarak doğrulandı.
+
+### Testler
+
+`npm run build` ✓ · `npm test` ✓ · 9 kapsül + 9 ekran görüntüsü gözle incelendi (kontak
+baskı) · `.gitattributes` yeni PNG'leri binary işaretliyor.
+
+### Sıradaki kesin adım
+
+- **Kullanıcı:** Steamworks hesabı + App ID; mağaza sayfası alanlarını doldurup incelemeye
+  göndermek (build'den önce başlar, paralel yürür).
+- **Ben, App ID gelince:** Steam Cloud ayarı, depot/SteamPipe script'i, `steamworks.js`
+  (ilk sürüm için şart değil).
+- **Açık:** CI paketleme hatasının sebebi — bir sonraki push'ta özette görünecek.
+- **Seçenek:** itch.io'ya bugün; aynı görseller ve metin, ücret ve inceleme yok.
+
+---
+
 ## 2026-09-15 — Claude: Windows CI (v1.9.42)
 
 ### Karar: donma maddesi ENGEL DEĞİL

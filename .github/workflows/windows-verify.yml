@@ -21,9 +21,9 @@ jobs:
     timeout-minutes: 25
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22.12"
           cache: npm
@@ -43,8 +43,20 @@ jobs:
       - name: Desktop smoke
         run: node scripts/desktop-smoke.mjs
 
+      # Job logs need a GitHub login to read; the job summary does not. So a
+      # failing package step writes its own tail there, where the maintainer —
+      # or an agent without credentials — can actually see why.
       - name: Package installer
-        run: npm run dist:win
+        shell: pwsh
+        run: |
+          npm run dist:win 2>&1 | Tee-Object -FilePath $env:RUNNER_TEMP/dist-win.log
+          $code = $LASTEXITCODE
+          if ($code -ne 0) {
+            "## Package installer failed (exit $code)`n`n``````" | Out-File -Append $env:GITHUB_STEP_SUMMARY
+            Get-Content $env:RUNNER_TEMP/dist-win.log -Tail 60 | Out-File -Append $env:GITHUB_STEP_SUMMARY
+            "``````" | Out-File -Append $env:GITHUB_STEP_SUMMARY
+            exit $code
+          }
 
       - name: Report what shipped
         shell: pwsh
@@ -58,7 +70,7 @@ jobs:
             ForEach-Object { "  " + $_.FullName.Replace("$env:RUNNER_TEMP\asar\", "") }
 
       - name: Keep the installer for 7 days
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: fancy-outfits-windows
           path: release/*.exe

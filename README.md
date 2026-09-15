@@ -30,6 +30,26 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.43 — Everything but the App ID *(2026-09-15)*
+- **The store page is ready to paste.** Nine capsule images at the sizes Steamworks
+  documents (header, small, main, vertical, library capsule/header/hero/logo, community
+  icon), nine 1920×1080 screenshots taken from the real game, and the full store copy —
+  short description, about text, feature bullets, tags, system requirements — under
+  `assets/store/`. All generated: `node scripts/store-capsules.mjs` renders the capsules from
+  the same logo builder the start screen draws with; `node scripts/store-screenshots.mjs`
+  drives the live game over the DevTools protocol, deals every board through the dev panel
+  and captures each at 1280×720 with 1.5× device pixels, so the file is 1080p but the desk
+  fills it.
+- **Windows CI confirmed the desktop build on real Windows**: install, build, the full
+  regression suite and the 12-assertion smoke all passed on `windows-latest` — the window
+  paints, the bundled font resolves, nothing touches the network, a save lands in the
+  user-data folder and comes back after a restart. The one step that failed there is
+  packaging the installer; it now writes its own failure tail to the job summary, which is
+  readable without a GitHub login, so the cause can be seen from outside.
+- `STEAM_RELEASE.md` is the ordered checklist for the day the App ID arrives: which fields
+  take which file, the exact Steam Cloud paths (`%APPDATA%\FANCY OUTFITS\saves\*.json`),
+  depot layout, what stays deliberately unsigned and why.
+
 ### v19.42 — Windows, verified by a machine *(2026-09-15)*
 - **There is no Windows machine on this project**, so a free runner became one. `windows verify`
   builds, runs the full regression suite, launches the real Electron shell and packages the

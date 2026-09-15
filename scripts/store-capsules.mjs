@@ -7,7 +7,8 @@
 // store/assets/libraryassets, read 2026-09-15): header 920x430, small 462x174,
 // main 1232x706, vertical 748x896, library capsule 600x900, library header
 // 920x430, library hero 3840x1240, library logo 1280x720 (transparent PNG),
-// community icon 184x184. Output: assets/store/capsules/.
+// community icon 184x184. Plus itch.io's cover, 630x500 (its documented size;
+// it is shown at 315x250 in listings, so the name is set large). Output: assets/store/capsules/.
 
 import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
@@ -101,6 +102,12 @@ const pages = {
     <div class="row" style="gap:64px">
       <div class="mark" style="width:520px;height:520px">${MARK_BARE}</div>
       <div class="name" style="font-size:84px"><b>FANCY</b><span>OUTFITS</span></div>
+    </div>` },
+  "itch-cover-630x500": { w: 630, h: 500, body: `
+    <div class="col" style="gap:30px">
+      <div class="mark" style="width:270px;height:270px;border:6px solid #3b5dc9">${MARK}</div>
+      <div class="name" style="font-size:40px;flex-direction:row;gap:24px"><b>FANCY</b><span>OUTFITS</span></div>
+      <div class="tag" style="font-size:12px">A LAWYER SIMULATOR</div>
     </div>` },
   "community-icon-184x184": { w: 184, h: 184, body: `
     <div class="mark" style="width:184px;height:184px">${ICON}</div>` },

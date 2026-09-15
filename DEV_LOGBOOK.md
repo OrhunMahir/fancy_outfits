@@ -18,6 +18,45 @@ Her çalışma oturumunda:
 
 ---
 
+## 2026-09-15 — Claude: itch.io + CI raporlama düzeltmesi (v1.9.43, 2. kayıt)
+
+### Kararlar (kullanıcı)
+
+- **`steamworks.js` ikinci güncellemede.** `STEAM_RELEASE.md` madde 9'a gerekçesiyle yazıldı.
+- **itch.io hazırlanacak.** Hazırlandı: `assets/store/ITCH.md` (hangi dosya hangi alana,
+  Gatekeeper/SmartScreen notları, butler), `itch-cover-630x500.png` (aynı kapsül script'i).
+
+### CI #2 — özet neden yazılmadı
+
+Smoke yine 12/12 ✓, paketleme yine ✗, ama eklediğim "hatayı özete yaz" adımı **hiç çalışmadı**.
+Sebep pwsh: GitHub `$ErrorActionPreference=Stop` ile koşturuyor; `2>&1 | Tee-Object` altında
+native komutun **ilk stderr satırı** sonlandırıcı hata oluyor — ve electron-builder bütün
+ilerlemesini stderr'a yazıyor. Yani raporlama katmanım adımı kendi başına öldürdü. Adım
+`shell: bash` + `set -o pipefail` + `tee`'ye çevrildi. **Asıl sebep (run #1) hâlâ bilinmiyor**;
+run #3'te özette görünecek. Hipotez: electron-builder'ın `winCodeSign` paketini açarken
+symlink ayrıcalığı eksikliği (Windows'ta klasik) — özet gelince doğrulanır.
+
+### Rosetta
+
+macOS 27'ye geçilmiş, Rosetta gitmiş (`arch -x86_64 /usr/bin/true` → Bad CPU type). electron-
+builder'ın `makensis` ikilisi x86_64 → `npm run dist:win` bu Mac'te NSIS aşamasında
+`spawn Unknown system error -86` (EBADARCH) veriyor. **Zip hedefi önce koştuğu için
+`FANCY OUTFITS-1.9.43-win.zip` sağlam** — itch ve Steam'in (win-unpacked) ihtiyacı o. NSIS
+sadece doğrudan indirme kurulumu; doğru yeri CI. Yerelde istenirse:
+`softwareupdate --install-rosetta --agree-to-license` (kullanıcı, admin).
+
+### Üretilen dağıtım dosyaları (`release/`, git dışı)
+
+`FANCY OUTFITS-1.9.43-win.zip` 133 MB · `-arm64-mac.zip` 114 MB · `-mac.zip` (x64) 116 MB ·
+iki `.dmg` (imzasız). itch'e üçü zip olarak gider (`ITCH.md`).
+
+### Sıradaki kesin adım
+
+Kullanıcı push'lar → run #3 özeti okunur → paketleme sebebi düzeltilir. Kullanıcı itch
+sayfasını açar (hesap + yükleme onun). Steamworks hesabı gelince `STEAM_RELEASE.md` 6-8.
+
+---
+
 ## 2026-09-15 — Claude: mağaza hazırlığı (v1.9.43)
 
 ### Bağlam

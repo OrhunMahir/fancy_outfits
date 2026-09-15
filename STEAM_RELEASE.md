@@ -48,10 +48,13 @@ yeniden koş, yeniden yükle.
    Kurulum exe'si (NSIS) Steam'e yüklenmez — Steam kendi kurar; `win-unpacked` yüklenir.
 8. **SteamPipe yükleme** — `steamcmd` + `app_build.vdf`/`depot_build.vdf`. Script'ini yazıp
    `scripts/steam-upload/` altına koyarım; ilk yükleme senin Steam hesabınla (Steam Guard).
-9. **`steamworks.js`** — başarımlar (11 tane, `achievements.js` 1:1 hazır) + overlay. App ID
-   480 (Spacewar) ile geliştirme testi mümkün; gerçek App ID'de başarımları Steamworks
-   panelinde de tanımlamak gerekir (isim/ikon). **İlk sürüm için şart değil** — ikinci
-   güncelleme olabilir.
+9. **`steamworks.js`** — başarımlar (11 tane, `achievements.js` 1:1 hazır) + overlay.
+   **KARAR (2026-09-15): ikinci güncelleme.** Gerekçe: yeni bir native runtime bağımlılığı
+   (kırmızı çizgi) ve bu makinede Steam istemcisi olmadığı için gerçek Steam'e karşı test
+   edilemiyor — yayından hemen önce test edilemeyen native kod eklenmez. Steam SDK'sız
+   yayın mümkün. Zamanı gelince: App ID 480 ile geliştirme testi, gerçek App ID'de
+   başarımların Steamworks panelinde tanımı (isim/ikon), `try/catch` ile guard'lı yükleme —
+   Steam yokken oyun aynen çalışmalı.
 10. **Build inceleme** — Valve build'i de inceler (genelde 1-3 gün). Yayın butonuna basmadan
     önce "release" branch'ine build set edilmiş olmalı.
 

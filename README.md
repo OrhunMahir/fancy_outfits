@@ -46,6 +46,11 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
   user-data folder and comes back after a restart. The one step that failed there is
   packaging the installer; it now writes its own failure tail to the job summary, which is
   readable without a GitHub login, so the cause can be seen from outside.
+- **itch.io is ready too:** `assets/store/ITCH.md` maps every file to its field and carries the
+  two lines players will need — SmartScreen's *Run anyway* and macOS Gatekeeper's right-click →
+  Open, since neither build is code-signed yet. Steamworks integration (achievements, overlay)
+  is deliberately the second update: it is a native runtime dependency that cannot be tested
+  against a real Steam client here, and the game ships fine without it.
 - `STEAM_RELEASE.md` is the ordered checklist for the day the App ID arrives: which fields
   take which file, the exact Steam Cloud paths (`%APPDATA%\FANCY OUTFITS\saves\*.json`),
   depot layout, what stays deliberately unsigned and why.

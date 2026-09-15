@@ -46,17 +46,27 @@ jobs:
       # Job logs need a GitHub login to read; the job summary does not. So a
       # failing package step writes its own tail there, where the maintainer —
       # or an agent without credentials — can actually see why.
+      #
+      # bash, not pwsh: under GitHub's pwsh defaults ($ErrorActionPreference=Stop)
+      # a `2>&1` redirect turns the first stderr line into a terminating error,
+      # and electron-builder logs ALL its progress to stderr. That killed the
+      # step before the summary was written (run #2).
       - name: Package installer
-        shell: pwsh
+        shell: bash
         run: |
-          npm run dist:win 2>&1 | Tee-Object -FilePath $env:RUNNER_TEMP/dist-win.log
-          $code = $LASTEXITCODE
-          if ($code -ne 0) {
-            "## Package installer failed (exit $code)`n`n``````" | Out-File -Append $env:GITHUB_STEP_SUMMARY
-            Get-Content $env:RUNNER_TEMP/dist-win.log -Tail 60 | Out-File -Append $env:GITHUB_STEP_SUMMARY
-            "``````" | Out-File -Append $env:GITHUB_STEP_SUMMARY
-            exit $code
-          }
+          set -o pipefail
+          if npm run dist:win 2>&1 | tee "$RUNNER_TEMP/dist-win.log"; then
+            exit 0
+          fi
+          code=$?
+          {
+            echo "## Package installer failed (exit $code)"
+            echo
+            echo '```'
+            tail -n 120 "$RUNNER_TEMP/dist-win.log"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $code
 
       - name: Report what shipped
         shell: pwsh

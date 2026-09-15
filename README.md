@@ -30,6 +30,23 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.42 — Windows, verified by a machine *(2026-09-15)*
+- **There is no Windows machine on this project**, so a free runner became one. `windows verify`
+  builds, runs the full regression suite, launches the real Electron shell and packages the
+  installer on every push — and keeps the `.exe` as a downloadable artifact for a week.
+- **The smoke test drives the actual renderer**, not a mock: it waits for the start screen to
+  paint, then checks the context bridge, that the bundled font resolved, that the app made
+  **zero network requests**, that the logo drew, and that no dev panel shipped. Then it starts a
+  career, confirms a save file appeared in the user-data folder, restarts the app and confirms
+  the career comes back as CONTINUE. Twelve assertions against the built app.
+- It runs against an isolated `--user-data-dir`, so `npm run test:desktop` is safe to run
+  locally without touching real saves — and the CI job can be debugged on a Mac instead of by
+  pushing and waiting.
+- **What CI still cannot settle:** the GPU-driver freeze that motivated disabling hardware
+  acceleration. Hosted runners have no real GPU, so `FO_GPU=1` would compare nothing there.
+  That one needs real hardware, and `WINDOWS_TEST.md` is the protocol for whoever has it. The
+  shipping build stays on the safe setting until then.
+
 ### v19.41 — Tell the two runs apart *(2026-09-03)*
 - **Old careers are carried across.** The desktop build moved saves from browser storage to
   files last version, and simply stopped reading the old place — so anyone updating would have

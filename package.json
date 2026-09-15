@@ -1,13 +1,14 @@
 {
   "name": "fancy-outfits",
   "productName": "FANCY OUTFITS",
-  "version": "1.9.41",
+  "version": "1.9.42",
   "description": "A pixel-styled lawyer career simulation. Read case files, pick your words, become Name Partner.",
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "test": "node scripts/run-v195-check.cjs",
+    "test:desktop": "npm run build && node scripts/desktop-smoke.mjs",
     "test:soak": "node scripts/run-soak-balance.cjs --seeds 8 --standard-days 30 --endless-days 30",
     "soak": "node scripts/run-soak-balance.cjs",
     "preview": "vite preview",

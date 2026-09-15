@@ -18,6 +18,56 @@ Her çalışma oturumunda:
 
 ---
 
+## 2026-09-15 — Claude: Windows CI (v1.9.42)
+
+### Karar: donma maddesi ENGEL DEĞİL
+
+Kullanıcının Windows makinesi yok ve arkadaşı da testi yapamadı. VM/emülatör **bilinçli olarak
+reddedildi**: peşinde olduğumuz şey bir GPU sürücüsü hatası, Apple Silicon'daki bir Windows
+VM'inde sanal ekran kartı var — orada donmaması hiçbir şey kanıtlamaz. VM, "Windows'ta
+doğruladım" dedirtip aslında hiçbir şey ölçmemenin yolu olurdu.
+
+Asıl yeniden çerçeveleme: **bugün ship edilen hal zaten güvenli taraf.** GPU kapalı, workaround
+yerinde. Yani risk "donabilir" değil, "gereksiz yere yazılımsal render'da olabiliriz" — ki macOS
+ölçümünde fark çıkmamıştı. GPU A/B'si bir merak, engel değil; ileride herhangi bir Windows
+oyuncusu (ya da Steam beta dalı) cevaplayabilir. `WINDOWS_TEST.md` protokol olarak duruyor.
+
+### Ne yapıldı
+
+- **`.github/workflows/windows-verify.yml`** — `windows-latest`, her push'ta: `npm ci`,
+  `npm run build`, `npm test`, desktop smoke, `npm run dist:win`, asar içeriği dökümü ve `.exe`
+  7 gün artifact olarak saklanıyor.
+- **`scripts/desktop-smoke.mjs`** (+ `npm run test:desktop`) — gerçek Electron kabuğunu açıp
+  renderer'ı CDP ile sürüyor. 12 iddia: sayfa hedefi, başlık ekranının **boyanması**, köprü,
+  dosya deposu, gömülü font, **sıfır ağ isteği**, logo, DEV paneli yokluğu, kariyer başlatma,
+  save dosyasının diske düşmesi, teşhis dosyası, ve yeniden başlatınca CONTINUE.
+
+### Tuzaklar
+
+1. **Yarış durumu:** devtools hedefi React mount olmadan önce var oluyor. İlk koşuda başlık
+   ekranı "boş" göründü. `waitFor` ile poll ediliyor; hedef gelmezse `body.innerText` dökülüyor
+   (CI'da hata ayıklanabilsin diye).
+2. **İzole `--user-data-dir`** — aksi halde script maintainer'ın gerçek save'lerini siliyordu.
+3. **Script çapraz platform yazıldı** ki CI işi push edip beklemek yerine Mac'te ayıklanabilsin.
+   Bu olmadan Windows-only bir workflow'u kör uçuşla yazmak gerekirdi.
+
+### Testler
+
+`npm run build` ✓ · `npm test` ✓ · macOS'ta desktop smoke **12/12** ✓.
+
+**Guard'lar bilerek kırılıp doğrulandı:** `dist` CSS'indeki font referansı bozulunca smoke
+"Press Start 2P did not load" ile fail etti; `dist/index.html`'e uzak bir `<img>` eklenince
+"app reached the network" ile fail etti. Rubber stamp değil.
+
+### Sıradaki kesin adım
+
+CI'ın ilk koşusu izlenmeli (hosted Windows runner'da GUI uygulaması açılabiliyor ama bu proje
+için ilk kez denenecek — smoke adımı orada patlarsa `body.innerText` dökümü sebebi söyleyecek).
+Sonra: `steamworks.js` (App ID 480 ile test edilebilir, gerçek entegrasyon Steamworks hesabı
+ister) ve GitHub Pages demo. Onaylı backlog: mobil layout + Capacitor.
+
+---
+
 ## 2026-09-03 — Claude: GPU anahtarı + AGENTS.md tazelendi (v1.9.41)
 
 ### Ölçüm: yazılımsal render board zamanlamasını bozuyor mu?

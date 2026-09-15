@@ -1,0 +1,66 @@
+# Windows verification the maintainer cannot run: there is no Windows machine on
+# this project. A free runner gives us real Windows, x64, on every push — so the
+# things that used to be guesses (does it build there, does the window paint,
+# does a save land in %APPDATA% and come back) become facts.
+#
+# What this canNOT settle: the GPU-driver freeze that motivated
+# app.disableHardwareAcceleration(). Hosted runners have no real GPU and fall
+# back to software rendering regardless, so FO_GPU=1 would compare nothing.
+# That question needs real hardware; see WINDOWS_TEST.md.
+name: windows verify
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.12"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Regression suite
+        run: npm test
+
+      # Launches the real Electron shell and drives the renderer over the
+      # DevTools protocol. Hosted Windows runners have an interactive desktop
+      # session, so a GUI app can actually open here.
+      - name: Desktop smoke
+        run: node scripts/desktop-smoke.mjs
+
+      - name: Package installer
+        run: npm run dist:win
+
+      - name: Report what shipped
+        shell: pwsh
+        run: |
+          Get-ChildItem release -Filter *.exe | ForEach-Object {
+            "{0}  {1:N1} MB" -f $_.Name, ($_.Length / 1MB)
+          }
+          npx asar extract release/win-unpacked/resources/app.asar $env:RUNNER_TEMP/asar
+          "asar contents:"
+          Get-ChildItem -Recurse $env:RUNNER_TEMP/asar | Where-Object { -not $_.PSIsContainer } |
+            ForEach-Object { "  " + $_.FullName.Replace("$env:RUNNER_TEMP\asar\", "") }
+
+      - name: Keep the installer for 7 days
+        uses: actions/upload-artifact@v4
+        with:
+          name: fancy-outfits-windows
+          path: release/*.exe
+          retention-days: 7
+          if-no-files-found: error

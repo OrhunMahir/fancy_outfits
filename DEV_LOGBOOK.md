@@ -18,6 +18,68 @@ Her çalışma oturumunda:
 
 ---
 
+## 2026-09-20 — itch.io'da YAYINDA (v1.9.43)
+
+Oyun ilk kez halka açık. **https://scaphoid.itch.io/fancy-outfits**
+
+### Dışarıdan doğrulandı (oturumsuz, çerezsiz curl)
+
+Sayfa anonim `200`, şifre duvarı yok, profilde listeleniyor. Üç indirme de görünüyor —
+`macOS (Apple Silicon)` 114 MB · `Windows` 133 MB · `macOS (Intel)` 116 MB. 5 ekran görüntüsü,
+yorumlar açık, status `In development`, `og:description` = tagline, `og:image` = kapak
+(sha256 bizim `itch-cover-630x500.png` ile birebir).
+
+**Doğrulanmayan tek halka:** indirmenin kendisi. itch'in "name your own price" kapısı satın
+alma oturumu istiyor, curl ile anonim tamamlanamadı. Gizli sekmede bir kez indirip açmak
+zincirin sonunu kapatır.
+
+### Trailer
+
+`scripts/store-trailer.mjs` — CDP ile canlı oyunu sürüp **bölüm bölüm** kaydediyor; DEV paneli
+kurulumu kamera kapalıyken yapıldığı için filme girmiyor, sonradan kurgu gerekmiyor.
+28 sn / 1920×1080 + `cover.gif` 630×500 (itch animasyonlu kapak GIF'i destekliyor).
+
+Üç tuzak — üçü de kaydı sahte gösteriyordu:
+
+1. **Bölümün son karesine süre yazılmıyor** (ölçülecek sonraki kare yok) → sabit planlar
+   1/30 sn'ye düşüyor, 27 sn'lik kurgu 14.8'e iniyordu.
+2. Onu sabitleyince **sonraki bölümün ilk karesi üzerine yazıyordu**; segment sınırı gerekti.
+3. **Chromium, arkada sandığı pencerede rAF'ı boğuyor**, CSS animasyonunu compositor'da
+   sürdürüyor. Kanıt: karakter yürüyüşü 100 kare, her board 1 donmuş kare.
+   `--disable-backgrounding-occluded-windows` + `--disable-renderer-backgrounding` +
+   `--disable-features=CalculateNativeWinOcclusion` ile çözüldü (sabotaj 358, itiraz 310 kare).
+
+Kilit bunlardan sonra da 1 kare veriyordu ve **doğruydu** — silindir yalnız gerilim çubuğuna
+basınca hareket ediyor. Kayıt artık basıyor.
+
+**Trailer sessiz.** Ambiyans Web Audio ile runtime'da sentezleniyor, screencast ses taşımıyor.
+Çözüm yolu açık: `sound.js` akorlarını `OfflineAudioContext` ile render edip WAV olarak muxlamak
+(uydurma müzik değil, oyunun kendi sesi). Yapılmadı.
+
+### Kararlar
+
+- `steamworks.js` **ikinci güncellemede** — test edilemeyen native runtime bağımlılığını
+  yayından hemen önce eklemiyoruz. Gerekçe `STEAM_RELEASE.md` madde 9'da.
+- Linux build'i şimdilik yok (hedef `electron-builder.yml`'de tanımlı, üretilmedi).
+- `story-rich` tag'i eklenmedi (kullanıcı kararı); 9/10 slot dolu.
+- Açılış paragrafına başlık konmadı: itch zaten oyun adını hemen üstte basıyor.
+
+### Açık
+
+- **CI paketleme adımı** hâlâ düşüyor (run #1 ve #2). Sebep bilinmiyor; raporlama adımı
+  pwsh'ten bash'e çevrildi, bir sonraki push'ta özette görünecek. `npm test` ve 12/12 desktop
+  smoke Windows'ta geçiyor, yayını engellemedi.
+- macOS 27'de Rosetta yok → `makensis` x86_64 olduğu için Windows **kurulum dosyası** yerelde
+  üretilemiyor. Zip üretiliyor ve itch'e giden o.
+- GPU donma sorusu kapanmadı; `WINDOWS_TEST.md` + `FO_GPU=1` hazır bekliyor.
+
+### Sıradaki
+
+Geri bildirim topla (yorumlar açık). Steamworks hesabı gelince `STEAM_RELEASE.md` 6-8.
+İstenirse: trailer sesi, YouTube yükleme, GIF kapak, Linux build.
+
+---
+
 ## 2026-09-15 — Claude: itch.io + CI raporlama düzeltmesi (v1.9.43, 2. kayıt)
 
 ### Kararlar (kullanıcı)

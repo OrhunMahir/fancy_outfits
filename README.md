@@ -28,6 +28,12 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ---
 
+## Play it
+
+**[scaphoid.itch.io/fancy-outfits](https://scaphoid.itch.io/fancy-outfits)** — Windows and
+macOS (Apple Silicon and Intel), free. Neither build is code-signed yet, so both systems warn
+once on first launch; the download page says exactly what to click.
+
 ## Changelog
 
 ### v19.43 — Everything but the App ID *(2026-09-15)*

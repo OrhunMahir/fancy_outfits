@@ -1,11 +1,12 @@
 <!-- Paste everything below the line into itch's Description box, as-is.
+     No heading on the opening section on purpose: itch already prints the game
+     title directly above this text, and a second heading under it reads as a
+     stutter. The later H2s still work as section breaks.
      It is STORE_COPY.md's "About this game" plus the two install notes the
      unsigned builds make necessary. Keep them: without the macOS line, the
      first comment on the page will be "it says the app is damaged". -->
 
 ---
-
-## The desk
 
 **You are the newest junior associate at Parson Henderson LLP, and nobody has told you where the coffee is.**
 

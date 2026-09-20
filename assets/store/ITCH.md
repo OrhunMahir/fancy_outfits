@@ -36,6 +36,21 @@ Produce them with `npm run dist:win` and `npm run dist:mac`. `release/` is not i
   point of being here first is feedback, not revenue.
 - **Community:** enable comments — that is the feedback channel.
 
+## Trailer and animated cover
+
+`node scripts/store-trailer.mjs` (with `npm run dev` running) records both from the live
+game: `assets/store/trailer/fancy-outfits-trailer.mp4` (1920x1080, ~28s) and
+`cover.gif` (630x500, the Power Cut beat).
+
+itch's *Gameplay video* field takes a YouTube/Vimeo link only, so the mp4 has to be uploaded
+there first. The GIF can replace the static cover image directly — itch animates GIF covers in
+listings, which is the cheapest visibility win on the page.
+
+**The trailer is silent.** The game's ambience is synthesised in Web Audio at runtime and the
+DevTools screencast carries no audio, so there is no sound track to mux. Rendering the same
+`sound.js` chords through an OfflineAudioContext and muxing that in is possible but was not
+done — say the word if it is wanted.
+
 ## AI disclosure
 
 itch asks. The honest answer is **Yes**: LLMs wrote much of the code and much of the case

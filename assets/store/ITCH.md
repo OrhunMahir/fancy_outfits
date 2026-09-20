@@ -24,13 +24,28 @@ Produce them with `npm run dist:win` and `npm run dist:mac`. `release/` is not i
 - **Cover image** — `assets/store/capsules/itch-cover-630x500.png` (itch's documented size;
   it is shown at 315×250 in listings).
 - **Screenshots** — all of `assets/store/screenshots/`.
-- **Description** — `STORE_COPY.md` › *About this game*, pasted as-is; itch's editor takes
-  the Markdown headings and bullets.
+- **Description** — paste `ITCH_DESCRIPTION.md` (everything under its `---`). itch's editor
+  takes the Markdown headings and bullets.
+- **Download & install instructions** — the unsigned-build notes go HERE, not in the
+  description: itch shows this box in the download modal, which is exactly the moment the
+  player hits the warning.
 - **Classification:** Games · **Kind:** Downloadable · **Genre:** Simulation
-- **Tags:** the first ten from `STORE_COPY.md` › *Tags* (itch caps at 10).
+- **Tags:** ten from `STORE_COPY.md` › *Tags*, but **not** the one you picked as Genre —
+  itch asks you not to repeat the genre, and a wasted slot is a search term you don't get.
 - **Pricing:** your call. "No payments" or "$X or donate" both work for a soft launch; the
   point of being here first is feedback, not revenue.
 - **Community:** enable comments — that is the feedback channel.
+
+## AI disclosure
+
+itch asks. The honest answer is **Yes**: LLMs wrote much of the code and much of the case
+text. Graphics and sounds have no image or audio model behind them — they are drawn and
+synthesised by code — but that code was LLM-written too, so all four boxes ticked is the
+defensible reading. Under-ticking to dodge the filter tags would be both dishonest and
+enforceable against the page.
+
+The cost is real: some players filter AI-tagged projects out entirely. Worth knowing, not
+worth lying about.
 
 ## Things Steam has that itch does not
 

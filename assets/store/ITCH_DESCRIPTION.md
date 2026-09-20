@@ -5,6 +5,8 @@
 
 ---
 
+## The desk
+
 **You are the newest junior associate at Parson Henderson LLP, and nobody has told you where the coffee is.**
 
 Every morning, case files land in your inbox. Every file is a wall of text — and somewhere in that wall is the thing that wins it: the signature from someone who had no authority to sign, the date that comes *after* the date it's supposed to come before, the vendor whose only employee is the CFO's brother-in-law. Read carefully and you'll find it. Skim, and you'll pick the confident option that loses.
@@ -29,19 +31,11 @@ Four difficulties that blur what you *know* and never touch the dice. Four modes
 
 Every case, every judge, every sound is generated offline. No account, no connection, no files phoning home.
 
-## Installing
+## Before you download
 
-Unzip and run — there is no installer.
-
-**Windows:** SmartScreen will warn you once, because the build isn't code-signed yet. Click **More info → Run anyway**.
-
-**macOS:** the app isn't notarised yet, so Gatekeeper will say it "is damaged and can't be opened". It isn't. Right-click **FANCY OUTFITS.app → Open → Open**, or run this once in Terminal:
-
-```
-xattr -cr "FANCY OUTFITS.app"
-```
-
-Saves live in the app's own folder on your machine — there are no cloud saves here.
+Neither build is code-signed yet, so Windows and macOS will both warn you once.
+The download page tells you exactly what to click — it takes five seconds and the
+warning is about the missing signature, not about the game.
 
 ## Known
 

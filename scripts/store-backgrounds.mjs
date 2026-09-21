@@ -20,6 +20,10 @@ const electronPath = require("electron");
 const OUT = resolve("assets/store/backgrounds");
 const FONT = pathToFileURL(resolve("src/fonts/press-start-2p-latin.woff2")).toString();
 const W = 2560, H = 1440, COL = 960;            // itch's content column is ~960 wide
+// At 1280x800 — the narrowest window worth designing for — `background-size:cover`
+// crops 128px of source from each side and the column covers the middle, leaving a
+// visible gutter of roughly x=128..416. Anything that must stay readable lives here.
+const SAFE = 150, SAFE_W = 250;
 
 const svg = rects => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${LOGO_SIZE} ${LOGO_SIZE}">` +
   rects.map(s => `<rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" fill="${s.f}"/>`).join("") + `</svg>`;
@@ -57,10 +61,10 @@ const drawer = ({ label, open = false, side = "left" }) => `
   border-bottom:4px solid #1c2233;${open ? "transform:translateX(" + (side === "left" ? 62 : -62) + "px);box-shadow:-34px 0 58px rgba(0,0,0,.6);z-index:3" : ""}">
   <div style="position:absolute;inset:0 0 auto 0;height:4px;background:#5b6a95"></div>
   <div style="position:absolute;inset:auto 0 0 0;height:10px;background:linear-gradient(#2a3149,#232a3f)"></div>
-  <div style="position:absolute;${side === "left" ? "left:54px" : "right:54px"};top:58%;transform:translateY(-50%);
-    width:236px;height:30px;background:#6b7bb4;border-radius:4px;
+  <div style="position:absolute;${side === "left" ? `left:${SAFE}px` : `right:${SAFE}px`};top:58%;transform:translateY(-50%);
+    width:${SAFE_W}px;height:30px;background:#6b7bb4;border-radius:4px;
     box-shadow:0 3px 0 #4a5680, inset 0 3px 0 #8a99cc"></div>
-  <div style="position:absolute;${side === "left" ? "left:54px" : "right:54px"};top:19%;
+  <div style="position:absolute;${side === "left" ? `left:${SAFE}px` : `right:${SAFE}px`};top:19%;
     background:#efece2;color:#2b2118;font-size:16px;padding:10px 18px;letter-spacing:.06em;
     box-shadow:0 2px 0 rgba(0,0,0,.35)">${label}</div>
   ${open ? `
@@ -173,39 +177,39 @@ const pages = {
     <div style="position:absolute;left:232px;top:0;bottom:0;width:3px;background:#e2a5ad"></div>
     <div style="position:absolute;right:232px;top:0;bottom:0;width:3px;background:#e2a5ad"></div>
 
-    <div style="position:absolute;left:96px;right:96px;top:84px;color:#2b2118;font-size:34px;
+    <div style="position:absolute;left:${SAFE}px;right:${SAFE}px;top:84px;color:#2b2118;font-size:34px;
       letter-spacing:.04em">${CASE_TITLE}</div>
-    <div style="position:absolute;left:96px;right:96px;top:150px;height:3px;background:#b7a98a"></div>
-    <div style="position:absolute;left:96px;right:96px;top:206px;color:#2b2118;font-size:27px;
+    <div style="position:absolute;left:${SAFE}px;right:${SAFE}px;top:150px;height:3px;background:#b7a98a"></div>
+    <div style="position:absolute;left:${SAFE}px;right:${SAFE}px;top:206px;color:#2b2118;font-size:27px;
       line-height:2.28;opacity:.72;word-spacing:-2px">${CASE_BODY}</div>
-    <div style="position:absolute;left:96px;right:96px;top:640px;color:#8a6a1f;font-size:21px;
+    <div style="position:absolute;left:${SAFE}px;right:${SAFE}px;top:640px;color:#8a6a1f;font-size:21px;
       opacity:.85">DEADLINE: DAY 3 · BASE TIME: 2h (careful plays take longer)</div>
 
     <!-- The body is full-bleed, so the column eats the middle of every line and the
          gutters keep only line-starts. These exhibit tabs are short enough to stay
          whole at any width — the gutter always has something it can finish saying. -->
     ${["EXHIBIT A", "EXHIBIT B", "EXHIBIT C", "EXHIBIT D"].map((t, i) => `
-      <div style="position:absolute;left:0;top:${1050 + i * 78}px;background:#cabea0;color:#2b2118;
-        font-size:17px;padding:11px 20px 11px 30px;letter-spacing:.08em;
+      <div style="position:absolute;left:${SAFE}px;top:${904 + i * 78}px;background:#cabea0;color:#2b2118;
+        font-size:17px;padding:11px 22px;letter-spacing:.08em;
         box-shadow:0 3px 0 #a8996f">${t}</div>`).join("")}
     ${["FILED", "SEALED", "ON APPEAL"].map((t, i) => `
-      <div style="position:absolute;right:0;top:${1080 + i * 78}px;background:#cabea0;color:#2b2118;
-        font-size:17px;padding:11px 30px 11px 20px;letter-spacing:.08em;
+      <div style="position:absolute;right:${SAFE}px;top:${904 + i * 78}px;background:#cabea0;color:#2b2118;
+        font-size:17px;padding:11px 22px;letter-spacing:.08em;
         box-shadow:0 3px 0 #a8996f">${t}</div>`).join("")}
 
-    <div style="position:absolute;left:96px;top:820px;transform:rotate(-13deg);
+    <div style="position:absolute;left:${SAFE}px;top:820px;transform:rotate(-13deg);
       border:9px solid #b13e53;color:#b13e53;font-size:50px;padding:28px 38px;letter-spacing:.08em;
       opacity:.9">HENDERED</div>
-    <div style="position:absolute;right:150px;top:760px;width:300px;height:300px;border-radius:50%;
+    <div style="position:absolute;right:${SAFE - 30}px;top:760px;width:300px;height:300px;border-radius:50%;
       border:20px solid rgba(120,84,44,.2)"></div>
-    <div style="position:absolute;right:236px;top:846px;width:128px;height:128px;border-radius:50%;
+    <div style="position:absolute;right:${SAFE + 56}px;top:846px;width:128px;height:128px;border-radius:50%;
       border:8px solid rgba(120,84,44,.12)"></div>
-    <div style="position:absolute;left:58px;top:132px;width:30px;height:210px;
+    <div style="position:absolute;left:${SAFE - 40}px;top:132px;width:30px;height:210px;
       border:11px solid #8fa3b6;border-radius:60px;transform:rotate(11deg)"></div>
 
-    <div style="position:absolute;left:270px;bottom:120px;color:#2b2118;font-size:19px;
+    <div style="position:absolute;left:${SAFE}px;bottom:120px;color:#2b2118;font-size:19px;
       letter-spacing:.18em;opacity:.5">PARSON HENDERSON LLP</div>
-    <div class="mark" style="position:absolute;right:120px;bottom:110px;width:180px;height:180px;
+    <div class="mark" style="position:absolute;right:${SAFE}px;bottom:110px;width:180px;height:180px;
       border:6px solid #2b2118;opacity:.92">${MARK}</div>
   </body>`,
 };

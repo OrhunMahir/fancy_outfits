@@ -64,16 +64,28 @@ const drawer = ({ label, open = false, side = "left" }) => `
   <div style="position:absolute;${side === "left" ? `left:${SAFE}px` : `right:${SAFE}px`};top:58%;transform:translateY(-50%);
     width:${SAFE_W}px;height:30px;background:#6b7bb4;border-radius:4px;
     box-shadow:0 3px 0 #4a5680, inset 0 3px 0 #8a99cc"></div>
-  <div style="position:absolute;${side === "left" ? `left:${SAFE}px` : `right:${SAFE}px`};top:19%;
+  ${open ? "" : `<div style="position:absolute;${side === "left" ? `left:${SAFE}px` : `right:${SAFE}px`};top:19%;
     background:#efece2;color:#2b2118;font-size:16px;padding:10px 18px;letter-spacing:.06em;
-    box-shadow:0 2px 0 rgba(0,0,0,.35)">${label}</div>
+    box-shadow:0 2px 0 rgba(0,0,0,.35)">${label}</div>`}
   ${open ? `
-    <div style="position:absolute;left:34px;right:-40px;top:-54px;height:34px;background:#cabea0;
-      box-shadow:0 3px 0 #a8996f"></div>
-    <div style="position:absolute;left:66px;right:-14px;top:-30px;height:34px;background:#b7a98a;
-      box-shadow:0 3px 0 #9c8f74"></div>
-    <div style="position:absolute;left:98px;right:10px;top:-8px;height:30px;background:#f2e9d8;
-      box-shadow:0 3px 0 #cabea0"></div>` : ""}
+    <!-- folder backs standing up out of the drawer -->
+    ${[0, 1, 2].map(i => `<div style="position:absolute;
+      ${side === "left" ? `left:${SAFE - 24 + i * 30}px;right:${120 - i * 26}px` : `right:${SAFE - 24 + i * 30}px;left:${120 - i * 26}px`};
+      top:${-74 + i * 22}px;height:${58 - i * 4}px;background:${["#cabea0", "#b7a98a", "#efe4cc"][i]};
+      box-shadow:0 4px 0 ${["#a8996f", "#9c8f74", "#cabea0"][i]}"></div>`).join("")}
+    <!-- and the paperwork spilling over the front, hanging past the drawer -->
+    ${[0, 1, 2].map(i => {
+      const tilt = (i - 1) * 2.6 * (side === "left" ? 1 : -1);
+      return `<div style="position:absolute;
+        ${side === "left" ? `left:${SAFE + 18 + i * 66}px` : `right:${SAFE + 18 + i * 66}px`};
+        top:${26 + i * 12}px;width:${212 - i * 18}px;height:${196 - i * 20}px;
+        background:${["#f2e9d8", "#e8dcc2", "#cabea0"][i]};
+        transform:rotate(${tilt}deg);transform-origin:top center;
+        box-shadow:0 16px 30px rgba(0,0,0,.5);z-index:${4 + i}">
+        ${[0, 1, 2, 3].map(k => `<div style="position:absolute;left:12%;right:${k % 2 ? 34 : 16}%;
+          top:${16 + k * 17}%;height:3px;background:#c9bda2"></div>`).join("")}
+      </div>`;
+    }).join("")}` : ""}
 </div>`;
 
 // The Kessler file, verbatim from content.js. Set full-bleed so itch's column
@@ -197,7 +209,7 @@ const pages = {
         font-size:17px;padding:11px 22px;letter-spacing:.08em;
         box-shadow:0 3px 0 #a8996f">${t}</div>`).join("")}
 
-    <div style="position:absolute;left:${SAFE}px;top:820px;transform:rotate(-13deg);
+    <div style="position:absolute;left:${SAFE}px;top:660px;transform:rotate(-13deg);
       border:9px solid #b13e53;color:#b13e53;font-size:50px;padding:28px 38px;letter-spacing:.08em;
       opacity:.9">HENDERED</div>
     <div style="position:absolute;right:${SAFE - 30}px;top:760px;width:300px;height:300px;border-radius:50%;

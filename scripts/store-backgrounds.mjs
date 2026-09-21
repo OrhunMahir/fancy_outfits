@@ -52,17 +52,33 @@ const file = ({ x, y, rot, w = 330, stamp = false, o = 1 }) => `
   </div>
 </div>`;
 
-const drawer = ({ label, open = false }) => `
-<div style="position:relative;height:186px;background:#3d4763;border-bottom:3px solid #232a3f;
-  ${open ? "transform:translateX(46px);box-shadow:-26px 0 46px rgba(0,0,0,.5);z-index:2" : ""}">
-  <div style="position:absolute;inset:0 0 auto 0;height:3px;background:#525f85"></div>
-  <div style="position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);
-    width:210px;height:26px;background:#6b7bb4;border-radius:3px"></div>
-  <div style="position:absolute;left:50%;top:20%;transform:translateX(-50%);
-    background:#efece2;color:#2b2118;font-size:15px;padding:9px 16px;letter-spacing:.06em">${label}</div>
-  ${open ? `<div style="position:absolute;right:-30px;top:-26px;width:250px;height:30px;background:#b7a98a"></div>
-            <div style="position:absolute;right:-16px;top:-44px;width:250px;height:30px;background:#cabea0"></div>` : ""}
+const drawer = ({ label, open = false, side = "left" }) => `
+<div style="position:relative;height:178px;background:#3d4763;
+  border-bottom:4px solid #1c2233;${open ? "transform:translateX(" + (side === "left" ? 62 : -62) + "px);box-shadow:-34px 0 58px rgba(0,0,0,.6);z-index:3" : ""}">
+  <div style="position:absolute;inset:0 0 auto 0;height:4px;background:#5b6a95"></div>
+  <div style="position:absolute;inset:auto 0 0 0;height:10px;background:linear-gradient(#2a3149,#232a3f)"></div>
+  <div style="position:absolute;${side === "left" ? "left:54px" : "right:54px"};top:58%;transform:translateY(-50%);
+    width:236px;height:30px;background:#6b7bb4;border-radius:4px;
+    box-shadow:0 3px 0 #4a5680, inset 0 3px 0 #8a99cc"></div>
+  <div style="position:absolute;${side === "left" ? "left:54px" : "right:54px"};top:19%;
+    background:#efece2;color:#2b2118;font-size:16px;padding:10px 18px;letter-spacing:.06em;
+    box-shadow:0 2px 0 rgba(0,0,0,.35)">${label}</div>
+  ${open ? `
+    <div style="position:absolute;left:34px;right:-40px;top:-54px;height:34px;background:#cabea0;
+      box-shadow:0 3px 0 #a8996f"></div>
+    <div style="position:absolute;left:66px;right:-14px;top:-30px;height:34px;background:#b7a98a;
+      box-shadow:0 3px 0 #9c8f74"></div>
+    <div style="position:absolute;left:98px;right:10px;top:-8px;height:30px;background:#f2e9d8;
+      box-shadow:0 3px 0 #cabea0"></div>` : ""}
 </div>`;
+
+// The Kessler file, verbatim from content.js. Set full-bleed so itch's column
+// hides the middle of every line and the reader is left with the edges of a
+// document — which is exactly what the game asks of them.
+const CASE_TITLE = "CASE: Kessler NDA breach";
+const CASE_BODY = "Client Kessler Corp is being sued for breaching an NDA. Reading the file: " +
+  "the NDA was signed by a Vice President of the counterparty who — per exhibit C — " +
+  "had NO signing authority under their own bylaws. Opposing counsel hasn't noticed.";
 
 const pages = {
   // 1 — the player's idea: files sliding past in the gutters, logo as a watermark
@@ -127,40 +143,70 @@ const pages = {
     <div class="scan"></div></body>`,
 
   // 4 — the archive itself: drawers up both gutters, one pulled open
-  "04-filing-cabinet": `<body style="background:#232a3f">
-    <div style="position:absolute;left:0;top:0;width:560px;height:100%;background:#2a3149;padding-top:-20px">
+  // 4 — the archive itself, with depth and the labels kept off the crop edge
+  "04-filing-cabinet": `<body style="background:#151a28">
+    <div style="position:absolute;left:0;top:-40px;width:620px;height:calc(100% + 80px);background:#2a3149;
+      box-shadow:inset -26px 0 46px rgba(0,0,0,.55)">
       ${drawer({ label: "KESSLER" })}${drawer({ label: "ALDERGATE", open: true })}
       ${drawer({ label: "HALCYON" })}${drawer({ label: "VANCE" })}
       ${drawer({ label: "REDVALE" })}${drawer({ label: "NIMBUSHOST" })}
       ${drawer({ label: "PEMBERTON" })}${drawer({ label: "CORVID" })}
+      ${drawer({ label: "ASHGROVE" })}
     </div>
-    <div style="position:absolute;right:0;top:-92px;width:560px;height:110%;background:#2a3149">
-      ${drawer({ label: "BELLWETHER" })}${drawer({ label: "RAVENSCROFT" })}
-      ${drawer({ label: "ALMEIDA" })}${drawer({ label: "KEPLER TOWER" })}
-      ${drawer({ label: "SABLE & ROE" })}${drawer({ label: "MERIDIAN" })}
-      ${drawer({ label: "ASHGROVE" })}${drawer({ label: "THORNE" })}
+    <div style="position:absolute;right:0;top:-118px;width:620px;height:calc(100% + 200px);background:#2a3149;
+      box-shadow:inset 26px 0 46px rgba(0,0,0,.55)">
+      ${drawer({ label: "BELLWETHER", side: "right" })}${drawer({ label: "RAVENSCROFT", side: "right" })}
+      ${drawer({ label: "ALMEIDA", side: "right" })}${drawer({ label: "KEPLER TOWER", side: "right" })}
+      ${drawer({ label: "SABLE & ROE", open: true, side: "right" })}${drawer({ label: "MERIDIAN", side: "right" })}
+      ${drawer({ label: "THORNE", side: "right" })}${drawer({ label: "HALLORAN", side: "right" })}
+      ${drawer({ label: "WESTBROOK", side: "right" })}
     </div>
-    <div style="position:absolute;left:560px;right:560px;top:0;bottom:0;background:#1a1c2c"></div>
     <div class="mark" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-      width:700px;height:700px;opacity:.07">${MARK_BARE}</div>
+      width:760px;height:760px;opacity:.055">${MARK_BARE}</div>
+    <div style="position:absolute;left:620px;right:620px;bottom:0;height:210px;
+      background:linear-gradient(transparent,rgba(0,0,0,.55))"></div>
     <div class="scan"></div></body>`,
 
   // 5 — invert it: the whole page is one enormous case file
   "05-blotter": `<body style="background:#f2e9d8">
-    ${Array.from({ length: 34 }, (_, i) => `<div style="position:absolute;left:0;right:0;top:${60 + i * 42}px;height:2px;background:#dcd0b4"></div>`).join("")}
-    <div style="position:absolute;left:300px;top:0;bottom:0;width:3px;background:#e0a0a8"></div>
-    <div style="position:absolute;right:300px;top:0;bottom:0;width:3px;background:#e0a0a8"></div>
-    <div style="position:absolute;left:66px;top:360px;transform:rotate(-13deg);
-      border:8px solid #b13e53;color:#b13e53;font-size:46px;padding:26px 34px;letter-spacing:.08em;
-      opacity:.86">HENDERED</div>
-    <div style="position:absolute;right:120px;top:250px;width:270px;height:270px;border-radius:50%;
-      border:16px solid rgba(120,84,44,.16)"></div>
-    <div style="position:absolute;right:150px;bottom:300px;width:14px;height:150px;
-      border:7px solid #94b0c2;border-radius:40px;transform:rotate(22deg);opacity:.8"></div>
-    <div style="position:absolute;left:96px;bottom:150px;color:#2b2118;font-size:15px;letter-spacing:.18em;
-      opacity:.55">PARSON HENDERSON LLP</div>
-    <div class="mark" style="position:absolute;right:96px;bottom:96px;width:170px;height:170px;
-      border:5px solid #2b2118;opacity:.9">${MARK}</div>
+    ${Array.from({ length: 30 }, (_, i) => `<div style="position:absolute;left:0;right:0;top:${196 + i * 42}px;height:2px;background:#dfd3b7"></div>`).join("")}
+    <div style="position:absolute;left:232px;top:0;bottom:0;width:3px;background:#e2a5ad"></div>
+    <div style="position:absolute;right:232px;top:0;bottom:0;width:3px;background:#e2a5ad"></div>
+
+    <div style="position:absolute;left:96px;right:96px;top:84px;color:#2b2118;font-size:34px;
+      letter-spacing:.04em">${CASE_TITLE}</div>
+    <div style="position:absolute;left:96px;right:96px;top:150px;height:3px;background:#b7a98a"></div>
+    <div style="position:absolute;left:96px;right:96px;top:206px;color:#2b2118;font-size:27px;
+      line-height:2.28;opacity:.72;word-spacing:-2px">${CASE_BODY}</div>
+    <div style="position:absolute;left:96px;right:96px;top:640px;color:#8a6a1f;font-size:21px;
+      opacity:.85">DEADLINE: DAY 3 · BASE TIME: 2h (careful plays take longer)</div>
+
+    <!-- The body is full-bleed, so the column eats the middle of every line and the
+         gutters keep only line-starts. These exhibit tabs are short enough to stay
+         whole at any width — the gutter always has something it can finish saying. -->
+    ${["EXHIBIT A", "EXHIBIT B", "EXHIBIT C", "EXHIBIT D"].map((t, i) => `
+      <div style="position:absolute;left:0;top:${1050 + i * 78}px;background:#cabea0;color:#2b2118;
+        font-size:17px;padding:11px 20px 11px 30px;letter-spacing:.08em;
+        box-shadow:0 3px 0 #a8996f">${t}</div>`).join("")}
+    ${["FILED", "SEALED", "ON APPEAL"].map((t, i) => `
+      <div style="position:absolute;right:0;top:${1080 + i * 78}px;background:#cabea0;color:#2b2118;
+        font-size:17px;padding:11px 30px 11px 20px;letter-spacing:.08em;
+        box-shadow:0 3px 0 #a8996f">${t}</div>`).join("")}
+
+    <div style="position:absolute;left:96px;top:820px;transform:rotate(-13deg);
+      border:9px solid #b13e53;color:#b13e53;font-size:50px;padding:28px 38px;letter-spacing:.08em;
+      opacity:.9">HENDERED</div>
+    <div style="position:absolute;right:150px;top:760px;width:300px;height:300px;border-radius:50%;
+      border:20px solid rgba(120,84,44,.2)"></div>
+    <div style="position:absolute;right:236px;top:846px;width:128px;height:128px;border-radius:50%;
+      border:8px solid rgba(120,84,44,.12)"></div>
+    <div style="position:absolute;left:58px;top:132px;width:30px;height:210px;
+      border:11px solid #8fa3b6;border-radius:60px;transform:rotate(11deg)"></div>
+
+    <div style="position:absolute;left:270px;bottom:120px;color:#2b2118;font-size:19px;
+      letter-spacing:.18em;opacity:.5">PARSON HENDERSON LLP</div>
+    <div class="mark" style="position:absolute;right:120px;bottom:110px;width:180px;height:180px;
+      border:6px solid #2b2118;opacity:.92">${MARK}</div>
   </body>`,
 };
 

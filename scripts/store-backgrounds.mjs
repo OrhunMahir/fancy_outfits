@@ -26,6 +26,17 @@ const W = 2560, H = 1440, COL = 960;            // itch's content column is ~960
 // visible gutter of roughly x=128..416. Anything that must stay readable lives here.
 const SAFE = 150, SAFE_W = 250;
 
+// Page 05's geometry. The content column is 960 CSS px wide; against a `cover`
+// background that is 960/scale SOURCE px, and the scale falls as the window
+// narrows — so the column is NARROWEST on the widest screen. At a 2560 viewport
+// it covers x 800..1760, and every smaller window covers more. Anything inside
+// that span is hidden at every width worth designing for; anything inside
+// SAFE..SAFE+250 is visible at every width. Between them is the danger zone, and
+// text that lands there gets cut in half, which is what the first draft did.
+const FX = 470, FW = 1620, FY = 52, FH = 1310;   // the folder, wider than any column
+const TX = 820, TW = 920;                        // the document, centred and covered
+const STAMP_L = 84, STAMP_T = 341;               // the stamp, stood on end in the gutter
+
 const svg = rects => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${LOGO_SIZE} ${LOGO_SIZE}">` +
   rects.map(s => `<rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" fill="${s.f}"/>`).join("") + `</svg>`;
 const isGround = s => s.x === 0 && s.y === 0 && s.w === LOGO_SIZE && s.h === LOGO_SIZE;
@@ -228,82 +239,104 @@ export function buildPages(t = 0){
       background:linear-gradient(transparent,rgba(0,0,0,.55))"></div>
     <div class="scan"></div></body>`,
 
-  // 5 — invert it: the whole page is one enormous case file
+  // 5 — the desk from above: a case folder lying on the blotter pad.
+  //
+  // The rule that shapes this page: NOTHING READABLE MAY CROSS THE COLUMN'S EDGE.
+  // The first version set the case text full-bleed, so the reader was handed the
+  // first half of every sentence on the left and the last half on the right and
+  // could finish neither. So the document now lives entirely INSIDE the column's
+  // footprint — invisible in the browser, whole when the image is seen on its own —
+  // and the gutters carry only objects that are complete at 250px wide.
   "05-blotter": `<body style="background:#f2e9d8">
-    ${Array.from({ length: 30 }, (_, i) => `<div style="position:absolute;left:0;right:0;top:${196 + i * 42}px;height:2px;background:#dfd3b7"></div>`).join("")}
+    ${Array.from({ length: 34 }, (_, i) => `<div style="position:absolute;left:0;right:0;top:${60 + i * 42}px;height:2px;background:#dfd3b7"></div>`).join("")}
     <div style="position:absolute;left:232px;top:0;bottom:0;width:3px;background:#e2a5ad"></div>
     <div style="position:absolute;right:232px;top:0;bottom:0;width:3px;background:#e2a5ad"></div>
 
-    <div style="position:absolute;left:${SAFE}px;right:${SAFE}px;top:84px;color:#2b2118;font-size:34px;
-      letter-spacing:.04em">${CASE_TITLE}</div>
-    <div style="position:absolute;left:${SAFE}px;right:${SAFE}px;top:150px;height:3px;background:#b7a98a"></div>
-    <div style="position:absolute;left:${SAFE}px;right:${SAFE}px;top:206px;color:#2b2118;font-size:27px;
-      line-height:2.28;opacity:.72;word-spacing:-2px">${CASE_BODY}</div>
-    <!-- Redactions. The column hides the middle of each bar, so both gutters are
-         left holding the end of a line somebody decided you could not read. -->
-    ${[[432, 560, 470], [500, 380, 300]].map(([y, wl, wr]) => `
-      <div style="position:absolute;left:${SAFE}px;top:${y}px;width:${wl}px;height:27px;background:#1a1c2c;opacity:.88"></div>
-      <div style="position:absolute;right:${SAFE}px;top:${y}px;width:${wr}px;height:27px;background:#1a1c2c;opacity:.88"></div>`).join("")}
-    <div style="position:absolute;left:${SAFE}px;top:552px;transform:rotate(-3deg);color:#b13e53;
-      font-size:16px;letter-spacing:.1em;opacity:.8">PRIVILEGED — DO NOT PRODUCE</div>
+    <!-- THE FOLDER. Its shell is wider than the column at every window, so what
+         shows around the edges is manila and shadow — a frame, never half a word. -->
+    <div style="position:absolute;left:${FX + 88}px;top:${FY - 42}px;width:430px;height:46px;
+      background:#b7a98a;border:3px solid #9c8f74;border-bottom:0"></div>
+    <div style="position:absolute;left:${FX}px;top:${FY}px;width:${FW}px;height:${FH}px;
+      background:#b7a98a;border:3px solid #9c8f74;box-shadow:0 34px 80px rgba(60,40,18,.34)">
+      <div style="position:absolute;inset:26px;background:#f8f1e2;
+        background-image:repeating-linear-gradient(transparent 0 40px,#e7dcc4 40px 42px)">
 
-    <div style="position:absolute;left:${SAFE}px;right:${SAFE}px;top:640px;color:#8a6a1f;font-size:21px;
-      opacity:.85">DEADLINE: DAY 3 · BASE TIME: 2h (careful plays take longer)</div>
+        <!-- Everything below sits inside x ${TX}..${TX + TW} of the canvas, which is
+             covered by the content column at every window width worth designing for. -->
+        <div style="position:absolute;left:${TX - FX - 26}px;width:${TW}px;top:74px;
+          color:#2b2118;font-size:15px;letter-spacing:.2em;opacity:.45">PARSON HENDERSON LLP</div>
+        <div style="position:absolute;left:${TX - FX - 26}px;width:${TW}px;top:112px;height:3px;background:#cabea0"></div>
 
-    <!-- The body is full-bleed, so the column eats the middle of every line and the
-         gutters keep only line-starts. These exhibit tabs are short enough to stay
-         whole at any width — the gutter always has something it can finish saying. -->
-    ${["EXHIBIT A", "EXHIBIT B", "EXHIBIT C", "EXHIBIT D"].map((t, i) => `
-      <div style="position:absolute;left:${SAFE}px;top:${904 + i * 78}px;background:#cabea0;color:#2b2118;
-        font-size:17px;padding:11px 22px;letter-spacing:.08em;
-        box-shadow:0 3px 0 #a8996f">${t}</div>`).join("")}
-    ${["FILED", "SEALED", "ON APPEAL"].map((t, i) => `
-      <div style="position:absolute;right:${SAFE}px;top:${904 + i * 78}px;background:#cabea0;color:#2b2118;
-        font-size:17px;padding:11px 22px;letter-spacing:.08em;
-        box-shadow:0 3px 0 #a8996f">${t}</div>`).join("")}
+        <div style="position:absolute;left:${TX - FX - 26}px;width:${TW}px;top:168px;
+          color:#2b2118;font-size:30px">${CASE_TITLE}</div>
+        <div style="position:absolute;left:${TX - FX - 26}px;width:${TW}px;top:232px;height:3px;background:#b7a98a"></div>
+        <div style="position:absolute;left:${TX - FX - 26}px;width:${TW}px;top:282px;
+          color:#2b2118;font-size:22px;line-height:2.1;opacity:.74">${CASE_BODY}</div>
 
-    <div style="position:absolute;left:${SAFE}px;top:660px;
-      transform:rotate(${stamp.rot}deg) scale(${stamp.s});transform-origin:50% 50%;
-      border:9px solid #b13e53;color:#b13e53;font-size:50px;padding:28px 38px;letter-spacing:.08em;
+        ${[[690, 820], [750, 560]].map(([y, w]) => `<div style="position:absolute;
+          left:${TX - FX - 26}px;top:${y}px;width:${w}px;height:26px;background:#1a1c2c;opacity:.88"></div>`).join("")}
+        <div style="position:absolute;left:${TX - FX - 26}px;top:800px;transform:rotate(-2deg);
+          color:#b13e53;font-size:15px;letter-spacing:.1em;opacity:.8">PRIVILEGED — DO NOT PRODUCE</div>
+
+        <div style="position:absolute;left:${TX - FX - 26}px;width:${TW}px;top:880px;
+          color:#8a6a1f;font-size:18px;opacity:.85">DEADLINE: DAY 3 · BASE TIME: 2h</div>
+
+        <div style="position:absolute;left:${TX - FX - 26}px;top:966px">${SIGNATURE}</div>
+        <div style="position:absolute;left:${TX - FX - 26}px;top:1052px;width:300px;height:3px;background:#8a7f66"></div>
+        <div style="position:absolute;left:${TX - FX - 26}px;top:1066px;color:#2b2118;font-size:14px;
+          letter-spacing:.1em;opacity:.6">M. HARDWICK · COUNSEL OF RECORD</div>
+        <div style="position:absolute;left:${TX - FX - 26}px;width:${TW}px;top:1140px;height:3px;background:#cabea0"></div>
+        <div style="position:absolute;left:${TX - FX - 26}px;top:1160px;color:#2b2118;font-size:14px;
+          letter-spacing:.12em;opacity:.38">DOCKET 24-CV-0917 · PAGE 1 OF 4</div>
+      </div>
+    </div>
+
+    <!-- LEFT GUTTER. Tall and thin, so what goes in it is tall and thin: the stamp
+         stands on end, the way a marking in a margin does — and the way the mark's
+         own file does. Widest item here is ${SAFE_W}px. -->
+    <div style="position:absolute;left:${STAMP_L}px;top:${STAMP_T}px;
+      transform:rotate(${stamp.rot + 107}deg) scale(${stamp.s});transform-origin:50% 50%;
+      border:7px solid #b13e53;color:#b13e53;font-size:32px;padding:16px 24px;letter-spacing:.08em;
       opacity:${stamp.o}">HENDERED</div>
-    <!-- The clerk's stamp, in the one stretch of right gutter with nothing in it:
-         the body text is full-bleed and owns everything above the redactions. -->
-    <div style="position:absolute;right:${SAFE}px;top:580px;transform:rotate(6deg);
-      border:5px solid #3b5dc9;color:#3b5dc9;font-size:15px;line-height:1.9;padding:14px 20px;
-      letter-spacing:.12em;text-align:center;opacity:.5">RECEIVED<br>DAY 3<br>CLERK OF COURT</div>
 
-    <div style="position:absolute;right:${SAFE - 30}px;top:760px;width:300px;height:300px;border-radius:50%;
-      border:20px solid rgba(120,84,44,.2)"></div>
-    <div style="position:absolute;right:${SAFE + 56}px;top:846px;width:128px;height:128px;border-radius:50%;
-      border:8px solid rgba(120,84,44,.12)"></div>
-    <div style="position:absolute;left:${SAFE - 40}px;top:132px;width:30px;height:210px;
-      border:11px solid #8fa3b6;border-radius:60px;transform:rotate(11deg)"></div>
+    ${["EXHIBIT A", "EXHIBIT B", "EXHIBIT C", "EXHIBIT D", "EXHIBIT E", "EXHIBIT F"].map((label, i) => `
+      <div style="position:absolute;left:${SAFE}px;top:${664 + i * 74}px;background:#cabea0;color:#2b2118;
+        font-size:17px;padding:10px 20px;letter-spacing:.06em;
+        box-shadow:0 3px 0 #a8996f">${label}</div>`).join("")}
 
-    <!-- The bottom of the page was bare under the exhibit tabs. A file ends the
-         way a file ends: somebody signs it, a rule closes it, it gets a number. -->
-    <div style="position:absolute;left:${SAFE + 6}px;top:1186px">${SIGNATURE}</div>
-    <div style="position:absolute;left:${SAFE}px;top:1272px;width:330px;height:3px;background:#8a7f66"></div>
-    <div style="position:absolute;left:${SAFE}px;top:1286px;color:#2b2118;font-size:15px;
-      letter-spacing:.1em;opacity:.6">M. HARDWICK · COUNSEL OF RECORD</div>
+    <div style="position:absolute;left:${SAFE - 40}px;top:170px;width:26px;height:190px;
+      border:10px solid #8fa3b6;border-radius:60px;transform:rotate(11deg)"></div>
 
-    <!-- The rule stops short on purpose: full-bleed would run through the mark. -->
-    <div style="position:absolute;left:${SAFE}px;top:1318px;width:520px;height:3px;background:#b7a98a"></div>
-    <div style="position:absolute;left:${SAFE}px;top:1336px;color:#2b2118;font-size:19px;
-      letter-spacing:.18em;opacity:.5">PARSON HENDERSON LLP</div>
-    <div style="position:absolute;left:${SAFE}px;top:1368px;color:#2b2118;font-size:15px;
-      letter-spacing:.12em;opacity:.38">DOCKET 24-CV-0917 · PAGE 1 OF 4</div>
-    <div style="position:absolute;right:${SAFE}px;top:1368px;color:#2b2118;font-size:15px;
-      letter-spacing:.12em;opacity:.38">CONTINUED ON PAGE 2</div>
+    <div style="position:absolute;left:${SAFE}px;top:1196px;color:#2b2118;font-size:13px;
+      letter-spacing:.1em;opacity:.45">PARSON HENDERSON</div>
+    <div style="position:absolute;left:${SAFE}px;top:1228px;color:#2b2118;font-size:13px;
+      letter-spacing:.1em;opacity:.45">LLP · EST. 1987</div>
 
-    <!-- The sheets underneath. Page one has to stop somewhere, and a bare strip of
-         paper along the bottom edge reads as a page that ran out rather than a file
-         that goes on — these two edges say there is more of it below the crop. -->
+    <!-- RIGHT GUTTER, same 250px discipline. -->
+    <div style="position:absolute;right:${SAFE}px;top:196px;transform:rotate(6deg);
+      border:5px solid #3b5dc9;color:#3b5dc9;font-size:13px;line-height:1.9;padding:12px 16px;
+      letter-spacing:.1em;text-align:center;opacity:.5">RECEIVED<br>DAY 3<br>CLERK OF COURT</div>
+
+    <div style="position:absolute;right:${SAFE - 10}px;top:470px;width:240px;height:240px;border-radius:50%;
+      border:17px solid rgba(120,84,44,.2)"></div>
+    <div style="position:absolute;right:${SAFE + 54}px;top:538px;width:104px;height:104px;border-radius:50%;
+      border:7px solid rgba(120,84,44,.12)"></div>
+
+    ${["FILED", "SEALED", "ON APPEAL"].map((label, i) => `
+      <div style="position:absolute;right:${SAFE}px;top:${790 + i * 74}px;background:#cabea0;color:#2b2118;
+        font-size:17px;padding:10px 20px;letter-spacing:.06em;
+        box-shadow:0 3px 0 #a8996f">${label}</div>`).join("")}
+
+    <div class="mark" style="position:absolute;right:${SAFE}px;top:1052px;width:180px;height:180px;
+      border:6px solid #2b2118;opacity:.92">${MARK}</div>
+    <div style="position:absolute;right:${SAFE}px;top:1264px;color:#2b2118;font-size:12px;
+      letter-spacing:.1em;opacity:.38">CONTINUED ON PAGE 2</div>
+
+    <!-- The sheets of the pad underneath, so the bottom edge is an edge and not a stop. -->
     <div style="position:absolute;left:0;right:0;top:1396px;bottom:0;background:#eadfc3;
       border-top:3px solid #cabea0"></div>
     <div style="position:absolute;left:30px;right:30px;top:1420px;bottom:0;background:#e0d4b4;
       border-top:3px solid #b7a98a"></div>
-    <div class="mark" style="position:absolute;right:${SAFE}px;bottom:110px;width:180px;height:180px;
-      border:6px solid #2b2118;opacity:.92">${MARK}</div>
   </body>`,
   };
 }

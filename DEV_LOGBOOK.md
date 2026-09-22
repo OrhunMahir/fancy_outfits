@@ -45,7 +45,7 @@ küçük kalır.
 | Dosya | Döngü | Boyut | (statik PNG) |
 | --- | --- | --- | --- |
 | `04-filing-cabinet.gif` | 2.16 sn / 18 kare | 530 KB | 166 KB |
-| `05-blotter.gif` | 3.04 sn / 12 kare | 188 KB | 126 KB |
+| `05-blotter.gif` | 3.04 sn / 12 kare | 198 KB | 133 KB |
 
 05 döngüsünün 2.6 saniyesi tek bir tutulan kare — bedava. Kare süreleri **0.04sn
 ızgarasına** oturtuldu: concat demuxer görüntüleri GIF muxer'ına 25fps'te veriyor,
@@ -54,6 +54,27 @@ küçük kalır.
 
 Komutlar: `node scripts/store-backgrounds.mjs` (statikler), `--animate` (GIF'ler).
 Detay ve itch alan ayarları `assets/store/ITCH.md` › *Page background*.
+
+### 05 yeniden tasarlandı: tam ekran bir kompozisyon
+
+Kullanıcı "yarım yarım olmuş" dedi ve haklıydı — tasarımın kendisi kırıktı. İlk sürüm
+dava metnini tam genişlik koyuyordu, sütun her cümlenin ortasını kapattığı için okur
+solda satır başlarını sağda satır sonlarını alıyor, hiçbirini bitiremiyordu.
+
+**Yeni kural: OKUNMASI GEREKEN HİÇBİR ŞEY SÜTUNUN KENARINI KESMEZ.** Belge ortada bir
+dosya klasörünün içinde ve tamamen sütunun ayak izinin içinde — tarayıcıda görünmez,
+görsel tek başına bakıldığında bütün. İki oluk da yalnız 250px'te tamamlanan nesneler
+taşıyor. Damga dik duruyor, çünkü oluk uzun ve dar; logonun kendi 90° döndürülmüş
+dosyasıyla da aynı dili konuşuyor.
+
+Kısıt sütunun genişliği ve sezgiye aykırı: sütun her pencerede 960 CSS px, yani `cover`
+arkaplana karşı **en küçük ekranda en geniş**. 2560'lık pencerede kaynakta 800..1760'ı
+kapatıyor, bu en dar hali, belge de buna sığmak zorunda. (Bir önceki denemede bunu
+1040..2000 sanıp belgeyi sağa kaydırmıştım.)
+
+Tema sütunu da **opak** oldu. %6 saydamlık iki katmanı birbirine bağlıyor sanıyordum;
+klasör arkaya girince belge panelin içinden hayalet gibi geçti ve tam da kaçınılmak
+istenen yarı-okunur metni geri getirdi.
 
 ### Blotter seçildi, sayfası dolduruldu
 

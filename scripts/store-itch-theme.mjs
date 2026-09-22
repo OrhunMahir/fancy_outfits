@@ -25,7 +25,11 @@ const SHOTS = ["03-case-file", "09-trial", "07-lockpick", "06-contradiction"].ma
 // the game's own palette (src/styles.css :root), not new colours invented for itch.
 export const THEME = {
   "Background":         "#f2e9d8",              // the blotter's own paper, so nothing flashes white
-  "Content background": "rgba(26,28,44,.94)",   // --bg, a little translucent so the rules ghost through
+  // --bg, and OPAQUE. A few percent of transparency looked like a nice tie between
+  // the layers until the folder went in behind it: the document ghosted through the
+  // panel and handed the reader half-legible text again, which is the one thing
+  // this page is built to avoid.
+  "Content background": "#1a1c2c",
   "Text":               "#e8dfcb",
   "Link":               "#ffcd75",              // --gold
   "Border":             "#3d4763",

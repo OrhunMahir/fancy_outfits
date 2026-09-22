@@ -51,13 +51,26 @@ the still PNG is.
 | File | Loop | Size | What moves |
 | --- | --- | --- | --- |
 | `04-filing-cabinet.gif` | 2.16s, 18 frames | 530 KB | the sheets spilling out of the two open drawers, in a draught |
-| `05-blotter.gif` | 3.04s, 12 frames | 188 KB | the HENDERED stamp lifts and comes down again, once per loop |
+| `05-blotter.gif` | 3.04s, 12 frames | 198 KB | the HENDERED stamp lifts and comes down again, once per loop |
 
 **Why the motion is that small.** itch takes one image for the page background, so an
 animation has to be a GIF, and there file size is the design. A frame that moves all
 over runs to megabytes at 2560x1440; a frame where one region moves stays small,
 because GIF stores only the rectangle that changed. 05 also spends 2.6s of its 3.04s
 loop on a single held frame, which costs nothing.
+
+**05 was rebuilt for this.** The first version set the case text full-bleed, so the
+column cut every sentence in half and the reader was handed line-starts on the left and
+line-ends on the right. The rule now is: *nothing readable may cross the column's edge.*
+The document lives inside a folder in the middle, entirely within the column's footprint
+— invisible in the browser, whole when the image is seen on its own — and each gutter
+carries objects that are complete at 250px wide, which is all the width a gutter has at
+1280. The stamp stands on end because the gutter is tall and thin.
+
+The column's own span is the constraint, and it is counter-intuitive: the column is 960
+CSS px at every window, so against a `cover` background it is **widest on the smallest
+screen**. At a 2560 viewport it covers source x 800..1760, which is the narrowest it
+ever gets, so that span is what the document has to fit inside.
 
 **The pick is 05.** `node scripts/store-itch-theme.mjs` prints the exact theme values
 and renders `_theme.png` — the page as a visitor sees it, background at true viewport
@@ -68,7 +81,7 @@ description sits on top of the case text; itch exposes that as its own field.
 | --- | --- | --- |
 | Background | `#f2e9d8` | the blotter's own paper, so nothing flashes white on load |
 | Background image | `05-blotter.gif`, repeat **cover**, **fixed** on | fixed sizes it to the viewport, so it never moves as the page scrolls |
-| Content background | `rgba(26,28,44,.94)` | the game's own `--bg`; the page is a case file and the column is the game on top of it |
+| Content background | `#1a1c2c` | the game's own `--bg`; the page is a case file and the column is the game on top of it |
 | Text | `#e8dfcb` | |
 | Link | `#ffcd75` | `--gold`, the logo's colour |
 | Border | `#3d4763` | |

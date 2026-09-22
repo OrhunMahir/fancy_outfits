@@ -114,7 +114,8 @@ Two other measurements matter and both were wrong in the first pages:
   because it is a fixed 960 (here 1250) CSS px against an image that shrinks with the
   window.
 
-`scripts/store-cabinets.mjs` renders five candidates built around all of this. Every
+`scripts/store-cabinets.mjs` renders ten candidates built around all of this — five
+takes on the cabinet and five on the backlog. Every
 one is a **seamless vertical tile** — the drawer pitch divides 1440 exactly — so the
 settings are:
 

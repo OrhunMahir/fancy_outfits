@@ -35,17 +35,65 @@ export const THEME = {
 };
 
 const t = THEME;
+
+// background-attachment:fixed pins the image to the VIEWPORT, so it never moves
+// as the page scrolls and there is no "below the background" to run out of. A
+// single tall screenshot cannot show that, and one that tries reads as an empty
+// bottom half. So: two real viewports, page top and page scrolled, same band.
+const VW = 1600, VH = 900;
+
+const column = (top) => `<div class="page" style="top:${top}px">
+  <div class="col">
+    <h1>FANCY OUTFITS</h1>
+    <div class="by">A downloadable game for Windows and macOS</div>
+    <div class="hero">
+      <img src="${COVER}">
+      <div>
+        <div class="tag">Read the file. Pick your line. Don't get HENDERED. A pixel-art
+        lawyer career sim where the winning argument is hidden in the paperwork — and the
+        safe play always works, but slowly kills you.</div>
+        <a class="btn">Download Now</a>
+      </div>
+    </div>
+    <table>
+      <tr><td>Status</td><td>In development</td></tr>
+      <tr><td>Author</td><td><a>scaphoid</a></td></tr>
+      <tr><td>Genre</td><td><a>Simulation</a></td></tr>
+      <tr><td>Tags</td><td><a>pixel-art</a>, <a>narrative</a>, <a>management</a></td></tr>
+    </table>
+    <hr>
+    <p><b>You are the newest junior associate at Parson Henderson LLP, and nobody has told
+    you where the coffee is.</b></p>
+    <p>Every morning, case files land in your inbox. Every file is a wall of text — and
+    somewhere in that wall is the thing that wins it: the signature from someone who had no
+    authority to sign, the date that comes <i>after</i> the date it is supposed to come
+    before. Read carefully and you will find it. Skim, and you will pick the confident
+    option that loses.</p>
+    <h2>The desk is only half of it</h2>
+    <p>Take a case to a jury. Object by naming the ground, from a fixed list, and be right.
+    Put a chronology in order from memory. Match a witness's contradictions to the exhibits.
+    Redact the privileged pages, and only those, because hiding an ordinary record is
+    document concealment.</p>
+    <div class="shots">${SHOTS.map(x => `<img src="${x}">`).join("")}</div>
+    <h2>Five ways to start</h2>
+    <p>The Fraud never went to law school. The Debtor owes a payment every three days. The
+    Legacy has a parent's name on the wall. The Defector jumped ship. The Boomerang was
+    fired once, and hired back.</p>
+  </div></div>`;
+
+const viewport = (label, top) => `<div class="cap">${label}</div>
+<div class="vp"><div class="bg"></div>${column(top)}</div>`;
+
 const html = `<!doctype html><meta charset="utf-8"><style>
 *{margin:0;padding:0;box-sizing:border-box}
-/* background-attachment:fixed sizes the background to the VIEWPORT, not the page, so a visitor on a
-   1600x900 screen sees this 1600x900 band and it never moves as they scroll. The
-   mock is taller than that, so pin the band to the top rather than letting cover
-   zoom it to the mock's height — otherwise the preview lies about the scale. */
-body{font:16px/1.6 -apple-system,Helvetica,Arial,sans-serif;
-  background:${t["Background"]} url('${BG}') center top/1600px 900px no-repeat}
+body{background:#0b0c14;font:16px/1.6 -apple-system,Helvetica,Arial,sans-serif}
+.cap{color:#94b0c2;font:12px monospace;padding:9px 4px}
+.vp{position:relative;width:${VW}px;height:${VH}px;overflow:hidden}
+.bg{position:absolute;inset:0;background:${t["Background"]} url('${BG}') center/cover no-repeat}
+.page{position:absolute;left:0;right:0}
 .bar{height:52px;background:#585858}
 .col{width:960px;margin:0 auto;background:${t["Content background"]};color:${t["Text"]};
-  padding:34px 40px 48px}
+  padding:34px 40px 60px}
 h1{font-size:40px;font-weight:900;letter-spacing:-.01em;margin-bottom:4px}
 .by{color:${t["Link"]};margin-bottom:26px}
 .hero{display:flex;gap:28px;margin-bottom:28px}
@@ -63,43 +111,14 @@ p{margin-bottom:14px}
 .shots{display:flex;gap:10px;margin-top:26px}
 .shots img{width:222px;border:1px solid ${t["Border"]}}
 </style>
-<div class="bar"></div>
-<div class="col">
-  <h1>FANCY OUTFITS</h1>
-  <div class="by">A downloadable game for Windows and macOS</div>
-  <div class="hero">
-    <img src="${COVER}">
-    <div>
-      <div class="tag">Read the file. Pick your line. Don't get HENDERED. A pixel-art lawyer
-      career sim where the winning argument is hidden in the paperwork — and the safe play
-      always works, but slowly kills you.</div>
-      <a class="btn">Download Now</a>
-    </div>
-  </div>
-  <table>
-    <tr><td>Status</td><td>In development</td></tr>
-    <tr><td>Author</td><td><a>scaphoid</a></td></tr>
-    <tr><td>Genre</td><td><a>Simulation</a></td></tr>
-    <tr><td>Tags</td><td><a>pixel-art</a>, <a>narrative</a>, <a>management</a></td></tr>
-  </table>
-  <hr>
-  <p><b>You are the newest junior associate at Parson Henderson LLP, and nobody has told
-  you where the coffee is.</b></p>
-  <p>Every morning, case files land in your inbox. Every file is a wall of text — and
-  somewhere in that wall is the thing that wins it: the signature from someone who had no
-  authority to sign, the date that comes <i>after</i> the date it is supposed to come before.
-  Read carefully and you will find it. Skim, and you will pick the confident option that loses.</p>
-  <h2>The desk is only half of it</h2>
-  <p>Take a case to a jury. Object by naming the ground, from a fixed list, and be right.
-  Put a chronology in order from memory. Redact the privileged pages, and only those.</p>
-  <div class="shots">${SHOTS.map(s => `<img src="${s}">`).join("")}</div>
-</div>`;
+${viewport("1600x900 — the page as it opens", 52)}
+${viewport("1600x900 — the same window, scrolled down. background:fixed, so the paper has not moved", -760)}`;
 
 const work = mkdtempSync(join(tmpdir(), "fo-theme-"));
 const page = join(work, "theme.html");
 writeFileSync(page, html);
 const out = join(OUT, "_theme.png");
-writeFileSync(join(work, "jobs.json"), JSON.stringify([{ html: page, out, w: 1600, h: 1500, transparent: false }]));
+writeFileSync(join(work, "jobs.json"), JSON.stringify([{ html: page, out, w: VW, h: VH * 2 + 76, transparent: false }]));
 execFileSync(electronPath, ["scripts/lib/capture-main.cjs", "--manifest", join(work, "jobs.json")], { stdio: "inherit" });
 rmSync(work, { recursive: true, force: true });
 

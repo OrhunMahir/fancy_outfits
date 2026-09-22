@@ -45,7 +45,7 @@ küçük kalır.
 | Dosya | Döngü | Boyut | (statik PNG) |
 | --- | --- | --- | --- |
 | `04-filing-cabinet.gif` | 2.16 sn / 18 kare | 530 KB | 166 KB |
-| `05-blotter.gif` | 3.04 sn / 12 kare | 192 KB | 120 KB |
+| `05-blotter.gif` | 3.04 sn / 12 kare | 188 KB | 126 KB |
 
 05 döngüsünün 2.6 saniyesi tek bir tutulan kare — bedava. Kare süreleri **0.04sn
 ızgarasına** oturtuldu: concat demuxer görüntüleri GIF muxer'ına 25fps'te veriyor,

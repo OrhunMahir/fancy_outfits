@@ -287,11 +287,21 @@ export function buildPages(t = 0){
       letter-spacing:.1em;opacity:.6">M. HARDWICK · COUNSEL OF RECORD</div>
 
     <!-- The rule stops short on purpose: full-bleed would run through the mark. -->
-    <div style="position:absolute;left:${SAFE}px;top:1330px;width:520px;height:3px;background:#b7a98a"></div>
-    <div style="position:absolute;left:${SAFE}px;top:1350px;color:#2b2118;font-size:19px;
+    <div style="position:absolute;left:${SAFE}px;top:1318px;width:520px;height:3px;background:#b7a98a"></div>
+    <div style="position:absolute;left:${SAFE}px;top:1336px;color:#2b2118;font-size:19px;
       letter-spacing:.18em;opacity:.5">PARSON HENDERSON LLP</div>
-    <div style="position:absolute;left:${SAFE}px;top:1390px;color:#2b2118;font-size:15px;
+    <div style="position:absolute;left:${SAFE}px;top:1368px;color:#2b2118;font-size:15px;
       letter-spacing:.12em;opacity:.38">DOCKET 24-CV-0917 · PAGE 1 OF 4</div>
+    <div style="position:absolute;right:${SAFE}px;top:1368px;color:#2b2118;font-size:15px;
+      letter-spacing:.12em;opacity:.38">CONTINUED ON PAGE 2</div>
+
+    <!-- The sheets underneath. Page one has to stop somewhere, and a bare strip of
+         paper along the bottom edge reads as a page that ran out rather than a file
+         that goes on — these two edges say there is more of it below the crop. -->
+    <div style="position:absolute;left:0;right:0;top:1396px;bottom:0;background:#eadfc3;
+      border-top:3px solid #cabea0"></div>
+    <div style="position:absolute;left:30px;right:30px;top:1420px;bottom:0;background:#e0d4b4;
+      border-top:3px solid #b7a98a"></div>
     <div class="mark" style="position:absolute;right:${SAFE}px;bottom:110px;width:180px;height:180px;
       border:6px solid #2b2118;opacity:.92">${MARK}</div>
   </body>`,

@@ -51,7 +51,7 @@ the still PNG is.
 | File | Loop | Size | What moves |
 | --- | --- | --- | --- |
 | `04-filing-cabinet.gif` | 2.16s, 18 frames | 530 KB | the sheets spilling out of the two open drawers, in a draught |
-| `05-blotter.gif` | 3.04s, 12 frames | 192 KB | the HENDERED stamp lifts and comes down again, once per loop |
+| `05-blotter.gif` | 3.04s, 12 frames | 188 KB | the HENDERED stamp lifts and comes down again, once per loop |
 
 **Why the motion is that small.** itch takes one image for the page background, so an
 animation has to be a GIF, and there file size is the design. A frame that moves all
@@ -73,6 +73,11 @@ description sits on top of the case text; itch exposes that as its own field.
 | Link | `#ffcd75` | `--gold`, the logo's colour |
 | Border | `#3d4763` | |
 | Button background / text / shadow | `#ffcd75` / `#1a1c2c` / `#d9a44f` | the download button gets the promote colour |
+
+`_theme.png` is two real 1600x900 viewports, page top and page scrolled, not one tall
+screenshot. background-attachment:fixed pins the image to the viewport, so the paper
+never moves and there is no bottom of it to run out of — a tall preview that tries to
+show the whole page reads as an empty lower half, which is a lie about the page.
 
 Known trade-off: below about 1600px of window the HENDERED stamp runs partly under
 the column. That is true of the still too — a background bleeding under the content

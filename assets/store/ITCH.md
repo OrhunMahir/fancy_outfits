@@ -59,9 +59,24 @@ over runs to megabytes at 2560x1440; a frame where one region moves stays small,
 because GIF stores only the rectangle that changed. 05 also spends 2.6s of its 3.04s
 loop on a single held frame, which costs nothing.
 
-Set it under **Edit theme → Background**: *Image* = the GIF, *Repeat* = `cover`,
-*Attachment* = `fixed`. If 05 is the pick, darken the content column's own background
-in the same panel — the page is cream and the column would otherwise disappear into it.
+**The pick is 05.** `node scripts/store-itch-theme.mjs` prints the exact theme values
+and renders `_theme.png` — the page as a visitor sees it, background at true viewport
+scale. The blotter is cream, so the content column has to be darkened or the
+description sits on top of the case text; itch exposes that as its own field.
+
+| Edit theme field | Value | Why |
+| --- | --- | --- |
+| Background | `#f2e9d8` | the blotter's own paper, so nothing flashes white on load |
+| Background image | `05-blotter.gif`, repeat **cover**, **fixed** on | fixed sizes it to the viewport, so it never moves as the page scrolls |
+| Content background | `rgba(26,28,44,.94)` | the game's own `--bg`; the page is a case file and the column is the game on top of it |
+| Text | `#e8dfcb` | |
+| Link | `#ffcd75` | `--gold`, the logo's colour |
+| Border | `#3d4763` | |
+| Button background / text / shadow | `#ffcd75` / `#1a1c2c` / `#d9a44f` | the download button gets the promote colour |
+
+Known trade-off: below about 1600px of window the HENDERED stamp runs partly under
+the column. That is true of the still too — a background bleeding under the content
+is normal, and the beat still reads.
 
 ## Trailer and animated cover
 

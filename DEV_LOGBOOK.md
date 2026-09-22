@@ -45,7 +45,7 @@ küçük kalır.
 | Dosya | Döngü | Boyut | (statik PNG) |
 | --- | --- | --- | --- |
 | `04-filing-cabinet.gif` | 2.16 sn / 18 kare | 530 KB | 166 KB |
-| `05-blotter.gif` | 3.04 sn / 12 kare | 178 KB | 87 KB |
+| `05-blotter.gif` | 3.04 sn / 12 kare | 192 KB | 120 KB |
 
 05 döngüsünün 2.6 saniyesi tek bir tutulan kare — bedava. Kare süreleri **0.04sn
 ızgarasına** oturtuldu: concat demuxer görüntüleri GIF muxer'ına 25fps'te veriyor,
@@ -54,6 +54,19 @@ küçük kalır.
 
 Komutlar: `node scripts/store-backgrounds.mjs` (statikler), `--animate` (GIF'ler).
 Detay ve itch alan ayarları `assets/store/ITCH.md` › *Page background*.
+
+### Blotter seçildi, sayfası dolduruldu
+
+Kullanıcı 05'i seçti. Alt yarısı boştu: sergi etiketlerinin altında hiçbir şey yoktu ve
+sağ oluk redaksiyonlarla kahve halkası arasında boştu. Dosya bir dosya gibi kapanıyor
+artık — altında imza (sayfanın tek pürüzsüz çizgisi, geri kalan her şey piksel), künye
+çizgisi, firma adı ve dosya numarası. Ortaya redaksiyon barları girdi: sütun her barın
+ortasını kapattığı için iki oluk da birinin okumana izin vermediği bir satırın ucunu
+tutuyor. Sağ oluğa mahkeme kalemi mührü.
+
+itch teması da kuruldu (`scripts/store-itch-theme.mjs`): canlı sayfa **fabrika
+temasındaydı**, tek renk değişmemişti — kendi CSS'inden doğrulandı. Blotter krem
+olduğu için içerik sütunu koyulaştırılmalı, itch bunu ayrı bir alan olarak veriyor.
 
 ### Sıradaki kesin adım
 

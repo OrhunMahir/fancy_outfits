@@ -51,7 +51,7 @@ the still PNG is.
 | File | Loop | Size | What moves |
 | --- | --- | --- | --- |
 | `04-filing-cabinet.gif` | 2.16s, 18 frames | 530 KB | the sheets spilling out of the two open drawers, in a draught |
-| `05-blotter.gif` | 3.04s, 12 frames | 178 KB | the HENDERED stamp lifts and comes down again, once per loop |
+| `05-blotter.gif` | 3.04s, 12 frames | 192 KB | the HENDERED stamp lifts and comes down again, once per loop |
 
 **Why the motion is that small.** itch takes one image for the page background, so an
 animation has to be a GIF, and there file size is the design. A frame that moves all

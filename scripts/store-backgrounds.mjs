@@ -98,6 +98,17 @@ const CASE_BODY = "Client Kessler Corp is being sued for breaching an NDA. Readi
   "the NDA was signed by a Vice President of the counterparty who — per exhibit C — " +
   "had NO signing authority under their own bylaws. Opposing counsel hasn't noticed.";
 
+
+// A paraph. Real case files have exactly this contrast — machine type above, one
+// human hand below — so the ink is the one smooth stroke on a page of pixels.
+const SIGNATURE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 72" width="300" height="83">
+  <g fill="none" stroke="#2b3a55" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity=".8">
+    <path d="M6 52 C 22 8, 38 10, 44 42 S 56 64, 68 30 C 76 10, 90 16, 94 46
+             L 104 22 C 112 6, 128 12, 132 42 C 136 62, 150 58, 160 32
+             L 178 46 C 198 56, 218 42, 240 14"/>
+    <path d="M54 58 L 226 34" stroke-width="4" opacity=".7"/>
+  </g></svg>`;
+
 // ---------------------------------------------------------------------------
 // Motion. `t` runs 0..1 through one loop and EVERY model below returns its rest
 // pose at t=0, so the still PNGs are simply frame one — the static and animated
@@ -228,6 +239,14 @@ export function buildPages(t = 0){
     <div style="position:absolute;left:${SAFE}px;right:${SAFE}px;top:150px;height:3px;background:#b7a98a"></div>
     <div style="position:absolute;left:${SAFE}px;right:${SAFE}px;top:206px;color:#2b2118;font-size:27px;
       line-height:2.28;opacity:.72;word-spacing:-2px">${CASE_BODY}</div>
+    <!-- Redactions. The column hides the middle of each bar, so both gutters are
+         left holding the end of a line somebody decided you could not read. -->
+    ${[[432, 560, 470], [500, 380, 300]].map(([y, wl, wr]) => `
+      <div style="position:absolute;left:${SAFE}px;top:${y}px;width:${wl}px;height:27px;background:#1a1c2c;opacity:.88"></div>
+      <div style="position:absolute;right:${SAFE}px;top:${y}px;width:${wr}px;height:27px;background:#1a1c2c;opacity:.88"></div>`).join("")}
+    <div style="position:absolute;left:${SAFE}px;top:552px;transform:rotate(-3deg);color:#b13e53;
+      font-size:16px;letter-spacing:.1em;opacity:.8">PRIVILEGED — DO NOT PRODUCE</div>
+
     <div style="position:absolute;left:${SAFE}px;right:${SAFE}px;top:640px;color:#8a6a1f;font-size:21px;
       opacity:.85">DEADLINE: DAY 3 · BASE TIME: 2h (careful plays take longer)</div>
 
@@ -247,6 +266,12 @@ export function buildPages(t = 0){
       transform:rotate(${stamp.rot}deg) scale(${stamp.s});transform-origin:50% 50%;
       border:9px solid #b13e53;color:#b13e53;font-size:50px;padding:28px 38px;letter-spacing:.08em;
       opacity:${stamp.o}">HENDERED</div>
+    <!-- The clerk's stamp, in the one stretch of right gutter with nothing in it:
+         the body text is full-bleed and owns everything above the redactions. -->
+    <div style="position:absolute;right:${SAFE}px;top:580px;transform:rotate(6deg);
+      border:5px solid #3b5dc9;color:#3b5dc9;font-size:15px;line-height:1.9;padding:14px 20px;
+      letter-spacing:.12em;text-align:center;opacity:.5">RECEIVED<br>DAY 3<br>CLERK OF COURT</div>
+
     <div style="position:absolute;right:${SAFE - 30}px;top:760px;width:300px;height:300px;border-radius:50%;
       border:20px solid rgba(120,84,44,.2)"></div>
     <div style="position:absolute;right:${SAFE + 56}px;top:846px;width:128px;height:128px;border-radius:50%;
@@ -254,8 +279,19 @@ export function buildPages(t = 0){
     <div style="position:absolute;left:${SAFE - 40}px;top:132px;width:30px;height:210px;
       border:11px solid #8fa3b6;border-radius:60px;transform:rotate(11deg)"></div>
 
-    <div style="position:absolute;left:${SAFE}px;bottom:120px;color:#2b2118;font-size:19px;
+    <!-- The bottom of the page was bare under the exhibit tabs. A file ends the
+         way a file ends: somebody signs it, a rule closes it, it gets a number. -->
+    <div style="position:absolute;left:${SAFE + 6}px;top:1186px">${SIGNATURE}</div>
+    <div style="position:absolute;left:${SAFE}px;top:1272px;width:330px;height:3px;background:#8a7f66"></div>
+    <div style="position:absolute;left:${SAFE}px;top:1286px;color:#2b2118;font-size:15px;
+      letter-spacing:.1em;opacity:.6">M. HARDWICK · COUNSEL OF RECORD</div>
+
+    <!-- The rule stops short on purpose: full-bleed would run through the mark. -->
+    <div style="position:absolute;left:${SAFE}px;top:1330px;width:520px;height:3px;background:#b7a98a"></div>
+    <div style="position:absolute;left:${SAFE}px;top:1350px;color:#2b2118;font-size:19px;
       letter-spacing:.18em;opacity:.5">PARSON HENDERSON LLP</div>
+    <div style="position:absolute;left:${SAFE}px;top:1390px;color:#2b2118;font-size:15px;
+      letter-spacing:.12em;opacity:.38">DOCKET 24-CV-0917 · PAGE 1 OF 4</div>
     <div class="mark" style="position:absolute;right:${SAFE}px;bottom:110px;width:180px;height:180px;
       border:6px solid #2b2118;opacity:.92">${MARK}</div>
   </body>`,

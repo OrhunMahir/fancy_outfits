@@ -96,6 +96,38 @@ Known trade-off: below about 1600px of window the HENDERED stamp runs partly und
 the column. That is true of the still too — a background bleeding under the content
 is normal, and the beat still reads.
 
+## The background zoomed, and why
+
+Setting the background to **cover** with a scrolling attachment blows the image up
+until only its middle shows. `cover` sizes the image to whatever it is attached to,
+and a scrolling background is attached to the whole *page* — several thousand pixels
+tall — so a 2560x1440 image gets scaled four or five times and the gutters go off
+screen entirely. That is the "it zoomed into the middle" problem, and it is not
+something the art can be fixed to survive.
+
+Two other measurements matter and both were wrong in the first pages:
+
+- **The column is ~1250 CSS px, not 960.** itch puts the screenshots in a sub-column
+  inside the same white panel, so the panel is far wider than a text column. Measured
+  off the live page.
+- **The column is widest on the smallest screen** when the background is scaled,
+  because it is a fixed 960 (here 1250) CSS px against an image that shrinks with the
+  window.
+
+`scripts/store-cabinets.mjs` renders five candidates built around all of this. Every
+one is a **seamless vertical tile** — the drawer pitch divides 1440 exactly — so the
+settings are:
+
+| Edit theme field | Value |
+| --- | --- |
+| Background image | the chosen `cabinet/*.png` |
+| Repeat | **repeat** — *not* cover, and not contain |
+| Fixed / parallax | either; at natural size nothing is being scaled, so it cannot zoom |
+
+At natural size the wall runs down a page of any height with no scaling at all, and
+the cabinets sit in the outer 650px of each side, which is where the gutter falls once
+a 1250px column is centred.
+
 ## Trailer and animated cover
 
 `node scripts/store-trailer.mjs` (with `npm run dev` running) records both from the live

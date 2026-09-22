@@ -36,6 +36,33 @@ Produce them with `npm run dist:win` and `npm run dist:mac`. `release/` is not i
   point of being here first is feedback, not revenue.
 - **Community:** enable comments — that is the feedback channel.
 
+## Page background
+
+`node scripts/store-backgrounds.mjs` renders the five candidates to
+`assets/store/backgrounds/` plus `_preview.png`, which mocks itch's ~960px content
+column over the middle of each — judging a page background without that column is
+judging the wrong picture.
+
+`node scripts/store-backgrounds.mjs --animate` renders the moving variants of the two
+finalists as GIFs, from the same builder, so the still and the animation can never
+drift apart: every motion model returns its rest pose at `t = 0`, which is the frame
+the still PNG is.
+
+| File | Loop | Size | What moves |
+| --- | --- | --- | --- |
+| `04-filing-cabinet.gif` | 2.16s, 18 frames | 530 KB | the sheets spilling out of the two open drawers, in a draught |
+| `05-blotter.gif` | 3.04s, 12 frames | 178 KB | the HENDERED stamp lifts and comes down again, once per loop |
+
+**Why the motion is that small.** itch takes one image for the page background, so an
+animation has to be a GIF, and there file size is the design. A frame that moves all
+over runs to megabytes at 2560x1440; a frame where one region moves stays small,
+because GIF stores only the rectangle that changed. 05 also spends 2.6s of its 3.04s
+loop on a single held frame, which costs nothing.
+
+Set it under **Edit theme → Background**: *Image* = the GIF, *Repeat* = `cover`,
+*Attachment* = `fixed`. If 05 is the pick, darken the content column's own background
+in the same panel — the page is cream and the column would otherwise disappear into it.
+
 ## Trailer and animated cover
 
 `node scripts/store-trailer.mjs` (with `npm run dev` running) records both from the live

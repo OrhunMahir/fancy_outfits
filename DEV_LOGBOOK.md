@@ -18,6 +18,52 @@ Her çalışma oturumunda:
 
 ---
 
+## 2026-09-22 — itch sayfa arkaplanı: hareketli varyantlar
+
+`scripts/store-backgrounds.mjs` tek bir `buildPages(t)` üreticisine çevrildi. `t` bir
+döngüde 0..1 gidiyor ve **her hareket modeli t=0'da dinlenme pozunu döndürüyor** —
+yani duran PNG, animasyonun birinci karesi. İki sürüm birbirinden kayamaz, çünkü tek
+kaynak var. Doğrulandı: refactor sonrası beş PNG'nin hepsi bayt bayt aynı.
+
+### Ne hareket ediyor
+
+- **04 filing cabinet** — iki açık çekmeceden taşan kağıtlar bir cereyanda salınıyor
+  (`SWAY_DEG` 2.2°). Faz başına `sin(2πt + φ) − sin(φ)`: t=0'da hepsi sıfır, ama
+  birbirleriyle aynı anda hareket etmiyorlar. Sağ dolap fazı 3 kaydırıyor; statik
+  eğim tarafa göre aynalı, cereyan değil — rüzgâr odayı tek yönde geçer.
+- **05 blotter** — HENDERED damgası döngünün %70'inde duruyor, sonra kalkıp iniyor
+  (`stampAt`): 0.2sn kalkış (büyür + saydamlaşır), 0.24sn iniş (ease-out cubic +
+  çarpma anında %2 ezilme), sonra tam dinlenmeye dönüyor.
+
+### Neden bu kadar küçük bir bölge
+
+itch arkaplan olarak TEK bir görsel alıyor, dolayısıyla tek pratik yol animasyonlu GIF
+ve orada dosya boyutunu tasarım belirliyor: 2560×1440'ta tam ekran hareket megabaytlara
+çıkar, küçük bir bölge hareket ederse GIF yalnız değişen dikdörtgeni sakladığı için
+küçük kalır.
+
+| Dosya | Döngü | Boyut | (statik PNG) |
+| --- | --- | --- | --- |
+| `04-filing-cabinet.gif` | 2.16 sn / 18 kare | 530 KB | 166 KB |
+| `05-blotter.gif` | 3.04 sn / 12 kare | 178 KB | 87 KB |
+
+05 döngüsünün 2.6 saniyesi tek bir tutulan kare — bedava. Kare süreleri **0.04sn
+ızgarasına** oturtuldu: concat demuxer görüntüleri GIF muxer'ına 25fps'te veriyor,
+ızgara dışındaki her süre değişken gecikme olarak geri geliyordu (0.1sn istendiğinde
+0.12/0.08 dönüşümlü çıkıyordu).
+
+Komutlar: `node scripts/store-backgrounds.mjs` (statikler), `--animate` (GIF'ler).
+Detay ve itch alan ayarları `assets/store/ITCH.md` › *Page background*.
+
+### Sıradaki kesin adım
+
+Kullanıcı 04 mü 05 mi seçecek; seçilen GIF itch'te **Edit theme → Background**'a
+`cover` + `fixed` olarak konacak (05 seçilirse içerik sütunu koyulaştırılmalı, sayfa
+krem). Ondan sonraki iş sırada bekliyor: **tarayıcıda oynanan itch build'i** — 2 günde
+367 görüntülenme / 1 indirme, `dist/` zip'i 0.2 MB ve iframe'de çalıştığı doğrulandı.
+
+---
+
 ## 2026-09-20 — itch.io'da YAYINDA (v1.9.43)
 
 Oyun ilk kez halka açık. **https://scaphoid.itch.io/fancy-outfits**

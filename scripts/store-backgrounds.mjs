@@ -1,7 +1,8 @@
 // Five candidate page backgrounds for the itch project page, rendered through
 // the same offscreen Electron pipeline as the capsules.
 //
-//   node scripts/store-backgrounds.mjs
+//   node scripts/store-backgrounds.mjs              stills
+//   node scripts/store-backgrounds.mjs --animate    the moving variants
 //
 // Output: assets/store/backgrounds/NN-name.png (2560x1440) and a preview sheet
 // with itch's ~960px content column mocked on top — judging a page background
@@ -9,7 +10,7 @@
 
 import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
-import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -56,7 +57,7 @@ const file = ({ x, y, rot, w = 330, stamp = false, o = 1 }) => `
   </div>
 </div>`;
 
-const drawer = ({ label, open = false, side = "left" }) => `
+const drawer = ({ label, open = false, side = "left", sway = () => 0 }) => `
 <div style="position:relative;height:178px;background:#3d4763;
   border-bottom:4px solid #1c2233;${open ? "transform:translateX(" + (side === "left" ? 62 : -62) + "px);box-shadow:-34px 0 58px rgba(0,0,0,.6);z-index:3" : ""}">
   <div style="position:absolute;inset:0 0 auto 0;height:4px;background:#5b6a95"></div>
@@ -75,7 +76,8 @@ const drawer = ({ label, open = false, side = "left" }) => `
       box-shadow:0 4px 0 ${["#a8996f", "#9c8f74", "#cabea0"][i]}"></div>`).join("")}
     <!-- and the paperwork spilling over the front, hanging past the drawer -->
     ${[0, 1, 2].map(i => {
-      const tilt = (i - 1) * 2.6 * (side === "left" ? 1 : -1);
+      // static tilt mirrors per side; the draught does not — it crosses the room
+      const tilt = (i - 1) * 2.6 * (side === "left" ? 1 : -1) + sway(i) * SWAY_DEG;
       return `<div style="position:absolute;
         ${side === "left" ? `left:${SAFE + 18 + i * 66}px` : `right:${SAFE + 18 + i * 66}px`};
         top:${26 + i * 12}px;width:${212 - i * 18}px;height:${196 - i * 20}px;
@@ -96,7 +98,39 @@ const CASE_BODY = "Client Kessler Corp is being sued for breaching an NDA. Readi
   "the NDA was signed by a Vice President of the counterparty who — per exhibit C — " +
   "had NO signing authority under their own bylaws. Opposing counsel hasn't noticed.";
 
-const pages = {
+// ---------------------------------------------------------------------------
+// Motion. `t` runs 0..1 through one loop and EVERY model below returns its rest
+// pose at t=0, so the still PNGs are simply frame one — the static and animated
+// versions cannot drift apart, because there is only one builder.
+const TAU = Math.PI * 2;
+
+// Sheets hanging out of an open drawer, moved by a draught. Subtracting the
+// phase's own value pins t=0 to rest while letting each sheet run out of step.
+const SWAY_DEG = 2.2;
+const SWAY_PHASE = [0, 2.2, 4.1, 1.1, 3.4, 5.3];
+const swayer = t => i => Math.sin(TAU * t + SWAY_PHASE[i]) - Math.sin(SWAY_PHASE[i]);
+
+// The stamp rests for seven tenths of the loop, then lifts and comes down. It
+// is the beat the game is named for, so it gets the one moving region on 05.
+function stampAt(t){
+  const rest = { s: 1, rot: -13, o: .9 };
+  if(t <= 0 || t >= 1) return rest;
+  const u = (t - .70) / .30;
+  if(u <= 0) return rest;
+  if(u < .45){                                    // lift, and lose weight doing it
+    const k = u / .45;
+    return { s: 1 + .5 * k, rot: -13 - 5 * k, o: .9 - .32 * k };
+  }
+  const k = (u - .45) / .55;
+  const e = 1 - Math.pow(1 - k, 3);               // fast down, hard stop
+  const squash = k > .82 ? (1 - (k - .82) / .18) * .022 : 0;
+  return { s: 1.5 - .5 * e - squash, rot: -18 + 5 * e, o: .58 + .32 * e };
+}
+
+export function buildPages(t = 0){
+  const sway = swayer(t);
+  const stamp = stampAt(t);
+  return {
   // 1 — the player's idea: files sliding past in the gutters, logo as a watermark
   "01-docket-wall": `<body style="background:#1a1c2c">
     <div class="mark" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
@@ -163,7 +197,7 @@ const pages = {
   "04-filing-cabinet": `<body style="background:#151a28">
     <div style="position:absolute;left:0;top:-40px;width:620px;height:calc(100% + 80px);background:#2a3149;
       box-shadow:inset -26px 0 46px rgba(0,0,0,.55)">
-      ${drawer({ label: "KESSLER" })}${drawer({ label: "ALDERGATE", open: true })}
+      ${drawer({ label: "KESSLER" })}${drawer({ label: "ALDERGATE", open: true, sway })}
       ${drawer({ label: "HALCYON" })}${drawer({ label: "VANCE" })}
       ${drawer({ label: "REDVALE" })}${drawer({ label: "NIMBUSHOST" })}
       ${drawer({ label: "PEMBERTON" })}${drawer({ label: "CORVID" })}
@@ -173,7 +207,7 @@ const pages = {
       box-shadow:inset 26px 0 46px rgba(0,0,0,.55)">
       ${drawer({ label: "BELLWETHER", side: "right" })}${drawer({ label: "RAVENSCROFT", side: "right" })}
       ${drawer({ label: "ALMEIDA", side: "right" })}${drawer({ label: "KEPLER TOWER", side: "right" })}
-      ${drawer({ label: "SABLE & ROE", open: true, side: "right" })}${drawer({ label: "MERIDIAN", side: "right" })}
+      ${drawer({ label: "SABLE & ROE", open: true, side: "right", sway: i => sway(i + 3) })}${drawer({ label: "MERIDIAN", side: "right" })}
       ${drawer({ label: "THORNE", side: "right" })}${drawer({ label: "HALLORAN", side: "right" })}
       ${drawer({ label: "WESTBROOK", side: "right" })}
     </div>
@@ -209,9 +243,10 @@ const pages = {
         font-size:17px;padding:11px 22px;letter-spacing:.08em;
         box-shadow:0 3px 0 #a8996f">${t}</div>`).join("")}
 
-    <div style="position:absolute;left:${SAFE}px;top:660px;transform:rotate(-13deg);
+    <div style="position:absolute;left:${SAFE}px;top:660px;
+      transform:rotate(${stamp.rot}deg) scale(${stamp.s});transform-origin:50% 50%;
       border:9px solid #b13e53;color:#b13e53;font-size:50px;padding:28px 38px;letter-spacing:.08em;
-      opacity:.9">HENDERED</div>
+      opacity:${stamp.o}">HENDERED</div>
     <div style="position:absolute;right:${SAFE - 30}px;top:760px;width:300px;height:300px;border-radius:50%;
       border:20px solid rgba(120,84,44,.2)"></div>
     <div style="position:absolute;right:${SAFE + 56}px;top:846px;width:128px;height:128px;border-radius:50%;
@@ -224,21 +259,74 @@ const pages = {
     <div class="mark" style="position:absolute;right:${SAFE}px;bottom:110px;width:180px;height:180px;
       border:6px solid #2b2118;opacity:.92">${MARK}</div>
   </body>`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Animated variants. itch takes ONE image for the page background, so the only
+// way to move is an animated GIF — and there, file size is the design. A whole
+// frame in motion runs to megabytes; a small region in motion stays small,
+// because GIF stores only the rectangle that changed since the last frame.
+// Hence: two swaying drawers on 04, one falling stamp on 05, nothing else.
+const ANIM_COLORS = 80;
+// Holds sit on a 0.04s grid: the concat demuxer hands image frames to the GIF
+// muxer at 25fps, so anything off that grid comes back out as alternating
+// delays. 0.04 multiples give the sway an even cadence.
+const anims = {
+  "04-filing-cabinet": Array.from({ length: 18 }, (_, i) => ({ t: i / 18, hold: .12 })),
+  // one long rest frame, then the beat — a frame apart, ending just before rest
+  "05-blotter": [{ t: 0, hold: 2.6 },
+    ...Array.from({ length: 11 }, (_, i) => ({ t: .70 + (i + 1) * .30 / 12, hold: .04 }))],
+};
+
+const page = (body) => `<!doctype html><meta charset="utf-8"><style>${BASE}</style>${body}`;
+const shot = (html, out) => ({ html, out, w: W, h: H, transparent: false });
+const capture = (work, jobs, file) => {
+  writeFileSync(join(work, file), JSON.stringify(jobs));
+  execFileSync(electronPath, ["scripts/lib/capture-main.cjs", "--manifest", join(work, file)],
+    { stdio: "inherit" });
 };
 
 const work = mkdtempSync(join(tmpdir(), "fo-bg-"));
 mkdirSync(OUT, { recursive: true });
-const jobs = Object.entries(pages).map(([name, body]) => {
-  const html = join(work, name + ".html");
-  writeFileSync(html, `<!doctype html><meta charset="utf-8"><style>${BASE}</style>${body}`);
-  return { html, out: join(OUT, name + ".png"), w: W, h: H, transparent: false };
-});
-writeFileSync(join(work, "jobs.json"), JSON.stringify(jobs));
-execFileSync(electronPath, ["scripts/lib/capture-main.cjs", "--manifest", join(work, "jobs.json")], { stdio: "inherit" });
 
-// Preview: every candidate with itch's content column mocked over its middle.
-const sheet = join(work, "sheet.html");
-writeFileSync(sheet, `<!doctype html><meta charset="utf-8">
+if(process.argv.includes("--animate")){
+  for(const [name, frames] of Object.entries(anims)){
+    const jobs = frames.map((f, i) => {
+      const html = join(work, `${name}-${String(i).padStart(3, "0")}.html`);
+      writeFileSync(html, page(buildPages(f.t)[name]));
+      return shot(html, join(work, `${name}-${String(i).padStart(3, "0")}.png`));
+    });
+    capture(work, jobs, name + ".json");
+
+    // concat demuxer so each frame keeps its own delay: the rest frame on 05
+    // is one 2.6s frame, not 52 copies of the same picture.
+    const list = join(work, name + ".txt");
+    writeFileSync(list, jobs.map((j, i) => `file '${j.out}'\nduration ${frames[i].hold.toFixed(3)}`).join("\n") +
+      `\nfile '${jobs[jobs.length - 1].out}'\n`);
+    const gif = join(OUT, name + ".gif");
+    execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", list,
+      "-filter_complex",
+      `[0:v]split[a][b];[a]palettegen=max_colors=${ANIM_COLORS}:stats_mode=full[p];` +
+      `[b][p]paletteuse=dither=none:diff_mode=rectangle`,
+      "-loop", "0", gif], { stdio: "inherit" });
+    const kb = (statSync(gif).size / 1024).toFixed(0);
+    const secs = frames.reduce((a, f) => a + f.hold, 0).toFixed(2);
+    console.log(`${name}.gif  ${frames.length} frames · ${secs}s loop · ${kb} KB`);
+  }
+  rmSync(work, { recursive: true, force: true });
+} else {
+  const pages = buildPages(0);
+  const jobs = Object.entries(pages).map(([name, body]) => {
+    const html = join(work, name + ".html");
+    writeFileSync(html, page(body));
+    return shot(html, join(OUT, name + ".png"));
+  });
+  capture(work, jobs, "jobs.json");
+
+  // Preview: every candidate with itch's content column mocked over its middle.
+  const sheet = join(work, "sheet.html");
+  writeFileSync(sheet, `<!doctype html><meta charset="utf-8">
 <style>body{margin:0;background:#0b0c14;padding:18px;font:12px monospace;color:#94b0c2}
 .row{margin-bottom:18px}.wrap{position:relative;width:900px}
 img{display:block;width:900px;border:1px solid #3b5dc9}
@@ -247,8 +335,8 @@ img{display:block;width:900px;border:1px solid #3b5dc9}
 .col b{display:block;color:#333;font:11px monospace;padding:8px}</style>
 ${jobs.map(j => `<div class="row"><div>${j.out.split("/").pop()}</div>
   <div class="wrap"><img src="file://${j.out}"><div class="col"><b>itch content column (~960px)</b></div></div></div>`).join("")}`);
-writeFileSync(join(work, "sheet.json"), JSON.stringify([{ html: sheet, out: join(OUT, "_preview.png"), w: 960, h: 2400, transparent: false }]));
-execFileSync(electronPath, ["scripts/lib/capture-main.cjs", "--manifest", join(work, "sheet.json")], { stdio: "inherit" });
+  capture(work, [{ html: sheet, out: join(OUT, "_preview.png"), w: 960, h: 2400, transparent: false }], "sheet.json");
 
-rmSync(work, { recursive: true, force: true });
-console.log(`\n${jobs.length} backgrounds in ${OUT}/  (${W}x${H})`);
+  rmSync(work, { recursive: true, force: true });
+  console.log(`\n${jobs.length} backgrounds in ${OUT}/  (${W}x${H})`);
+}

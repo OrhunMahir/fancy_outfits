@@ -61,10 +61,24 @@ const tops = (span, { w = 15, gap = 4, max = 84, seed = 0 } = {}) =>
     </div>`;
   }).join("");
 
+// A post-it stuck on a drawer front, in the band under the handle. It stops at the
+// drawer's own bottom edge on purpose: one row lower and it covers the next
+// drawer's label, and the label is how you know which case the note is about.
+const POSTIT = ["#ffcd75", "#ffe0a0", "#f7c05f"];
+const postit = (a, off, lines, seed) => `
+  <div style="position:absolute;${a}:${off + 2}px;top:94px;width:158px;height:86px;
+    background:${POSTIT[seed % 3]};color:#2b2118;font-size:11px;line-height:1.9;
+    padding:10px 12px;letter-spacing:.02em;
+    transform:rotate(${((seed % 5) - 2) * 1.6}deg);transform-origin:top center;
+    box-shadow:0 12px 20px rgba(0,0,0,.6);z-index:9">
+    <div style="position:absolute;left:0;right:0;top:0;height:11px;background:rgba(0,0,0,.08)"></div>
+    ${lines.join("<br>")}
+  </div>`;
+
 // One drawer, built the way the original was: the whole row IS the drawer face.
 // An open one slides out and its content is pushed back by the same amount, so the
 // slide reads at the edges while the labels and paper stay inside the visible strip.
-const drawer = ({ label, side, open = 0, packed = 0, spill = 0, stuck = 0, seam = 0, tilt = 0, seed = 0 }) => {
+const drawer = ({ label, side, open = 0, seam = 0, note = null, tilt = 0, seed = 0 }) => {
   const a = side === "left" ? "right" : "left";
   const off = IN + open;
   const dir = side === "left" ? 1 : -1;
@@ -79,39 +93,14 @@ const drawer = ({ label, side, open = 0, packed = 0, spill = 0, stuck = 0, seam 
     <div style="position:absolute;${a}:${off + 52}px;top:-${seam + 7}px;width:126px;height:${seam + 7}px;
       background:${MANILA[(seed + 2) % 5]}"></div>` : ""}
 
-    ${spill ? `
-      <!-- The drawer is packed edge to edge and the files stand clear of the rim.
-           This is the "so much has piled up in there" read the whole page is for. -->
-      <div style="position:absolute;${a}:${off}px;bottom:${PITCH - 24}px;width:492px;height:${packed || 92}px">
-        ${tops(492, { seed, max: packed || 92 })}</div>
-      <!-- and a few that came over the front on the way in -->
-      ${[0, 1, 2].map(i => `<div style="position:absolute;${a}:${off + 4 + i * 54}px;
-        top:${30 + i * 12}px;width:${210 - i * 18}px;height:${190 - i * 20}px;
-        background:${["#f2e9d8", "#e8dcc2", "#cabea0"][i]};
-        transform:rotate(${(i - 1) * 2.6 * dir}deg);transform-origin:top center;
-        box-shadow:0 16px 30px rgba(0,0,0,.5);z-index:${4 + i}">
-        ${[0, 1, 2, 3].map(k => `<div style="position:absolute;left:12%;right:${k % 2 ? 34 : 16}%;
-          top:${16 + k * 17}%;height:3px;background:#c9bda2"></div>`).join("")}
-      </div>`).join("")}` : ""}
-
-    <div style="position:absolute;${a}:${off}px;top:58%;transform:translateY(-50%);
+    <div style="position:absolute;${a}:${off}px;top:58px;
       width:250px;height:30px;background:#6b7bb4;border-radius:4px;
       box-shadow:0 3px 0 #4a5680, inset 0 3px 0 #8a99cc;z-index:2"></div>
-    <!-- A spilled drawer's label sits on cream paper, so it inverts — a cream plate
-         on cream paper is unreadable, and the label is how you know which drawer. -->
-    <div style="position:absolute;${a}:${off}px;${spill ? "bottom:18px" : "top:19%"};
-      background:${spill ? "#1c2233" : "#efece2"};color:${spill ? "#efece2" : "#2b2118"};
-      font-size:16px;padding:10px 18px;letter-spacing:.06em;
-      box-shadow:0 2px 0 rgba(0,0,0,.45);z-index:8">${label}</div>
+    <div style="position:absolute;${a}:${off}px;top:10px;
+      background:#efece2;color:#2b2118;font-size:16px;padding:10px 18px;letter-spacing:.06em;
+      box-shadow:0 2px 0 rgba(0,0,0,.35);z-index:8">${label}</div>
 
-    ${stuck ? `<div style="position:absolute;${a}:${off + 6}px;bottom:${PITCH - 44}px;
-      width:186px;height:84px;background:#efe4cc;border:2px solid #a8996f;
-      transform:rotate(${-11 * dir}deg);transform-origin:bottom ${a};
-      box-shadow:0 14px 26px rgba(0,0,0,.6);z-index:9">
-      <div style="position:absolute;left:8%;width:34%;top:-11px;height:11px;background:#d8cbab"></div>
-      ${[0, 1, 2].map(k => `<div style="position:absolute;left:9%;right:${k % 2 ? 34 : 16}%;
-        top:${26 + k * 23}%;height:3px;background:#cabea0"></div>`).join("")}
-    </div>` : ""}
+    ${note ? postit(a, off, note, seed) : ""}
   </div>`;
 };
 
@@ -127,74 +116,53 @@ const room = () => `<div style="position:absolute;left:${CAB}px;right:${CAB}px;t
 const L = ["KESSLER", "ALDERGATE", "PEMBERTON", "HALCYON", "VANCE", "REDVALE", "NIMBUSHOST", "CORVID"];
 const R = ["BELLWETHER", "RAVENSCROFT", "ALMEIDA", "KEPLER TOWER", "SABLE & ROE", "MERIDIAN", "THORNE", "WESTBROOK"];
 
-// `plan` returns the per-row options for a bank. Every page is one of these applied
-// to both sides, which keeps the ten variants honestly comparable.
+// What somebody wrote on the drawer before they went home. All of it is the game's
+// own case material — the winning argument is in the paperwork, and these are the
+// lines a reader would have underlined.
+const NOTES = [
+  ["VP HAD NO", "SIGNING", "AUTHORITY"],
+  ["DATE COMES", "AFTER THE", "DEADLINE"],
+  ["VENDOR IS", "THE CFO'S", "BROTHER"],
+  ["PRIVILEGED", "DO NOT", "PRODUCE"],
+  ["ASK FOR", "THE BYLAWS"],
+  ["PELT HATES", "THEATRE.", "GO DRY"],
+  ["DUE FRIDAY", "NO", "EXTENSION"],
+  ["HE SIGNED", "IT TWICE"],
+  ["WITNESS", "CHANGED", "HER STORY"],
+  ["FEE SCHED.", "IS NOT", "PRIVILEGED"],
+  ["CHECK", "EXHIBIT C"],
+  ["THEY WILL", "SAY NO.", "ASK ANYWAY"],
+];
+
 const page = (leftPlan, rightPlan) => `<body>${room()}
   ${bank("left", L.map((label, i) => ({ label, seed: i, ...leftPlan(i, label) })))}
   ${bank("right", R.map((label, i) => ({ label, seed: i + 3, ...rightPlan(i, label) })))}
   <div class="scan"></div></body>`;
 
-const shut = i => ({ seam: 0 });
+// Every drawer is too full to sit flush, which is the paper at each seam. The rest
+// of the story is on the post-its.
 const bulging = i => ({ seam: 6 + (i % 4) * 4 });
-const openAt = (n, o = 58, p = 0) => i => i === n ? { open: o, spill: 1, packed: p } : null;
+const plan = (notes, openAt) => (i) => ({
+  ...bulging(i),
+  ...(i === openAt ? { open: 58 } : {}),
+  ...(notes[i] !== undefined ? { note: NOTES[notes[i]] } : {}),
+});
 
 const pages = {
-  // ——— five takes on the cabinet ———————————————————————————————————————
-  // 1 — the original beat: one drawer open on each side, everything else shut.
-  "01-one-open": page(
-    i => i === 2 ? { open: 58, spill: 1 } : shut(i),
-    i => i === 5 ? { open: 58, spill: 1 } : shut(i)),
+  // 1 — three notes a side. The drawers carry the weight; the notes carry the case.
+  "01-notes": page(
+    plan({ 1: 0, 2: 10, 4: 4, 6: 8 }, 2),
+    plan({ 0: 1, 3: 6, 5: 11, 6: 9 }, 5)),
 
-  // 2 — nothing is open and nothing closes either: paper standing proud of every
-  //     seam, and one drawer that has given up.
-  "02-crammed": page(
-    i => i === 2 ? { open: 58, spill: 1, packed: 88 } : bulging(i),
-    i => i === 5 ? { seam: 24, stuck: 1 } : bulging(i)),
+  // 2 — five a side: somebody has been leaving these for weeks.
+  "02-notes-dense": page(
+    plan({ 0: 0, 2: 2, 3: 4, 5: 7, 7: 10 }, 2),
+    plan({ 1: 1, 3: 3, 4: 5, 5: 8, 7: 9 }, 5)),
 
-  // 3 — two open a side, both of them overfull.
-  "03-overflow": page(
-    i => (i === 1 || i === 5) ? { open: 62, spill: 1, packed: 104 } : bulging(i),
-    i => (i === 2 || i === 6) ? { open: 62, spill: 1, packed: 96 } : bulging(i)),
-
-  // 4 — PEMBERTON is out to the stop and sagging under the weight, with a file
-  //     wedged where the front should close. Everything else is shut and tidy.
-  "04-pemberton": page(
-    (i, label) => label === "PEMBERTON" ? { open: 96, spill: 1, packed: 120, tilt: 1.4, stuck: 1 } : shut(i),
-    i => i === 4 ? { seam: 18 } : shut(i)),
-
-  // 5 — volume rather than incident: every drawer showing paper, one open.
-  "05-wall": page(
-    i => i === 6 ? { open: 54, spill: 1, packed: 76 } : { seam: 8 + (i % 5) * 4 },
-    i => i === 1 ? { open: 54, spill: 1, packed: 76 } : { seam: 8 + ((i + 2) % 5) * 4 }),
-
-  // ——— and five on the backlog: opened in steps, each one worse ————————————
-  // 6 — three drawers, opened a little further down the column.
-  "06-backlog-soft": page(
-    i => (i >= 2 && i <= 4) ? { open: 34 + (i - 2) * 22, spill: 1, packed: 40 + (i - 2) * 18 } : bulging(i),
-    i => (i >= 3 && i <= 5) ? { open: 32 + (i - 3) * 22, spill: 1, packed: 38 + (i - 3) * 18 } : bulging(i)),
-
-  // 7 — four, and the last one is most of the way out.
-  "07-backlog-deep": page(
-    i => (i >= 1 && i <= 4) ? { open: 30 + (i - 1) * 30, spill: 1, packed: 44 + (i - 1) * 22 } : bulging(i),
-    i => (i >= 2 && i <= 5) ? { open: 28 + (i - 2) * 30, spill: 1, packed: 42 + (i - 2) * 22 } : bulging(i)),
-
-  // 8 — mirrored, so both gutters read the same way at the same height.
-  "08-backlog-mirror": page(
-    i => (i >= 2 && i <= 5) ? { open: 30 + (i - 2) * 26, spill: 1, packed: 48 + (i - 2) * 20 } : bulging(i),
-    i => (i >= 2 && i <= 5) ? { open: 30 + (i - 2) * 26, spill: 1, packed: 48 + (i - 2) * 20 } : bulging(i)),
-
-  // 9 — five open, all of them overflowing. The week nobody filed anything.
-  "09-backlog-heavy": page(
-    i => (i >= 1 && i <= 5) ? { open: 26 + (i - 1) * 24, spill: 1, packed: 70 + (i - 1) * 16 } : { seam: 14 },
-    i => (i >= 2 && i <= 6) ? { open: 26 + (i - 2) * 24, spill: 1, packed: 70 + (i - 2) * 16 } : { seam: 14 }),
-
-  // 10 — the backlog plus the collapse: the bottom drawer is out to the stop,
-  //      sagging, with a file jammed in the front.
-  "10-backlog-collapse": page(
-    i => i === 5 ? { open: 104, spill: 1, packed: 126, tilt: 1.5, stuck: 1 }
-      : (i >= 2 && i <= 4) ? { open: 30 + (i - 2) * 24, spill: 1, packed: 46 + (i - 2) * 20 } : bulging(i),
-    i => i === 6 ? { open: 104, spill: 1, packed: 126, tilt: 1.5, stuck: 1 }
-      : (i >= 3 && i <= 5) ? { open: 30 + (i - 3) * 24, spill: 1, packed: 46 + (i - 3) * 20 } : bulging(i)),
+  // 3 — nothing pulled out at all: a wall that is merely full, and annotated.
+  "03-notes-shut": page(
+    plan({ 1: 2, 3: 0, 5: 9, 6: 4 }, -1),
+    plan({ 0: 10, 2: 7, 4: 3, 6: 1 }, -1)),
 };
 
 const work = mkdtempSync(join(tmpdir(), "fo-cab-"));

@@ -165,27 +165,27 @@ page of any length.
 
 ## The font
 
-itch's Font dropdown is not two entries — it is Lato plus a long list of Google
-Fonts, which the page then loads from `fonts.googleapis.com`. Across the 100:
+itch's picker is not a dropdown of a few faces — it takes **any Google Fonts family
+name typed into the box**, so the choice is the whole library. Which means the
+game's own face is available: **Press Start 2P is on Google Fonts.**
 
-| Font | pages |
+It is still wrong for body text. `node scripts/store-fonts.mjs` sets the same
+paragraph five ways and the top row shows why: at paragraph length Press Start 2P
+is a wall, and 04b_03 fails the same way for the same reason. Both are display
+faces doing a body face's job.
+
+The pairing the panel makes possible, because **Header font is its own field**:
+
+| Field | Value |
 | --- | --- |
-| Lato (default) | 44 |
-| **Anonymous Pro** | 7 |
-| sans-serif | 7 |
-| Quicksand | 3 |
-| 04b_03 (pixel) | 3 |
-| everything else | 1–2 each |
+| Font | **VT323** |
+| Header font | **Press Start 2P** |
+| Size | Large |
 
-**Use Anonymous Pro.** It is monospaced, which is what the game's own Press Start
-2P is, so the page keeps the game's rhythm — but it has real lowercase and normal
-word shapes, so a 600-word description still reads at speed. It is also the most
-common deliberate choice on the site's best pages, which means it reads as *a game
-page* rather than as a default one. 04b_03 is the pixel-purist answer and it is
-why the pixel version felt hard to read: it is a 5x7 face doing a job it was never
-meant to do.
-
-If more pixel flavour is wanted later, **DotGothic16** is the readable middle.
+Headings get the game's exact face. The body gets VT323, which is pixel too but
+narrow and tall, so a 600-word description still reads at speed. If readability
+matters more than the pixel look, **Anonymous Pro** is the swap — it is the most
+common deliberate font choice across the top 100 pages.
 
 ## Headings as post-its
 

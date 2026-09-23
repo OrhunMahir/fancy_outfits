@@ -20,7 +20,8 @@ const BG = pathToFileURL(join(OUT, "cabinet", "01-notes.png")).toString();
 // itch serves exactly two body fonts, Lato and the pixel one. This is the pixel
 // one, pulled from itch's own CDN so the preview renders the real thing — it is
 // never committed, and the published page loads it from itch anyway.
-const FONT_CSS = "https://fonts.googleapis.com/css2?family=Anonymous+Pro:ital,wght@0,400;0,700;1,400&display=swap";
+const FONT_CSS = "https://fonts.googleapis.com/css2?family=VT323&display=swap";
+const HEAD_FONT = pathToFileURL(resolve("src/fonts/press-start-2p-latin.woff2")).toString();
 const COVER = pathToFileURL(resolve("assets/store/capsules/itch-cover-630x500.png")).toString();
 const SHOTS = ["03-case-file", "09-trial", "07-lockpick", "06-contradiction"].map(n =>
   pathToFileURL(resolve(`assets/store/screenshots/${n}.png`)).toString());
@@ -37,9 +38,9 @@ export const THEME = {
   "Headers":            "#ffcd75",
   "Buttons":            "#ffcd75",
   "BG2 Alpha":          "max (opaque)",   // 76 of the top 100 pages are fully opaque
-  "Font":               "Anonymous Pro",  // mono like the game, readable at length
+  "Font":               "VT323",          // pixel, but narrow and tall, so it reads
   "Size":               "Large",
-  "Header font":        "Default font",
+  "Header font":        "Press Start 2P", // the game's own face, on headings only
   "Screenshots":        "Auto",
   "Background image":   "cabinet/01-notes.png",
   "  Repeat":           "Both",
@@ -107,29 +108,26 @@ const work = mkdtempSync(join(tmpdir(), "fo-theme-"));
 // The page loads its face from Google Fonts, so the preview does too.
 let face = "";
 try {
-  const css = await (await fetch(FONT_CSS, { headers: { "User-Agent": "Mozilla/5.0" } })).text();
-  const urls = [...css.matchAll(/url\((https:[^)]+\.woff2)\)/g)].map(m => m[1]);
-  const parts = [];
-  for(const [i, u] of urls.slice(0, 3).entries()){
-    const f = join(work, `font-${i}.woff2`);
-    writeFileSync(f, Buffer.from(await (await fetch(u)).arrayBuffer()));
-    parts.push(`@font-face{font-family:'Anonymous Pro';font-weight:${i === 1 ? 700 : 400};` +
-      `src:url('${pathToFileURL(f)}') format('woff2');font-display:block}`);
-  }
-  face = parts.join("");
+  const ua = { "User-Agent": "Mozilla/5.0 (Macintosh) AppleWebKit/537.36 Chrome/130.0 Safari/537.36" };
+  const css = await (await fetch(FONT_CSS, { headers: ua })).text();
+  const u = [...css.matchAll(/url\((https:[^)]+)\)/g)].map(m => m[1]).pop();
+  const f = join(work, "body.woff2");
+  writeFileSync(f, Buffer.from(await (await fetch(u)).arrayBuffer()));
+  face = `@font-face{font-family:'VT323';src:url('${pathToFileURL(f)}') format('woff2');font-display:block}` +
+    `@font-face{font-family:'Press Start 2P';src:url('${HEAD_FONT}') format('woff2');font-display:block}`;
 } catch { console.log("  (could not fetch the face; preview falls back to monospace)"); }
 const html = `<!doctype html><meta charset="utf-8"><style>
 *{margin:0;padding:0;box-sizing:border-box}
-${face}\nbody{background:#0b0c14;font:16px/1.6 'Anonymous Pro',monospace}
+${face}\nbody{background:#0b0c14;font:16px/1.6 'VT323',monospace}
 .cap{color:#94b0c2;font:12px monospace;padding:9px 4px}
 .vp{position:relative;width:${VW}px;height:${VH}px;overflow:hidden}
 .bg{position:absolute;inset:0;background:${t["BG"]} url('${BG}') center top repeat}
 .page{position:absolute;left:0;right:0}
 .bar{height:52px;background:#585858}
 .col{width:${PANEL}px;margin:0 auto;background:${t["BG 2"]};color:${t["Text"]};
-  font-family:'Anonymous Pro',Lato,monospace;
+  font-family:'VT323',Lato,monospace;font-size:21px;line-height:1.4;
   padding:34px 40px 60px}
-h1{font-size:34px;font-weight:bold;margin-bottom:8px;color:${t["Headers"]}}
+h1{font-family:'Press Start 2P',monospace;font-size:26px;font-weight:normal;margin-bottom:8px;color:${t["Headers"]}}
 .by{color:${t["Link"]};margin-bottom:26px}
 .hero{display:flex;gap:28px;margin-bottom:28px}
 .hero img{width:330px;border:1px solid #3d4763}
@@ -141,7 +139,7 @@ td{border:1px solid #3d4763;padding:7px 14px}
 td:first-child{opacity:.6}
 a{color:${t["Link"]};text-decoration:none}
 hr{border:0;height:1px;background:#3d4763;margin:26px 0}
-h2{font-size:22px;font-weight:bold;margin:30px 0 12px;color:${t["Headers"]}}
+h2{font-family:'Press Start 2P',monospace;font-size:19px;font-weight:normal;margin:30px 0 12px;color:${t["Headers"]}}
 p{margin-bottom:14px}
 .shots{display:flex;gap:10px;margin-top:26px}
 .shots img{width:${Math.round((PANEL - 110) / 4)}px;border:1px solid #3d4763}

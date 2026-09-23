@@ -16,7 +16,11 @@ import { pathToFileURL } from "node:url";
 const require = createRequire(import.meta.url);
 const electronPath = require("electron");
 const OUT = resolve("assets/store/backgrounds");
-const BG = pathToFileURL(join(OUT, "05-blotter.png")).toString();
+const BG = pathToFileURL(join(OUT, "cabinet", "01-notes.png")).toString();
+// itch serves exactly two body fonts, Lato and the pixel one. This is the pixel
+// one, pulled from itch's own CDN so the preview renders the real thing — it is
+// never committed, and the published page loads it from itch anyway.
+const PIXEL = "https://static.itch.io/fonts/04b03.woff2";
 const COVER = pathToFileURL(resolve("assets/store/capsules/itch-cover-630x500.png")).toString();
 const SHOTS = ["03-case-file", "09-trial", "07-lockpick", "06-contradiction"].map(n =>
   pathToFileURL(resolve(`assets/store/screenshots/${n}.png`)).toString());
@@ -24,7 +28,8 @@ const SHOTS = ["03-case-file", "09-trial", "07-lockpick", "06-contradiction"].ma
 // The page is a case file; the column is the game sitting on top of it. Values are
 // the game's own palette (src/styles.css :root), not new colours invented for itch.
 export const THEME = {
-  "Background":         "#f2e9d8",              // the blotter's own paper, so nothing flashes white
+  "Font":               "04b_03",               // itch's only pixel face; Lato is the other option
+  "Background":         "#151a28",              // the room behind the cabinets
   // --bg, and OPAQUE. A few percent of transparency looked like a nice tie between
   // the layers until the folder went in behind it: the document ghosted through the
   // panel and handed the reader half-legible text again, which is the one thing
@@ -44,7 +49,7 @@ const t = THEME;
 // as the page scrolls and there is no "below the background" to run out of. A
 // single tall screenshot cannot show that, and one that tries reads as an empty
 // bottom half. So: two real viewports, page top and page scrolled, same band.
-const VW = 1600, VH = 900;
+const VW = 1730, VH = 900, PANEL = 1265;
 
 const column = (top) => `<div class="page" style="top:${top}px">
   <div class="col">
@@ -88,21 +93,33 @@ const column = (top) => `<div class="page" style="top:${top}px">
 const viewport = (label, top) => `<div class="cap">${label}</div>
 <div class="vp"><div class="bg"></div>${column(top)}</div>`;
 
+const work = mkdtempSync(join(tmpdir(), "fo-theme-"));
+
+// itch serves the pixel face itself, so pull the real one rather than approximating
+// it. Never committed — the published page loads it from itch the same way.
+let face = "";
+try {
+  const buf = Buffer.from(await (await fetch(PIXEL)).arrayBuffer());
+  const f = join(work, "04b03.woff2");
+  writeFileSync(f, buf);
+  face = `@font-face{font-family:'04b_03';src:url('${pathToFileURL(f)}') format('woff2');font-display:block}`;
+} catch { console.log("  (could not fetch 04b_03; preview falls back to monospace)"); }
 const html = `<!doctype html><meta charset="utf-8"><style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#0b0c14;font:16px/1.6 -apple-system,Helvetica,Arial,sans-serif}
+${face}\nbody{background:#0b0c14;font:16px/1.6 '04b_03',monospace}
 .cap{color:#94b0c2;font:12px monospace;padding:9px 4px}
 .vp{position:relative;width:${VW}px;height:${VH}px;overflow:hidden}
-.bg{position:absolute;inset:0;background:${t["Background"]} url('${BG}') center/cover no-repeat}
+.bg{position:absolute;inset:0;background:${t["Background"]} url('${BG}') center top repeat}
 .page{position:absolute;left:0;right:0}
 .bar{height:52px;background:#585858}
-.col{width:960px;margin:0 auto;background:${t["Content background"]};color:${t["Text"]};
+.col{width:${PANEL}px;margin:0 auto;background:${t["Content background"]};color:${t["Text"]};
+  font-family:'04b_03',Lato,monospace;
   padding:34px 40px 60px}
-h1{font-size:40px;font-weight:900;letter-spacing:-.01em;margin-bottom:4px}
+h1{font-size:34px;font-weight:bold;margin-bottom:8px}
 .by{color:${t["Link"]};margin-bottom:26px}
 .hero{display:flex;gap:28px;margin-bottom:28px}
-.hero img{width:380px;border:1px solid ${t["Border"]}}
-.tag{font-size:19px;line-height:1.5;margin-bottom:22px}
+.hero img{width:400px;border:1px solid ${t["Border"]}}
+.tag{font-size:17px;line-height:1.7;margin-bottom:22px}
 .btn{display:inline-block;background:${t["Button background"]};color:${t["Button text"]};
   font-weight:700;padding:13px 26px;border-radius:3px;text-shadow:0 1px 0 ${t["Button shadow"]}}
 table{border-collapse:collapse;margin:26px 0;font-size:15px}
@@ -110,15 +127,14 @@ td{border:1px solid ${t["Border"]};padding:7px 14px}
 td:first-child{opacity:.6}
 a{color:${t["Link"]};text-decoration:none}
 hr{border:0;height:1px;background:${t["Border"]};margin:26px 0}
-h2{font-size:25px;font-weight:900;margin:30px 0 12px}
+h2{font-size:22px;font-weight:bold;margin:30px 0 12px}
 p{margin-bottom:14px}
 .shots{display:flex;gap:10px;margin-top:26px}
-.shots img{width:222px;border:1px solid ${t["Border"]}}
+.shots img{width:${Math.round((PANEL - 110) / 4)}px;border:1px solid ${t["Border"]}}
 </style>
-${viewport("1600x900 — the page as it opens", 52)}
-${viewport("1600x900 — the same window, scrolled down. background:fixed, so the paper has not moved", -760)}`;
+${viewport("1730x900 — the page as it opens, pixel font", 52)}
+${viewport("1730x900 — scrolled. natural size + repeat, so nothing is ever scaled", -760)}`;
 
-const work = mkdtempSync(join(tmpdir(), "fo-theme-"));
 const page = join(work, "theme.html");
 writeFileSync(page, html);
 const out = join(OUT, "_theme.png");
@@ -128,4 +144,4 @@ rmSync(work, { recursive: true, force: true });
 
 console.log("\nEdit theme → paste these:\n");
 for(const [k, v] of Object.entries(THEME)) console.log(`  ${k.padEnd(20)} ${v}`);
-console.log(`\n  Background image     05-blotter.gif   ·  repeat: cover  ·  fixed: on\n`);
+console.log(`\n  Background image     cabinet/01-notes.png  ·  repeat: repeat  ·  natural size\n`);

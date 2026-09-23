@@ -127,6 +127,7 @@ settings are:
 
 | Edit theme field | Value |
 | --- | --- |
+| Font | **04b_03** |
 | Background image | the chosen `cabinet/*.png` |
 | Repeat | **repeat** — *not* cover, and not contain |
 | Fixed / parallax | either; at natural size nothing is being scaled, so it cannot zoom |
@@ -134,6 +135,22 @@ settings are:
 At natural size the wall runs down a page of any height with no scaling at all, and
 the cabinets sit in the outer 650px of each side, which is where the gutter falls once
 a 1250px column is centred.
+
+## The font
+
+itch's theme editor serves exactly two body faces, and only two: **Lato** and
+**04b_03**, a 5x7 pixel face. Checked against itch's own stylesheet, not guessed —
+`static.itch.io/game.css` carries an `@font-face` for each and nothing else. So a
+pixel page is one dropdown away, and it is how every retro page on the site does it.
+
+Set **Font: 04b_03**. It applies to the whole panel, headings included, and itch
+does not adjust the size to compensate, so a long description reads noticeably
+slower than it does in Lato. That is the trade, and it is the right one here: the
+game is pixel art and the page should look like the game.
+
+`scripts/store-itch-theme.mjs` renders the preview in the real face, pulled from
+itch's own CDN at render time. It is never committed; the published page loads it
+from itch the same way.
 
 ## Trailer and animated cover
 

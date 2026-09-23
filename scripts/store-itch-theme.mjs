@@ -20,28 +20,33 @@ const BG = pathToFileURL(join(OUT, "cabinet", "01-notes.png")).toString();
 // itch serves exactly two body fonts, Lato and the pixel one. This is the pixel
 // one, pulled from itch's own CDN so the preview renders the real thing — it is
 // never committed, and the published page loads it from itch anyway.
-const PIXEL = "https://static.itch.io/fonts/04b03.woff2";
+const FONT_CSS = "https://fonts.googleapis.com/css2?family=Anonymous+Pro:ital,wght@0,400;0,700;1,400&display=swap";
 const COVER = pathToFileURL(resolve("assets/store/capsules/itch-cover-630x500.png")).toString();
 const SHOTS = ["03-case-file", "09-trial", "07-lockpick", "06-contradiction"].map(n =>
   pathToFileURL(resolve(`assets/store/screenshots/${n}.png`)).toString());
 
 // The page is a case file; the column is the game sitting on top of it. Values are
 // the game's own palette (src/styles.css :root), not new colours invented for itch.
+// Keyed exactly as itch's Edit theme panel labels them, so this can be copied
+// field by field without translating anything.
 export const THEME = {
-  "Font":               "04b_03",               // itch's only pixel face; Lato is the other option
-  "Background":         "#151a28",              // the room behind the cabinets
-  // --bg, and OPAQUE. A few percent of transparency looked like a nice tie between
-  // the layers until the folder went in behind it: the document ghosted through the
-  // panel and handed the reader half-legible text again, which is the one thing
-  // this page is built to avoid.
-  "Content background": "#1a1c2c",
+  "BG":                 "#151a28",        // the room behind the cabinets
+  "BG 2":               "#1a1c2c",        // the content panel; the game's own --bg
   "Text":               "#e8dfcb",
-  "Link":               "#ffcd75",              // --gold
-  "Border":             "#3d4763",
-  "Button background":  "#ffcd75",
-  "Button text":        "#1a1c2c",
-  "Button shadow":      "#d9a44f",
+  "Link":               "#ffcd75",        // --gold, the logo's colour
+  "Headers":            "#ffcd75",
+  "Buttons":            "#ffcd75",
+  "BG2 Alpha":          "max (opaque)",   // 76 of the top 100 pages are fully opaque
+  "Font":               "Anonymous Pro",  // mono like the game, readable at length
+  "Size":               "Large",
+  "Header font":        "Default font",
+  "Screenshots":        "Auto",
+  "Background image":   "cabinet/01-notes.png",
+  "  Repeat":           "Both",
+  "  Align":            "Center",
+  "  Fixed":            "OFF — let the wall scroll",
 };
+
 
 const t = THEME;
 
@@ -99,42 +104,49 @@ const work = mkdtempSync(join(tmpdir(), "fo-theme-"));
 
 // itch serves the pixel face itself, so pull the real one rather than approximating
 // it. Never committed — the published page loads it from itch the same way.
+// The page loads its face from Google Fonts, so the preview does too.
 let face = "";
 try {
-  const buf = Buffer.from(await (await fetch(PIXEL)).arrayBuffer());
-  const f = join(work, "04b03.woff2");
-  writeFileSync(f, buf);
-  face = `@font-face{font-family:'04b_03';src:url('${pathToFileURL(f)}') format('woff2');font-display:block}`;
-} catch { console.log("  (could not fetch 04b_03; preview falls back to monospace)"); }
+  const css = await (await fetch(FONT_CSS, { headers: { "User-Agent": "Mozilla/5.0" } })).text();
+  const urls = [...css.matchAll(/url\((https:[^)]+\.woff2)\)/g)].map(m => m[1]);
+  const parts = [];
+  for(const [i, u] of urls.slice(0, 3).entries()){
+    const f = join(work, `font-${i}.woff2`);
+    writeFileSync(f, Buffer.from(await (await fetch(u)).arrayBuffer()));
+    parts.push(`@font-face{font-family:'Anonymous Pro';font-weight:${i === 1 ? 700 : 400};` +
+      `src:url('${pathToFileURL(f)}') format('woff2');font-display:block}`);
+  }
+  face = parts.join("");
+} catch { console.log("  (could not fetch the face; preview falls back to monospace)"); }
 const html = `<!doctype html><meta charset="utf-8"><style>
 *{margin:0;padding:0;box-sizing:border-box}
-${face}\nbody{background:#0b0c14;font:16px/1.6 '04b_03',monospace}
+${face}\nbody{background:#0b0c14;font:16px/1.6 'Anonymous Pro',monospace}
 .cap{color:#94b0c2;font:12px monospace;padding:9px 4px}
 .vp{position:relative;width:${VW}px;height:${VH}px;overflow:hidden}
-.bg{position:absolute;inset:0;background:${t["Background"]} url('${BG}') center top repeat}
+.bg{position:absolute;inset:0;background:${t["BG"]} url('${BG}') center top repeat}
 .page{position:absolute;left:0;right:0}
 .bar{height:52px;background:#585858}
-.col{width:${PANEL}px;margin:0 auto;background:${t["Content background"]};color:${t["Text"]};
-  font-family:'04b_03',Lato,monospace;
+.col{width:${PANEL}px;margin:0 auto;background:${t["BG 2"]};color:${t["Text"]};
+  font-family:'Anonymous Pro',Lato,monospace;
   padding:34px 40px 60px}
-h1{font-size:34px;font-weight:bold;margin-bottom:8px}
+h1{font-size:34px;font-weight:bold;margin-bottom:8px;color:${t["Headers"]}}
 .by{color:${t["Link"]};margin-bottom:26px}
 .hero{display:flex;gap:28px;margin-bottom:28px}
-.hero img{width:330px;border:1px solid ${t["Border"]}}
+.hero img{width:330px;border:1px solid #3d4763}
 .tag{font-size:17px;line-height:1.7;margin-bottom:22px}
-.btn{display:inline-block;background:${t["Button background"]};color:${t["Button text"]};
-  font-weight:700;padding:13px 26px;border-radius:3px;text-shadow:0 1px 0 ${t["Button shadow"]}}
+.btn{display:inline-block;background:${t["Buttons"]};color:${t["BG"]};
+  font-weight:700;padding:13px 26px;border-radius:3px;text-shadow:0 1px 0 #d9a44f}
 table{border-collapse:collapse;margin:26px 0;font-size:15px}
-td{border:1px solid ${t["Border"]};padding:7px 14px}
+td{border:1px solid #3d4763;padding:7px 14px}
 td:first-child{opacity:.6}
 a{color:${t["Link"]};text-decoration:none}
-hr{border:0;height:1px;background:${t["Border"]};margin:26px 0}
-h2{font-size:22px;font-weight:bold;margin:30px 0 12px}
+hr{border:0;height:1px;background:#3d4763;margin:26px 0}
+h2{font-size:22px;font-weight:bold;margin:30px 0 12px;color:${t["Headers"]}}
 p{margin-bottom:14px}
 .shots{display:flex;gap:10px;margin-top:26px}
-.shots img{width:${Math.round((PANEL - 110) / 4)}px;border:1px solid ${t["Border"]}}
+.shots img{width:${Math.round((PANEL - 110) / 4)}px;border:1px solid #3d4763}
 </style>
-${viewport("1440x900 — the page as it opens, pixel font", 52)}
+${viewport("1440x900 — the page as it opens", 52)}
 ${viewport("1440x900 — scrolled. natural size + repeat, so nothing is ever scaled", -760)}`;
 
 const page = join(work, "theme.html");
@@ -146,4 +158,4 @@ rmSync(work, { recursive: true, force: true });
 
 console.log("\nEdit theme → paste these:\n");
 for(const [k, v] of Object.entries(THEME)) console.log(`  ${k.padEnd(20)} ${v}`);
-console.log(`\n  Background image     cabinet/01-notes.png  ·  repeat: repeat  ·  natural size\n`);
+console.log("");

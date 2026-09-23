@@ -129,7 +129,7 @@ settings are:
 
 | Edit theme field | Value |
 | --- | --- |
-| Font | **04b_03** |
+| Font | **Anonymous Pro** |
 | Background image | the chosen `cabinet/*.png` |
 | Repeat | **repeat** — *not* cover, and not contain |
 | Fixed / parallax | either; at natural size nothing is being scaled, so it cannot zoom |
@@ -138,21 +138,67 @@ At natural size the wall runs down a page of any height with no scaling at all, 
 the cabinets sit in the outer 650px of each side, which is where the gutter falls once
 a 1250px column is centred.
 
+## What the top 100 pages actually do
+
+Surveyed, not guessed: 100 game pages from itch's top-rated listings, fetched and
+their generated theme CSS parsed.
+
+| | of 100 |
+| --- | --- |
+| background image set | 91 |
+| dark page background | 64 |
+| **gameplay video embedded** | **62** |
+| an animated GIF among cover/screenshots | 51 |
+| content panel fully opaque | 76 |
+| background fixed rather than scrolling | 30 |
+| header banner image | 2 |
+
+Two things stand out. A **gameplay video is on nearly two thirds of them** and is
+the biggest single thing this page is missing — the trailer exists, it just needs
+a YouTube upload and the link in itch's *Gameplay video* field. **An animated GIF
+is on half of them**, and `assets/store/trailer/cover.gif` is sitting unused. The
+banner, by contrast, is on two pages out of a hundred: skip it.
+
+Fixed backgrounds are the minority. Leave **Fixed unchecked** so the wall scrolls;
+the cabinet tiles seamlessly (8 drawers x 180 = 1440) so it runs unbroken down a
+page of any length.
+
 ## The font
 
-itch's theme editor serves exactly two body faces, and only two: **Lato** and
-**04b_03**, a 5x7 pixel face. Checked against itch's own stylesheet, not guessed —
-`static.itch.io/game.css` carries an `@font-face` for each and nothing else. So a
-pixel page is one dropdown away, and it is how every retro page on the site does it.
+itch's Font dropdown is not two entries — it is Lato plus a long list of Google
+Fonts, which the page then loads from `fonts.googleapis.com`. Across the 100:
 
-Set **Font: 04b_03**. It applies to the whole panel, headings included, and itch
-does not adjust the size to compensate, so a long description reads noticeably
-slower than it does in Lato. That is the trade, and it is the right one here: the
-game is pixel art and the page should look like the game.
+| Font | pages |
+| --- | --- |
+| Lato (default) | 44 |
+| **Anonymous Pro** | 7 |
+| sans-serif | 7 |
+| Quicksand | 3 |
+| 04b_03 (pixel) | 3 |
+| everything else | 1–2 each |
 
-`scripts/store-itch-theme.mjs` renders the preview in the real face, pulled from
-itch's own CDN at render time. It is never committed; the published page loads it
-from itch the same way.
+**Use Anonymous Pro.** It is monospaced, which is what the game's own Press Start
+2P is, so the page keeps the game's rhythm — but it has real lowercase and normal
+word shapes, so a 600-word description still reads at speed. It is also the most
+common deliberate choice on the site's best pages, which means it reads as *a game
+page* rather than as a default one. 04b_03 is the pixel-purist answer and it is
+why the pixel version felt hard to read: it is a 5x7 face doing a job it was never
+meant to do.
+
+If more pixel flavour is wanted later, **DotGothic16** is the readable middle.
+
+## Headings as post-its
+
+`node scripts/store-headings.mjs` renders each section heading onto a post-it and
+prints the HTML to paste.
+
+They are images because itch sanitises the description. Surveying the same 100
+pages for what survives in a description's inline styles: `width`, `height`,
+`font-size`, `color`, `background`, `background-color`, `background-size`,
+`text-align`, `margin` — and nothing else. No padding, no border, no transform,
+no box-shadow, which is all four of the things a post-it needs. So the post-it is
+a picture and the heading is its alt text. Rendered at 2x and placed at half
+width, so they stay sharp on a retina screen.
 
 ## Trailer and animated cover
 

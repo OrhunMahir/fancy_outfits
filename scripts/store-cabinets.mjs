@@ -37,9 +37,9 @@ const W = 2560, H = 1440;
 // The background sits at natural size, centred, so the image's centre lands on the
 // window's centre and everything below is stated as a distance from that centre.
 //
-//   PANEL is itch's content panel: ~1265 CSS px, fixed, whatever the window does.
-//   So it always covers x 1280 +/- 633, and its edge is at x 647.
-//   A window W wide shows x 1280 +/- W/2. At 1730 that is 415..2145.
+//   The panel is fixed at 960 whatever the window does, so it always covers
+//   x 1280 +/- 480 and its edge is at x 800.
+//   A window W wide shows x 1280 +/- W/2. At 1515 that is 522..2038.
 //
 // The gutter is therefore the strip between those two: about 230px at a 1730 window,
 // and it SHRINKS AS THE WINDOW SHRINKS, because the panel does not. Nothing wider
@@ -48,8 +48,12 @@ const W = 2560, H = 1440;
 // panel edge and is at most WIDE px across, which survives down to about a 1570
 // window. Below that the gutter is narrower than any legible label and the page is
 // showing almost no background anyway.
-const PANEL = 1265;
-const EDGE = Math.round((W - PANEL) / 2);   // 647 — where the panel's edge falls
+// PANEL is itch's content panel. It is 960 — itch's standard column, confirmed by
+// calibrating a screenshot against a known quantity in the art rather than reading
+// pixels off it: the drawer pitch is 180 in the source and measured 238 on screen,
+// so that screenshot was at 1.32x and its "1265px panel" was really 960.
+const PANEL = 960;
+const EDGE = Math.round((W - PANEL) / 2);   // 800 — where the panel's edge falls
 const CAB = EDGE;                           // the cabinet runs out to exactly there
 const IN = 6;                               // content inset from the cabinet's inner edge
 const WIDE = 150;                           // and nothing in the gutter is wider than this
@@ -198,7 +202,7 @@ execFileSync(electronPath, ["scripts/lib/capture-main.cjs", "--manifest", join(w
 // REAL 1250px panel over it. Judging one of these without the panel on top is
 // judging a picture nobody will ever see.
 const sheet = join(work, "sheet.html");
-const shown = 1730, tall = 760;
+const shown = 1440, tall = 760;
 writeFileSync(sheet, `<!doctype html><meta charset="utf-8">
 <style>body{margin:0;background:#0b0c14;padding:14px;font:12px monospace;color:#94b0c2}
 .row{margin-bottom:16px}.wrap{position:relative;width:${shown}px;height:${tall}px;overflow:hidden}

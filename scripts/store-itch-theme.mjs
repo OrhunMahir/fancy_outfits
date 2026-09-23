@@ -49,7 +49,9 @@ const t = THEME;
 // as the page scrolls and there is no "below the background" to run out of. A
 // single tall screenshot cannot show that, and one that tries reads as an empty
 // bottom half. So: two real viewports, page top and page scrolled, same band.
-const VW = 1730, VH = 900, PANEL = 1265;
+// 960 is itch's real panel width; an earlier 1265 came from reading a screenshot
+// as if it were 1:1. The window here is 1440, a fair middle.
+const VW = 1440, VH = 900, PANEL = 960;
 
 const column = (top) => `<div class="page" style="top:${top}px">
   <div class="col">
@@ -118,7 +120,7 @@ ${face}\nbody{background:#0b0c14;font:16px/1.6 '04b_03',monospace}
 h1{font-size:34px;font-weight:bold;margin-bottom:8px}
 .by{color:${t["Link"]};margin-bottom:26px}
 .hero{display:flex;gap:28px;margin-bottom:28px}
-.hero img{width:400px;border:1px solid ${t["Border"]}}
+.hero img{width:330px;border:1px solid ${t["Border"]}}
 .tag{font-size:17px;line-height:1.7;margin-bottom:22px}
 .btn{display:inline-block;background:${t["Button background"]};color:${t["Button text"]};
   font-weight:700;padding:13px 26px;border-radius:3px;text-shadow:0 1px 0 ${t["Button shadow"]}}
@@ -132,8 +134,8 @@ p{margin-bottom:14px}
 .shots{display:flex;gap:10px;margin-top:26px}
 .shots img{width:${Math.round((PANEL - 110) / 4)}px;border:1px solid ${t["Border"]}}
 </style>
-${viewport("1730x900 — the page as it opens, pixel font", 52)}
-${viewport("1730x900 — scrolled. natural size + repeat, so nothing is ever scaled", -760)}`;
+${viewport("1440x900 — the page as it opens, pixel font", 52)}
+${viewport("1440x900 — scrolled. natural size + repeat, so nothing is ever scaled", -760)}`;
 
 const page = join(work, "theme.html");
 writeFileSync(page, html);

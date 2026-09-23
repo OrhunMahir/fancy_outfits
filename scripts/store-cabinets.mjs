@@ -31,10 +31,29 @@ const OUT = resolve("assets/store/backgrounds/cabinet");
 const FONT = pathToFileURL(resolve("src/fonts/press-start-2p-latin.woff2")).toString();
 
 const W = 2560, H = 1440;
-const COL = 1250;      // measured off the live page
-const CAB = 660;       // cabinet band
-const PITCH = 180;     // 8 rows fill 1440 exactly, so the wall tiles with no seam
-const IN = 40;         // content inset from the cabinet's INNER edge
+
+// GEOMETRY, measured off the live page rather than assumed.
+//
+// The background sits at natural size, centred, so the image's centre lands on the
+// window's centre and everything below is stated as a distance from that centre.
+//
+//   PANEL is itch's content panel: ~1265 CSS px, fixed, whatever the window does.
+//   So it always covers x 1280 +/- 633, and its edge is at x 647.
+//   A window W wide shows x 1280 +/- W/2. At 1730 that is 415..2145.
+//
+// The gutter is therefore the strip between those two: about 230px at a 1730 window,
+// and it SHRINKS AS THE WINDOW SHRINKS, because the panel does not. Nothing wider
+// than the gutter can be relied on, and content is cut from the OUTSIDE in — which
+// is why the first version lost the front of every label. Everything now hugs the
+// panel edge and is at most WIDE px across, which survives down to about a 1570
+// window. Below that the gutter is narrower than any legible label and the page is
+// showing almost no background anyway.
+const PANEL = 1265;
+const EDGE = Math.round((W - PANEL) / 2);   // 647 — where the panel's edge falls
+const CAB = EDGE;                           // the cabinet runs out to exactly there
+const IN = 6;                               // content inset from the cabinet's inner edge
+const WIDE = 150;                           // and nothing in the gutter is wider than this
+const PITCH = 180;                          // 8 rows fill 1440 exactly, so the wall tiles
 
 const BASE = `
 @font-face{font-family:'Press Start 2P';src:url('${FONT}') format('woff2');font-display:block}
@@ -66,9 +85,9 @@ const tops = (span, { w = 15, gap = 4, max = 84, seed = 0 } = {}) =>
 // drawer's label, and the label is how you know which case the note is about.
 const POSTIT = ["#ffcd75", "#ffe0a0", "#f7c05f"];
 const postit = (a, off, lines, seed) => `
-  <div style="position:absolute;${a}:${off + 2}px;top:94px;width:158px;height:86px;
-    background:${POSTIT[seed % 3]};color:#2b2118;font-size:11px;line-height:1.9;
-    padding:10px 12px;letter-spacing:.02em;
+  <div style="position:absolute;${a}:${off + 2}px;top:92px;width:${WIDE - 2}px;height:82px;
+    background:${POSTIT[seed % 3]};color:#2b2118;font-size:10px;line-height:1.9;
+    padding:9px 10px;letter-spacing:.02em;
     transform:rotate(${((seed % 5) - 2) * 1.6}deg);transform-origin:top center;
     box-shadow:0 12px 20px rgba(0,0,0,.6);z-index:9">
     <div style="position:absolute;left:0;right:0;top:0;height:11px;background:rgba(0,0,0,.08)"></div>
@@ -88,16 +107,16 @@ const drawer = ({ label, side, open = 0, seam = 0, note = null, tilt = 0, seed =
     <div style="position:absolute;inset:0 0 auto 0;height:4px;background:#5b6a95"></div>
     <div style="position:absolute;inset:auto 0 0 0;height:10px;background:linear-gradient(#2a3149,#232a3f)"></div>
 
-    ${seam ? `<div style="position:absolute;${a}:${off}px;top:-${seam}px;width:330px;height:${seam}px;
+    ${seam ? `<div style="position:absolute;${a}:${off}px;top:-${seam}px;width:${WIDE}px;height:${seam}px;
       background:${MANILA[seed % 5]};box-shadow:0 -2px 5px rgba(0,0,0,.45)"></div>
-    <div style="position:absolute;${a}:${off + 52}px;top:-${seam + 7}px;width:126px;height:${seam + 7}px;
+    <div style="position:absolute;${a}:${off + 30}px;top:-${seam + 7}px;width:74px;height:${seam + 7}px;
       background:${MANILA[(seed + 2) % 5]}"></div>` : ""}
 
-    <div style="position:absolute;${a}:${off}px;top:58px;
-      width:250px;height:30px;background:#6b7bb4;border-radius:4px;
+    <div style="position:absolute;${a}:${off}px;top:52px;
+      width:${WIDE - 12}px;height:24px;background:#6b7bb4;border-radius:4px;
       box-shadow:0 3px 0 #4a5680, inset 0 3px 0 #8a99cc;z-index:2"></div>
-    <div style="position:absolute;${a}:${off}px;top:10px;
-      background:#efece2;color:#2b2118;font-size:16px;padding:10px 18px;letter-spacing:.06em;
+    <div style="position:absolute;${a}:${off}px;top:9px;
+      background:#efece2;color:#2b2118;font-size:12px;padding:8px 12px;letter-spacing:.05em;
       box-shadow:0 2px 0 rgba(0,0,0,.35);z-index:8">${label}</div>
 
     ${note ? postit(a, off, note, seed) : ""}
@@ -113,8 +132,8 @@ const bank = (side, rows) => `
 const room = () => `<div style="position:absolute;left:${CAB}px;right:${CAB}px;top:0;bottom:0;
   background:linear-gradient(90deg,#10131f,#171d2e 30%,#171d2e 70%,#10131f)"></div>`;
 
-const L = ["KESSLER", "ALDERGATE", "PEMBERTON", "HALCYON", "VANCE", "REDVALE", "NIMBUSHOST", "CORVID"];
-const R = ["BELLWETHER", "RAVENSCROFT", "ALMEIDA", "KEPLER TOWER", "SABLE & ROE", "MERIDIAN", "THORNE", "WESTBROOK"];
+const L = ["KESSLER", "ALDERGATE", "PEMBERTON", "HALCYON", "VANCE", "REDVALE", "CORVID", "ASHGROVE"];
+const R = ["MERIDIAN", "THORNE", "ALMEIDA", "KEPLER", "SABLE", "WESTBROOK", "HALLORAN", "NIMBUS"];
 
 // What somebody wrote on the drawer before they went home. All of it is the game's
 // own case material — the winning argument is in the paperwork, and these are the
@@ -179,17 +198,17 @@ execFileSync(electronPath, ["scripts/lib/capture-main.cjs", "--manifest", join(w
 // REAL 1250px panel over it. Judging one of these without the panel on top is
 // judging a picture nobody will ever see.
 const sheet = join(work, "sheet.html");
-const shown = 1920, tall = 820;
+const shown = 1730, tall = 760;
 writeFileSync(sheet, `<!doctype html><meta charset="utf-8">
 <style>body{margin:0;background:#0b0c14;padding:14px;font:12px monospace;color:#94b0c2}
 .row{margin-bottom:16px}.wrap{position:relative;width:${shown}px;height:${tall}px;overflow:hidden}
 .tile{position:absolute;inset:0;background-repeat:repeat;background-position:center top}
-.col{position:absolute;left:50%;transform:translateX(-50%);top:0;bottom:0;width:${COL}px;
+.col{position:absolute;left:50%;transform:translateX(-50%);top:0;bottom:0;width:${PANEL}px;
   background:#1a1c2c;border-inline:1px dashed #b13e53}
 .col b{display:block;color:#e8dfcb;font:11px monospace;padding:8px}</style>
 ${jobs.map(j => `<div class="row"><div>${j.out.split("/").pop()} — natural size, repeating, in a ${shown}px window</div>
   <div class="wrap"><div class="tile" style="background-image:url('file://${j.out}')"></div>
-  <div class="col"><b>itch content panel (~${COL}px, measured)</b></div></div></div>`).join("")}`);
+  <div class="col"><b>itch content panel (${PANEL}px, measured)</b></div></div></div>`).join("")}`);
 writeFileSync(join(work, "sheet.json"), JSON.stringify([{ html: sheet, out: join(OUT, "_preview.png"),
   w: shown + 28, h: (tall + 36) * jobs.length + 14, transparent: false }]));
 execFileSync(electronPath, ["scripts/lib/capture-main.cjs", "--manifest", join(work, "sheet.json")], { stdio: "inherit" });

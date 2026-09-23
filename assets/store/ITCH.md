@@ -107,12 +107,16 @@ something the art can be fixed to survive.
 
 Two other measurements matter and both were wrong in the first pages:
 
-- **The column is ~1250 CSS px, not 960.** itch puts the screenshots in a sub-column
-  inside the same white panel, so the panel is far wider than a text column. Measured
-  off the live page.
-- **The column is widest on the smallest screen** when the background is scaled,
-  because it is a fixed 960 (here 1250) CSS px against an image that shrinks with the
-  window.
+- **The panel is 1265 CSS px, not 960.** itch puts the screenshots in a sub-column
+  inside the same white panel, so it is far wider than a text column. Measured off
+  the live page.
+- **The gutter shrinks as the window shrinks, and the panel does not.** At natural
+  size the image is centred, so a window `V` wide shows image x `1280 ± V/2` while the
+  panel always covers `1280 ± 633`. The gutter is the difference: ~230px at a 1730
+  window, ~170px at 1600, nothing at all below ~1290.
+- **And it is cut from the outside in.** The first version put its labels at the
+  cabinet's outer edge, so a 1730 window ate the front of every word — KESSLER came
+  out as SLER. Everything now hugs the panel edge and is at most 150px wide.
 
 `scripts/store-cabinets.mjs` renders three variants built around all of this: a wall
 of drawers too full to sit flush, with post-its on some of them. The notes carry the

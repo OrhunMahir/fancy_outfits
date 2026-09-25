@@ -56,7 +56,11 @@ that read as unfinished are the ones that leave that box flat grey.
 ## Description
 
 Paste `ITCH_DESCRIPTION.html` into the description editor's **HTML view**, replacing
-everything. Heading images carry `alt` text and `style="width: …"` at half their pixels.
+everything. It marks four lines `>>> IMAGE n GOES HERE: <file> <<<`: back in the normal
+view, delete each marker's text and insert `assets/store/headings/<file>` there with the
+image button. The heading files are 553px wide at 2x — exactly the description column
+— so they land at the right size with no width attribute
+(`node scripts/store-headings.mjs --style tab` rebuilds them).
 
 **Watch for "Add to Photoshop Extension".** The Adobe Photoshop browser extension
 injects `<div><svg><title>Add to Photoshop Extension</title>…` over every image while

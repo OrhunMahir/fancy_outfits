@@ -1,7 +1,9 @@
 // Section headings for the itch description, rendered as pictures.
 //
 //   node scripts/store-headings.mjs --options      three styles + a preview sheet
-//   node scripts/store-headings.mjs --style pin    the chosen style, into headings/
+//   node scripts/store-headings.mjs --style tab    the chosen style, into headings/
+//
+// Chosen 2026-09-25: tab — the top of a manila folder, one section tab per heading.
 //
 // Why images and not CSS: itch sanitises the description HTML. Surveying 100 of
 // the site's top-rated pages, the only style properties that survive are width,
@@ -10,10 +12,9 @@
 // post-it needs all four of those, so the heading is a picture and its text is
 // the alt text.
 //
-// Rendered at 2x for retina and placed at half size (the printed <img> lines set
-// that width), so they stay crisp. Shadows are hard pixel offsets, like the game's
-// own panels — the first version's soft blur was the one thing on the page that
-// did not look like the game.
+// Rendered at 2x for retina (COL below explains how they land at half size).
+// Shadows are hard pixel offsets, like the game's own panels — the first
+// version's soft blur was the one thing on the page that did not look like it.
 
 import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
@@ -123,12 +124,20 @@ const render = jobs => {
   writeFileSync(join(work, "jobs.json"), JSON.stringify(jobs));
   execFileSync(electronPath, ["scripts/lib/capture-main.cjs", "--manifest", join(work, "jobs.json")], { stdio: "inherit" });
 };
-const build = (style, dir) => {
+// itch's description column is 553 CSS px wide (measured: the old 952px heading
+// images came out at exactly that width) and an <img> there is max-width:100%.
+// The final files are therefore a 553px-wide canvas at 2x with the heading at its
+// left: shown at the column's width, the 2x file lands at 1x — crisp on retina and
+// at the right size with no width attribute, so uploading through the editor's
+// image button is enough.
+const COL = 553;
+const build = (style, dir, final = false) => {
   mkdirSync(dir, { recursive: true });
   return headings.map((text, i) => {
     const p = STYLES[style](text, i), html = join(work, `${style}-${i}.html`);
     writeFileSync(html, doc(p.body));
-    return { html, out: join(dir, slug(text) + ".png"), w: p.w, h: p.h, transparent: true, scale: 2 };
+    const name = (final ? `${i + 1}-` : "") + slug(text) + ".png";
+    return { html, out: join(dir, name), w: final ? COL : p.w, h: p.h, transparent: true, scale: 2 };
   });
 };
 
@@ -153,11 +162,10 @@ try{
     render([{ html, out: join(dir, "_preview.png"), w: 16 + 3 * 616, h: 760, scale: 1 }]);
     console.log(`\nthree styles in ${dir}/ — pick one, then run --style <name>`);
   }else{
-    const jobs = build(chosen, OUT);
+    const jobs = build(chosen, OUT, true);
     render(jobs);
-    console.log("\nPaste into the description's HTML view, one per heading:\n");
-    jobs.forEach((j, i) => console.log(`  <p><img src="UPLOADED_URL/${j.out.split("/").pop()}" alt="${headings[i]}" style="width: ${j.w}px"></p>`));
-    console.log(`\n  Upload each PNG with the description's image button and swap its URL in.\n  The width is half the file's pixels on purpose: they are 2x, for retina.\n`);
+    console.log(`\n${jobs.length} headings in ${OUT}/ — ITCH_DESCRIPTION.html marks where each one goes;`);
+    console.log("upload them with the description editor's image button, no width needed.\n");
   }
 }finally{
   rmSync(work, { recursive: true, force: true });

@@ -34,8 +34,10 @@ Her çalışma oturumunda:
 
 ### Sıradaki kesin adım
 
-Kullanıcı başlık stilini seçer → `--style` ile basılır → yeni PNG'ler yüklenip HTML'deki
-dört `src` + `width` güncellenir.
+Başlık stili seçildi: **tab (klasör sekmesi)**. `headings/1-…4-….png` 553 CSS px tuvalde 2x
+(sütun genişliği, ölçüm: eski 952px görseller DOM'da 553'e iniyordu) → width yazmadan doğru
+boyut. `ITCH_DESCRIPTION.html` görsel yerlerini `>>> IMAGE n GOES HERE <<<` ile işaretliyor.
+Kullanıcı itch'te henüz hiçbir şeyi değiştirmedi; adım listesi verildi.
 
 ---
 

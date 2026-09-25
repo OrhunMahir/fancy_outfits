@@ -10,7 +10,7 @@ if(!existsSync(resolve(dist,"index.html"))) throw new Error("dist/index.html mis
 mkdirSync(resolve(root,"release"),{recursive:true});
 const out=resolve(root,"release",`${productName}-${version}-web.zip`);
 rmSync(out,{force:true});
-execFileSync("zip",["-rq9X",out,".","-x",".*"],{cwd:dist,stdio:"inherit"});
+execFileSync("zip",["-rq9D",out,".","-x",".*"],{cwd:dist,stdio:"inherit"});
 const list=execFileSync("unzip",["-Z1",out],{encoding:"utf8"}).trim().split("\n");
 if(!list.includes("index.html")) throw new Error("index.html is not at the zip root");
 console.log(`${out}\n${list.length} files: ${list.join(", ")}`);

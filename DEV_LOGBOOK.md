@@ -18,6 +18,21 @@ Her çalışma oturumunda:
 
 ---
 
+## 2026-09-25 (5) — itch tarayıcı sürümü CANLI
+
+- Ziyaretçi gözüyle doğrulandı: `type_name:"html"`, embed 960×600 `game_pending`
+  (Run game'e basılınca açılıyor), fullscreen butonu, banner 960×230, Embed BG
+  (`run-game-frame.png`, Color 1/2 + Alpha boş), 4 klasör başlığı 553px, çöp kod yok.
+- Kullanıcı kendi tarayıcısında doğruladı: Esc intro'yu kapatıyor, 1 tuşu seçeneği
+  seçiyor, yenileyince CONTINUE SLOT 1 geliyor (kayıt iframe localStorage'ında kalıyor).
+  Not: bu oturumun tarayıcı aracı cross-origin iframe'e tuş gönderemiyor; yerelde
+  çerçevesiz aynı test geçti.
+- Kalan küçük iş: Edit theme → Header font hâlâ Lato (Press Start 2P olacak).
+- Olası sonraki iş (kullanıcıya önerildi, onay yok): başlangıç ekranı 960×600 kutuda
+  dar bir sütun kalıyor ve senaryolar için kaydırma gerekiyor.
+
+---
+
 ## 2026-09-25 (4) — banner + Run game arkası seçildi, açıklama temizlendi
 
 - Kullanıcı **banner 4 (çekmece)** ve **frame C (kapalı dosya)** seçti. `store-embed.mjs`

@@ -20,7 +20,7 @@ Her çalışma oturumunda:
 
 ## 2026-09-25 (2) — tarayıcıda oynanan itch build'i hazır
 
-- `npm run pack:web` → `release/FANCY OUTFITS-<ver>-web.zip` (208 KB). `scripts/pack-web.mjs`
+- `npm run pack:web` → `release/fancy-outfits-<ver>-web.zip` (208 KB). `scripts/pack-web.mjs`
   `dist/`'i ziplar ve `index.html` zip kökünde değilse hata verir (itch şartı).
 - **Embed boyutu 960×600.** Daha geniş embed itch'in 960'lık panelini genişletir ve
   dolap arkaplanının x=800 kenar hesabını bozar. Fullscreen butonu açık; asıl masa orada.

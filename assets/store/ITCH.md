@@ -10,7 +10,7 @@ and what differs. No fee, no review — the page is live the moment you publish 
 | `release/FANCY OUTFITS-<ver>-win.zip` | Kind: **Executable** · Platform: **Windows** |
 | `release/FANCY OUTFITS-<ver>-arm64-mac.zip` | Kind: **Executable** · Platform: **macOS** · label "Apple Silicon" |
 | `release/FANCY OUTFITS-<ver>-mac.zip` | Kind: **Executable** · Platform: **macOS** · label "Intel" |
-| `release/FANCY OUTFITS-<ver>-web.zip` | Kind: **HTML** · tick **This file will be played in the browser** |
+| `release/fancy-outfits-<ver>-web.zip` | Kind: **HTML** · tick **This file will be played in the browser** |
 
 Upload the **zips, not the installer/dmg** — itch's app and its `butler` tool handle
 zips natively, and a zip needs no admin rights on the player's side.

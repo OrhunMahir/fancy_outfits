@@ -39,6 +39,30 @@ At 960 × 600 the office scene shrinks to a 72px band and loses its caption
 fold; the topbar wraps onto two lines. Checked in the built preview at 1280×720 and
 960×600.
 
+## Top of the page: banner + the picture behind "Run game"
+
+`node scripts/store-embed.mjs` → `assets/store/itch-embed/`:
+
+| File | Where it goes |
+| --- | --- |
+| `banner.png` (1920×460, shown 960×230) | Edit theme → **Banner** · align center. It replaces the plain title. |
+| `run-game-frame.png` (960×600, 1x) | Edit theme → the game embed's **background image**. Must stay exactly the embed size: itch draws it at natural size, centred, behind its gold button. |
+| `_preview.png` | the page mocked at 1440×900 — not uploaded |
+
+Why: 444 browser games surveyed 2026-09-25. 54% use a banner; 119 put an image
+behind Run game (their theme CSS carries `.game_frame{background-image}`); the pages
+that read as unfinished are the ones that leave that box flat grey.
+
+## Description
+
+Paste `ITCH_DESCRIPTION.html` into the description editor's **HTML view**, replacing
+everything. Heading images carry `alt` text and `style="width: …"` at half their pixels.
+
+**Watch for "Add to Photoshop Extension".** The Adobe Photoshop browser extension
+injects `<div><svg><title>Add to Photoshop Extension</title>…` over every image while
+the editor is open; saving writes it into the description, where it prints as raw
+code. Turn the extension off for itch.io (or check the HTML view before saving).
+
 ## Page fields
 
 - **Title:** FANCY OUTFITS

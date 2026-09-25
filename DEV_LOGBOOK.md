@@ -18,6 +18,27 @@ Her çalışma oturumunda:
 
 ---
 
+## 2026-09-25 (4) — banner + Run game arkası seçildi, açıklama temizlendi
+
+- Kullanıcı **banner 4 (çekmece)** ve **frame C (kapalı dosya)** seçti. `store-embed.mjs`
+  artık yalnız finali üretir: `banner.png` (label holder çerçevesi + perçinler eklendi),
+  `run-game-frame.png` (deri blotter, dönük klasör, ataş, kahve halkası, kalem, fincan;
+  buton için DÖNMEYEN koyu plaka — manila üstünde altın buton kayboluyordu), `_preview.png`.
+- Açıklamadaki çöp: Adobe Photoshop tarayıcı eklentisinin editörde enjekte ettiği
+  `Add to Photoshop Extension` SVG'leri; kaydedince ham kod olarak basılıyor.
+  `assets/store/ITCH_DESCRIPTION.html` temiz sürüm: çöp yok, başlık görsellerine alt +
+  width 476, ilk başlık paragraftan ayrıldı, en başa "tarayıcıda oynanır" satırı.
+- `store-headings.mjs` yeniden yazıldı: `--options` 3 stil (pin / exhibit / tab) +
+  bağlam önizlemesi, `--style <ad>` seçileni `headings/`'e basar. Gölgeler artık sert
+  piksel offset (eski yumuşak blur oyunun diline uymuyordu).
+
+### Sıradaki kesin adım
+
+Kullanıcı başlık stilini seçer → `--style` ile basılır → yeni PNG'ler yüklenip HTML'deki
+dört `src` + `width` güncellenir.
+
+---
+
 ## 2026-09-25 (3) — itch sayfası: banner + Run game arka planı adayları
 
 - 444 tarayıcı oyunu sayfası tarandı (top-rated, popular, 10 tür listesi). %54 banner,

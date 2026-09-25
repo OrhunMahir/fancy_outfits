@@ -15,9 +15,9 @@
 // Both are drawn from the game's own art — the office scene and the logo builder —
 // so the page never shows a room the game does not.
 //
-// Output: assets/store/itch-embed/ — banner-N.png, frame-X.png, and two preview
-// sheets that mock the real page (the cabinet background, the 960 panel, itch's
-// button) at a 1440x900 window, because candidates judged on their own lie.
+// Output: assets/store/itch-embed/ — banner.png, run-game-frame.png, and _preview.png,
+// a mock of the real page (the cabinet background, the 960 panel, itch's button) at
+// a 1440x900 window, because a picture judged on its own lies.
 
 import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
@@ -34,7 +34,6 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(root, "assets/store/itch-embed");
 const FONT = pathToFileURL(join(root, "src/fonts/press-start-2p-latin.woff2")).toString();
 const CABINET = pathToFileURL(join(root, "assets/store/backgrounds/cabinet/01-notes.png")).toString();
-const SHOT = pathToFileURL(join(root, "assets/store/screenshots/03-case-file.png")).toString();
 
 const work = mkdtempSync(join(tmpdir(), "fo-embed-"));
 
@@ -77,73 +76,62 @@ body{background:#1a1c2c;font-family:'Press Start 2P',monospace;color:#f4f4f4;ima
 .gold{color:#ffcd75;} .grey{color:#94b0c2;} .ink{color:#2b2118;}
 `;
 
-// ---------- banners (layout in 1x CSS px, captured at 2x) ----------
-const WALL4 = "#3d3550";
-const banners = {
-  // The store capsule, laid out wide. It shares the panel's navy, so it has no edge.
-  "banner-1-capsule": { h: 240, body: `
-    <div class="abs scan" style="inset:0;display:flex;align-items:center;justify-content:center;gap:40px">
-      <div style="width:176px;height:176px;border:5px solid #3b5dc9">${MARK}</div>
-      <div style="display:flex;flex-direction:column;line-height:1.08">
-        <span class="gold" style="font-size:46px">FANCY</span><span style="font-size:46px">OUTFITS</span>
-        <span class="grey" style="font-size:12px;letter-spacing:.14em;margin-top:18px">A LAWYER SIMULATOR</span>
-        <div style="height:5px;background:#3b5dc9;margin-top:16px"></div>
-      </div>
-    </div>` },
-  // The name partner suite from the game, with the name on the wall above it:
-  // the game's own last caption is "THE NAME IS ON THE WALL."
-  "banner-2-name-on-the-wall": { h: 300, body: `
-    <div class="abs" style="left:0;top:0;width:960px;height:108px;background:${WALL4}"></div>
-    <div class="abs" style="left:0;top:108px;width:960px;height:192px">${sceneSVG(4, { decor: { art: true, fish: true, espresso: true, monitor: true } })}</div>
-    <div class="abs" style="left:0;top:22px;width:960px;text-align:center;font-size:40px;letter-spacing:.06em;color:#ffcd75;text-shadow:4px 4px 0 #1f1a2e">FANCY OUTFITS</div>
-    <div class="abs" style="left:0;top:80px;width:960px;text-align:center;font-size:10px;letter-spacing:.3em;color:#c9b8e0">A LAWYER SIMULATOR</div>
-    <div class="abs scan" style="inset:0"></div>` },
-  // First morning to the corner office in one strip: the whole career, left to right.
-  "banner-3-the-climb": { h: 260, body: `
-    <div class="abs" style="left:0;top:68px;width:480px;height:192px;overflow:hidden">
-      <div style="width:960px;height:192px">${sceneSVG(0)}</div></div>
-    <div class="abs" style="left:480px;top:68px;width:480px;height:192px;overflow:hidden">
-      <div style="width:960px;height:192px;margin-left:-480px">${sceneSVG(4, { decor: { art: true, fish: true, espresso: true, monitor: true } })}</div></div>
-    <div class="abs" style="left:477px;top:68px;width:6px;height:192px;background:#1a1c2c"></div>
-    <div class="abs" style="left:0;top:0;width:960px;height:68px;display:flex;align-items:center;justify-content:space-between;padding:0 24px">
-      <span style="font-size:30px"><span class="gold">FANCY</span> OUTFITS</span>
-      <span class="grey" style="font-size:10px;letter-spacing:.12em">BULLPEN &#9656; NAME PARTNER</span></div>
-    <div class="abs scan" style="inset:0"></div>` },
-  // A drawer front from the page's own filing cabinet, with the game's name on the label.
-  "banner-4-drawer": { h: 230, body: `
-    <div class="abs" style="inset:0;background:repeating-linear-gradient(0deg,#2f3854 0 3px,#35405f 3px 6px)"></div>
-    <div class="abs" style="left:0;top:0;width:960px;height:6px;background:#56628c"></div>
-    <div class="abs" style="left:0;bottom:0;width:960px;height:10px;background:#141826"></div>
-    <div class="abs" style="left:240px;top:34px;width:480px;height:92px;background:#f2e9d8;box-shadow:6px 6px 0 #141826;display:flex;align-items:center;justify-content:center;font-size:30px;white-space:nowrap"><span class="ink">FANCY OUTFITS</span></div>
-    <div class="abs" style="left:380px;top:152px;width:200px;height:22px;background:#6b7bc4;box-shadow:0 5px 0 #3b4a8a"></div>
-    <div class="abs" style="left:748px;top:26px;width:178px;height:120px;background:#ffcd75;transform:rotate(3deg);box-shadow:5px 6px 0 rgba(0,0,0,.35);padding:16px 14px;font-size:11px;line-height:1.8" class="ink"><span class="ink">READ THE FILE.<br>PICK YOUR<br>LINE.</span></div>
-    <div class="abs scan" style="inset:0"></div>` },
-};
+// ---------- the banner (layout in 1x CSS px, captured at 2x) ----------
+// A drawer front from the page's own filing cabinet, with the game's name in its
+// label holder — the page background is that cabinet, so the banner is one of its
+// drawers pulled into the panel. Chosen from four candidates on 2026-09-25.
+const BANNER_H = 230;
+const BANNER = `
+  <div class="abs" style="inset:0;background:repeating-linear-gradient(0deg,#2f3854 0 3px,#35405f 3px 6px)"></div>
+  <div class="abs" style="left:0;top:0;width:960px;height:6px;background:#56628c"></div>
+  <div class="abs" style="left:0;bottom:0;width:960px;height:10px;background:#141826"></div>
+  <div class="abs" style="left:226px;top:22px;width:508px;height:116px;background:#8a8fa5;box-shadow:6px 6px 0 #141826"></div>
+  <div class="abs" style="left:230px;top:26px;width:500px;height:108px;background:#6a7080"></div>
+  <div class="abs" style="left:240px;top:34px;width:480px;height:92px;background:#f2e9d8;display:flex;align-items:center;justify-content:center;font-size:30px;white-space:nowrap"><span class="ink">FANCY OUTFITS</span></div>
+  <div class="abs" style="left:240px;top:34px;width:480px;height:4px;background:rgba(0,0,0,.08)"></div>
+  <div class="abs" style="left:232px;top:76px;width:6px;height:6px;background:#2a2f45"></div>
+  <div class="abs" style="left:722px;top:76px;width:6px;height:6px;background:#2a2f45"></div>
+  <div class="abs" style="left:380px;top:158px;width:200px;height:22px;background:#6b7bc4;box-shadow:0 5px 0 #3b4a8a"></div>
+  <div class="abs" style="left:748px;top:26px;width:178px;height:120px;background:#ffcd75;transform:rotate(3deg);box-shadow:5px 6px 0 rgba(0,0,0,.35);padding:16px 14px;font-size:11px;line-height:1.8"><span class="ink">READ THE FILE.<br>PICK YOUR<br>LINE.</span></div>
+  <div class="abs" style="left:748px;top:26px;width:178px;height:12px;background:rgba(0,0,0,.07);transform:rotate(3deg);transform-origin:89px 60px"></div>
+  <div class="abs scan" style="inset:0"></div>`;
 
-// ---------- pre-launch frames (exactly 960x600, 1x) ----------
-const frames = {
-  // A real frame of the game, pushed back so the button reads first.
-  "frame-A-the-desk": `
-    <div class="abs" style="inset:0;background:url('${SHOT}') center/1067px 600px no-repeat"></div>
-    <div class="abs" style="inset:0;background:rgba(15,15,27,.70)"></div>
-    <div class="abs" style="inset:0;background:radial-gradient(ellipse at center,transparent 35%,rgba(15,15,27,.75) 100%)"></div>`,
-  // Day one: the clock from the game's topbar over the bullpen you start in.
-  "frame-B-day-one": `
-    <div class="abs" style="left:0;top:0;width:960px;height:408px;background:#3d4152"></div>
-    <div class="abs" style="left:0;top:408px;width:960px;height:192px">${sceneSVG(0)}</div>
-    <div class="abs" style="left:0;top:0;width:960px;height:600px;background:rgba(15,15,27,.35)"></div>
-    <div class="abs gold" style="left:0;top:170px;width:960px;text-align:center;font-size:16px;letter-spacing:.12em">DAY 1 &#183; MONDAY &#183; 09:00</div>
-    <div class="abs grey" style="left:0;top:376px;width:960px;text-align:center;font-size:9px;letter-spacing:.14em">THE BULLPEN &#8212; A DESK, TECHNICALLY.</div>`,
-  // The first file on your desk, still closed.
-  "frame-C-closed-file": `
-    <div class="abs scan" style="inset:0;background:#232a3f"></div>
-    <div class="abs" style="left:190px;top:92px;width:190px;height:40px;background:#c2b491"></div>
-    <div class="abs" style="left:190px;top:120px;width:580px;height:388px;background:#cabea0;box-shadow:10px 10px 0 #0f0f1b"></div>
-    <div class="abs" style="left:206px;top:98px;font-size:10px" ><span class="ink">FILE 001</span></div>
-    <div class="abs" style="left:230px;top:152px;width:500px;height:52px;background:#f2e9d8;display:flex;align-items:center;justify-content:center;font-size:14px"><span class="ink">PARSON HENDERSON LLP</span></div>
-    <div class="abs" style="left:230px;top:212px;width:500px;text-align:center;font-size:9px;letter-spacing:.1em"><span class="ink">NEW ASSOCIATE &#183; FIRST DAY</span></div>
-    <div class="abs" style="left:520px;top:400px;padding:10px 14px;border:4px solid #b13e53;color:#b13e53;font-size:14px;transform:rotate(-8deg)">READ IT</div>`,
-};
+// ---------- behind "Run game" (exactly 960x600, 1x) ----------
+// The first file on your desk, still closed, on a leather blotter. itch centres
+// its gold button in the frame, so the middle of the folder carries a dark plate
+// for it to sit on — gold on manila would lose its edge. The folder is turned a
+// little; the plate is not, because the button it frames never is.
+const cx = 480, cy = 300;           // where itch puts the button
+const FRAME = `
+  <div class="abs" style="inset:0;background:repeating-linear-gradient(0deg,#2e2318 0 5px,#291f15 5px 9px,#31261a 9px 12px)"></div>
+  <div class="abs" style="left:120px;top:40px;width:720px;height:520px;background:#232a3f;box-shadow:8px 8px 0 #140f0a"></div>
+  <div class="abs" style="left:128px;top:48px;width:704px;height:504px;border:2px solid #2f3854"></div>
+  ${[[120,40],[804,40],[120,524],[804,524]].map(([x,y]) => `<div class="abs" style="left:${x}px;top:${y}px;width:36px;height:36px;background:#4a3828"></div>`).join("")}
+  <div class="abs" style="left:26px;top:120px;width:74px;height:210px;background:#b7a98a;box-shadow:4px 4px 0 #140f0a"></div>
+  <div class="abs" style="left:30px;top:128px;width:66px;height:4px;background:#cabea0"></div>
+  <div class="abs" style="left:30px;top:150px;width:66px;height:4px;background:#cabea0"></div>
+  <div class="abs" style="left:30px;top:172px;width:66px;height:4px;background:#cabea0"></div>
+  <div class="abs" style="left:862px;top:86px;width:64px;height:64px;border-radius:50%;background:#efece2;box-shadow:4px 4px 0 #140f0a"></div>
+  <div class="abs" style="left:872px;top:96px;width:44px;height:44px;border-radius:50%;background:#3a2410"></div>
+  <div class="abs" style="left:880px;top:250px;width:10px;height:190px;background:#1a1c2c;box-shadow:3px 3px 0 #140f0a"></div>
+  <div class="abs" style="left:880px;top:430px;width:10px;height:14px;background:#ffcd75"></div>
+  <div class="abs" style="left:0;top:0;width:960px;height:600px;transform:rotate(-1.2deg);transform-origin:${cx}px ${cy}px">
+    <div class="abs" style="left:236px;top:112px;width:492px;height:30px;background:#f2e9d8"></div>
+    <div class="abs" style="left:250px;top:106px;width:470px;height:30px;background:#efe4cc"></div>
+    <div class="abs" style="left:210px;top:112px;width:180px;height:40px;background:#c2b491"></div>
+    <div class="abs" style="left:226px;top:122px;font-size:10px"><span class="ink">FILE No. 001</span></div>
+    <div class="abs" style="left:210px;top:138px;width:540px;height:350px;background:#cabea0;box-shadow:10px 10px 0 #0f0f1b"></div>
+    <div class="abs" style="left:210px;top:138px;width:540px;height:4px;background:#d8cbab"></div>
+    <div class="abs" style="left:250px;top:164px;width:460px;height:44px;background:#f2e9d8;display:flex;align-items:center;justify-content:center;font-size:13px"><span class="ink">PARSON HENDERSON LLP</span></div>
+    <div class="abs" style="left:210px;top:220px;width:540px;text-align:center;font-size:8px;letter-spacing:.14em"><span class="ink">CASE FILE &#183; NEW ASSOCIATE &#183; DAY ONE</span></div>
+    <div class="abs" style="left:210px;top:${cy+50}px;width:540px;text-align:center;font-size:8px;letter-spacing:.14em"><span class="ink">OPEN IT. READ IT. DON'T GET HENDERED.</span></div>
+    <div class="abs" style="left:242px;top:380px;width:84px;height:84px;border-radius:50%;border:6px solid rgba(74,40,16,.28)"></div>
+    <div class="abs" style="left:664px;top:98px;width:14px;height:56px;border:4px solid #a8adbd;border-bottom:none"></div>
+    <div class="abs" style="left:670px;top:106px;width:6px;height:40px;border:3px solid #c9cdd8;border-bottom:none"></div>
+    <div class="abs" style="left:560px;top:404px;padding:10px 14px;border:4px solid #b13e53;color:#b13e53;font-size:14px;transform:rotate(-8deg);opacity:.9">READ IT</div>
+  </div>
+  <div class="abs" style="left:${cx-150}px;top:${cy-38}px;width:300px;height:76px;background:#1a1c2c;border:4px solid #3b5dc9;box-shadow:4px 4px 0 rgba(15,15,27,.5)"></div>
+  <div class="abs scan" style="inset:0"></div>`;
 
 // ---------- the real page, mocked ----------
 // itch's own rules, from its game.css: banner max-width:100%, embed centred,
@@ -162,37 +150,23 @@ const pageMock = (bannerFile, bannerH, frameFile) => `
 
 mkdirSync(OUT, { recursive: true });
 const jobs = [];
-const page = (name, w, h, body, opts = {}) => {
+const page = (name, w, h, body, scale = 1) => {
   const html = join(work, name + ".html");
   writeFileSync(html, `<!doctype html><meta charset="utf-8"><style>${CSS}</style>${body.startsWith("\n  <link") ? body : `<body>${body}</body>`}`);
-  jobs.push({ html, out: join(OUT, name + ".png"), w, h, scale: opts.scale || 1 });
+  jobs.push({ html, out: join(OUT, name + ".png"), w, h, scale });
 };
-for(const [name, b] of Object.entries(banners)) page(name, 960, b.h, b.body, { scale: 2 });
-for(const [name, body] of Object.entries(frames)) page(name, 960, 600, body);
-const bannerNames = Object.keys(banners), frameNames = Object.keys(frames);
 const url = n => pathToFileURL(join(OUT, n + ".png")).toString();
-// Sheet 1: every banner over the same frame. Sheet 2: every frame under banner 1.
-bannerNames.forEach(b => page(`_mock-${b}`, 1440, 900, pageMock(url(b), banners[b].h, url(frameNames[0]))));
-frameNames.forEach(f => page(`_mock-${f}`, 1440, 900, pageMock(url(bannerNames[0]), banners[bannerNames[0]].h, url(f))));
+page("banner", 960, BANNER_H, BANNER, 2);
+page("run-game-frame", 960, 600, FRAME);
+page("_preview", 1440, 900, pageMock(url("banner"), BANNER_H, url("run-game-frame")));
 
 const manifest = join(work, "jobs.json");
-writeFileSync(manifest, JSON.stringify(jobs));
+writeFileSync(manifest, JSON.stringify(jobs.slice(0, 2)));
 try{
   execFileSync(electronPath, [join(root, "scripts/lib/capture-main.cjs"), "--manifest", manifest], { stdio: "inherit" });
-  // Contact sheets: mocks at half size, labelled, so a choice is made in context.
-  const sheet = (name, mocks) => {
-    const html = join(work, name + ".html");
-    writeFileSync(html, `<!doctype html><meta charset="utf-8"><style>${CSS} body{background:#0b0d16;padding:14px;display:grid;grid-template-columns:720px 720px;gap:26px 14px;overflow:hidden}
-      figure{font-size:10px;color:#ffcd75} img{display:block;width:720px;height:450px;margin-top:8px;image-rendering:auto}</style><body>` +
-      mocks.map(m => `<figure>${m.replace(/^_mock-/, "")}<img src="${url(m)}"></figure>`).join("") + `</body>`);
-    const rows = Math.ceil(mocks.length / 2);
-    return { html, out: join(OUT, name + ".png"), w: 1468, h: 14 + rows * 484, scale: 1 };
-  };
-  const sheets = [sheet("_preview-banners", bannerNames.map(b => `_mock-${b}`)), sheet("_preview-frames", frameNames.map(f => `_mock-${f}`))];
-  writeFileSync(manifest, JSON.stringify(sheets));
+  writeFileSync(manifest, JSON.stringify(jobs.slice(2)));   // the mock needs the two files above
   execFileSync(electronPath, [join(root, "scripts/lib/capture-main.cjs"), "--manifest", manifest], { stdio: "inherit" });
-  for(const m of [...bannerNames, ...frameNames]) rmSync(join(OUT, `_mock-${m}.png`), { force: true });
 }finally{
   rmSync(work, { recursive: true, force: true });
 }
-console.log(`banners + frames in ${OUT}/`);
+console.log(`banner + run-game frame in ${OUT}/`);

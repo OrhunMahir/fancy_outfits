@@ -73,6 +73,15 @@ runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free
 
 ## Changelog
 
+### v19.44 — The start screen fits the box *(2026-09-25)*
+- **Every choice on one screen in itch's 960×600 box.** In windows at least 901px wide and at
+  most 820px tall — the itch embed, small laptops — the start screen splits in two: difficulty,
+  mode, save slot and CONTINUE on the left with the achievements under them, the five scenarios
+  and RANDOM on the right. Before, it was a 560px column that had to be scrolled to reach the
+  third scenario.
+- **Tall windows are untouched** — at 1920×1080 the start screen is pixel-identical to v19.43,
+  and phone-width windows keep the stacked layout. Reading order is the same in both layouts.
+
 ### v19.43 web — Plays in the browser *(2026-09-25)*
 - **FANCY OUTFITS is playable on its itch.io page**, no download:
   [scaphoid.itch.io/fancy-outfits](https://scaphoid.itch.io/fancy-outfits). `npm run pack:web`

@@ -48,79 +48,87 @@ export default function StartScreen(){
   const nAch=Object.keys(ach).length;
   return (
     <div className="overlay" style={{overflowY:"auto"}}>
-      <div className="box panel" style={{margin:"auto"}}>
-        <div className="titlerow">
-          <Logo lettering={false} fill/>
-          <div>
-            <h2 style={{fontSize:16}}>FANCY OUTFITS</h2>
-            <div className="subtitle">A pixel legal drama. Read the file. Pick your line.<br/>Don't get HENDERED.</div>
+      <div className="box panel startbox" style={{margin:"auto"}}>
+        <div className="start-grid">
+          <div className="start-left">
+            <div className="titlerow">
+              <Logo lettering={false} fill/>
+              <div>
+                <h2 style={{fontSize:16}}>FANCY OUTFITS</h2>
+                <div className="subtitle">A pixel legal drama. Read the file. Pick your line.<br/>Don't get HENDERED.</div>
+              </div>
+            </div>
+            <div className="kv">DIFFICULTY — blurs what you KNOW and sharpens what you PLAY, never the dice:</div>
+            <div className="diffrow">
+              {DIFFS.map(([k,label])=>(
+                <button key={k} className={"btn small"+(diff===k?" on":"")} onClick={()=>setDiff(k)}>{label}</button>
+              ))}
+            </div>
+            <div className="kv" style={{marginBottom:8}}>{DIFFS.find(d=>d[0]===diff)[2]}</div>
+            <div className="kv">MODE:</div>
+            <div className="diffrow">
+              {MODES.map(([k,label])=>(
+                <button key={k} className={"btn small"+(mode===k?" on":"")} onClick={()=>setMode(k)}>{label}</button>
+              ))}
+            </div>
+            <div className="kv" style={{marginBottom:8}}>{MODES.find(m=>m[0]===mode)[2]}</div>
+            <div className="kv">SAVE SLOT — new runs write here:</div>
+            <div className="diffrow">
+              {[1,2,3].map(n=>{
+                const info=infos[n-1];
+                return (
+                  <button key={n} className={"btn small"+(slot===n?" on":"")} onClick={()=>pickSlot(n)}>
+                    SLOT {n} · {slotLabel(info)}
+                  </button>
+                );
+              })}
+            </div>
+            {(blocked||unavailable) && (
+              <div className="save-slot-warning" role="alert">
+                <strong>{selected.status==="future"?"NEWER SAVE — DO NOT OVERWRITE":unavailable?"STORAGE BLOCKED":"DAMAGED SAVE"}</strong><br/>
+                {selected.message}{unavailable?" Select IRONMAN to play without persistence.":" The raw slot is still preserved. IRONMAN can start without touching it."}
+                {!unavailable && <button className={"btn small"+(clearArmed===slot?" bold":"")} onClick={clearSelected}>
+                  {clearArmed===slot?"CONFIRM — DELETE SLOT "+slot:selected.status==="future"?"CLEAR NEWER SLOT":"CLEAR DAMAGED SLOT"}
+                </button>}
+              </div>
+            )}
+            {storageNotice && <div className="kv" style={{color:"var(--gold)"}}>{storageNotice}</div>}
+            {save && (
+              <div className="opts">
+                <button className="btn safe" onClick={()=>loadGame(slot)}>
+                  CONTINUE SLOT {slot}<span className="chance">Day {save.day} · {RANKS[save.rank]} · {SCENARIOS[save.scenario].label} · {(save.difficulty||"easy").toUpperCase()}{save.mode&&save.mode!=="standard"?" · "+save.mode.toUpperCase():""}</span>
+                </button>
+              </div>
+            )}
           </div>
-        </div>
-        <div className="kv">DIFFICULTY — blurs what you KNOW and sharpens what you PLAY, never the dice:</div>
-        <div className="diffrow">
-          {DIFFS.map(([k,label])=>(
-            <button key={k} className={"btn small"+(diff===k?" on":"")} onClick={()=>setDiff(k)}>{label}</button>
-          ))}
-        </div>
-        <div className="kv" style={{marginBottom:8}}>{DIFFS.find(d=>d[0]===diff)[2]}</div>
-        <div className="kv">MODE:</div>
-        <div className="diffrow">
-          {MODES.map(([k,label])=>(
-            <button key={k} className={"btn small"+(mode===k?" on":"")} onClick={()=>setMode(k)}>{label}</button>
-          ))}
-        </div>
-        <div className="kv" style={{marginBottom:8}}>{MODES.find(m=>m[0]===mode)[2]}</div>
-        <div className="kv">SAVE SLOT — new runs write here:</div>
-        <div className="diffrow">
-          {[1,2,3].map(n=>{
-            const info=infos[n-1];
-            return (
-              <button key={n} className={"btn small"+(slot===n?" on":"")} onClick={()=>pickSlot(n)}>
-                SLOT {n} · {slotLabel(info)}
+          <div className="opts start-right">
+            {mode==="daily" ? (
+              <button className="btn bold" disabled={!canStart} onClick={()=>startGame(null,diff,"daily")}>
+                START TODAY'S DAILY<span className="chance">Scenario and cases are decided by the date. Difficulty locks to MEDIUM.</span>
               </button>
-            );
-          })}
-        </div>
-        {(blocked||unavailable) && (
-          <div className="save-slot-warning" role="alert">
-            <strong>{selected.status==="future"?"NEWER SAVE — DO NOT OVERWRITE":unavailable?"STORAGE BLOCKED":"DAMAGED SAVE"}</strong><br/>
-            {selected.message}{unavailable?" Select IRONMAN to play without persistence.":" The raw slot is still preserved. IRONMAN can start without touching it."}
-            {!unavailable && <button className={"btn small"+(clearArmed===slot?" bold":"")} onClick={clearSelected}>
-              {clearArmed===slot?"CONFIRM — DELETE SLOT "+slot:selected.status==="future"?"CLEAR NEWER SLOT":"CLEAR DAMAGED SLOT"}
-            </button>}
+            ) : (<>
+              {Object.entries(SCENARIOS).map(([k,v])=>(
+                <button key={k} className="btn" disabled={!canStart} onClick={()=>startGame(k,diff,mode)}>
+                  {v.label}<span className="chance">{v.desc}</span>
+                </button>
+              ))}
+              <button className="btn bold" disabled={!canStart} onClick={()=>startGame(rnd(Object.keys(SCENARIOS)),diff,mode)}>RANDOM SCENARIO</button>
+            </>)}
           </div>
-        )}
-        {storageNotice && <div className="kv" style={{color:"var(--gold)"}}>{storageNotice}</div>}
-        <div className="opts">
-          {save && (
-            <button className="btn safe" onClick={()=>loadGame(slot)}>
-              CONTINUE SLOT {slot}<span className="chance">Day {save.day} · {RANKS[save.rank]} · {SCENARIOS[save.scenario].label} · {(save.difficulty||"easy").toUpperCase()}{save.mode&&save.mode!=="standard"?" · "+save.mode.toUpperCase():""}</span>
-            </button>
-          )}
-          {mode==="daily" ? (
-            <button className="btn bold" disabled={!canStart} onClick={()=>startGame(null,diff,"daily")}>
-              START TODAY'S DAILY<span className="chance">Scenario and cases are decided by the date. Difficulty locks to MEDIUM.</span>
-            </button>
-          ) : (<>
-            {Object.entries(SCENARIOS).map(([k,v])=>(
-              <button key={k} className="btn" disabled={!canStart} onClick={()=>startGame(k,diff,mode)}>
-                {v.label}<span className="chance">{v.desc}</span>
-              </button>
+          <div className="start-foot">
+            {st && (
+              <div className="kv" style={{marginTop:12}}>
+                FIRM RECORD: {st.runs} run(s) · {st.wins} made name partner · longest career: day {st.bestDay} · best rank: {RANKS[st.bestRank]}
+              </div>
+            )}
+            <div className="kv" style={{marginTop:10,color:"var(--gold)"}}>ACHIEVEMENTS ({nAch}/{ACHIEVEMENTS.length})</div>
+            {ACHIEVEMENTS.map(a=>(
+              <div key={a.id} className="kv" style={{opacity:ach[a.id]?1:.45}}>
+                {ach[a.id]?"■ ":"□ "}<span style={{color:ach[a.id]?"var(--gold)":"inherit"}}>{a.name}</span> — {a.desc}
+              </div>
             ))}
-            <button className="btn bold" disabled={!canStart} onClick={()=>startGame(rnd(Object.keys(SCENARIOS)),diff,mode)}>RANDOM SCENARIO</button>
-          </>)}
+          </div>
         </div>
-        {st && (
-          <div className="kv" style={{marginTop:12}}>
-            FIRM RECORD: {st.runs} run(s) · {st.wins} made name partner · longest career: day {st.bestDay} · best rank: {RANKS[st.bestRank]}
-          </div>
-        )}
-        <div className="kv" style={{marginTop:10,color:"var(--gold)"}}>ACHIEVEMENTS ({nAch}/{ACHIEVEMENTS.length})</div>
-        {ACHIEVEMENTS.map(a=>(
-          <div key={a.id} className="kv" style={{opacity:ach[a.id]?1:.45}}>
-            {ach[a.id]?"■ ":"□ "}<span style={{color:ach[a.id]?"var(--gold)":"inherit"}}>{a.name}</span> — {a.desc}
-          </div>
-        ))}
       </div>
     </div>
   );

@@ -18,6 +18,20 @@ Her çalışma oturumunda:
 
 ---
 
+## 2026-09-25 (6) — v1.9.44: başlangıç ekranı itch kutusuna sığdı
+
+- `StartScreen.jsx` üç sarmalayıcıya bölündü (`start-left` / `start-right` / `start-foot`),
+  okuma sırası tek sütunda aynı. `styles.css`: `min-width:901px and max-height:820px`'te
+  kutu 940px, iki sütun grid (`"left right" / "foot right"`). 960×600 ve 1280×720'de
+  bütün seçimler + 5 senaryo kaydırmasız görünür; başarımlar sol sütunun altında.
+- Doğrulama: önce/sonra Electron yakalaması 960×600, 1280×720, 1920×1080 — 1920×1080
+  piksel piksel aynı (PIL diff). Tarayıcıda CONTINUE (kayıtlıyken), DAILY modu ve
+  CONTINUE ile oyuna giriş denendi, konsol temiz. `npm test` yeşil.
+- Sürüm 1.9.44, README changelog girişi. `release/fancy-outfits-1.9.44-web.zip` hazır;
+  kullanıcı karşılaştırmayı onaylayınca itch'teki web.zip'in yerine yükleyecek.
+
+---
+
 ## 2026-09-25 (5) — itch tarayıcı sürümü CANLI
 
 - Ziyaretçi gözüyle doğrulandı: `type_name:"html"`, embed 960×600 `game_pending`

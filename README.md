@@ -1,24 +1,69 @@
-# FANCY OUTFITS
+<p align="center"><img src="assets/store/itch-embed/banner.png" alt="FANCY OUTFITS" width="720"></p>
 
-*A pixel-art legal drama sim. Read the file. Pick your line. Don't get HENDERED.*
+<p align="center"><b>A pixel-art legal drama. Read the file. Pick your line. Don't get HENDERED.</b></p>
+
+<p align="center">
+  <a href="https://scaphoid.itch.io/fancy-outfits"><b>▶ Play it free in your browser on itch.io</b></a><br>
+  <sub>Also on Windows and macOS · first public build · still in development</sub>
+</p>
+
+---
+
+You're the newest junior associate at **Parson Henderson LLP**, and nobody has told you where the
+coffee is. Every morning, case files land in your inbox. Every file is a wall of text — and
+somewhere in it is the thing that wins: the signature from someone with no authority to sign, the
+date that comes *after* the date it's supposed to come before, the vendor whose only employee is
+the CFO's brother-in-law. Read carefully and you'll find it. Skim, and you'll pick the confident
+option that loses.
+
+Then choose your line. The **safe** play always works, pays badly, and quietly grinds your nerve
+down. The **aggressive** play pays like a partner's bonus — if your Boldness can land it; if not,
+your Reputation takes the hit. **Technical** arguments sit in between. Cowardice is a slow death.
+Recklessness is a fast one. And the clock is the real opponent: eight hours a day, every play
+costs time, and working exhausted is how deadlines burn.
+
+Climb from Junior Associate to **NAME PARTNER** — before your secret, your rival or your
+reputation ends you.
+
+<p align="center">
+  <img src="assets/store/screenshots/03-case-file.png" alt="A case file on the desk" width="49%">
+  <img src="assets/store/screenshots/09-trial.png" alt="A jury trial" width="49%">
+  <img src="assets/store/screenshots/04-objection.png" alt="Objecting during testimony" width="49%">
+  <img src="assets/store/screenshots/07-lockpick.png" alt="Picking a lock after hours" width="49%">
+</p>
+
+### What's in the building
+
+- **Trials** — opening, arguments, closing, and no odds on screen. Object by naming the ground, and be right.
+- **Case prep boards** — put a chronology in order, match a witness's contradictions to the exhibits, redact the privileged pages (and *only* those).
+- **Covert action** — pick a lock with a tension bar that snaps, cut a power feed by stopping three spinning circuits. Get caught and the bar association starts a folder on you.
+- **The bench** — seven judges with temperaments, memories and prices. Some take a round of golf. Some take cash — and a bribe is a crime whether it works or not.
+- **The firm** — delegate to associates who may be reliable, brave, lazy or working for the other side; outrun a rival; reach Name Partner and inherit the payroll.
+- **Five ways to start** — The Fraud, The Debtor, The Legacy, The Defector, The Boomerang. Four difficulties that blur what you *know* and never touch the dice; Ironman, Endless and a Daily seed.
+- **Fully offline** — every case, judge and sound is generated on the machine. No account, no network, no API keys.
+
+### Status
+
+Playable start to finish and **still in development**. This is the first public build: if something
+breaks, a case reads wrong or a board feels unfair, leave a comment on the
+[itch.io page](https://scaphoid.itch.io/fancy-outfits). The desktop builds are not code-signed yet,
+so Windows and macOS each warn once on first launch — the download page says exactly what to click.
+A Steam release is being prepared.
 
 > **⚠️ License:** Source available for **viewing only** — this is **not** open source.
 > All rights reserved; no use, copying, redistribution or derivative works without
 > written permission. See [LICENSE](LICENSE).
 
-You're a lawyer (maybe) at **Parson Henderson LLP**. Case files land in your inbox during a
-fictional workday where every action costs hours; the winning argument is usually hiding somewhere in the text. Safe options never fail
-but drain your Boldness; bluffs pay big and burn Reputation when they collapse. Climb from Junior
-Associate to **NAME PARTNER** before your secret — or your reputation — ends you.
-
-## Running the game
+## Running from source
 
 | Command | What it does |
 |---|---|
 | `npm install` | one-time setup |
 | `npm run dev` | dev server in the browser (Vite) |
-| `npm run build` | static production build in `dist/` (deployable to GitHub Pages / itch.io) |
+| `npm run build` | static production build in `dist/` |
+| `npm run pack:web` | build + the zip itch.io plays in the browser (`release/`) |
 | `npm start` | build + open as a desktop app (Electron, the Steam target) |
+| `npm test` | the regression suite |
 
 Requires **Node.js 22.12+**.
 
@@ -26,15 +71,22 @@ Requires **Node.js 22.12+**.
 runtime-generated SVG. Game logic lives in `src/game/` (plain JS, framework-free); UI in
 `src/components/`. Case generation is fully offline and procedural — **no API keys, no network**.
 
----
-
-## Play it
-
-**[scaphoid.itch.io/fancy-outfits](https://scaphoid.itch.io/fancy-outfits)** — Windows and
-macOS (Apple Silicon and Intel), free. Neither build is code-signed yet, so both systems warn
-once on first launch; the download page says exactly what to click.
-
 ## Changelog
+
+### v19.43 web — Plays in the browser *(2026-09-25)*
+- **FANCY OUTFITS is playable on its itch.io page**, no download:
+  [scaphoid.itch.io/fancy-outfits](https://scaphoid.itch.io/fancy-outfits). `npm run pack:web`
+  zips `dist/` for itch's HTML5 player (and refuses to write a zip whose `index.html` is not at
+  the root). Saves live in the page's own browser storage; keyboard shortcuts and CONTINUE work
+  inside itch's frame.
+- **The desk fits itch's 960×600 box.** On windows shorter than 680px the office scene shrinks
+  to a thin band and its caption steps aside, so the case file and its options sit above the
+  fold. Larger windows are unchanged; fullscreen is the full desk.
+- **The page was rebuilt from a survey of 444 browser games on itch**: a banner that is a drawer
+  from the page's own filing cabinet, a closed case file behind the *Run game* button instead of
+  a flat grey box, and section headings as manila folder tabs sized exactly to the description
+  column. All generated from the game's own art — `scripts/store-embed.mjs` draws the office
+  scene straight from the component the game renders, `scripts/store-headings.mjs` the tabs.
 
 ### v19.43 — Everything but the App ID *(2026-09-15)*
 - **The store page is ready to paste.** Nine capsule images at the sizes Steamworks

@@ -8,7 +8,7 @@ import { useGame } from "../game/useGame.js";
 const W=320, H=64;
 const DOOR_X=4; // exit is on the left edge
 
-function buildScene(r,rep,decor){
+export function buildScene(r,rep,decor){
   const el=[];
   const rect=(x,y,w,h,f)=>el.push({t:"r",x,y,w,h,f});
   const text=(x,y,size,fill,str)=>el.push({t:"t",x,y,size,fill,str});
@@ -87,7 +87,7 @@ function buildScene(r,rep,decor){
 const SUITS=["#6b4f2e","#22306b","#2a2a34","#101018","#e8e4da"];
 const SKIN="#e0b088", HAIR="#2b2118";
 
-function SittingChar({x,r}){
+export function SittingChar({x,r}){
   const suit=SUITS[r];
   return (<g>
     <rect x={x} y={25} width={5} height={2} fill={HAIR}/><rect x={x} y={27} width={5} height={4} fill={SKIN}/>

@@ -18,6 +18,28 @@ Her çalışma oturumunda:
 
 ---
 
+## 2026-09-25 (3) — itch sayfası: banner + Run game arka planı adayları
+
+- 444 tarayıcı oyunu sayfası tarandı (top-rated, popular, 10 tür listesi). %54 banner,
+  %60 arkaplan görseli, 119/444 Run game kutusunun ARKASINA görsel koyuyor (tema
+  CSS'inde `.game_frame{background-image}` — Edit theme'deki embed arkaplanı). Gri boş
+  kutu "bitmemiş" görünen sayfaların ortak özelliği. %35'i 960'tan geniş embed kullanıyor.
+- `scripts/store-embed.mjs` → `assets/store/itch-embed/`: 4 banner (1920 geniş, 2x) +
+  3 Run game arka planı (960×600, 1x — itch doğal boyutta basıyor) + gerçek sayfa
+  maketli iki önizleme (`_preview-banners.png`, `_preview-frames.png`). Sahne, oyunun
+  kendi `buildScene`/`SittingChar`'ından çiziliyor (OfficeScene.jsx'te named export).
+- Canlı sayfa ziyaretçiye hâlâ `type_name:"default"` (indirilebilir) görünüyor —
+  Kind of project HTML olarak kaydedilmemiş.
+- Açıklamada kopyala-yapıştırdan kalmış 5 "Add to Photos" div'i + boş paragraflar var
+  (More information öncesi büyük boşluk).
+
+### Sıradaki kesin adım
+
+Kullanıcı banner (1-4) ve arka plan (A-C) seçer → seçilen rafine edilir → ITCH.md'ye
+yükleme adımları yazılır.
+
+---
+
 ## 2026-09-25 (2) — tarayıcıda oynanan itch build'i hazır
 
 - `npm run pack:web` → `release/fancy-outfits-<ver>-web.zip` (208 KB). `scripts/pack-web.mjs`

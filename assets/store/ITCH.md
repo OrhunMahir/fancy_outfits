@@ -10,11 +10,34 @@ and what differs. No fee, no review — the page is live the moment you publish 
 | `release/FANCY OUTFITS-<ver>-win.zip` | Kind: **Executable** · Platform: **Windows** |
 | `release/FANCY OUTFITS-<ver>-arm64-mac.zip` | Kind: **Executable** · Platform: **macOS** · label "Apple Silicon" |
 | `release/FANCY OUTFITS-<ver>-mac.zip` | Kind: **Executable** · Platform: **macOS** · label "Intel" |
+| `release/FANCY OUTFITS-<ver>-web.zip` | Kind: **HTML** · tick **This file will be played in the browser** |
 
 Upload the **zips, not the installer/dmg** — itch's app and its `butler` tool handle
 zips natively, and a zip needs no admin rights on the player's side.
 
-Produce them with `npm run dist:win` and `npm run dist:mac`. `release/` is not in git.
+Produce them with `npm run dist:win`, `npm run dist:mac` and `npm run pack:web`.
+`release/` is not in git.
+
+## Playing in the browser (Edit game → Embed options)
+
+The web zip is the same `dist/` the desktop app loads (~0.2 MB, `index.html` at the zip
+root — `pack:web` refuses to write it otherwise). Saves use the iframe's `localStorage`,
+so they persist per browser; nothing reaches the desktop build's save files.
+
+| Setting | Value | Why |
+| --- | --- | --- |
+| Kind of project | **HTML** | the page gets a Run game button above the description |
+| Embed options | **Embed in page**, **manually set size 960 × 600** | 960 is the page panel; anything wider widens the panel and breaks the cabinet background's x = 800 edge |
+| Fullscreen button | **on** | the 960×600 box is the preview; fullscreen is the desk at full size |
+| Mobile friendly | **off** | the touch layout is not done yet (backlog: mobile + Capacitor) |
+| Automatically start on page load | **off** | the click that starts it also unlocks Web Audio |
+| Enable scrollbars | **off** | the game scrolls its own columns |
+| SharedArrayBuffer support | **off** | not used |
+
+At 960 × 600 the office scene shrinks to a 72px band and loses its caption
+(`styles.css`, `max-height:680px` rule) so the case file and its options fit above the
+fold; the topbar wraps onto two lines. Checked in the built preview at 1280×720 and
+960×600.
 
 ## Page fields
 

@@ -14,6 +14,7 @@
     "preview": "vite preview",
     "start": "npm run build && electron .",
     "pack": "npm run build && electron-builder --dir",
+    "pack:web": "npm run build && node scripts/pack-web.mjs",
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:win": "npm run build && electron-builder --win"
   },

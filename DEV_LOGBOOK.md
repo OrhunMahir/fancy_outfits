@@ -18,6 +18,27 @@ Her çalışma oturumunda:
 
 ---
 
+## 2026-09-25 (2) — tarayıcıda oynanan itch build'i hazır
+
+- `npm run pack:web` → `release/FANCY OUTFITS-<ver>-web.zip` (208 KB). `scripts/pack-web.mjs`
+  `dist/`'i ziplar ve `index.html` zip kökünde değilse hata verir (itch şartı).
+- **Embed boyutu 960×600.** Daha geniş embed itch'in 960'lık panelini genişletir ve
+  dolap arkaplanının x=800 kenar hesabını bozar. Fullscreen butonu açık; asıl masa orada.
+- `styles.css`: `min-width:901px and max-height:680px` kuralı — sahne 110→72px, altyazı
+  gizli, topbar sıkı. 960×600'de dava metni + seçenekler kıvrımın üstüne çıktı. 1280×720
+  ve üstü etkilenmez. Built preview'da iki boyutta da görüldü.
+- itch alan ayarları: `assets/store/ITCH.md` › *Playing in the browser*.
+- `.claude/launch.json`'a `vite-preview` (4173) eklendi — build'i test etmek için.
+- `npm test` yeşil. Oyun mantığına dokunulmadı.
+
+### Sıradaki kesin adım
+
+Kullanıcı: zip'i itch'e HTML olarak yükleyip tablodaki embed ayarlarını girer, sonra
+gerçek itch sayfasında Run game → klavye kısayolları + kayıt/yeniden yükleme kontrolü.
+Ardından mobil layout + Capacitor.
+
+---
+
 ## 2026-09-25 — itch sayfa tasarımı bitti (arkaplan, tema, tipografi, başlıklar)
 
 Bu oturum tamamen **mağaza sayfası**yla geçti. Oyun koduna dokunulmadı.

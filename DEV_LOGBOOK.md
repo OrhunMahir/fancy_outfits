@@ -18,6 +18,95 @@ Her çalışma oturumunda:
 
 ---
 
+## 2026-09-25 — itch sayfa tasarımı bitti (arkaplan, tema, tipografi, başlıklar)
+
+Bu oturum tamamen **mağaza sayfası**yla geçti. Oyun koduna dokunulmadı.
+
+### Sayfanın geometrisi — ölçüldü, varsayılmadı
+
+Arkaplan üç kez yanlış oturdu ve üçünün de sebebi ölçümdü. Doğrular:
+
+- **Panel 960 CSS px.** itch'in standart sütunu. Bir ara 1265 sandım; sebebi ham
+  ekran görüntüsünü 1:1 okumamdı. Doğru yöntem sanattaki bilinen bir şeye kalibre
+  etmek: çekmece adımı kaynakta 180, ekranda 238 ölçüldü, yani o görüntü 1.32 kat.
+- Arkaplan doğal boyutta ve **ortalanıyor**, yani panel her zaman görselin
+  `1280 ± 480` aralığını kapatır, kenarı **x = 800**'dedir. V genişliğindeki pencere
+  `1280 ± V/2` kadarını gösterir. **Oluk ikisinin farkıdır** ve pencere daraldıkça
+  küçülür, çünkü panel küçülmez: 1440'ta 240px, 1280'de 160px, 960'ın altında sıfır.
+- Kırpma **dıştan içe** olur. İlk sürümler etiketleri dolabın dış kenarına koyuyordu
+  ve KESSLER ekranda SLER çıkıyordu. Artık her şey x=800'e yaslı ve en fazla 150px.
+- **`cover` KULLANMA.** Kayan bir arkaplan sayfaya bağlıdır ve sayfa binlerce piksel
+  uzundur, o yüzden görsel dört beş kat büyütülüp ortasından kırpılır — "ortaya
+  zoomladı" şikâyetinin sebebi buydu. Doğru ayar: **Repeat = Both, doğal boyut**.
+  Adaylar dikeyde dikişsiz döşeme (8 çekmece × 180 = 1440), o yüzden Fixed kapalıyken
+  duvar sayfa boyunca kesintisiz akar.
+
+### Üretilenler
+
+- `scripts/store-cabinets.mjs` → `assets/store/backgrounds/cabinet/` üç aday:
+  `01-notes` (her tarafta üç post-it), `02-notes-dense` (beşer), `03-notes-shut`
+  (hiçbir çekmece açık değil). **Sayfada 01 kullanılıyor.** Çekmecelerde dolu-dolu
+  kağıt dikişleri, bir çekmece dışarı çekilmiş, üstlerinde oyunun kendi dava
+  malzemesini taşıyan post-it'ler.
+- `scripts/store-headings.mjs` → `assets/store/headings/` dört başlık post-it'i,
+  2 kat çözünürlükte, yarı boyutta yerleştirilecek. **Resim olmalarının sebebi:**
+  itch açıklama HTML'inde sadece `width, height, font-size, color, background,
+  background-color, background-size, text-align, margin` hayatta kalıyor (100
+  sayfa taranarak doğrulandı). `padding`, `border`, `transform`, `box-shadow` yok,
+  yani post-it CSS ile çizilemiyor.
+- `scripts/store-itch-theme.mjs` → tema değerlerini basar ve `_theme.png` üretir:
+  iki gerçek 1440×900 pencere (sayfa başı ve kaydırılmış hali), gerçek fontlarla.
+- `scripts/store-fonts.mjs` → `_fonts.png`, aynı paragraf beş font eşleşmesiyle.
+- `scripts/lib/capture-main.cjs` artık `scale` alanını destekliyor (retina asset).
+
+### Tema (Edit theme'e birebir girilecek)
+
+BG `#151a28` · BG 2 `#1a1c2c` · Text `#e8dfcb` · Link `#ffcd75` · Headers `#ffcd75`
+· Buttons `#ffcd75` · BG2 Alpha sonuna kadar (opak) · **Font DotGothic16** ·
+Size Large · **Header font Press Start 2P** · Screenshots Auto ·
+Background `cabinet/01-notes.png`, Repeat **Both**, Align Center, **Fixed KAPALI**.
+
+itch'in font kutusu **istediğin Google Fonts adını kabul ediyor**, liste değil.
+Oyunun kendi fontu Press Start 2P de orada — ama gövde metninde duvar oluyor
+(`_fonts.png` üst satırı bunu gösteriyor), o yüzden sadece başlıklarda.
+
+### 100 popüler sayfa taraması
+
+itch top-rated listelerinden 100 sayfa çekilip ürettikleri tema CSS'i ayrıştırıldı:
+
+| | 100 sayfada |
+| --- | --- |
+| arkaplan görseli | 91 |
+| koyu sayfa zemini | 64 |
+| **oynanış videosu** | **62** |
+| kapak/ekran görüntülerinde animasyonlu GIF | 51 |
+| panel tamamen opak | 76 |
+| arkaplan fixed | 30 |
+| banner görseli | 2 |
+
+Font: Lato 44, Anonymous Pro 7, sans-serif 7, Quicksand 3, 04b_03 3, gerisi 1-2.
+
+### Sayfada kalan iş (kullanıcının elinde)
+
+1. Temayı yukarıdaki değerlerle kaydet, **Fixed'i kaldır**.
+2. `cabinet/01-notes.png`'i arkaplan olarak yükle (dosya bu oturumda birkaç kez
+   yeniden üretildi, en son hali geçerli).
+3. Dört başlık post-it'ini yükle, açıklamanın HTML görünümünde `<h2>` satırlarını
+   `<p><img src="..." alt="..." style="width: 476px"></p>` ile değiştir.
+4. `assets/store/trailer/cover.gif`'i kapak görseli yap (51/100 sayfa animasyonlu).
+5. Boştaki dört ekran görüntüsünü yükle (9 üretildi, sayfada 5 var).
+6. Fragmanı YouTube'a yükleyip linki **Gameplay video** alanına koy — 62/100
+   sayfada var, sayfanın en büyük eksiği bu.
+7. Açıklamadaki "Known" başlığı "Known rough edges" olmalı (görsel öyle üretildi).
+
+### Sıradaki kesin adım
+
+**Tarayıcıda oynanan itch build'i.** 2 günde 367 görüntülenme / 1 indirme; `dist/`
+zip'i 0.2 MB ve iframe'de çalıştığı (klavye odağı ve kayıtlar dahil) daha önce
+doğrulandı. Sayfa işi bitince buna geçilecek.
+
+---
+
 ## 2026-09-22 — itch sayfa arkaplanı: hareketli varyantlar
 
 `scripts/store-backgrounds.mjs` tek bir `buildPages(t)` üreticisine çevrildi. `t` bir

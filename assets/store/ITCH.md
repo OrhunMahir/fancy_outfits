@@ -178,14 +178,14 @@ The pairing the panel makes possible, because **Header font is its own field**:
 
 | Field | Value |
 | --- | --- |
-| Font | **VT323** |
+| Font | **DotGothic16** |
 | Header font | **Press Start 2P** |
 | Size | Large |
 
-Headings get the game's exact face. The body gets VT323, which is pixel too but
-narrow and tall, so a 600-word description still reads at speed. If readability
-matters more than the pixel look, **Anonymous Pro** is the swap — it is the most
-common deliberate font choice across the top 100 pages.
+Headings get the game's exact face. The body is **DotGothic16**, a dot-matrix face
+that stays pixel without becoming a wall — the choice made on the page. **VT323**
+and **Anonymous Pro** are the other two that survived the comparison, in that
+order of pixel-ness.
 
 ## Headings as post-its
 

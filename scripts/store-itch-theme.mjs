@@ -20,7 +20,7 @@ const BG = pathToFileURL(join(OUT, "cabinet", "01-notes.png")).toString();
 // itch serves exactly two body fonts, Lato and the pixel one. This is the pixel
 // one, pulled from itch's own CDN so the preview renders the real thing — it is
 // never committed, and the published page loads it from itch anyway.
-const FONT_CSS = "https://fonts.googleapis.com/css2?family=VT323&display=swap";
+const FONT_CSS = "https://fonts.googleapis.com/css2?family=DotGothic16&display=swap";
 const HEAD_FONT = pathToFileURL(resolve("src/fonts/press-start-2p-latin.woff2")).toString();
 const COVER = pathToFileURL(resolve("assets/store/capsules/itch-cover-630x500.png")).toString();
 const SHOTS = ["03-case-file", "09-trial", "07-lockpick", "06-contradiction"].map(n =>
@@ -38,7 +38,7 @@ export const THEME = {
   "Headers":            "#ffcd75",
   "Buttons":            "#ffcd75",
   "BG2 Alpha":          "max (opaque)",   // 76 of the top 100 pages are fully opaque
-  "Font":               "VT323",          // pixel, but narrow and tall, so it reads
+  "Font":               "DotGothic16",    // the user's pick: a dot face, readable at length
   "Size":               "Large",
   "Header font":        "Press Start 2P", // the game's own face, on headings only
   "Screenshots":        "Auto",
@@ -113,19 +113,19 @@ try {
   const u = [...css.matchAll(/url\((https:[^)]+)\)/g)].map(m => m[1]).pop();
   const f = join(work, "body.woff2");
   writeFileSync(f, Buffer.from(await (await fetch(u)).arrayBuffer()));
-  face = `@font-face{font-family:'VT323';src:url('${pathToFileURL(f)}') format('woff2');font-display:block}` +
+  face = `@font-face{font-family:'DotGothic16';src:url('${pathToFileURL(f)}') format('woff2');font-display:block}` +
     `@font-face{font-family:'Press Start 2P';src:url('${HEAD_FONT}') format('woff2');font-display:block}`;
 } catch { console.log("  (could not fetch the face; preview falls back to monospace)"); }
 const html = `<!doctype html><meta charset="utf-8"><style>
 *{margin:0;padding:0;box-sizing:border-box}
-${face}\nbody{background:#0b0c14;font:16px/1.6 'VT323',monospace}
+${face}\nbody{background:#0b0c14;font:16px/1.6 'DotGothic16',monospace}
 .cap{color:#94b0c2;font:12px monospace;padding:9px 4px}
 .vp{position:relative;width:${VW}px;height:${VH}px;overflow:hidden}
 .bg{position:absolute;inset:0;background:${t["BG"]} url('${BG}') center top repeat}
 .page{position:absolute;left:0;right:0}
 .bar{height:52px;background:#585858}
 .col{width:${PANEL}px;margin:0 auto;background:${t["BG 2"]};color:${t["Text"]};
-  font-family:'VT323',Lato,monospace;font-size:21px;line-height:1.4;
+  font-family:'DotGothic16',Lato,monospace;font-size:18px;line-height:1.6;
   padding:34px 40px 60px}
 h1{font-family:'Press Start 2P',monospace;font-size:26px;font-weight:normal;margin-bottom:8px;color:${t["Headers"]}}
 .by{color:${t["Link"]};margin-bottom:26px}
